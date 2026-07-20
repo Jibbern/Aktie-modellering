@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-19T11:27:31+00:00",
+  "generated_at": "2026-07-20T01:02:54+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "visible_sheets": [
@@ -55,8 +55,8 @@
   ],
   "classification_counts": {
     "formula_static": 2141,
-    "generic_block_label": 622,
-    "row_label_generic": 567,
+    "generic_block_label": 626,
+    "row_label_generic": 528,
     "universal_template_label": 469
   },
   "post_neutrality_summary": {
@@ -634,7 +634,7 @@
     {
       "sheet": "Valuation",
       "cell": "O7",
-      "value": "Guidance",
+      "value": "Current guidance",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
@@ -681,8 +681,32 @@
     },
     {
       "sheet": "Valuation",
+      "cell": "X8",
+      "value": "Unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "Y8",
+      "value": "Published",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "Z8",
+      "value": "Evidence",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
       "cell": "AA8",
-      "value": "Trend / realized",
+      "value": "Role / source status",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -1993,6 +2017,14 @@
     },
     {
       "sheet": "Valuation",
+      "cell": "O27",
+      "value": "Historical guidance",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
       "cell": "A28",
       "value": "Adjusted EBITDA YoY %",
       "classification": "row_label_generic",
@@ -2129,8 +2161,32 @@
     },
     {
       "sheet": "Valuation",
+      "cell": "X28",
+      "value": "Unit",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "Y28",
+      "value": "Published",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "Z28",
+      "value": "Evidence",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
       "cell": "AA28",
-      "value": "Trend / realized",
+      "value": "Role / source status",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -2689,14 +2745,6 @@
     },
     {
       "sheet": "Valuation",
-      "cell": "O37",
-      "value": "Operating Drivers",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
       "cell": "A38",
       "value": "Net income YoY %",
       "classification": "row_label_generic",
@@ -2797,38 +2845,6 @@
       "value": "=IF(OR(M$6=\"\",COUNTIFS(History_Q!$C$2:$C$1000,\"net_income\",History_Q!$B$2:$B$1000,(SUMIFS(History_Q!$B$2:$B$1000,History_Q!$A$2:$A$1000,M$6,History_Q!$C$2:$C$1000,\"net_income\")),History_Q!$E$2:$E$1000,\"$m\",History_Q!$G$2:$G$1000,\"populated\"",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "O38",
-      "value": "Driver group",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "R38",
-      "value": "Driver",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "U38",
-      "value": "Why it matters",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "AA38",
-      "value": "Source/type",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {
@@ -3490,7 +3506,7 @@
     {
       "sheet": "Valuation",
       "cell": "O48",
-      "value": "Thesis Bridge",
+      "value": "Thesis / debate evidence",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
@@ -3602,7 +3618,7 @@
     {
       "sheet": "Valuation",
       "cell": "O49",
-      "value": "Quick valuation bridge; no market price required.",
+      "value": "Typed evidence only; unresolved synthesis remains explicit.",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
@@ -3714,15 +3730,15 @@
     {
       "sheet": "Valuation",
       "cell": "O50",
-      "value": "Bridge item",
+      "value": "Item",
       "classification": "generic_block_label",
       "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
       "sheet": "Valuation",
-      "cell": "U50",
-      "value": "Value",
+      "cell": "Q50",
+      "value": "Evidence",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
@@ -3730,9 +3746,17 @@
     {
       "sheet": "Valuation",
       "cell": "X50",
-      "value": "Notes",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
+      "value": "Review state",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "Z50",
+      "value": "Source key",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
@@ -4001,10 +4025,34 @@
     },
     {
       "sheet": "Valuation",
+      "cell": "O59",
+      "value": "Lease-adjusted net debt",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
       "cell": "A60",
       "value": "Tax paid",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "O60",
+      "value": "Sales growth uplift / shortfall",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "X60",
+      "value": "User scenario input",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
@@ -4017,10 +4065,42 @@
     },
     {
       "sheet": "Valuation",
+      "cell": "O61",
+      "value": "Margin uplift / shortfall",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "X61",
+      "value": "User scenario input",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
       "cell": "A62",
       "value": "Buybacks (cash)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "O62",
+      "value": "Buyback/share adjustment",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "X62",
+      "value": "User scenario input, m shares",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
       "hidden_state": "visible"
     },
     {
@@ -7717,366 +7797,6 @@
       "value": "=IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"unavailable\")+COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"invalid_input\"))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A145",
-      "value": "Operating signals",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A146",
-      "value": "Signal 1",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A147",
-      "value": "Signal 2",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A148",
-      "value": "Signal 3",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A149",
-      "value": "Signal 4",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A151",
-      "value": "Capital return",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A152",
-      "value": "Buybacks (shares)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A153",
-      "value": "Buybacks note",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A155",
-      "value": "Dividends ($/share)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A156",
-      "value": "Dividends note",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A158",
-      "value": "Trend/Δ (last 4Q)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A159",
-      "value": "Metric",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "B159",
-      "value": "Δ",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "C159",
-      "value": "Direction",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "D159",
-      "value": "As-of",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A160",
-      "value": "Revenue",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A161",
-      "value": "Gross margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A162",
-      "value": "Operating margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A163",
-      "value": "Net margin",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A164",
-      "value": "FCF TTM (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A165",
-      "value": "Net debt (YoY Δ)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A166",
-      "value": "Shares out (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A168",
-      "value": "Red/Green Flags",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A169",
-      "value": "Flag",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "B169",
-      "value": "Status",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "C169",
-      "value": "Evidence",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "I169",
-      "value": "As-of",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A170",
-      "value": "Red: Revenue up but CFO down (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A171",
-      "value": "Red: Earnings quality CFO/NI (TTM)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A172",
-      "value": "Red: AR growing faster than revenue (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A173",
-      "value": "Red: Inventory build without revenue growth",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A174",
-      "value": "Red: Debt growing faster than revenue (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A175",
-      "value": "Red: Leverage rising (YoY Δ)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A176",
-      "value": "Red: Interest coverage low (cash)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A177",
-      "value": "Red: FCF negative while EBITDA positive (TTM)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A178",
-      "value": "Watch: Buybacks exceeded FCF",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A179",
-      "value": "Red: Goodwill heavy",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A180",
-      "value": "Red: Share dilution (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A181",
-      "value": "Red: Pension obligations pressure",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A183",
-      "value": "Green: Operating margin trend QoQ",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A184",
-      "value": "Green: FCF TTM growth (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A185",
-      "value": "Green: Net debt decreasing (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A186",
-      "value": "Green: Interest coverage improving (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A187",
-      "value": "Green: Shares outstanding decreasing (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "Valuation",
-      "cell": "A188",
-      "value": "Green: Liquidity improving (YoY)",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {

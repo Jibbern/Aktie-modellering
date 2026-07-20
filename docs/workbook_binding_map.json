@@ -504,62 +504,55 @@
       "module_id": "debt_liquidity"
     },
     {
-      "binding_id": "valuation_guidance_rows",
+      "binding_id": "valuation_guidance_current_primary_rows",
       "sheet": "Valuation",
-      "section": "Guidance",
-      "target": "O9:T27",
-      "shell_zone": "valuation_guidance_values",
-      "anchor_label": "Guidance",
-      "row_family": "valuation_guidance_rows",
-      "normalized_field": "normalized_guidance.items.value",
+      "section": "Current primary guidance",
+      "target": "O9:AC15",
+      "shell_zone": "valuation_guidance_current_primary_rows",
+      "anchor_label": "Current guidance",
+      "row_family": "valuation_guidance_current_primary_rows",
+      "normalized_field": "_derived_workbook.guidance.current_primary_rows.value",
       "value_shape": "table_rows",
       "required": false,
       "source_policy": "source-backed",
-      "missing_source_behavior": "blank guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance",
+      "missing_source_behavior": "leave unavailable current-primary slots blank; retain the disposition in selection audit",
       "promotion_requirement": "manual_review",
       "validation_rule": "guidance_metric_misclassification",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "O9:T15",
+      "planner_target": "O9:AC15",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "normalized_guidance.items",
-        "filters": [
-          {
-            "field": "display_role",
-            "equals": "current_primary"
-          }
-        ]
+        "source_path": "_derived_workbook.guidance.current_primary_rows"
       },
       "row_key": [
-        "metric",
-        "horizon",
-        "publication_date",
-        "evidence_key"
+        "row_key"
       ],
       "sort_order": [
-        "display_priority:asc",
-        "metric:asc",
-        "publication_date:desc",
-        "evidence_key:asc"
+        "priority:asc"
       ],
       "capacity": 7,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "metric",
+        "metric_display",
+        "stated_period",
         "horizon",
-        "value"
+        "value",
+        "unit",
+        "publication_date",
+        "evidence_key",
+        "display_state"
       ],
       "target_columns": [
         {
           "column_id": "metric",
-          "source_field": "metric",
+          "source_field": "metric_display",
           "target_column": "O",
           "target_type": "text"
         },
         {
           "column_id": "stated_in",
-          "source_field": "stated_in_period",
+          "source_field": "stated_period",
           "target_column": "Q",
           "target_type": "period"
         },
@@ -574,178 +567,295 @@
           "source_field": "value",
           "target_column": "S",
           "target_type": "text"
+        },
+        {
+          "column_id": "unit",
+          "source_field": "unit",
+          "target_column": "X",
+          "target_type": "text"
+        },
+        {
+          "column_id": "publication_date",
+          "source_field": "publication_date",
+          "target_column": "Y",
+          "target_type": "date"
+        },
+        {
+          "column_id": "evidence_key",
+          "source_field": "evidence_key",
+          "target_column": "Z",
+          "target_type": "text"
+        },
+        {
+          "column_id": "display_state",
+          "source_field": "display_state",
+          "target_column": "AA",
+          "target_type": "status"
         }
       ],
       "source_ref_required": true,
-      "source_ref_field": "value",
+      "source_ref_field": "source_ref",
       "planning_state": "active",
       "rowset_id": "current_primary_guidance",
       "module_id": "guidance_promises"
     },
     {
-      "binding_id": "valuation_guidance_rows_lower",
+      "binding_id": "valuation_guidance_historical_rows",
       "sheet": "Valuation",
-      "section": "Lower guidance",
-      "target": "O29:T36",
-      "shell_zone": "valuation_guidance_values_lower",
-      "anchor_label": "Lower guidance",
-      "row_family": "valuation_guidance_rows_lower",
-      "normalized_field": "normalized_guidance.items.0.value",
+      "section": "Historical guidance",
+      "target": "O29:AC35",
+      "shell_zone": "valuation_guidance_historical_rows",
+      "anchor_label": "Historical guidance",
+      "row_family": "valuation_guidance_historical_rows",
+      "normalized_field": "_derived_workbook.guidance.historical_rows.value",
       "value_shape": "table_rows",
       "required": false,
       "source_policy": "source-backed",
-      "missing_source_behavior": "blank lower guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance",
+      "missing_source_behavior": "leave unavailable historical metric slots blank; retain older and excluded records in selection audit",
       "promotion_requirement": "manual_review",
       "validation_rule": "guidance_metric_misclassification",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "O29:T36",
+      "planner_target": "O29:AC35",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "normalized_guidance.items"
+        "source_path": "_derived_workbook.guidance.historical_rows"
       },
       "row_key": [
-        "metric",
-        "horizon",
-        "source_date"
+        "row_key"
       ],
       "sort_order": [
-        "horizon:asc",
-        "metric:asc",
-        "source_date:asc"
+        "priority:asc"
       ],
-      "capacity": 8,
+      "capacity": 7,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "value"
+        "metric_display",
+        "stated_period",
+        "horizon",
+        "value",
+        "unit",
+        "publication_date",
+        "evidence_key",
+        "display_state"
       ],
       "target_columns": [
+        {
+          "column_id": "metric",
+          "source_field": "metric_display",
+          "target_column": "O",
+          "target_type": "text"
+        },
+        {
+          "column_id": "stated_in",
+          "source_field": "stated_period",
+          "target_column": "Q",
+          "target_type": "period"
+        },
+        {
+          "column_id": "horizon",
+          "source_field": "horizon",
+          "target_column": "R",
+          "target_type": "horizon"
+        },
         {
           "column_id": "value",
           "source_field": "value",
-          "target_column": "O"
+          "target_column": "S",
+          "target_type": "text"
+        },
+        {
+          "column_id": "unit",
+          "source_field": "unit",
+          "target_column": "X",
+          "target_type": "text"
+        },
+        {
+          "column_id": "publication_date",
+          "source_field": "publication_date",
+          "target_column": "Y",
+          "target_type": "date"
+        },
+        {
+          "column_id": "evidence_key",
+          "source_field": "evidence_key",
+          "target_column": "Z",
+          "target_type": "text"
+        },
+        {
+          "column_id": "display_state",
+          "source_field": "display_state",
+          "target_column": "AA",
+          "target_type": "status"
         }
       ],
       "source_ref_required": true,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower guidance block needs an explicit period/revision selector before it can consume source rows.",
+      "source_ref_field": "source_ref",
+      "planning_state": "active",
+      "rowset_id": "historical_guidance",
       "module_id": "guidance_promises"
     },
     {
-      "binding_id": "valuation_operating_driver_sidecar_rows",
+      "binding_id": "valuation_guidance_current_secondary_rows",
       "sheet": "Valuation",
-      "section": "Operating Drivers",
-      "target": "O39:AA47",
-      "shell_zone": "valuation_operating_driver_values",
-      "anchor_label": "Operating Drivers",
-      "row_family": "valuation_operating_driver_sidecar_rows",
-      "normalized_field": "operating_drivers.items.0.driver",
+      "section": "Current secondary guidance",
+      "target": "O16:AC21",
+      "shell_zone": "valuation_guidance_current_secondary_rows",
+      "anchor_label": "Current guidance",
+      "row_family": "valuation_guidance_current_secondary_rows",
+      "normalized_field": "_derived_workbook.guidance.current_secondary_rows.value",
       "value_shape": "table_rows",
       "required": false,
       "source_policy": "source-backed",
-      "missing_source_behavior": "blank operating-driver sidecar rows until source-backed driver evidence exists",
+      "missing_source_behavior": "leave unavailable current-secondary slots blank; retain the disposition in selection audit",
       "promotion_requirement": "manual_review",
-      "validation_rule": "unsupported_sector_specific_leakage",
+      "validation_rule": "guidance_metric_misclassification",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "O39:AA47",
+      "planner_target": "O16:AC21",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "operating_drivers.items",
-        "filters": [
-          {
-            "field": "display_role",
-            "equals": "current_watchlist"
-          }
-        ]
+        "source_path": "_derived_workbook.guidance.current_secondary_rows"
       },
       "row_key": [
-        "topic",
-        "period",
-        "driver"
+        "row_key"
       ],
       "sort_order": [
-        "display_priority:asc",
-        "period:desc",
-        "driver:asc"
+        "priority:asc"
       ],
-      "capacity": 9,
+      "capacity": 6,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "topic",
-        "driver",
-        "current_read"
+        "metric_display",
+        "stated_period",
+        "horizon",
+        "value",
+        "unit",
+        "publication_date",
+        "evidence_key",
+        "display_state"
       ],
       "target_columns": [
         {
-          "column_id": "topic",
-          "source_field": "topic",
-          "target_column": "O"
+          "column_id": "metric",
+          "source_field": "metric_display",
+          "target_column": "O",
+          "target_type": "text"
         },
         {
-          "column_id": "driver",
-          "source_field": "driver",
-          "target_column": "R"
+          "column_id": "stated_in",
+          "source_field": "stated_period",
+          "target_column": "Q",
+          "target_type": "period"
         },
         {
-          "column_id": "why",
-          "source_field": "why_it_matters",
-          "target_column": "U"
+          "column_id": "horizon",
+          "source_field": "horizon",
+          "target_column": "R",
+          "target_type": "horizon"
         },
         {
-          "column_id": "source",
-          "source_field": "source",
-          "target_column": "AA"
+          "column_id": "value",
+          "source_field": "value",
+          "target_column": "S",
+          "target_type": "text"
+        },
+        {
+          "column_id": "unit",
+          "source_field": "unit",
+          "target_column": "X",
+          "target_type": "text"
+        },
+        {
+          "column_id": "publication_date",
+          "source_field": "publication_date",
+          "target_column": "Y",
+          "target_type": "date"
+        },
+        {
+          "column_id": "evidence_key",
+          "source_field": "evidence_key",
+          "target_column": "Z",
+          "target_type": "text"
+        },
+        {
+          "column_id": "display_state",
+          "source_field": "display_state",
+          "target_column": "AA",
+          "target_type": "status"
         }
       ],
       "source_ref_required": true,
-      "source_ref_field": "current_read",
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "The sidecar needs a declared independent target for current_read before it can write a complete operating-driver row.",
-      "module_id": "operating_drivers"
+      "source_ref_field": "source_ref",
+      "planning_state": "active",
+      "rowset_id": "current_secondary_guidance",
+      "module_id": "guidance_promises"
     },
     {
-      "binding_id": "valuation_thesis_bridge_rows",
+      "binding_id": "valuation_thesis_debate_rows",
       "sheet": "Valuation",
-      "section": "Thesis Bridge",
-      "target": "O51:AA62",
-      "shell_zone": "valuation_thesis_bridge_values",
-      "anchor_label": "Thesis Bridge",
-      "row_family": "valuation_thesis_bridge_rows",
-      "normalized_field": "investment_case.key_debate",
+      "section": "Thesis and debate evidence",
+      "target": "O51:AA58",
+      "shell_zone": "valuation_thesis_debate_rows",
+      "anchor_label": "Thesis and debate evidence",
+      "row_family": "valuation_thesis_debate_rows",
+      "normalized_field": "_derived_workbook.thesis.rows.text",
       "value_shape": "table_rows",
       "required": false,
-      "source_policy": "manual",
-      "missing_source_behavior": "blank thesis bridge rows until investment-case evidence is populated",
+      "source_policy": "source-backed",
+      "missing_source_behavior": "leave a typed thesis slot blank when its exact normalized field and lineage are unavailable",
       "promotion_requirement": "manual_review",
       "validation_rule": "placeholder_investment_case_promotion",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "O51:AA62",
+      "planner_target": "O51:AA58",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "investment_case.key_debate"
+        "source_path": "_derived_workbook.thesis.rows"
       },
       "row_key": [
-        "normalized_field"
+        "row_key"
       ],
       "sort_order": [],
-      "capacity": 12,
+      "capacity": 8,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "value"
+        "item_type",
+        "text",
+        "review_state",
+        "normalized_path"
       ],
       "target_columns": [
         {
-          "column_id": "value",
-          "source_field": "value",
-          "target_column": "O"
+          "column_id": "item_type",
+          "source_field": "item_type",
+          "target_column": "O",
+          "target_type": "text"
+        },
+        {
+          "column_id": "text",
+          "source_field": "text",
+          "target_column": "Q",
+          "target_type": "text"
+        },
+        {
+          "column_id": "review_state",
+          "source_field": "review_state",
+          "target_column": "X",
+          "target_type": "status"
+        },
+        {
+          "column_id": "normalized_path",
+          "source_field": "normalized_path",
+          "target_column": "Z",
+          "target_type": "text"
         }
       ],
-      "source_ref_required": false,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "A scalar key_debate field is not a typed thesis_bridge_items table.",
-      "module_id": "valuation_scenarios"
+      "source_ref_required": true,
+      "source_ref_field": "source_ref",
+      "planning_state": "active",
+      "rowset_id": "valuation_thesis_debate",
+      "module_id": "investment_case_market_implied"
     },
     {
       "binding_id": "valuation_output_rows",
@@ -821,120 +931,6 @@
       "planning_state": "formula_owned",
       "planning_block_reason": "Generic valuation outputs are protected formulas owned by the frozen shell.",
       "module_id": "valuation_scenarios"
-    },
-    {
-      "binding_id": "valuation_guidance_status_rows",
-      "sheet": "Valuation",
-      "section": "Guidance",
-      "target": "AA9:AA27",
-      "shell_zone": "valuation_guidance_status_values",
-      "anchor_label": "Guidance realized/status",
-      "row_family": "valuation_guidance_status_rows",
-      "normalized_field": "normalized_guidance.items.progress_status",
-      "value_shape": "table_rows",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank guidance status rows until realized/status evidence exists",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "boilerplate_guidance",
-      "writable": true,
-      "planning_mode": "table_rows",
-      "planner_target": "AA9:AA15",
-      "target_type": "table_row",
-      "row_selector": {
-        "source_path": "normalized_guidance.items",
-        "filters": [
-          {
-            "field": "display_role",
-            "equals": "current_primary"
-          }
-        ]
-      },
-      "row_key": [
-        "metric",
-        "horizon",
-        "publication_date",
-        "evidence_key"
-      ],
-      "sort_order": [
-        "display_priority:asc",
-        "metric:asc",
-        "publication_date:desc",
-        "evidence_key:asc"
-      ],
-      "capacity": 7,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "metric",
-        "horizon",
-        "progress_status"
-      ],
-      "row_key_only_columns": [
-        "metric",
-        "horizon"
-      ],
-      "target_columns": [
-        {
-          "column_id": "status",
-          "source_field": "progress_status",
-          "target_column": "AA",
-          "target_type": "status"
-        }
-      ],
-      "source_ref_required": true,
-      "planning_state": "active",
-      "source_ref_field": "value",
-      "rowset_id": "current_primary_guidance",
-      "module_id": "guidance_promises"
-    },
-    {
-      "binding_id": "valuation_guidance_status_rows_lower",
-      "sheet": "Valuation",
-      "section": "Lower guidance",
-      "target": "X29:AA36",
-      "shell_zone": "valuation_guidance_status_values_lower",
-      "anchor_label": "Lower guidance realized/status",
-      "row_family": "valuation_guidance_status_rows_lower",
-      "normalized_field": "normalized_guidance.items.0.horizon",
-      "value_shape": "table_rows",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank lower guidance status rows until realized/status evidence exists",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "boilerplate_guidance",
-      "writable": true,
-      "planning_mode": "table_rows",
-      "planner_target": "X29:AA36",
-      "target_type": "table_row",
-      "row_selector": {
-        "source_path": "normalized_guidance.items"
-      },
-      "row_key": [
-        "metric",
-        "horizon",
-        "source_date"
-      ],
-      "sort_order": [
-        "horizon:asc",
-        "metric:asc",
-        "source_date:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "horizon"
-      ],
-      "target_columns": [
-        {
-          "column_id": "value",
-          "source_field": "horizon",
-          "target_column": "X"
-        }
-      ],
-      "source_ref_required": true,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower guidance status block needs an explicit period/revision selector before it can consume source rows.",
-      "module_id": "guidance_promises"
     },
     {
       "binding_id": "bs_segment_quarterly_rows",
@@ -9679,6 +9675,6 @@
       ]
     }
   ],
-  "module_manifest_signature": "00e62a4de2bfcc4e52b018c45f65fc7924252ebb9aba36f3ded79b71fe68babd",
+  "module_manifest_signature": "fe2b6fa3f70b29b213cf22947cc0a36d8f50a5a707b8bea4cadfdd308927af56",
   "module_profile_signature": "e792faf8030f6035e44d1ba547cb5e44a7f269f5b4beb088814196bf01567f8b"
 }

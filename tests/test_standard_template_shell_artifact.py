@@ -116,22 +116,30 @@ PROMISE_REVISION_HEADER_ROWS = (60, 70, 77, 85, 91, 98)
 NEUTRAL_BLANK_FILLS = {"", "00000000", "00FFFFFF", "FFFFFFFF"}
 GRAY_BLANK_FILLS = {"00DDDDDD", "00D9D9D9", "FFD9D9D9", "FFDDDDDD"}
 VALUATION_GUIDANCE_SIDECAR_HEADERS = {
-    "O7": "Guidance",
+    "O7": "Current guidance",
+    "O8": "Metric",
+    "Q8": "Stated in",
+    "R8": "Applies to",
+    "S8": "Guidance",
+    "X8": "Unit",
+    "Y8": "Published",
+    "Z8": "Evidence",
+    "AA8": "Role / source status",
+    "O27": "Historical guidance",
     "O28": "Metric",
     "Q28": "Stated in",
     "R28": "Applies to",
     "S28": "Guidance",
-    "AA28": "Trend / realized",
-    "O37": "Operating Drivers",
-    "O38": "Driver group",
-    "R38": "Driver",
-    "U38": "Why it matters",
-    "AA38": "Source/type",
-    "O48": "Thesis Bridge",
-    "O49": "Quick valuation bridge; no market price required.",
-    "O50": "Bridge item",
-    "U50": "Value",
-    "X50": "Notes",
+    "X28": "Unit",
+    "Y28": "Published",
+    "Z28": "Evidence",
+    "AA28": "Role / source status",
+    "O48": "Thesis / debate evidence",
+    "O49": "Typed evidence only; unresolved synthesis remains explicit.",
+    "O50": "Item",
+    "Q50": "Evidence",
+    "X50": "Review state",
+    "Z50": "Source key",
     "O63": "Output",
     "U63": "Value",
     "X63": "Interpretation",
@@ -141,53 +149,20 @@ VALUATION_STRUCTURAL_HEADERS = {
     "F138": "Score",
     "G138": "Severity",
     "H138": "Result / support",
-    "B159": "Δ",
-    "C159": "Direction",
-    "D159": "As-of",
-    "B169": "Status",
-    "C169": "Evidence",
-    "I169": "As-of",
 }
 VALUATION_BLUE_SECTION_HEADERS = {
     "O7",
-    "O37",
+    "O27",
     "O48",
     "A122",
     "A137",
     "N137",
-    "A145",
-    "A151",
-    "A158",
-    "A168",
     "B192",
 }
 VALUATION_BLUE_SECTION_HEADER_RANGES = (
     "A122:N122",
-    "A145:M145",
-    "A151:M151",
-    "A158:D158",
     "B192:S192",
 )
-STANDARD_RED_GREEN_FLAG_LABELS = {
-    170: "Red: Revenue up but CFO down (YoY)",
-    171: "Red: Earnings quality CFO/NI (TTM)",
-    172: "Red: AR growing faster than revenue (YoY)",
-    173: "Red: Inventory build without revenue growth",
-    174: "Red: Debt growing faster than revenue (YoY)",
-    175: "Red: Leverage rising (YoY Δ)",
-    176: "Red: Interest coverage low (cash)",
-    177: "Red: FCF negative while EBITDA positive (TTM)",
-    178: "Watch: Buybacks exceeded FCF",
-    179: "Red: Goodwill heavy",
-    180: "Red: Share dilution (YoY)",
-    181: "Red: Pension obligations pressure",
-    183: "Green: Operating margin trend QoQ",
-    184: "Green: FCF TTM growth (YoY)",
-    185: "Green: Net debt decreasing (YoY)",
-    186: "Green: Interest coverage improving (YoY)",
-    187: "Green: Shares outstanding decreasing (YoY)",
-    188: "Green: Liquidity improving (YoY)",
-}
 STATUS_OUTPUT_FILL_COLORS = {
     "00D9EAF7",
     "00F2F2F2",
@@ -394,7 +369,7 @@ def test_standard_template_shell_clears_representative_source_value_leaks() -> N
                     offenders.append(f"{sheet_name}!{coord}={value!r}")
 
         assert offenders == []
-        assert wb["Valuation"]["O7"].value == "Guidance"
+        assert wb["Valuation"]["O7"].value == "Current guidance"
     finally:
         wb.close()
 
@@ -620,11 +595,12 @@ def test_valuation_lower_blocks_preserve_template_bands_merges_and_font_sizes() 
             assert ws[coord].font.sz == 12
             assert ws[coord].fill.fgColor.rgb == HEADER_BLUE
 
-        for col_idx in range(1, 14):
-            assert ws.cell(145, col_idx).fill.fgColor.rgb == SECTION_BLUE
-            assert ws.cell(151, col_idx).fill.fgColor.rgb == SECTION_BLUE
-        for col_idx in range(1, 5):
-            assert ws.cell(158, col_idx).fill.fgColor.rgb == SECTION_BLUE
+        for row_idx in range(145, 189):
+            assert ws.row_dimensions[row_idx].hidden is True
+            for col_idx in range(1, 14):
+                cell = ws.cell(row_idx, col_idx)
+                assert cell.value is None
+                assert cell.protection.locked is True
 
         assert ws["B192"].value == "Valuation"
         assert ws["B192"].fill.fgColor.rgb == SECTION_BLUE
@@ -633,40 +609,39 @@ def test_valuation_lower_blocks_preserve_template_bands_merges_and_font_sizes() 
         wb.close()
 
 
-def test_valuation_red_green_flag_column_uses_standard_rule_labels() -> None:
+def test_valuation_retired_signal_capacity_has_no_labels_or_slots() -> None:
     wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
     try:
         ws = wb["Valuation"]
-        offenders = {
-            f"A{row_idx}": ws.cell(row_idx, 1).value
-            for row_idx, expected in STANDARD_RED_GREEN_FLAG_LABELS.items()
-            if ws.cell(row_idx, 1).value != expected
-        }
-        slot_labels = [
-            f"A{row_idx}={ws.cell(row_idx, 1).value!r}"
-            for row_idx in range(170, 189)
-            if str(ws.cell(row_idx, 1).value or "").startswith("[Red/green flag slot")
-        ]
-
-        assert offenders == {}
-        assert slot_labels == []
+        assert all(
+            ws.cell(row_idx, col_idx).value is None
+            for row_idx in range(145, 189)
+            for col_idx in range(1, 14)
+        )
     finally:
         wb.close()
 
 
-def test_valuation_red_green_headers_match_template_alignment_and_font_size() -> None:
+def test_valuation_retired_signal_capacity_has_no_merges_or_validations() -> None:
     wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
     try:
         ws = wb["Valuation"]
 
-        assert ws["A168"].fill.fgColor.rgb == SECTION_BLUE
-        assert ws["A168"].font.sz == 12
-        for coord in ("A169", "B169", "C169", "I169"):
-            cell = ws[coord]
-            assert cell.fill.fgColor.rgb == HEADER_BLUE
-            assert cell.font.sz == 12
-            assert cell.alignment.horizontal == "center"
-            assert cell.alignment.vertical == "center"
+        assert not any(
+            merged.min_row <= 188
+            and merged.max_row >= 145
+            and merged.min_col <= 13
+            and merged.max_col >= 1
+            for merged in ws.merged_cells.ranges
+        )
+        assert not any(
+            cell_range.min_row <= 188
+            and cell_range.max_row >= 145
+            and cell_range.min_col <= 13
+            and cell_range.max_col >= 1
+            for validation in ws.data_validations.dataValidation
+            for cell_range in validation.ranges.ranges
+        )
     finally:
         wb.close()
 

@@ -234,15 +234,15 @@
       ],
       "visible_blocks": [
         {"block_id": "promise_progress", "sheet": "Promise_Progress_UI", "target": "A1:O115", "empty_state": "Current, history, and superseded rows never mix; unused rows remain blank."},
-        {"block_id": "valuation_guidance", "sheet": "Valuation", "target": "O7:AA36", "empty_state": "No visible guidance row without deterministic role and horizon."}
+        {"block_id": "valuation_guidance", "sheet": "Valuation", "target": "O7:AC35", "empty_state": "No visible guidance row without one resolved metric, horizon, source status, and evidence disposition."}
       ],
       "normalized_contracts": ["normalized_guidance", "promise_progress"],
-      "binding_ids": ["valuation_guidance_rows", "valuation_guidance_rows_lower", "valuation_guidance_status_rows", "valuation_guidance_status_rows_lower", "pp_scorecard_rows", "pp_annual_guidance_rows", "pp_annual_guidance_rows_block_2", "pp_annual_guidance_rows_block_3", "pp_annual_guidance_rows_block_4", "pp_open_guidance_rows", "pp_progress_fy2025_rows", "pp_progress_fy2024_rows", "pp_current_secondary_guidance_rows", "pp_guidance_timeline_rows", "pp_guidance_timeline_rows_block_2", "pp_guidance_timeline_rows_block_3", "pp_guidance_timeline_rows_block_4", "pp_guidance_timeline_rows_block_5", "pp_guidance_timeline_rows_block_6"],
+      "binding_ids": ["valuation_guidance_current_primary_rows", "valuation_guidance_current_secondary_rows", "valuation_guidance_historical_rows", "pp_scorecard_rows", "pp_annual_guidance_rows", "pp_annual_guidance_rows_block_2", "pp_annual_guidance_rows_block_3", "pp_annual_guidance_rows_block_4", "pp_open_guidance_rows", "pp_progress_fy2025_rows", "pp_progress_fy2024_rows", "pp_current_secondary_guidance_rows", "pp_guidance_timeline_rows", "pp_guidance_timeline_rows_block_2", "pp_guidance_timeline_rows_block_3", "pp_guidance_timeline_rows_block_4", "pp_guidance_timeline_rows_block_5", "pp_guidance_timeline_rows_block_6"],
       "formula_ids": [],
       "defined_name_ids": ["promise_open_guidance_anchor", "promise_primary_revision_anchor"],
       "style_ownership": [
         {"style_id": "promise_progress_style", "sheet": "Promise_Progress_UI", "target": "A1:O115"},
-        {"style_id": "valuation_guidance_style", "sheet": "Valuation", "target": "O7:AA36"}
+        {"style_id": "valuation_guidance_style", "sheet": "Valuation", "target": "O7:AC35"}
       ],
       "activation_criteria": {"mode": "required_for_every_profile"},
       "empty_state_behavior": "No synthetic guidance or subjective status is created to fill capacity.",
@@ -284,17 +284,15 @@
       ],
       "visible_blocks": [
         {"block_id": "operating_driver_current", "sheet": "Operating_Drivers", "target": "A1:N63", "empty_state": "No generic filler text."},
-        {"block_id": "operating_driver_history", "sheet": "Operating_Drivers", "target": "A113:N125", "empty_state": "Unused history remains blank."},
-        {"block_id": "valuation_operating_driver_sidecar", "sheet": "Valuation", "target": "O39:AA47", "empty_state": "No sidecar row without source-backed driver evidence."}
+        {"block_id": "operating_driver_history", "sheet": "Operating_Drivers", "target": "A113:N125", "empty_state": "Unused history remains blank."}
       ],
       "normalized_contracts": ["operating_drivers"],
-      "binding_ids": ["valuation_operating_driver_sidecar_rows", "od_watchlist_rows", "od_current_actual_read", "od_current_actual_use", "od_current_guidance_read", "od_current_guidance_use", "od_margin_bridge_read", "od_margin_bridge_use", "od_topic_current_read_rows", "od_horizon_commentary_rows", "od_current_outlook_rows", "od_driver_actuals_rows"],
+      "binding_ids": ["od_watchlist_rows", "od_current_actual_read", "od_current_actual_use", "od_current_guidance_read", "od_current_guidance_use", "od_margin_bridge_read", "od_margin_bridge_use", "od_topic_current_read_rows", "od_horizon_commentary_rows", "od_current_outlook_rows", "od_driver_actuals_rows"],
       "formula_ids": [],
       "defined_name_ids": ["operating_drivers_watchlist_anchor"],
       "style_ownership": [
         {"style_id": "operating_driver_current_style", "sheet": "Operating_Drivers", "target": "A1:N63"},
-        {"style_id": "operating_driver_history_style", "sheet": "Operating_Drivers", "target": "A113:N125"},
-        {"style_id": "valuation_operating_driver_style", "sheet": "Valuation", "target": "O39:AA47"}
+        {"style_id": "operating_driver_history_style", "sheet": "Operating_Drivers", "target": "A113:N125"}
       ],
       "activation_criteria": {"mode": "required_for_every_profile"},
       "empty_state_behavior": "Profile-specific concepts activate only through an explicit profile pack and evidence-backed rows.",
@@ -311,7 +309,6 @@
         {"sheet": "Valuation_Grid", "role": "hidden_support", "legacy_class": "E", "default_state": "hidden", "active_state": "hidden", "inactive_state": "hidden", "capacity_rows": 1000, "capacity_columns": 6, "headers": ["scenario_id", "row_driver", "column_driver", "output_metric", "value", "status"], "empty_state": "Formula-owned grid outputs remain blank until explicit axes and inputs are complete.", "worksheet_protection": true, "style_owner": "frozen_shell", "formula_owner": "standard_template_formula_contract", "data_surface": "formula_output"}
       ],
       "visible_blocks": [
-        {"block_id": "valuation_thesis_bridge", "sheet": "Valuation", "target": "O51:AA62", "empty_state": "No thesis output without complete source inputs."},
         {"block_id": "valuation_sidecar", "sheet": "Valuation", "target": "O64:X75", "empty_state": "Sidecar outputs remain blank until complete."},
         {"block_id": "valuation_input_labels", "sheet": "Valuation", "target": "A192:C216", "empty_state": "Input labels remain neutral when the module is active."},
         {"block_id": "valuation_input_core_values", "sheet": "Valuation", "target": "D193:D197", "empty_state": "Inputs remain blank until source-backed or user-entered."},
@@ -324,11 +321,10 @@
         {"block_id": "valuation_scenario_helpers", "sheet": "Valuation", "target": "N262:S271", "empty_state": "Helper outputs remain blank without complete inputs."}
       ],
       "normalized_contracts": ["valuation_inputs", "valuation_outputs", "investment_case.scenario_items", "investment_case.scenario_driver_bridge"],
-      "binding_ids": ["valuation_thesis_bridge_rows", "valuation_output_rows", "valuation_input_as_of", "valuation_input_shares_outstanding", "valuation_input_diluted_shares", "valuation_input_base_ebitda_ttm", "valuation_input_fcf_ttm", "valuation_input_operating_cash_flow_ttm", "valuation_input_revenue_ttm", "valuation_input_net_income_ttm", "valuation_input_eps_ttm", "valuation_input_book_value_per_share", "valuation_input_tangible_book_value_per_share", "valuation_input_capex_ttm", "ic_bull_base_bear_rows"],
+      "binding_ids": ["valuation_output_rows", "valuation_input_as_of", "valuation_input_shares_outstanding", "valuation_input_diluted_shares", "valuation_input_base_ebitda_ttm", "valuation_input_fcf_ttm", "valuation_input_operating_cash_flow_ttm", "valuation_input_revenue_ttm", "valuation_input_net_income_ttm", "valuation_input_eps_ttm", "valuation_input_book_value_per_share", "valuation_input_tangible_book_value_per_share", "valuation_input_capex_ttm", "ic_bull_base_bear_rows"],
       "formula_ids": ["valuation_output_formulas", "valuation_sidecar_formulas", "valuation_scenario_formulas", "scenario_revenue_route_formulas", "valuation_summary_formulas", "valuation_grid_formulas"],
       "defined_name_ids": ["Price", "AsOfQuarter", "Shares", "SharesDiluted", "NetDebt", "Base_EBITDA", "Adj_EBITDA", "FCF_TTM", "Adj_FCF_TTM", "Revenue_TTM", "NetIncome_TTM", "EPS_TTM", "Adj_EPS_TTM", "BV_PerShare", "TBV_PerShare", "Target_EV_AdjEBITDA", "Target_EV_EBITDA", "Target_EV_Yield", "Target_EV_Revenue", "Target_PE", "Capex_TTM", "InterestPaid_TTM", "MaintCapexRatio", "RecurringCashCosts", "WCNormalization", "PerShareMode", "MarketCap", "EV", "Implied_EV_AdjEBITDA", "Implied_EV_EBITDA", "FCFF_Proxy_TTM", "Implied_FCFF_Yield", "Equity_FCF_Yield", "OwnerEarnings_TTM", "OwnerEarnings_Yield", "EqShare_Target_Adj", "EqShare_Target_EV", "EqShare_Target_Yield", "AutoImpliedGT", "ImpliedGT_WACC", "ImpliedGT_Output", "ImpliedGT_Status", "ScenarioProfile", "ScenarioHorizon", "ScenarioGrowth", "ResolvedRevenueGrowth_Bear", "ResolvedRevenueGrowth_Base", "ResolvedRevenueGrowth_Bull", "ResolvedRevenueGrowth_Custom", "ScenarioBaseMargin", "ScenarioAdjustedMargin", "ScenarioTaxRate", "ScenarioPreTaxBridge", "ScenarioTaxTreatment", "ScenarioCashInterestChange", "ScenarioInterestTaxTreatment", "ScenarioCapexChange", "ScenarioWCAdjustment", "ScenarioBuybackCash", "ScenarioBuybackPrice", "ScenarioShareIssuance", "ScenarioDebtPaydown", "ScenarioRevenue", "ScenarioBaseEBITDA", "ScenarioAdjustedEBITDA", "ScenarioFCF", "ScenarioShares", "ScenarioNetDebt", "ScenarioEPS", "ScenarioEV", "ScenarioEquityValue", "ScenarioImpliedPrice", "ScenarioUpside", "ScenarioPE", "ScenarioFCFYield", "ScenarioEVRevenue", "ScenarioEVBaseEBITDA", "ScenarioEVAdjustedEBITDA", "DCF_Horizon", "DCF_FCFF", "DCF_Growth", "DCF_TerminalGrowth", "DCF_WACC", "DCF_EV", "DCF_ImpliedPrice"],
       "style_ownership": [
-        {"style_id": "valuation_thesis_bridge_style", "sheet": "Valuation", "target": "O51:AA62"},
         {"style_id": "valuation_sidecar_style", "sheet": "Valuation", "target": "O64:X75"},
         {"style_id": "valuation_input_labels_style", "sheet": "Valuation", "target": "A192:C216"},
         {"style_id": "valuation_input_core_values_style", "sheet": "Valuation", "target": "D193:D197"},
@@ -356,16 +352,18 @@
       "visible_blocks": [
         {"block_id": "summary_company_profile", "sheet": "SUMMARY", "target": "A3:L7", "empty_state": "No unsupported company narrative."},
         {"block_id": "summary_investment_case", "sheet": "SUMMARY", "target": "A16:L25", "empty_state": "No unsupported thesis or risk statement."},
-        {"block_id": "investment_case", "sheet": "{ticker}_Investment_Case", "target": "A1:K240", "empty_state": "No filler thesis text or implied output without complete inputs."}
+        {"block_id": "investment_case", "sheet": "{ticker}_Investment_Case", "target": "A1:K240", "empty_state": "No filler thesis text or implied output without complete inputs."},
+        {"block_id": "valuation_thesis_debate", "sheet": "Valuation", "target": "O48:AA62", "empty_state": "Only typed thesis fields and exact invalidator business keys may appear; unused rows remain blank."}
       ],
       "normalized_contracts": ["company_profile", "investment_case"],
-      "binding_ids": ["summary_company_description", "summary_key_advantage", "summary_strategic_context", "summary_key_risks", "summary_wrong_if", "ic_investment_summary", "ic_key_debate", "ic_why_it_can_work", "ic_upside_factors", "ic_downside_factors", "ic_watch_next", "ic_current_stance", "ic_scenario_bridge_rows", "ic_lower_comp_history_labels", "ic_lower_business_health_rows", "ic_lower_inventory_rows", "ic_lower_asset_productivity_rows", "ic_lower_guidance_setup_rows", "ic_investment_case_title"],
+      "binding_ids": ["summary_company_description", "summary_key_advantage", "summary_strategic_context", "summary_key_risks", "summary_wrong_if", "ic_investment_summary", "ic_key_debate", "ic_why_it_can_work", "ic_upside_factors", "ic_downside_factors", "ic_watch_next", "ic_current_stance", "ic_scenario_bridge_rows", "ic_lower_comp_history_labels", "ic_lower_business_health_rows", "ic_lower_inventory_rows", "ic_lower_asset_productivity_rows", "ic_lower_guidance_setup_rows", "ic_investment_case_title", "valuation_thesis_debate_rows"],
       "formula_ids": ["investment_case_scenario_formulas", "investment_case_sensitivity_formulas"],
       "defined_name_ids": ["summary_company_overview_anchor", "investment_snapshot_anchor", "investment_key_debate_anchor"],
       "style_ownership": [
         {"style_id": "summary_company_profile_style", "sheet": "SUMMARY", "target": "A3:L7"},
         {"style_id": "summary_investment_case_style", "sheet": "SUMMARY", "target": "A16:L25"},
-        {"style_id": "investment_case_style", "sheet": "{ticker}_Investment_Case", "target": "A1:K240"}
+        {"style_id": "investment_case_style", "sheet": "{ticker}_Investment_Case", "target": "A1:K240"},
+        {"style_id": "valuation_thesis_debate_style", "sheet": "Valuation", "target": "O48:AA62"}
       ],
       "activation_criteria": {"mode": "required_for_every_profile"},
       "empty_state_behavior": "Blank space is preferred to unsupported analyst conclusions.",

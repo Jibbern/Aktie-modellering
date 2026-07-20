@@ -2,15 +2,15 @@
   "audit_version": "1.1.0",
   "status": "PASS",
   "authoritative_contract": "docs/standard_template_style_policy.json",
-  "authoritative_contract_digest": "215647144515489826cf174701a08bbc050e0b637724b9b7fcc56f0a9478202b",
-  "module_manifest_digest": "00e62a4de2bfcc4e52b018c45f65fc7924252ebb9aba36f3ded79b71fe68babd",
-  "binding_contract_digest": "d1a1fc8b70bd1a62ae2f9e1a8f84f9a36c838c8811cfaa411d5af02d3681240b",
+  "authoritative_contract_digest": "2c3441bc58622adb779728e06e1d5b5a1a5cc1148565aa9bfadc883aefe9e68a",
+  "module_manifest_digest": "fe2b6fa3f70b29b213cf22947cc0a36d8f50a5a707b8bea4cadfdd308927af56",
+  "binding_contract_digest": "d66559c536a3c5121cf1b0830565506fb70c50e232f3694b120cd318393dd70a",
   "policy_count": 44,
-  "state_policy_count": 3,
-  "total_policy_count": 47,
+  "state_policy_count": 5,
+  "total_policy_count": 49,
   "numerical_selector_count": 112,
-  "state_selector_count": 3,
-  "selector_count": 115,
+  "state_selector_count": 7,
+  "selector_count": 119,
   "style_disabled_count": 35,
   "palette_tokens": {
     "strong_negative": {
@@ -119,7 +119,9 @@
     "balance_cash_flow": 22,
     "core_financial_history": 7,
     "debt_liquidity": 7,
+    "guidance_promises": 1,
     "hidden_value_signals": 3,
+    "investment_case_market_implied": 1,
     "non_gaap_adjustments": 6,
     "segments_dimensions": 2
   },
@@ -141,11 +143,21 @@
     "lower_is_better": 13
   },
   "state_counts_by_overlay": {
+    "current_primary / conflict": 1,
+    "current_primary / manual_review_required": 1,
+    "current_primary / unavailable": 1,
+    "current_secondary / conflict": 1,
+    "current_secondary / manual_review_required": 1,
+    "current_secondary / unavailable": 1,
+    "history / conflict": 1,
+    "history / manual_review_required": 1,
+    "history / unavailable": 1,
     "insufficient_evidence": 1,
     "invalid_input": 1,
+    "manual_review_required": 1,
     "near_miss": 1,
     "triggered": 3,
-    "unavailable": 1
+    "unavailable": 2
   },
   "style_disabled_by_module": {
     "balance_cash_flow": 5,
@@ -300,11 +312,17 @@
     ],
     "hidden_value_flags_triggered_state": [
       "Hidden_Value_Flags"
+    ],
+    "valuation_guidance_source_state": [
+      "Valuation"
+    ],
+    "valuation_thesis_review_state": [
+      "Valuation"
     ]
   },
   "profiles": {
     "full_union": {
-      "policy_count": 47,
+      "policy_count": 49,
       "policy_ids": [
         "bs_debt_formula_direct_lower",
         "bs_debt_raw_lower_yoy",
@@ -350,13 +368,15 @@
         "valuation_debt_formula_lower",
         "valuation_fcf_conversion_ttm",
         "valuation_fcf_per_share_ttm",
+        "valuation_guidance_source_state",
         "valuation_liquidity_raw_higher",
         "valuation_per_share_formula_higher",
-        "valuation_share_delta_direct_lower"
+        "valuation_share_delta_direct_lower",
+        "valuation_thesis_review_state"
       ]
     },
     "anf": {
-      "policy_count": 47,
+      "policy_count": 49,
       "policy_ids": [
         "bs_debt_formula_direct_lower",
         "bs_debt_raw_lower_yoy",
@@ -402,13 +422,15 @@
         "valuation_debt_formula_lower",
         "valuation_fcf_conversion_ttm",
         "valuation_fcf_per_share_ttm",
+        "valuation_guidance_source_state",
         "valuation_liquidity_raw_higher",
         "valuation_per_share_formula_higher",
-        "valuation_share_delta_direct_lower"
+        "valuation_share_delta_direct_lower",
+        "valuation_thesis_review_state"
       ]
     },
     "pbi": {
-      "policy_count": 47,
+      "policy_count": 49,
       "policy_ids": [
         "bs_debt_formula_direct_lower",
         "bs_debt_raw_lower_yoy",
@@ -454,13 +476,15 @@
         "valuation_debt_formula_lower",
         "valuation_fcf_conversion_ttm",
         "valuation_fcf_per_share_ttm",
+        "valuation_guidance_source_state",
         "valuation_liquidity_raw_higher",
         "valuation_per_share_formula_higher",
-        "valuation_share_delta_direct_lower"
+        "valuation_share_delta_direct_lower",
+        "valuation_thesis_review_state"
       ]
     },
     "gpre": {
-      "policy_count": 47,
+      "policy_count": 49,
       "policy_ids": [
         "bs_debt_formula_direct_lower",
         "bs_debt_raw_lower_yoy",
@@ -506,9 +530,11 @@
         "valuation_debt_formula_lower",
         "valuation_fcf_conversion_ttm",
         "valuation_fcf_per_share_ttm",
+        "valuation_guidance_source_state",
         "valuation_liquidity_raw_higher",
         "valuation_per_share_formula_higher",
-        "valuation_share_delta_direct_lower"
+        "valuation_share_delta_direct_lower",
+        "valuation_thesis_review_state"
       ]
     },
     "core_only": {

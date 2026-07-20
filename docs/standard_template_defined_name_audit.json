@@ -2,9 +2,9 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 269,
+    "retained_count": 271,
     "classification_counts": {
-      "active_binding_anchor": 156,
+      "active_binding_anchor": 158,
       "formula_dependency": 76,
       "generic_named_range": 21,
       "required_shell_anchor": 16
@@ -1910,7 +1910,7 @@
       "company_specific": false
     },
     {
-      "name": "valuation_guidance_rows",
+      "name": "valuation_guidance_current_primary_rows",
       "attr_text": "'Valuation'!$O$9",
       "classification": "active_binding_anchor",
       "expected_target": "'Valuation'!$O$9",
@@ -1918,10 +1918,18 @@
       "company_specific": false
     },
     {
-      "name": "valuation_guidance_status_rows",
-      "attr_text": "'Valuation'!$AA$9",
+      "name": "valuation_guidance_current_secondary_rows",
+      "attr_text": "'Valuation'!$O$16",
       "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$AA$9",
+      "expected_target": "'Valuation'!$O$16",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_guidance_historical_rows",
+      "attr_text": "'Valuation'!$O$29",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$O$29",
       "target_matches": true,
       "company_specific": false
     },
@@ -2162,6 +2170,14 @@
       "attr_text": "'Valuation'!$B$103",
       "classification": "active_binding_anchor",
       "expected_target": "'Valuation'!$B$103",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_thesis_debate_rows",
+      "attr_text": "'Valuation'!$O$51",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$O$51",
       "target_matches": true,
       "company_specific": false
     },

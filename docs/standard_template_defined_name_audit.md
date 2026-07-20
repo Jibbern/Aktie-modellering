@@ -1,6 +1,6 @@
 # Standard Template Defined-Name Audit
 
-- Retained names: `269`
+- Retained names: `271`
 - Target mismatches: `0`
 - Company-specific names/constants: `0`
 - Removed constant: `ThesisBaseAdjEBITDA_FY=815.59`
@@ -245,8 +245,9 @@
 | `valuation_eps_series` | `active_binding_anchor` | `'Valuation'!$B$107` | True |
 | `valuation_goodwill_series` | `active_binding_anchor` | `'Valuation'!$B$269` | True |
 | `valuation_gross_profit_series` | `active_binding_anchor` | `'Valuation'!$B$262` | True |
-| `valuation_guidance_rows` | `active_binding_anchor` | `'Valuation'!$O$9` | True |
-| `valuation_guidance_status_rows` | `active_binding_anchor` | `'Valuation'!$AA$9` | True |
+| `valuation_guidance_current_primary_rows` | `active_binding_anchor` | `'Valuation'!$O$9` | True |
+| `valuation_guidance_current_secondary_rows` | `active_binding_anchor` | `'Valuation'!$O$16` | True |
+| `valuation_guidance_historical_rows` | `active_binding_anchor` | `'Valuation'!$O$29` | True |
 | `valuation_input_adjusted_ebitda_ttm` | `active_binding_anchor` | `'Valuation'!$D$200` | True |
 | `valuation_input_adjusted_eps_ttm` | `active_binding_anchor` | `'Valuation'!$D$205` | True |
 | `valuation_input_as_of` | `active_binding_anchor` | `'Valuation'!$D$195` | True |
@@ -277,4 +278,5 @@
 | `valuation_revolver_availability_series` | `active_binding_anchor` | `'Valuation'!$B$95` | True |
 | `valuation_share_count_anchor` | `required_shell_anchor` | `'Valuation'!$A$102` | True |
 | `valuation_shares_outstanding_series` | `active_binding_anchor` | `'Valuation'!$B$103` | True |
+| `valuation_thesis_debate_rows` | `active_binding_anchor` | `'Valuation'!$O$51` | True |
 | `valuation_total_equity_series` | `active_binding_anchor` | `'Valuation'!$B$268` | True |

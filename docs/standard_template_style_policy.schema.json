@@ -147,7 +147,18 @@
             "near_miss": {"$ref": "#/$defs/id"},
             "invalid_input": {"$ref": "#/$defs/id"},
             "unavailable": {"$ref": "#/$defs/id"},
-            "insufficient_evidence": {"$ref": "#/$defs/id"}
+            "insufficient_evidence": {"$ref": "#/$defs/id"},
+            "manual_review_required": {"$ref": "#/$defs/id"},
+            "conflict": {"$ref": "#/$defs/id"},
+            "current_primary / manual_review_required": {"$ref": "#/$defs/id"},
+            "current_secondary / manual_review_required": {"$ref": "#/$defs/id"},
+            "history / manual_review_required": {"$ref": "#/$defs/id"},
+            "current_primary / conflict": {"$ref": "#/$defs/id"},
+            "current_secondary / conflict": {"$ref": "#/$defs/id"},
+            "history / conflict": {"$ref": "#/$defs/id"},
+            "current_primary / unavailable": {"$ref": "#/$defs/id"},
+            "current_secondary / unavailable": {"$ref": "#/$defs/id"},
+            "history / unavailable": {"$ref": "#/$defs/id"}
           },
           "additionalProperties": false
         },
@@ -162,7 +173,11 @@
               "not_triggered",
               "invalid_input",
               "unavailable",
-              "insufficient_evidence"
+              "insufficient_evidence",
+              "accepted",
+              "current_primary / accepted",
+              "current_secondary / accepted",
+              "history / accepted"
             ]
           }
         },

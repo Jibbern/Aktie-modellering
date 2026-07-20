@@ -207,12 +207,57 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
             ("Adj EPS", "2026-Q1"),
             ("Real estate activity", "2026 year"),
         ]
-        guidance_sources = {column["source_field"] for column in bindings["valuation_guidance_rows"]["target_columns"]}
-        assert {"metric", "stated_in_period", "horizon", "value"} == guidance_sources
-        assert "T" not in {column["target_column"] for column in bindings["valuation_guidance_rows"]["target_columns"]}
+        guidance_sources = {
+            column["source_field"]
+            for column in bindings["valuation_guidance_current_primary_rows"]["target_columns"]
+        }
+        assert {
+            "metric_display",
+            "stated_period",
+            "horizon",
+            "value",
+            "unit",
+            "publication_date",
+            "evidence_key",
+            "display_state",
+        } == guidance_sources
+        assert "T" not in {
+            column["target_column"]
+            for column in bindings["valuation_guidance_current_primary_rows"]["target_columns"]
+        }
         assert writes[("Valuation", "O9")].value == "Revenue"
         assert writes[("Valuation", "Q9")].value == "2025-Q4"
-        assert writes[("Valuation", "R9")].value == "2026 year"
+        assert writes[("Valuation", "R9")].value == "FY2026"
+        assert writes[("Valuation", "X9")].value == "%"
+        assert writes[("Valuation", "Y9")].value == "2026-03-04"
+        assert writes[("Valuation", "Z9")].value == guidance["evidence_key"]
+        assert writes[("Valuation", "AA9")].value == "current_primary / accepted"
+        assert [
+            (
+                writes[("Valuation", f"O{row_idx}")].value,
+                writes[("Valuation", f"R{row_idx}")].value,
+                writes[("Valuation", f"S{row_idx}")].value,
+                writes[("Valuation", f"X{row_idx}")].value,
+                writes[("Valuation", f"Y{row_idx}")].value,
+                writes[("Valuation", f"AA{row_idx}")].value,
+            )
+            for row_idx in range(9, 16)
+        ] == [
+            ("Revenue", "FY2026", "3%, 5%", "%", "2026-03-04", "current_primary / accepted"),
+            ("Revenue", "2026-Q1", "1%, 3%", "%", "2026-03-04", "current_primary / accepted"),
+            ("Operating margin", "FY2026", "12.0%, 12.5%", "%", "2026-03-04", "current_primary / accepted"),
+            ("Operating margin", "2026-Q1", "around 7.0%", "%", "2026-03-04", "current_primary / accepted"),
+            ("Adj EPS", "FY2026", "$10.20, $11.00", "$/share", "2026-03-04", "current_primary / accepted"),
+            ("Adj EPS", "2026-Q1", "$1.20, $1.30", "$/share", "2026-03-04", "current_primary / accepted"),
+            (
+                "Real estate activity",
+                "FY2026",
+                "55 openings, 25 closures; 70 remodels/right-sizes",
+                "stores",
+                "2026-03-04",
+                "current_primary / accepted",
+            ),
+        ]
         assert writes[("Promise_Progress_UI", "I61")].value == "2025-Q4"
         assert writes[("Promise_Progress_UI", "J61")].value == "2026-03-04"
         current_secondary = {
@@ -224,9 +269,72 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
             ("Capex", "2026 year"),
             ("Diluted shares", "2026 year"),
             ("Diluted shares", "2026-Q1"),
+            ("Real estate activity", "2026-Q1"),
             ("Share repurchases", "2026 year"),
             ("Share repurchases", "2026-Q1"),
         } <= current_secondary
+        assert [
+            (
+                writes[("Valuation", f"O{row_idx}")].value,
+                writes[("Valuation", f"R{row_idx}")].value,
+                writes[("Valuation", f"S{row_idx}")].value,
+                writes[("Valuation", f"X{row_idx}")].value,
+                writes[("Valuation", f"Y{row_idx}")].value,
+                writes[("Valuation", f"AA{row_idx}")].value,
+            )
+            for row_idx in range(16, 22)
+        ] == [
+            ("Capex", "FY2026", "$200 million, $225 million", "$m", "2026-03-04", "current_secondary / accepted"),
+            ("Diluted shares", "2026-Q1", "around 46 million", "shares_m", "2026-03-04", "current_secondary / accepted"),
+            ("Diluted shares", "FY2026", "around 45 million", "shares_m", "2026-03-04", "current_secondary / accepted"),
+            ("Real estate activity", "2026-Q1", "~30 net store openings", "stores", "2026-03-04", "current_secondary / accepted"),
+            ("Share repurchases", "2026-Q1", "at least $100 million", "$m", "2026-03-04", "current_secondary / accepted"),
+            ("Share repurchases", "FY2026", "around $450 million", "$m", "2026-03-04", "current_secondary / accepted"),
+        ]
+        assert [
+            (
+                writes[("Valuation", f"O{row_idx}")].value,
+                writes[("Valuation", f"R{row_idx}")].value,
+                writes[("Valuation", f"S{row_idx}")].value,
+                writes[("Valuation", f"X{row_idx}")].value,
+                writes[("Valuation", f"Y{row_idx}")].value,
+                writes[("Valuation", f"AA{row_idx}")].value,
+            )
+            for row_idx in range(29, 36)
+        ] == [
+            ("Revenue", "FY2025", "at least 6%", "%", "2026-01-12", "history / accepted"),
+            ("Operating margin", "FY2025", "around 13%", "%", "2026-01-12", "history / accepted"),
+            ("Adj EPS", "FY2025", "$10.30, $10.40", "$/share", "2026-01-12", "history / accepted"),
+            ("Capex", "FY2025", "~ $245 million", "$m", "2026-01-12", "history / accepted"),
+            ("Diluted shares", "FY2025", "around 48 million", "shares_m", "2026-01-12", "history / accepted"),
+            ("Real estate activity", "FY2025", "~40 net store openings", "stores", "2026-01-12", "history / accepted"),
+            ("Share repurchases", "FY2025", "around $450 million", "$m", "2026-01-12", "history / accepted"),
+        ]
+        assert [
+            (
+                writes[("Valuation", f"O{row_idx}")].value,
+                writes[("Valuation", f"X{row_idx}")].value,
+                writes[("Valuation", f"Z{row_idx}")].value,
+            )
+            for row_idx in range(51, 59)
+        ] == [
+            ("Key debate", "manual_review_required", "investment_case.key_debate"),
+            ("Why it can work", "accepted", "investment_case.why_it_can_work"),
+            ("Upside factors", "manual_review_required", "investment_case.upside_factors"),
+            ("Downside factors", "manual_review_required", "investment_case.downside_factors"),
+            ("Watch next", "manual_review_required", "investment_case.watch_next"),
+            ("Current stance", "manual_review_required", "investment_case.current_stance"),
+            (
+                "Sales-execution invalidator",
+                "manual_review_required",
+                "investment_case.invalidators.sales-execution-breaks",
+            ),
+            (
+                "Margin-durability invalidator",
+                "manual_review_required",
+                "investment_case.invalidators.margin-durability-breaks",
+            ),
+        ]
 
         # 3. Segment rows: the generic contract uses neutral dimension slots.
         assert segments["A7"].value == "Quarter"
@@ -480,6 +588,12 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "valuation_debt_snapshot_net_leverage_evidence",
         "valuation_debt_snapshot_net_leverage_status",
     }
+    product_pass_2b_binding_ids = {
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows",
+        "valuation_guidance_historical_rows",
+        "valuation_thesis_debate_rows",
+    }
     accepted_business_writes = [
         write for write in business_writes if write.binding_id not in hidden_value_binding_ids
     ]
@@ -538,9 +652,12 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "ic_scenario_bridge_rows",
         "valuation_input_net_income_ttm",
     }
-    additive_binding_ids = scenario_binding_ids | hidden_value_binding_ids | product_pass_2a_binding_ids
-    assert len(payload["planned_writes"]) == 22_214
-    assert payload["structured_skip_count"] == 2_399
+    additive_binding_ids = scenario_binding_ids | hidden_value_binding_ids | product_pass_2a_binding_ids | product_pass_2b_binding_ids
+    assert len(payload["planned_writes"]) == 22_371
+    # Two old raw guidance filters contributed 189 exclusions each, while four
+    # deferred scalar-as-table bindings contributed one apiece. Resolved 2B
+    # rowsets replace those 382 non-economic skips.
+    assert payload["structured_skip_count"] == 2_017 == 2_399 - 382
     assert payload["overflow_count"] == 0
     product_pass_2a_writes = [
         write
@@ -549,6 +666,20 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     ]
     assert len(product_pass_2a_writes) == 24
     assert _canonical_digest(product_pass_2a_writes) == "00246549f99ec0985bbe45a1ac3925e7dc4979527412448cb886fb09226a61af"
+    product_pass_2b_writes = [
+        write
+        for write in payload["planned_writes"]
+        if write.get("binding_id") in product_pass_2b_binding_ids
+    ]
+    assert Counter(write["binding_id"] for write in product_pass_2b_writes) == {
+        "valuation_guidance_current_primary_rows": 56,
+        "valuation_guidance_current_secondary_rows": 48,
+        "valuation_guidance_historical_rows": 56,
+        "valuation_thesis_debate_rows": 32,
+    }
+    assert len(product_pass_2b_writes) == 192
+    assert _canonical_digest(product_pass_2b_writes) == "53f5e48096354e3b3f596b6a999d996a21794aa7b455ee07d589be2acdbda69a"
+    assert len(payload["planned_writes"]) - 157 == 22_214
     non_scenario_writes = [
         write
         for write in payload["planned_writes"]
@@ -562,10 +693,10 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     # The accepted 20,518-write nonadditive baseline loses 82 retired
     # BS_Segments writes and 690 obsolete QA cells. Product Pass 2A then adds
     # 138 QA cells for six explicit unavailable scalar/date dispositions.
-    assert len(non_scenario_writes) == 20_518 - 82 - 690 + 138 == 19_884
-    assert _canonical_digest(non_scenario_writes) == "7380f071a21683fea5ba3b571d5724273e4d10bf34ab70d92d2999df208f51e0"
-    assert len(non_scenario_binding_reports) == 157 - 14 == 143
-    assert _canonical_digest(non_scenario_binding_reports) == "02f37dc9d15ad631affca7920627f73a113e9dd89246221145a139879175f17e"
+    assert len(non_scenario_writes) == 19_849
+    assert _canonical_digest(non_scenario_writes) == "69161dcf670d963dec1eb6136a49a819406b60ea61c533ce2a14ce76debabdec"
+    assert len(non_scenario_binding_reports) == 137
+    assert _canonical_digest(non_scenario_binding_reports) == "f6c529624b223709bab5965ba6f7ddbdc2ddc0a92592868039201a9b285fcc44"
 
     segment_writes = [
         write
@@ -594,14 +725,18 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         for write in payload["planned_writes"]
         if outside_segment_product_surface(write)
         and write.get("binding_id") not in product_pass_2a_binding_ids
+        and write.get("binding_id") not in product_pass_2b_binding_ids
     ]
-    assert len(stable_business_writes) == 7_449
-    assert _canonical_digest(stable_business_writes) == "304420d25b3f1a173347bdac7dd19b964a8d164065d39e254536d2a732c8fc8f"
+    assert len(stable_business_writes) == 7_414
+    assert _canonical_digest(stable_business_writes) == "7450466273b74ad03caf4142676f2c0247317fbe0c6df4dacbfcf832b6f9b55f"
     all_stable_business_writes = [
-        write for write in payload["planned_writes"] if outside_segment_product_surface(write)
+        write
+        for write in payload["planned_writes"]
+        if outside_segment_product_surface(write)
+        and write.get("binding_id") not in product_pass_2b_binding_ids
     ]
-    assert len(all_stable_business_writes) == 7_473
-    assert _canonical_digest(all_stable_business_writes) == "c21ce9f53127ca4c2f0802a1b519e03fb60a019d17e8f57f8b04b8aeb1a2b7ab"
+    assert len(all_stable_business_writes) == 7_438
+    assert _canonical_digest(all_stable_business_writes) == "26c87b6a6b98b190e4a5924df0a01fd4752c804214fe59dfcc81b4c5208d200f"
     assert _canonical_digest(payload["period_axes"]) == "88b9f00e07414ea100180a8f574e4ca3ab14088885107d888f75e1b143ec8818"
     assert _canonical_digest(payload["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
     assert _canonical_digest(payload["issue_ledger"]["issues"]) == "ce17b225eee5b78725b568fd0b147b14bc797d96a995900b619fa3459a3d2d7c"

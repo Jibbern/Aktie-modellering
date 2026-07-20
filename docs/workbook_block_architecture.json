@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-19T17:09:04+00:00",
+  "generated_at": "2026-07-20T00:28:54+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -1990,10 +1990,10 @@
       ]
     },
     {
-      "block_id": "valuation_guidance_values",
+      "block_id": "valuation_guidance_current_primary_rows",
       "sheet": "Valuation",
       "resolved_lab_sheet": "Valuation",
-      "range": "O9:T27",
+      "range": "O9:AC15",
       "title_header_cells": [
         {
           "cell": "O7",
@@ -2014,6 +2014,10 @@
         {
           "cell": "S8",
           "value": "Guidance"
+        },
+        {
+          "cell": "AA8",
+          "value": "Trend / realized"
         }
       ],
       "template_label_cells": [
@@ -2036,6 +2040,10 @@
         {
           "cell": "S8",
           "value": "Guidance"
+        },
+        {
+          "cell": "AA8",
+          "value": "Trend / realized"
         }
       ],
       "row_label_cells": [],
@@ -2059,24 +2067,28 @@
         {
           "cell": "S8",
           "value": "Guidance"
+        },
+        {
+          "cell": "AA8",
+          "value": "Trend / realized"
         }
       ],
       "writable_value_cells": [
         {
-          "binding_id": "valuation_guidance_rows",
-          "target": "O9:T27",
+          "binding_id": "valuation_guidance_current_primary_rows",
+          "target": "O9:AC15",
           "value_shape": "table_rows"
         }
       ],
       "writable_example_cells": [
         {
-          "binding_id": "valuation_guidance_rows",
-          "target": "O9:T27",
+          "binding_id": "valuation_guidance_current_primary_rows",
+          "target": "O9:AC15",
           "value_shape": "table_rows",
-          "nonempty_count": 69,
+          "nonempty_count": 35,
           "formula_count": 0,
           "numeric_count": 0,
-          "text_count": 69,
+          "text_count": 35,
           "sample_cells": [
             {
               "cell": "O9",
@@ -2095,6 +2107,10 @@
               "value": "+3-5%"
             },
             {
+              "cell": "AA9",
+              "value": "Open / not yet realized"
+            },
+            {
               "cell": "O10",
               "value": "Operating margin"
             },
@@ -2105,144 +2121,6 @@
             {
               "cell": "R10",
               "value": "2026 year"
-            },
-            {
-              "cell": "S10",
-              "value": "12.0-12.5%"
-            }
-          ]
-        }
-      ],
-      "company_specific_example_cells": [],
-      "source_specific_example_cells": [
-        {
-          "cell": "O27",
-          "value": "Guidance (As of 2025-11-01) - Status: Mixed"
-        }
-      ],
-      "formula_cells": [],
-      "hidden_helper_cells": [],
-      "normalized_fields": [
-        "normalized_guidance.items.value"
-      ],
-      "support_sheets_used": [
-        "Debt_Profile",
-        "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
-        "History_Q",
-        "Slides_Guidance"
-      ],
-      "current_code_owner": [
-        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
-        "pbi_xbrl/excel_writer_valuation_*",
-        "pbi_xbrl/valuation.py"
-      ],
-      "future_intended_owner": [
-        "frozen template shell",
-        "docs/workbook_binding_map.json",
-        "future value-only filler"
-      ],
-      "required_fields": [],
-      "optional_fields": [
-        "normalized_guidance.items.value"
-      ],
-      "source_policy": "source-backed",
-      "missing_data_behavior": "blank guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance",
-      "validation_rules": [
-        "guidance_metric_misclassification"
-      ],
-      "standardization_status": "standard",
-      "bindings": [
-        {
-          "binding_id": "valuation_guidance_rows",
-          "target": "O9:T27",
-          "normalized_field": "normalized_guidance.items.value",
-          "required": false,
-          "value_shape": "table_rows",
-          "source_policy": "source-backed",
-          "missing_source_behavior": "blank guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance",
-          "validation_rule": "guidance_metric_misclassification"
-        }
-      ],
-      "notes": [
-        "Block is derived from manifest writable zone and current binding map.",
-        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
-      ]
-    },
-    {
-      "block_id": "valuation_guidance_status_values",
-      "sheet": "Valuation",
-      "resolved_lab_sheet": "Valuation",
-      "range": "AA9:AA27",
-      "title_header_cells": [
-        {
-          "cell": "AA8",
-          "value": "Trend / realized"
-        }
-      ],
-      "template_label_cells": [
-        {
-          "cell": "AA8",
-          "value": "Trend / realized"
-        }
-      ],
-      "row_label_cells": [],
-      "static_label_cells": [
-        {
-          "cell": "AA8",
-          "value": "Trend / realized"
-        }
-      ],
-      "writable_value_cells": [
-        {
-          "binding_id": "valuation_guidance_status_rows",
-          "target": "AA9:AA27",
-          "value_shape": "table_rows"
-        }
-      ],
-      "writable_example_cells": [
-        {
-          "binding_id": "valuation_guidance_status_rows",
-          "target": "AA9:AA27",
-          "value_shape": "table_rows",
-          "nonempty_count": 17,
-          "formula_count": 0,
-          "numeric_count": 0,
-          "text_count": 17,
-          "sample_cells": [
-            {
-              "cell": "AA9",
-              "value": "Open / not yet realized"
-            },
-            {
-              "cell": "AA10",
-              "value": "Open; 2025: 13.3% / 12.5% adj"
-            },
-            {
-              "cell": "AA11",
-              "value": "Open; 2025: $10.46 GAAP / $9.86 adj"
-            },
-            {
-              "cell": "AA12",
-              "value": "Open; 2025 actual ~$450m"
-            },
-            {
-              "cell": "AA13",
-              "value": "Open / not yet realized"
-            },
-            {
-              "cell": "AA14",
-              "value": "Open; 2025 actual $240.8m"
-            },
-            {
-              "cell": "AA15",
-              "value": "Open / not yet realized"
-            },
-            {
-              "cell": "AA16",
-              "value": "Open; bps bridge item"
             }
           ]
         }
@@ -2252,7 +2130,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "normalized_guidance.items.progress_status"
+        "_derived_workbook.guidance.current_primary_rows.value"
       ],
       "support_sheets_used": [
         "Debt_Profile",
@@ -2275,24 +2153,24 @@
       ],
       "required_fields": [],
       "optional_fields": [
-        "normalized_guidance.items.progress_status"
+        "_derived_workbook.guidance.current_primary_rows.value"
       ],
       "source_policy": "source-backed",
-      "missing_data_behavior": "blank guidance status rows until realized/status evidence exists",
+      "missing_data_behavior": "leave unavailable current-primary slots blank; retain the disposition in selection audit",
       "validation_rules": [
-        "boilerplate_guidance"
+        "guidance_metric_misclassification"
       ],
       "standardization_status": "standard",
       "bindings": [
         {
-          "binding_id": "valuation_guidance_status_rows",
-          "target": "AA9:AA27",
-          "normalized_field": "normalized_guidance.items.progress_status",
+          "binding_id": "valuation_guidance_current_primary_rows",
+          "target": "O9:AC15",
+          "normalized_field": "_derived_workbook.guidance.current_primary_rows.value",
           "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
-          "missing_source_behavior": "blank guidance status rows until realized/status evidence exists",
-          "validation_rule": "boilerplate_guidance"
+          "missing_source_behavior": "leave unavailable current-primary slots blank; retain the disposition in selection audit",
+          "validation_rule": "guidance_metric_misclassification"
         }
       ],
       "notes": [
@@ -2301,81 +2179,219 @@
       ]
     },
     {
-      "block_id": "valuation_guidance_values_lower",
+      "block_id": "valuation_guidance_current_secondary_rows",
       "sheet": "Valuation",
       "resolved_lab_sheet": "Valuation",
-      "range": "O29:T36",
-      "title_header_cells": [
-        {
-          "cell": "O28",
-          "value": "Metric"
-        },
-        {
-          "cell": "Q28",
-          "value": "Stated in"
-        },
-        {
-          "cell": "R28",
-          "value": "Applies to"
-        },
-        {
-          "cell": "S28",
-          "value": "Guidance"
-        }
-      ],
-      "template_label_cells": [
-        {
-          "cell": "O28",
-          "value": "Metric"
-        },
-        {
-          "cell": "Q28",
-          "value": "Stated in"
-        },
-        {
-          "cell": "R28",
-          "value": "Applies to"
-        },
-        {
-          "cell": "S28",
-          "value": "Guidance"
-        }
-      ],
+      "range": "O16:AC21",
+      "title_header_cells": [],
+      "template_label_cells": [],
       "row_label_cells": [],
-      "static_label_cells": [
-        {
-          "cell": "O28",
-          "value": "Metric"
-        },
-        {
-          "cell": "Q28",
-          "value": "Stated in"
-        },
-        {
-          "cell": "R28",
-          "value": "Applies to"
-        },
-        {
-          "cell": "S28",
-          "value": "Guidance"
-        }
-      ],
+      "static_label_cells": [],
       "writable_value_cells": [
         {
-          "binding_id": "valuation_guidance_rows_lower",
-          "target": "O29:T36",
+          "binding_id": "valuation_guidance_current_secondary_rows",
+          "target": "O16:AC21",
           "value_shape": "table_rows"
         }
       ],
       "writable_example_cells": [
         {
-          "binding_id": "valuation_guidance_rows_lower",
-          "target": "O29:T36",
+          "binding_id": "valuation_guidance_current_secondary_rows",
+          "target": "O16:AC21",
           "value_shape": "table_rows",
-          "nonempty_count": 28,
+          "nonempty_count": 30,
           "formula_count": 0,
           "numeric_count": 0,
-          "text_count": 28,
+          "text_count": 30,
+          "sample_cells": [
+            {
+              "cell": "O16",
+              "value": "Tariff headwind"
+            },
+            {
+              "cell": "Q16",
+              "value": "2025-Q4"
+            },
+            {
+              "cell": "R16",
+              "value": "2026 year"
+            },
+            {
+              "cell": "S16",
+              "value": "~70 bps / ~$40m headwind"
+            },
+            {
+              "cell": "AA16",
+              "value": "Open; bps bridge item"
+            },
+            {
+              "cell": "O17",
+              "value": "Marketing headwind"
+            },
+            {
+              "cell": "Q17",
+              "value": "2025-Q4"
+            },
+            {
+              "cell": "R17",
+              "value": "2026 year"
+            }
+          ]
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "_derived_workbook.guidance.current_secondary_rows.value"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "_derived_workbook.guidance.current_secondary_rows.value"
+      ],
+      "source_policy": "source-backed",
+      "missing_data_behavior": "leave unavailable current-secondary slots blank; retain the disposition in selection audit",
+      "validation_rules": [
+        "guidance_metric_misclassification"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "valuation_guidance_current_secondary_rows",
+          "target": "O16:AC21",
+          "normalized_field": "_derived_workbook.guidance.current_secondary_rows.value",
+          "required": false,
+          "value_shape": "table_rows",
+          "source_policy": "source-backed",
+          "missing_source_behavior": "leave unavailable current-secondary slots blank; retain the disposition in selection audit",
+          "validation_rule": "guidance_metric_misclassification"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "valuation_guidance_historical_rows",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "O29:AC35",
+      "title_header_cells": [
+        {
+          "cell": "O27",
+          "value": "Guidance (As of 2025-11-01) - Status: Mixed"
+        },
+        {
+          "cell": "O28",
+          "value": "Metric"
+        },
+        {
+          "cell": "Q28",
+          "value": "Stated in"
+        },
+        {
+          "cell": "R28",
+          "value": "Applies to"
+        },
+        {
+          "cell": "S28",
+          "value": "Guidance"
+        },
+        {
+          "cell": "AA28",
+          "value": "Trend / realized"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "O27",
+          "value": "Guidance (As of 2025-11-01) - Status: Mixed"
+        },
+        {
+          "cell": "O28",
+          "value": "Metric"
+        },
+        {
+          "cell": "Q28",
+          "value": "Stated in"
+        },
+        {
+          "cell": "R28",
+          "value": "Applies to"
+        },
+        {
+          "cell": "S28",
+          "value": "Guidance"
+        },
+        {
+          "cell": "AA28",
+          "value": "Trend / realized"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "O27",
+          "value": "Guidance (As of 2025-11-01) - Status: Mixed"
+        },
+        {
+          "cell": "O28",
+          "value": "Metric"
+        },
+        {
+          "cell": "Q28",
+          "value": "Stated in"
+        },
+        {
+          "cell": "R28",
+          "value": "Applies to"
+        },
+        {
+          "cell": "S28",
+          "value": "Guidance"
+        },
+        {
+          "cell": "AA28",
+          "value": "Trend / realized"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "valuation_guidance_historical_rows",
+          "target": "O29:AC35",
+          "value_shape": "table_rows"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "valuation_guidance_historical_rows",
+          "target": "O29:AC35",
+          "value_shape": "table_rows",
+          "nonempty_count": 35,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 35,
           "sample_cells": [
             {
               "cell": "O29",
@@ -2394,6 +2410,10 @@
               "value": "+6-7%"
             },
             {
+              "cell": "AA29",
+              "value": "Final 2025: +6%"
+            },
+            {
               "cell": "O30",
               "value": "Operating margin"
             },
@@ -2404,10 +2424,6 @@
             {
               "cell": "R30",
               "value": "2025 year"
-            },
-            {
-              "cell": "S30",
-              "value": "13.0-13.5%"
             }
           ]
         }
@@ -2417,7 +2433,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "normalized_guidance.items.0.value"
+        "_derived_workbook.guidance.historical_rows.value"
       ],
       "support_sheets_used": [
         "Debt_Profile",
@@ -2440,23 +2456,23 @@
       ],
       "required_fields": [],
       "optional_fields": [
-        "normalized_guidance.items.0.value"
+        "_derived_workbook.guidance.historical_rows.value"
       ],
       "source_policy": "source-backed",
-      "missing_data_behavior": "blank lower guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance",
+      "missing_data_behavior": "leave unavailable historical metric slots blank; retain older and excluded records in selection audit",
       "validation_rules": [
         "guidance_metric_misclassification"
       ],
       "standardization_status": "standard",
       "bindings": [
         {
-          "binding_id": "valuation_guidance_rows_lower",
-          "target": "O29:T36",
-          "normalized_field": "normalized_guidance.items.0.value",
+          "binding_id": "valuation_guidance_historical_rows",
+          "target": "O29:AC35",
+          "normalized_field": "_derived_workbook.guidance.historical_rows.value",
           "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
-          "missing_source_behavior": "blank lower guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance",
+          "missing_source_behavior": "leave unavailable historical metric slots blank; retain older and excluded records in selection audit",
           "validation_rule": "guidance_metric_misclassification"
         }
       ],
@@ -2466,225 +2482,10 @@
       ]
     },
     {
-      "block_id": "valuation_operating_driver_values",
+      "block_id": "valuation_thesis_debate_rows",
       "sheet": "Valuation",
       "resolved_lab_sheet": "Valuation",
-      "range": "O39:AA47",
-      "title_header_cells": [
-        {
-          "cell": "O37",
-          "value": "Operating Drivers"
-        },
-        {
-          "cell": "O38",
-          "value": "Driver group"
-        },
-        {
-          "cell": "R38",
-          "value": "Driver"
-        },
-        {
-          "cell": "U38",
-          "value": "Why it matters"
-        },
-        {
-          "cell": "AA38",
-          "value": "Source/type"
-        }
-      ],
-      "template_label_cells": [
-        {
-          "cell": "O37",
-          "value": "Operating Drivers"
-        },
-        {
-          "cell": "O38",
-          "value": "Driver group"
-        },
-        {
-          "cell": "R38",
-          "value": "Driver"
-        },
-        {
-          "cell": "U38",
-          "value": "Why it matters"
-        },
-        {
-          "cell": "AA38",
-          "value": "Source/type"
-        }
-      ],
-      "row_label_cells": [],
-      "static_label_cells": [
-        {
-          "cell": "O37",
-          "value": "Operating Drivers"
-        },
-        {
-          "cell": "O38",
-          "value": "Driver group"
-        },
-        {
-          "cell": "R38",
-          "value": "Driver"
-        },
-        {
-          "cell": "U38",
-          "value": "Why it matters"
-        },
-        {
-          "cell": "AA38",
-          "value": "Source/type"
-        }
-      ],
-      "writable_value_cells": [
-        {
-          "binding_id": "valuation_operating_driver_sidecar_rows",
-          "target": "O39:AA47",
-          "value_shape": "table_rows"
-        }
-      ],
-      "writable_example_cells": [
-        {
-          "binding_id": "valuation_operating_driver_sidecar_rows",
-          "target": "O39:AA47",
-          "value_shape": "table_rows",
-          "nonempty_count": 32,
-          "formula_count": 0,
-          "numeric_count": 0,
-          "text_count": 32,
-          "sample_cells": [
-            {
-              "cell": "O39",
-              "value": "Brand / demand"
-            },
-            {
-              "cell": "R39",
-              "value": "A&F + Hollister"
-            },
-            {
-              "cell": "U39",
-              "value": "Hollister growth engine and Abercrombie stabilization"
-            },
-            {
-              "cell": "AA39",
-              "value": "earnings release / quarterly history"
-            },
-            {
-              "cell": "O40",
-              "value": "Comps / lapping"
-            },
-            {
-              "cell": "R40",
-              "value": "brand/geography comps"
-            },
-            {
-              "cell": "U40",
-              "value": "Separates true slowdown from tough compares"
-            },
-            {
-              "cell": "AA40",
-              "value": "quarterly history"
-            }
-          ]
-        }
-      ],
-      "company_specific_example_cells": [
-        {
-          "cell": "R39",
-          "value": "A&F + Hollister"
-        },
-        {
-          "cell": "U39",
-          "value": "Hollister growth engine and Abercrombie stabilization"
-        }
-      ],
-      "source_specific_example_cells": [
-        {
-          "cell": "AA39",
-          "value": "earnings release / quarterly history"
-        },
-        {
-          "cell": "AA40",
-          "value": "quarterly history"
-        },
-        {
-          "cell": "AA41",
-          "value": "earnings release / transcript"
-        },
-        {
-          "cell": "AA42",
-          "value": "earnings release / transcript"
-        },
-        {
-          "cell": "AA43",
-          "value": "annual report / transcript"
-        },
-        {
-          "cell": "AA44",
-          "value": "quarterly history / guidance"
-        },
-        {
-          "cell": "AA45",
-          "value": "cash flow / guidance"
-        }
-      ],
-      "formula_cells": [],
-      "hidden_helper_cells": [],
-      "normalized_fields": [
-        "operating_drivers.items.0.driver"
-      ],
-      "support_sheets_used": [
-        "Debt_Profile",
-        "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
-        "History_Q",
-        "Slides_Guidance"
-      ],
-      "current_code_owner": [
-        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
-        "pbi_xbrl/excel_writer_valuation_*",
-        "pbi_xbrl/valuation.py"
-      ],
-      "future_intended_owner": [
-        "frozen template shell",
-        "docs/workbook_binding_map.json",
-        "future value-only filler"
-      ],
-      "required_fields": [],
-      "optional_fields": [
-        "operating_drivers.items.0.driver"
-      ],
-      "source_policy": "source-backed",
-      "missing_data_behavior": "blank operating-driver sidecar rows until source-backed driver evidence exists",
-      "validation_rules": [
-        "unsupported_sector_specific_leakage"
-      ],
-      "standardization_status": "standard",
-      "bindings": [
-        {
-          "binding_id": "valuation_operating_driver_sidecar_rows",
-          "target": "O39:AA47",
-          "normalized_field": "operating_drivers.items.0.driver",
-          "required": false,
-          "value_shape": "table_rows",
-          "source_policy": "source-backed",
-          "missing_source_behavior": "blank operating-driver sidecar rows until source-backed driver evidence exists",
-          "validation_rule": "unsupported_sector_specific_leakage"
-        }
-      ],
-      "notes": [
-        "Block is derived from manifest writable zone and current binding map.",
-        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
-      ]
-    },
-    {
-      "block_id": "valuation_thesis_bridge_values",
-      "sheet": "Valuation",
-      "resolved_lab_sheet": "Valuation",
-      "range": "O51:AA62",
+      "range": "O51:AA58",
       "title_header_cells": [
         {
           "cell": "O49",
@@ -2742,20 +2543,20 @@
       ],
       "writable_value_cells": [
         {
-          "binding_id": "valuation_thesis_bridge_rows",
-          "target": "O51:AA62",
+          "binding_id": "valuation_thesis_debate_rows",
+          "target": "O51:AA58",
           "value_shape": "table_rows"
         }
       ],
       "writable_example_cells": [
         {
-          "binding_id": "valuation_thesis_bridge_rows",
-          "target": "O51:AA62",
+          "binding_id": "valuation_thesis_debate_rows",
+          "target": "O51:AA58",
           "value_shape": "table_rows",
-          "nonempty_count": 36,
+          "nonempty_count": 24,
           "formula_count": 0,
-          "numeric_count": 12,
-          "text_count": 24,
+          "numeric_count": 8,
+          "text_count": 16,
           "sample_cells": [
             {
               "cell": "O51",
@@ -2806,7 +2607,7 @@
       "formula_cells": [],
       "hidden_helper_cells": [],
       "normalized_fields": [
-        "investment_case.key_debate"
+        "_derived_workbook.thesis.rows.text"
       ],
       "support_sheets_used": [
         "Debt_Profile",
@@ -2829,149 +2630,24 @@
       ],
       "required_fields": [],
       "optional_fields": [
-        "investment_case.key_debate"
+        "_derived_workbook.thesis.rows.text"
       ],
-      "source_policy": "manual",
-      "missing_data_behavior": "blank thesis bridge rows until investment-case evidence is populated",
+      "source_policy": "source-backed",
+      "missing_data_behavior": "leave a typed thesis slot blank when its exact normalized field and lineage are unavailable",
       "validation_rules": [
         "placeholder_investment_case_promotion"
       ],
       "standardization_status": "standard",
       "bindings": [
         {
-          "binding_id": "valuation_thesis_bridge_rows",
-          "target": "O51:AA62",
-          "normalized_field": "investment_case.key_debate",
-          "required": false,
-          "value_shape": "table_rows",
-          "source_policy": "manual",
-          "missing_source_behavior": "blank thesis bridge rows until investment-case evidence is populated",
-          "validation_rule": "placeholder_investment_case_promotion"
-        }
-      ],
-      "notes": [
-        "Block is derived from manifest writable zone and current binding map.",
-        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
-      ]
-    },
-    {
-      "block_id": "valuation_guidance_status_values_lower",
-      "sheet": "Valuation",
-      "resolved_lab_sheet": "Valuation",
-      "range": "X29:AA36",
-      "title_header_cells": [
-        {
-          "cell": "AA28",
-          "value": "Trend / realized"
-        }
-      ],
-      "template_label_cells": [
-        {
-          "cell": "AA28",
-          "value": "Trend / realized"
-        }
-      ],
-      "row_label_cells": [],
-      "static_label_cells": [
-        {
-          "cell": "AA28",
-          "value": "Trend / realized"
-        }
-      ],
-      "writable_value_cells": [
-        {
-          "binding_id": "valuation_guidance_status_rows_lower",
-          "target": "X29:AA36",
-          "value_shape": "table_rows"
-        }
-      ],
-      "writable_example_cells": [
-        {
-          "binding_id": "valuation_guidance_status_rows_lower",
-          "target": "X29:AA36",
-          "value_shape": "table_rows",
-          "nonempty_count": 7,
-          "formula_count": 0,
-          "numeric_count": 0,
-          "text_count": 7,
-          "sample_cells": [
-            {
-              "cell": "AA29",
-              "value": "Final 2025: +6%"
-            },
-            {
-              "cell": "AA30",
-              "value": "Final 13.3% / 12.5% adj"
-            },
-            {
-              "cell": "AA31",
-              "value": "$10.46 GAAP; $9.86 adj"
-            },
-            {
-              "cell": "AA32",
-              "value": "Actual around $450m"
-            },
-            {
-              "cell": "AA33",
-              "value": "Avg 48.5m; 2025-Q4 46.8m"
-            },
-            {
-              "cell": "AA34",
-              "value": "Actual $240.8m"
-            },
-            {
-              "cell": "AA35",
-              "value": "Bridge item; not rev guide"
-            }
-          ]
-        }
-      ],
-      "company_specific_example_cells": [],
-      "source_specific_example_cells": [],
-      "formula_cells": [],
-      "hidden_helper_cells": [],
-      "normalized_fields": [
-        "normalized_guidance.items.0.horizon"
-      ],
-      "support_sheets_used": [
-        "Debt_Profile",
-        "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
-        "History_Q",
-        "Slides_Guidance"
-      ],
-      "current_code_owner": [
-        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
-        "pbi_xbrl/excel_writer_valuation_*",
-        "pbi_xbrl/valuation.py"
-      ],
-      "future_intended_owner": [
-        "frozen template shell",
-        "docs/workbook_binding_map.json",
-        "future value-only filler"
-      ],
-      "required_fields": [],
-      "optional_fields": [
-        "normalized_guidance.items.0.horizon"
-      ],
-      "source_policy": "source-backed",
-      "missing_data_behavior": "blank lower guidance status rows until realized/status evidence exists",
-      "validation_rules": [
-        "boilerplate_guidance"
-      ],
-      "standardization_status": "standard",
-      "bindings": [
-        {
-          "binding_id": "valuation_guidance_status_rows_lower",
-          "target": "X29:AA36",
-          "normalized_field": "normalized_guidance.items.0.horizon",
+          "binding_id": "valuation_thesis_debate_rows",
+          "target": "O51:AA58",
+          "normalized_field": "_derived_workbook.thesis.rows.text",
           "required": false,
           "value_shape": "table_rows",
           "source_policy": "source-backed",
-          "missing_source_behavior": "blank lower guidance status rows until realized/status evidence exists",
-          "validation_rule": "boilerplate_guidance"
+          "missing_source_behavior": "leave a typed thesis slot blank when its exact normalized field and lineage are unavailable",
+          "validation_rule": "placeholder_investment_case_promotion"
         }
       ],
       "notes": [

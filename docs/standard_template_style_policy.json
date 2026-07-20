@@ -2181,6 +2181,83 @@
           ]
         }
       ]
+    },
+    {
+      "policy_id": "valuation_guidance_source_state",
+      "owner_module_id": "guidance_promises",
+      "owned_style_ids": [
+        "valuation_guidance_style"
+      ],
+      "state_overlays": {
+        "current_primary / manual_review_required": "hidden_value_near_miss",
+        "current_secondary / manual_review_required": "hidden_value_near_miss",
+        "history / manual_review_required": "hidden_value_near_miss",
+        "current_primary / conflict": "hidden_value_near_miss",
+        "current_secondary / conflict": "hidden_value_near_miss",
+        "history / conflict": "hidden_value_near_miss",
+        "current_primary / unavailable": "hidden_value_unavailable",
+        "current_secondary / unavailable": "hidden_value_unavailable",
+        "history / unavailable": "hidden_value_unavailable"
+      },
+      "no_style_states": [
+        "current_primary / accepted",
+        "current_secondary / accepted",
+        "history / accepted"
+      ],
+      "target_selectors": [
+        {
+          "selector_type": "binding_state",
+          "target_id": "valuation_guidance_current_primary_rows",
+          "state_field": "display_state",
+          "period_field": "publication_date",
+          "target_fields": [
+            "display_state"
+          ]
+        },
+        {
+          "selector_type": "binding_state",
+          "target_id": "valuation_guidance_current_secondary_rows",
+          "state_field": "display_state",
+          "period_field": "publication_date",
+          "target_fields": [
+            "display_state"
+          ]
+        },
+        {
+          "selector_type": "binding_state",
+          "target_id": "valuation_guidance_historical_rows",
+          "state_field": "display_state",
+          "period_field": "publication_date",
+          "target_fields": [
+            "display_state"
+          ]
+        }
+      ]
+    },
+    {
+      "policy_id": "valuation_thesis_review_state",
+      "owner_module_id": "investment_case_market_implied",
+      "owned_style_ids": [
+        "valuation_thesis_debate_style"
+      ],
+      "state_overlays": {
+        "manual_review_required": "hidden_value_near_miss",
+        "unavailable": "hidden_value_unavailable"
+      },
+      "no_style_states": [
+        "accepted"
+      ],
+      "target_selectors": [
+        {
+          "selector_type": "binding_state",
+          "target_id": "valuation_thesis_debate_rows",
+          "state_field": "review_state",
+          "period_field": "normalized_path",
+          "target_fields": [
+            "review_state"
+          ]
+        }
+      ]
     }
   ],
   "style_disabled": [

@@ -533,7 +533,8 @@
           "value": "Revenue growth expected in the mid-single-digit range.",
           "status": "populated",
           "source_ref": "synthetic_fixture:guidance",
-          "core": true
+          "core": true,
+          "unit": "%"
         },
         "horizon": {
           "value": "FY2026",
@@ -550,6 +551,10 @@
         "display_role": "current_primary",
         "display_priority": 1,
         "update_stage": "initial",
+        "visibility_disposition": "visible",
+        "review_state": "accepted",
+        "evidence_refs": ["synthetic_fixture:guidance"],
+        "source_ref": "synthetic_fixture:guidance",
         "initial_guide": {
           "value": null,
           "status": "missing_source",
@@ -810,7 +815,10 @@
       "value": "Whether retention and implementation speed can support sustained margin expansion.",
       "status": "populated",
       "source_ref": "synthetic_fixture:investment_case",
-      "core": true
+      "core": true,
+      "evidence_refs": ["synthetic_fixture:investment_case"],
+      "evidence_classification": "analyst_interpretation_requiring_review",
+      "review_state": "manual_review_required"
     },
     "bull_case": {
       "value": "Higher retention and operating leverage lift free cash flow.",

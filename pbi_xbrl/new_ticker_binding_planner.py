@@ -346,6 +346,76 @@ def plan_standard_template_writes(
 
     planning_package: Mapping[str, Any] = package
     profile_id = str(module_profile.get("profile_id") or "")
+    enabled_modules = {str(value) for value in module_profile.get("enabled_modules") or [] if str(value)}
+    profile_pack_ids = {str(value) for value in module_profile.get("profile_pack_ids") or [] if str(value)}
+    derived_workbook: dict[str, Any] = {}
+
+    if "guidance_promises" in enabled_modules:
+        try:
+            from pbi_xbrl.new_ticker_guidance_scope import build_valuation_guidance_projection
+
+            raw_guidance_rows = _path_get(package, "normalized_guidance.items")
+            guidance_projection = build_valuation_guidance_projection(
+                raw_guidance_rows if isinstance(raw_guidance_rows, list) else [],
+                profile_pack_ids=profile_pack_ids,
+            )
+            guidance_payload = guidance_projection.to_dict()
+            derived_workbook["guidance"] = guidance_payload
+            plan.derived_plan_reports.append(
+                {
+                    "plan_id": "valuation_guidance_projection",
+                    "status": "PASS",
+                    "projection_digest": guidance_projection.projection_digest,
+                    "current_primary_row_count": len(guidance_projection.current_primary_rows),
+                    "current_secondary_row_count": len(guidance_projection.current_secondary_rows),
+                    "historical_row_count": len(guidance_projection.historical_rows),
+                    "selection_audit_count": len(guidance_projection.selection_audit),
+                }
+            )
+        except Exception as exc:
+            plan.planner_issues.append(
+                _planner_issue(
+                    "P1",
+                    "valuation_guidance_projection_failed",
+                    "guidance_promises",
+                    str(exc),
+                )
+            )
+            _refresh_issue_ledger(plan)
+            _add_blocking_reports(plan, bindings)
+            return plan
+
+    if "investment_case_market_implied" in enabled_modules:
+        try:
+            from pbi_xbrl.new_ticker_thesis_projection import build_valuation_thesis_projection
+
+            raw_investment_case = _path_get(package, "investment_case")
+            thesis_projection = build_valuation_thesis_projection(
+                raw_investment_case if isinstance(raw_investment_case, Mapping) else {}
+            )
+            thesis_payload = thesis_projection.to_dict()
+            derived_workbook["thesis"] = thesis_payload
+            plan.derived_plan_reports.append(
+                {
+                    "plan_id": "valuation_thesis_projection",
+                    "status": "PASS",
+                    "projection_digest": thesis_projection.projection_digest,
+                    "row_count": len(thesis_projection.rows),
+                }
+            )
+        except Exception as exc:
+            plan.planner_issues.append(
+                _planner_issue(
+                    "P1",
+                    "valuation_thesis_projection_failed",
+                    "investment_case_market_implied",
+                    str(exc),
+                )
+            )
+            _refresh_issue_ledger(plan)
+            _add_blocking_reports(plan, bindings)
+            return plan
+
     if profile_id:
         try:
             from pbi_xbrl.hidden_value_signal_economics import evaluate_hidden_value_signals
@@ -358,8 +428,7 @@ def plan_standard_template_writes(
             )
             hidden_value_projection = build_hidden_value_workbook_projection(hidden_value_plan)
             projection_payload = hidden_value_projection.to_dict()
-            planning_package = dict(package)
-            planning_package["_derived_workbook"] = {"hidden_value": projection_payload}
+            derived_workbook["hidden_value"] = projection_payload
             plan.derived_plan_reports.append(
                 {
                     "plan_id": "hidden_value_evaluation",
@@ -389,6 +458,10 @@ def plan_standard_template_writes(
             _refresh_issue_ledger(plan)
             _add_blocking_reports(plan, bindings)
             return plan
+
+    if derived_workbook:
+        planning_package = dict(package)
+        planning_package["_derived_workbook"] = derived_workbook
 
     business_bindings = [
         binding

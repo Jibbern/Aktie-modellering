@@ -151,14 +151,29 @@ def test_public_filler_applies_exact_reproduced_style_plan_after_values(
 ) -> None:
     artifacts = filled_anf_style_workbook
     result = artifacts["result"]
-    assert result.written_cell_count == 22_214
-    assert result.styled_cell_count == 714
+    assert result.written_cell_count == 22_371
+    assert result.styled_cell_count == 721
 
     shell = load_workbook(SHELL, data_only=False, read_only=False)
     filled = load_workbook(artifacts["output"], data_only=False, read_only=False)
     try:
         assert filled["Valuation"]["B9"].fill.fgColor.rgb[-6:] == "2F80ED"
         assert filled["Valuation"]["B70"].fill.fill_type is None
+        assert (
+            filled["Valuation"]["AA9"].fill.patternType,
+            filled["Valuation"]["AA9"].fill.fgColor.rgb,
+        ) == (
+            shell["Valuation"]["AA9"].fill.patternType,
+            shell["Valuation"]["AA9"].fill.fgColor.rgb,
+        )
+        assert filled["Valuation"]["X51"].fill.fgColor.rgb[-6:] == "FFEB9C"
+        assert (
+            filled["Valuation"]["X52"].fill.patternType,
+            filled["Valuation"]["X52"].fill.fgColor.rgb,
+        ) == (
+            shell["Valuation"]["X52"].fill.patternType,
+            shell["Valuation"]["X52"].fill.fgColor.rgb,
+        )
         assert _non_fill_style(filled["Valuation"]["B9"]) == _non_fill_style(shell["Valuation"]["B9"])
         assert _conditional_formatting_signature(filled["Valuation"]) == _conditional_formatting_signature(
             shell["Valuation"]
@@ -185,7 +200,7 @@ def test_strict_post_fill_accepts_only_the_reproduced_style_plan(
     )
 
     assert report["status"] == "PASS", report["issues"][:10]
-    assert report["reproduced_style_action_count"] == 714
+    assert report["reproduced_style_action_count"] == 721
 
 
 def test_strict_post_fill_rejects_fabricated_hidden_value_state_fill(

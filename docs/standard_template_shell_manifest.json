@@ -330,68 +330,271 @@
       ]
     },
     {
-      "contract_id": "valuation_guidance_metric",
+      "contract_id": "valuation_guidance_current_metric",
       "sheet": "Valuation",
-      "target": "O9:O25",
+      "target": "O9:O21",
       "writable": true,
-      "target_role": "guidance metric",
+      "target_role": "resolved guidance metric",
       "allowed_binding_ids": [
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "allowed_target_types": [
         "text"
       ]
     },
     {
-      "contract_id": "valuation_guidance_stated_in",
+      "contract_id": "valuation_guidance_current_stated_period",
       "sheet": "Valuation",
-      "target": "Q9:Q25",
+      "target": "Q9:Q21",
       "writable": true,
-      "target_role": "guidance stated period",
+      "target_role": "resolved guidance stated period",
       "allowed_binding_ids": [
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "allowed_target_types": [
         "period"
       ]
     },
     {
-      "contract_id": "valuation_guidance_horizon",
+      "contract_id": "valuation_guidance_current_horizon",
       "sheet": "Valuation",
-      "target": "R9:R25",
+      "target": "R9:R21",
       "writable": true,
-      "target_role": "guidance horizon",
+      "target_role": "resolved guidance horizon",
       "allowed_binding_ids": [
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "allowed_target_types": [
         "horizon"
       ]
     },
     {
-      "contract_id": "valuation_guidance_value",
+      "contract_id": "valuation_guidance_current_value",
       "sheet": "Valuation",
-      "target": "S9:S25",
+      "target": "S9:S21",
       "writable": true,
-      "target_role": "guidance value",
+      "target_role": "resolved guidance value",
       "allowed_binding_ids": [
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "allowed_target_types": [
         "text"
       ]
     },
     {
-      "contract_id": "valuation_guidance_status",
+      "contract_id": "valuation_guidance_current_unit",
       "sheet": "Valuation",
-      "target": "AA9:AA25",
+      "target": "X9:X21",
       "writable": true,
-      "target_role": "guidance status",
+      "target_role": "resolved guidance unit",
       "allowed_binding_ids": [
-        "valuation_guidance_status_rows"
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_current_publication_date",
+      "sheet": "Valuation",
+      "target": "Y9:Y21",
+      "writable": true,
+      "target_role": "resolved guidance publication date",
+      "allowed_binding_ids": [
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_current_evidence_key",
+      "sheet": "Valuation",
+      "target": "Z9:Z21",
+      "writable": true,
+      "target_role": "resolved guidance evidence key",
+      "allowed_binding_ids": [
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_current_display_state",
+      "sheet": "Valuation",
+      "target": "AA9:AA21",
+      "writable": true,
+      "target_role": "resolved guidance role and source state",
+      "allowed_binding_ids": [
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "allowed_target_types": [
         "status"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_history_metric",
+      "sheet": "Valuation",
+      "target": "O29:O35",
+      "writable": true,
+      "target_role": "resolved historical guidance metric",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_history_stated_period",
+      "sheet": "Valuation",
+      "target": "Q29:Q35",
+      "writable": true,
+      "target_role": "resolved historical guidance stated period",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_history_horizon",
+      "sheet": "Valuation",
+      "target": "R29:R35",
+      "writable": true,
+      "target_role": "resolved historical guidance horizon",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
+      "allowed_target_types": [
+        "horizon"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_history_value",
+      "sheet": "Valuation",
+      "target": "S29:S35",
+      "writable": true,
+      "target_role": "resolved historical guidance value",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_history_unit",
+      "sheet": "Valuation",
+      "target": "X29:X35",
+      "writable": true,
+      "target_role": "resolved historical guidance unit",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_history_publication_date",
+      "sheet": "Valuation",
+      "target": "Y29:Y35",
+      "writable": true,
+      "target_role": "resolved historical guidance publication date",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_history_evidence_key",
+      "sheet": "Valuation",
+      "target": "Z29:Z35",
+      "writable": true,
+      "target_role": "resolved historical guidance evidence key",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_guidance_history_display_state",
+      "sheet": "Valuation",
+      "target": "AA29:AA35",
+      "writable": true,
+      "target_role": "resolved historical guidance role and source state",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "valuation_thesis_item_type",
+      "sheet": "Valuation",
+      "target": "O51:O58",
+      "writable": true,
+      "target_role": "typed thesis item",
+      "allowed_binding_ids": [
+        "valuation_thesis_debate_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_thesis_evidence_text",
+      "sheet": "Valuation",
+      "target": "Q51:Q58",
+      "writable": true,
+      "target_role": "typed thesis evidence",
+      "allowed_binding_ids": [
+        "valuation_thesis_debate_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_thesis_review_state",
+      "sheet": "Valuation",
+      "target": "X51:X58",
+      "writable": true,
+      "target_role": "typed thesis review state",
+      "allowed_binding_ids": [
+        "valuation_thesis_debate_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "valuation_thesis_source_key",
+      "sheet": "Valuation",
+      "target": "Z51:Z58",
+      "writable": true,
+      "target_role": "typed thesis normalized path",
+      "allowed_binding_ids": [
+        "valuation_thesis_debate_rows"
+      ],
+      "allowed_target_types": [
+        "text"
       ]
     },
     {
@@ -4546,30 +4749,96 @@
       ]
     },
     {
-      "merge_id": "valuation_guidance_metric_merges",
+      "merge_id": "valuation_guidance_current_metric_merges",
       "sheet": "Valuation",
-      "target": "O9:P25",
+      "target": "O9:P21",
       "anchor_column": "O",
       "allowed_binding_ids": [
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
       ]
     },
     {
-      "merge_id": "valuation_guidance_value_merges",
+      "merge_id": "valuation_guidance_current_value_merges",
       "sheet": "Valuation",
-      "target": "S9:Z25",
+      "target": "S9:W21",
       "anchor_column": "S",
       "allowed_binding_ids": [
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
       ]
     },
     {
-      "merge_id": "valuation_guidance_status_merges",
+      "merge_id": "valuation_guidance_current_state_merges",
       "sheet": "Valuation",
-      "target": "AA9:AC25",
+      "target": "AA9:AC21",
       "anchor_column": "AA",
       "allowed_binding_ids": [
-        "valuation_guidance_status_rows"
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_guidance_history_metric_merges",
+      "sheet": "Valuation",
+      "target": "O29:P35",
+      "anchor_column": "O",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_guidance_history_value_merges",
+      "sheet": "Valuation",
+      "target": "S29:W35",
+      "anchor_column": "S",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_guidance_history_state_merges",
+      "sheet": "Valuation",
+      "target": "AA29:AC35",
+      "anchor_column": "AA",
+      "allowed_binding_ids": [
+        "valuation_guidance_historical_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_thesis_item_merges",
+      "sheet": "Valuation",
+      "target": "O51:P58",
+      "anchor_column": "O",
+      "allowed_binding_ids": [
+        "valuation_thesis_debate_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_thesis_evidence_merges",
+      "sheet": "Valuation",
+      "target": "Q51:W58",
+      "anchor_column": "Q",
+      "allowed_binding_ids": [
+        "valuation_thesis_debate_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_thesis_review_merges",
+      "sheet": "Valuation",
+      "target": "X51:Y58",
+      "anchor_column": "X",
+      "allowed_binding_ids": [
+        "valuation_thesis_debate_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_thesis_source_merges",
+      "sheet": "Valuation",
+      "target": "Z51:AA58",
+      "anchor_column": "Z",
+      "allowed_binding_ids": [
+        "valuation_thesis_debate_rows"
       ]
     },
     {
@@ -5047,56 +5316,35 @@
       "static_layout_owner": "frozen_template_shell",
       "writable_zones": [
         {
-          "zone_id": "valuation_guidance_values",
-          "target": "O9:T27",
-          "anchor_label": "Guidance",
-          "value_shapes": [
-            "table_rows",
-            "text_block"
-          ]
-        },
-        {
-          "zone_id": "valuation_guidance_status_values",
-          "target": "AA9:AA27",
-          "anchor_label": "Guidance status",
+          "zone_id": "valuation_guidance_current_primary_rows",
+          "target": "O9:AC15",
+          "anchor_label": "Current guidance",
           "value_shapes": [
             "table_rows"
           ]
         },
         {
-          "zone_id": "valuation_guidance_values_lower",
-          "target": "O29:T36",
-          "anchor_label": "Lower guidance",
+          "zone_id": "valuation_guidance_current_secondary_rows",
+          "target": "O16:AC21",
+          "anchor_label": "Current guidance",
           "value_shapes": [
-            "table_rows",
-            "text_block"
+            "table_rows"
           ]
         },
         {
-          "zone_id": "valuation_operating_driver_values",
-          "target": "O39:AA47",
-          "anchor_label": "Operating Drivers",
+          "zone_id": "valuation_guidance_historical_rows",
+          "target": "O29:AC35",
+          "anchor_label": "Historical guidance",
           "value_shapes": [
-            "table_rows",
-            "text_block"
+            "table_rows"
           ]
         },
         {
-          "zone_id": "valuation_thesis_bridge_values",
-          "target": "O51:AA62",
-          "anchor_label": "Thesis Bridge",
+          "zone_id": "valuation_thesis_debate_rows",
+          "target": "O51:AA58",
+          "anchor_label": "Thesis / debate evidence",
           "value_shapes": [
-            "table_rows",
-            "text_block"
-          ]
-        },
-        {
-          "zone_id": "valuation_guidance_status_values_lower",
-          "target": "X29:AA36",
-          "anchor_label": "Lower guidance realized/status",
-          "value_shapes": [
-            "table_rows",
-            "text_block"
+            "table_rows"
           ]
         },
         {
@@ -5137,33 +5385,6 @@
           "anchor_label": "Hidden value flags",
           "value_shapes": [
             "table_rows"
-          ]
-        },
-        {
-          "zone_id": "valuation_operating_signal_values",
-          "target": "B146:M149",
-          "anchor_label": "Operating signals",
-          "value_shapes": [
-            "text_block",
-            "validation_rows"
-          ]
-        },
-        {
-          "zone_id": "valuation_capital_return_values",
-          "target": "B152:M156",
-          "anchor_label": "Capital return",
-          "value_shapes": [
-            "quarterly_series",
-            "annual_series"
-          ]
-        },
-        {
-          "zone_id": "valuation_trend_values",
-          "target": "B160:D166",
-          "anchor_label": "Trend/Δ (last 4Q)",
-          "value_shapes": [
-            "table_rows",
-            "validation_rows"
           ]
         },
         {
@@ -5419,11 +5640,6 @@
           "reason": "Static row labels and section labels above the Hidden Value display."
         },
         {
-          "zone_id": "valuation_static_label_column_bottom",
-          "target": "A144:A170",
-          "reason": "Static row labels and section labels below the Hidden Value display."
-        },
-        {
           "zone_id": "valuation_hidden_value_spacer_row",
           "target": "B144:M144",
           "reason": "Neutral spacer row below the bounded five-row Hidden Value display."
@@ -5435,23 +5651,18 @@
         },
         {
           "zone_id": "valuation_guidance_header_rows",
-          "target": "O7:AA8",
-          "reason": "Reusable guidance panel title and table headers; guidance values are writable below."
+          "target": "O7:AC8",
+          "reason": "Current guidance title and typed projection headers."
         },
         {
-          "zone_id": "valuation_lower_guidance_header_rows",
-          "target": "O28:AA28",
-          "reason": "Repeated lower guidance table headers; lower guidance values are writable below."
+          "zone_id": "valuation_historical_guidance_header_rows",
+          "target": "O27:AC28",
+          "reason": "Historical guidance title and typed projection headers."
         },
         {
-          "zone_id": "valuation_operating_driver_header_rows",
-          "target": "O37:AA38",
-          "reason": "Operating-driver sidecar title and column headers."
-        },
-        {
-          "zone_id": "valuation_thesis_bridge_header_rows",
+          "zone_id": "valuation_thesis_debate_header_rows",
           "target": "O48:AA50",
-          "reason": "Thesis bridge sidecar title, note, and column headers."
+          "reason": "Typed thesis/debate title, note, and projection headers."
         },
         {
           "zone_id": "valuation_output_header_rows",
@@ -5489,48 +5700,13 @@
           "reason": "Hidden-value flag reusable column headers; runtime/audit values must not overwrite the headers."
         },
         {
-          "zone_id": "valuation_operating_signals_title_row",
-          "target": "A145:M145",
-          "reason": "Operating signal section header band; signal values are blank until validated normalized evidence exists."
-        },
-        {
-          "zone_id": "valuation_capital_return_title_row",
-          "target": "A151:M151",
-          "reason": "Capital return section header band; capital-return values are writable only below the title row."
-        },
-        {
-          "zone_id": "valuation_trend_title_row",
-          "target": "A158:D158",
-          "reason": "Trend section header band; trend values start below the title/header rows."
-        },
-        {
-          "zone_id": "valuation_trend_header_rows",
-          "target": "B159:M159",
-          "reason": "Trend table reusable column headers; trend values start below the header row."
-        },
-        {
-          "zone_id": "valuation_red_green_header_rows",
-          "target": "B169:M169",
-          "reason": "Red/green flag reusable column headers; status/evidence values are generated only after normalized validation."
-        },
-        {
-          "zone_id": "valuation_guidance_formula_support_columns",
-          "target": "U9:W27",
-          "reason": "Formula/support columns used by the top valuation/guidance table."
-        },
-        {
-          "zone_id": "valuation_lower_guidance_formula_support_columns",
-          "target": "U29:W36",
-          "reason": "Formula/support columns used by the lower valuation/guidance table."
-        },
-        {
           "zone_id": "valuation_right_formula_support_columns",
-          "target": "AB9:AI170",
+          "target": "AD9:AI170",
           "reason": "Formula/support columns outside the guidance value-write area."
         },
         {
           "zone_id": "valuation_lower_formula_bands_top",
-          "target": "A171:AI191",
+          "target": "A189:AI191",
           "reason": "Formula/static region above the explicit valuation input block."
         },
         {
@@ -8406,26 +8582,26 @@
   "semantic_contract_version": "1.8.0",
   "shell_identity": {
     "semantic_contract_version": "1.8.0",
-    "workbook_sha256": "f3d458e0536670635d704a804961956888123e04cb420d75fd8ff6261c471c74",
-    "manifest_contract_signature": "c74da47e696cc5971f88777cdf15e6bcb7d7439c8f422d6cdaa80e34ab4efffb",
+    "workbook_sha256": "27acd59bce6993fe28c67232b673edf8d5c85780b58035baed46e38b3d720df4",
+    "manifest_contract_signature": "f326fd45ad2b3ead7e1924b34c13a423f17a6cab71bcbbc2bbe6060fa7d1fc5a",
     "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
     "sheet_view_signature": "05ae7b3677f3e327032c0dbbd0953f8c059c7d333d84c0fb7ed8662a9d00fd6c",
-    "merge_signature": "1001744c308056850167fde5c074fcd2f8054363eab9d461cc2bc580a966d2b3",
-    "defined_name_signature": "74ef76f58500d3cbac7417da8724945d9963894508fc4ab0b08ac22fcbe62566",
-    "writable_target_signature": "49dd35bb459153a4f5dafa5860fce193c87777a3fdbc7e1d7a2281efd9a4b818",
-    "binding_contract_signature": "d1a1fc8b70bd1a62ae2f9e1a8f84f9a36c838c8811cfaa411d5af02d3681240b",
-    "formula_static_zone_signature": "243e988e5bf540bc9ef4aa2fa80a7fd3646b9c297dac53674fbb275571b11e8e",
+    "merge_signature": "7bbc65e9ab02f63e70548527ca52bdb1182d91af9d46025e45acab9794064de5",
+    "defined_name_signature": "7ef9a4a53ff6743a596ea79880ca042eabcdac6f51b19d2f732cb955ab4110b6",
+    "writable_target_signature": "27e414e15db002db35b0a990ea30baffc48dba82b94c825a665d0131e30977c7",
+    "binding_contract_signature": "d66559c536a3c5121cf1b0830565506fb70c50e232f3694b120cd318393dd70a",
+    "formula_static_zone_signature": "59c79e1d65cf1707090592f7d05cc2d90a6e5add908b12ef3d53de3b28f30fc2",
     "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
     "editable_surface_signature": "29b6308c01ee5961305a12fac0b20ab202f4edae22390e5a07cf27be48d94732",
     "counts": {
       "sheets": 46,
       "sheet_views": 46,
-      "merges": 1836,
-      "defined_names": 269,
-      "writable_targets": 495,
-      "binding_contracts": 182,
+      "merges": 1754,
+      "defined_names": 271,
+      "writable_targets": 512,
+      "binding_contracts": 180,
       "formula_cells": 2141,
-      "static_cells": 1658,
+      "static_cells": 1623,
       "protected_worksheets": 46,
       "editable_cells": 122
     }
@@ -8483,7 +8659,7 @@
     "path": "docs/workbook_module_manifest.json",
     "version": "1.0.0",
     "module_contract_version": "1.1.0",
-    "signature": "00e62a4de2bfcc4e52b018c45f65fc7924252ebb9aba36f3ded79b71fe68babd"
+    "signature": "fe2b6fa3f70b29b213cf22947cc0a36d8f50a5a707b8bea4cadfdd308927af56"
   },
   "module_profile": {
     "profile_id": "full_union",

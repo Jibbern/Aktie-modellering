@@ -2,9 +2,9 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-19T10:51:07+00:00`
-- Bindings with populated data: `80` / `182`
-- Bindings that would write useful output: `121`
+- Generated: `2026-07-20T00:26:50+00:00`
+- Bindings with populated data: `76` / `180`
+- Bindings that would write useful output: `123`
 
 | Binding | Sheet | Field | Values | Rows | Would write | Reason if blank |
 | --- | --- | --- | ---: | ---: | --- | --- |
@@ -19,13 +19,11 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `summary_as_of_quarter` | `SUMMARY` | `quarterly_financials.rows.period` | 0 | 0/1 | True |  |
 | `summary_latest_net_income` | `SUMMARY` | `quarterly_financials.rows.net_income` | 0 | 0/1 | True |  |
 | `summary_net_leverage` | `SUMMARY` | `debt_liquidity.net_leverage` | 0 | 0/1 | False | normalized field is absent or not populated |
-| `valuation_guidance_rows` | `Valuation` | `normalized_guidance.items.value` | 0 | 0/19 | True |  |
-| `valuation_guidance_rows_lower` | `Valuation` | `normalized_guidance.items.0.value` | 196 | 196/8 | False | binding planning_state is inactive_legacy_contract |
-| `valuation_operating_driver_sidecar_rows` | `Valuation` | `operating_drivers.items.0.driver` | 34 | 34/9 | False | binding planning_state is inactive_legacy_contract |
-| `valuation_thesis_bridge_rows` | `Valuation` | `investment_case.key_debate` | 1 | 1/12 | False | binding planning_state is inactive_legacy_contract |
+| `valuation_guidance_current_primary_rows` | `Valuation` | `_derived_workbook.guidance.current_primary_rows.value` | 0 | 0/7 | True |  |
+| `valuation_guidance_historical_rows` | `Valuation` | `_derived_workbook.guidance.historical_rows.value` | 0 | 0/7 | True |  |
+| `valuation_guidance_current_secondary_rows` | `Valuation` | `_derived_workbook.guidance.current_secondary_rows.value` | 0 | 0/6 | True |  |
+| `valuation_thesis_debate_rows` | `Valuation` | `_derived_workbook.thesis.rows.text` | 0 | 0/8 | True |  |
 | `valuation_output_rows` | `Valuation` | `valuation_outputs.items.value` | 0 | 0/107 | False | binding planning_state is formula_owned |
-| `valuation_guidance_status_rows` | `Valuation` | `normalized_guidance.items.progress_status` | 0 | 0/19 | True |  |
-| `valuation_guidance_status_rows_lower` | `Valuation` | `normalized_guidance.items.0.horizon` | 196 | 196/8 | False | binding planning_state is inactive_legacy_contract |
 | `bs_segment_quarterly_rows` | `BS_Segments` | `segments.items.revenue` | 105 | 105/7 | True |  |
 | `bs_segment_annual_rows` | `BS_Segments` | `segments.items.annual_revenue` | 21 | 21/7 | True |  |
 | `od_watchlist_rows` | `Operating_Drivers` | `operating_drivers.items.current_read` | 136 | 34/4 | True |  |

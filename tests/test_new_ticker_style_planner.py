@@ -144,7 +144,7 @@ def test_style_contract_schema_palette_and_authoritative_ownership() -> None:
     assert {key: colors[key] for key in LEGACY_COLORS} == LEGACY_COLORS
     assert {key: colors[key] for key in HIDDEN_VALUE_COLORS} == HIDDEN_VALUE_COLORS
     assert len(contract["policies"]) == 44
-    assert len(contract["state_policies"]) == 3
+    assert len(contract["state_policies"]) == 5
     assert len(contract["style_disabled"]) == 35
 
 
@@ -498,18 +498,35 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
     )
     assert product_pass_2a_business_additions == 24
     product_pass_2a_qa_additions = 138
+    product_pass_2b_binding_counts = {
+        binding_id: sum(write.binding_id == binding_id for write in value_plan.planned_writes)
+        for binding_id in (
+            "valuation_guidance_current_primary_rows",
+            "valuation_guidance_current_secondary_rows",
+            "valuation_guidance_historical_rows",
+            "valuation_thesis_debate_rows",
+        )
+    }
+    assert product_pass_2b_binding_counts == {
+        "valuation_guidance_current_primary_rows": 56,
+        "valuation_guidance_current_secondary_rows": 48,
+        "valuation_guidance_historical_rows": 56,
+        "valuation_thesis_debate_rows": 32,
+    }
+    product_pass_2b_net_business_additions = 157
     assert (
         len(value_plan.planned_writes)
+        - product_pass_2b_net_business_additions
         - hidden_value_additions
         - sum(additive_binding_counts.values())
         - product_pass_2a_business_additions
         - product_pass_2a_qa_additions
         == 19_746
     )
-    assert len(value_plan.planned_writes) - hidden_value_additions == 20_231
-    assert len(value_plan.planned_writes) == 22_214
-    assert len(style_plan.actions) == 714
-    assert len(style_plan.decisions) == 1_233
+    assert len(value_plan.planned_writes) - product_pass_2b_net_business_additions - hidden_value_additions == 20_231
+    assert len(value_plan.planned_writes) == 22_371
+    assert len(style_plan.actions) == 721
+    assert len(style_plan.decisions) == 1_261
     style_payload = style_plan.to_dict()
 
     def outside_retired_segment_surface(row: dict[str, Any]) -> bool:
@@ -518,8 +535,24 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         match = re.fullmatch(r"[A-Z]+(\d+)", str(row.get("cell") or ""))
         return match is None or not 61 <= int(match.group(1)) <= 104
 
-    stable_actions = [row for row in style_payload["actions"] if outside_retired_segment_surface(row)]
-    stable_decisions = [row for row in style_payload["decisions"] if outside_retired_segment_surface(row)]
+    def outside_product_pass_2b_status_surface(row: dict[str, Any]) -> bool:
+        if row.get("sheet") != "Valuation":
+            return True
+        return not (
+            str(row.get("cell") or "") in {f"AA{row_idx}" for row_idx in (*range(9, 22), *range(29, 36))}
+            or str(row.get("cell") or "") in {f"X{row_idx}" for row_idx in range(51, 59)}
+        )
+
+    stable_actions = [
+        row
+        for row in style_payload["actions"]
+        if outside_retired_segment_surface(row) and outside_product_pass_2b_status_surface(row)
+    ]
+    stable_decisions = [
+        row
+        for row in style_payload["decisions"]
+        if outside_retired_segment_surface(row) and outside_product_pass_2b_status_surface(row)
+    ]
     assert len(stable_actions) == 651
     assert _canonical_digest(stable_actions) == "31ef27704d765b69bb158626b097cadb37ad3858f6357c49d475c36e8a2ac419"
     assert len(stable_decisions) == 1_145
@@ -528,6 +561,9 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
     assert {action.sheet for action in style_plan.actions} == {"Valuation", "BS_Segments", "Hidden_Value_Audit"}
     assert sum(action.policy_id == "hidden_value_audit_candidate_state" for action in style_plan.actions) == 6
     assert sum(row.policy_id == "hidden_value_audit_candidate_state" for row in style_plan.decisions) == 7
+    assert sum(action.policy_id == "valuation_thesis_review_state" for action in style_plan.actions) == 7
+    assert sum(row.policy_id == "valuation_thesis_review_state" for row in style_plan.decisions) == 8
+    assert sum(row.policy_id == "valuation_guidance_source_state" for row in style_plan.decisions) == 20
     assert not any(action.cell in {"B70", "C70", "D70", "E70", "F70", "G70", "H70", "I70", "J70", "K70", "L70", "M70"} and action.sheet == "Valuation" for action in style_plan.actions)
 
 

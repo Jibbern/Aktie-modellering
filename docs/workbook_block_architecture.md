@@ -42,12 +42,10 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | summary_revenue_mix_label | SUMMARY | A8:F8 | company_profile.revenue_mix_label | profile-backed | standard |
 | summary_revolver_availability_as_of_value | SUMMARY | D44:F44 | debt_liquidity.summary_liquidity_as_of_display | source-backed | standard |
 | summary_liquidity_as_of_value | SUMMARY | D45:F45 | debt_liquidity.summary_liquidity_as_of_display | source-backed | standard |
-| valuation_guidance_values | Valuation | O9:T27 | normalized_guidance.items.value | source-backed | standard |
-| valuation_guidance_status_values | Valuation | AA9:AA27 | normalized_guidance.items.progress_status | source-backed | standard |
-| valuation_guidance_values_lower | Valuation | O29:T36 | normalized_guidance.items.0.value | source-backed | standard |
-| valuation_operating_driver_values | Valuation | O39:AA47 | operating_drivers.items.0.driver | source-backed | standard |
-| valuation_thesis_bridge_values | Valuation | O51:AA62 | investment_case.key_debate | manual | standard |
-| valuation_guidance_status_values_lower | Valuation | X29:AA36 | normalized_guidance.items.0.horizon | source-backed | standard |
+| valuation_guidance_current_primary_rows | Valuation | O9:AC15 | _derived_workbook.guidance.current_primary_rows.value | source-backed | standard |
+| valuation_guidance_current_secondary_rows | Valuation | O16:AC21 | _derived_workbook.guidance.current_secondary_rows.value | source-backed | standard |
+| valuation_guidance_historical_rows | Valuation | O29:AC35 | _derived_workbook.guidance.historical_rows.value | source-backed | standard |
+| valuation_thesis_debate_rows | Valuation | O51:AA58 | _derived_workbook.thesis.rows.text | source-backed | standard |
 | valuation_debt_snapshot_values | Valuation | B124:B130 | debt_liquidity.cash, debt_liquidity.lease_liabilities, debt_liquidity.net_debt, debt_liquidity.net_leverage, +3 more | source-backed | standard |
 | valuation_debt_snapshot_periods | Valuation | D124:D130 | debt_liquidity.cash.period, debt_liquidity.lease_liabilities.period, debt_liquidity.net_debt.period, debt_liquidity.net_leverage.period, +3 more | source-backed | standard |
 | valuation_debt_snapshot_statuses | Valuation | E124:E130 | debt_liquidity.cash.status, debt_liquidity.lease_liabilities.status, debt_liquidity.net_debt.status, debt_liquidity.net_leverage.status, +3 more | source-backed | standard |
@@ -276,53 +274,37 @@ The standard shell keeps generic block slots only. Sector/company member names f
 
 ### Valuation
 
-- `valuation_guidance_values` `O9:T27`
-  - Normalized fields: normalized_guidance.items.value
+- `valuation_guidance_current_primary_rows` `O9:AC15`
+  - Normalized fields: _derived_workbook.guidance.current_primary_rows.value
   - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
   - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance
+  - Missing data: leave unavailable current-primary slots blank; retain the disposition in selection audit
   - Validation: guidance_metric_misclassification
 
-- `valuation_guidance_status_values` `AA9:AA27`
-  - Normalized fields: normalized_guidance.items.progress_status
+- `valuation_guidance_current_secondary_rows` `O16:AC21`
+  - Normalized fields: _derived_workbook.guidance.current_secondary_rows.value
   - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
   - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank guidance status rows until realized/status evidence exists
-  - Validation: boilerplate_guidance
-
-- `valuation_guidance_values_lower` `O29:T36`
-  - Normalized fields: normalized_guidance.items.0.value
-  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
-  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
-  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank lower guidance panel rows; emit mapping gaps/manual review flags for missing or parser-conflicted guidance
+  - Missing data: leave unavailable current-secondary slots blank; retain the disposition in selection audit
   - Validation: guidance_metric_misclassification
 
-- `valuation_operating_driver_values` `O39:AA47`
-  - Normalized fields: operating_drivers.items.0.driver
+- `valuation_guidance_historical_rows` `O29:AC35`
+  - Normalized fields: _derived_workbook.guidance.historical_rows.value
   - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
   - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank operating-driver sidecar rows until source-backed driver evidence exists
-  - Validation: unsupported_sector_specific_leakage
+  - Missing data: leave unavailable historical metric slots blank; retain older and excluded records in selection audit
+  - Validation: guidance_metric_misclassification
 
-- `valuation_thesis_bridge_values` `O51:AA62`
-  - Normalized fields: investment_case.key_debate
+- `valuation_thesis_debate_rows` `O51:AA58`
+  - Normalized fields: _derived_workbook.thesis.rows.text
   - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
   - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank thesis bridge rows until investment-case evidence is populated
+  - Missing data: leave a typed thesis slot blank when its exact normalized field and lineage are unavailable
   - Validation: placeholder_investment_case_promotion
-
-- `valuation_guidance_status_values_lower` `X29:AA36`
-  - Normalized fields: normalized_guidance.items.0.horizon
-  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
-  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
-  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: blank lower guidance status rows until realized/status evidence exists
-  - Validation: boilerplate_guidance
 
 - `valuation_debt_snapshot_values` `B124:B130`
   - Normalized fields: debt_liquidity.cash, debt_liquidity.lease_liabilities, debt_liquidity.net_debt, debt_liquidity.net_leverage, debt_liquidity.revolver_availability, debt_liquidity.total_debt, debt_liquidity.total_liquidity

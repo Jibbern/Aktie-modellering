@@ -178,22 +178,30 @@ QA_COLUMN_WIDTHS = {
     "QA_Checks": [34, 12, 18, 18, 16, 16, 34, 60, 34],
 }
 VALUATION_GUIDANCE_SIDECAR_HEADERS = {
-    "O7": "Guidance",
+    "O7": "Current guidance",
+    "O8": "Metric",
+    "Q8": "Stated in",
+    "R8": "Applies to",
+    "S8": "Guidance",
+    "X8": "Unit",
+    "Y8": "Published",
+    "Z8": "Evidence",
+    "AA8": "Role / source status",
+    "O27": "Historical guidance",
     "O28": "Metric",
     "Q28": "Stated in",
     "R28": "Applies to",
     "S28": "Guidance",
-    "AA28": "Trend / realized",
-    "O37": "Operating Drivers",
-    "O38": "Driver group",
-    "R38": "Driver",
-    "U38": "Why it matters",
-    "AA38": "Source/type",
-    "O48": "Thesis Bridge",
-    "O49": "Quick valuation bridge; no market price required.",
-    "O50": "Bridge item",
-    "U50": "Value",
-    "X50": "Notes",
+    "X28": "Unit",
+    "Y28": "Published",
+    "Z28": "Evidence",
+    "AA28": "Role / source status",
+    "O48": "Thesis / debate evidence",
+    "O49": "Typed evidence only; unresolved synthesis remains explicit.",
+    "O50": "Item",
+    "Q50": "Evidence",
+    "X50": "Review state",
+    "Z50": "Source key",
     "O63": "Output",
     "U63": "Value",
     "X63": "Interpretation",
@@ -203,45 +211,15 @@ VALUATION_STRUCTURAL_HEADERS = {
     "F138": "Score",
     "G138": "Severity",
     "H138": "Result / support",
-    "B159": "Δ",
-    "C159": "Direction",
-    "D159": "As-of",
-    "B169": "Status",
-    "C169": "Evidence",
-    "I169": "As-of",
 }
 VALUATION_BLUE_SECTION_HEADERS = {
-    "O7": "Guidance",
-    "O37": "Operating Drivers",
-    "O48": "Thesis Bridge",
+    "O7": "Current guidance",
+    "O27": "Historical guidance",
+    "O48": "Thesis / debate evidence",
     "A122": "Debt & liquidity snapshot",
     "A137": "Hidden value flags",
     "N137": "Hidden Value Panel",
-    "A145": "Operating signals",
-    "A151": "Capital return",
-    "A158": "Trend/Δ (last 4Q)",
-    "A168": "Red/Green Flags",
     "B192": "Valuation",
-}
-STANDARD_RED_GREEN_FLAG_LABELS = {
-    170: "Red: Revenue up but CFO down (YoY)",
-    171: "Red: Earnings quality CFO/NI (TTM)",
-    172: "Red: AR growing faster than revenue (YoY)",
-    173: "Red: Inventory build without revenue growth",
-    174: "Red: Debt growing faster than revenue (YoY)",
-    175: "Red: Leverage rising (YoY Δ)",
-    176: "Red: Interest coverage low (cash)",
-    177: "Red: FCF negative while EBITDA positive (TTM)",
-    178: "Watch: Buybacks exceeded FCF",
-    179: "Red: Goodwill heavy",
-    180: "Red: Share dilution (YoY)",
-    181: "Red: Pension obligations pressure",
-    183: "Green: Operating margin trend QoQ",
-    184: "Green: FCF TTM growth (YoY)",
-    185: "Green: Net debt decreasing (YoY)",
-    186: "Green: Interest coverage improving (YoY)",
-    187: "Green: Shares outstanding decreasing (YoY)",
-    188: "Green: Liquidity improving (YoY)",
 }
 OPERATING_DRIVER_SHEET_HEADERS = {
     "A12": "Topic",
@@ -1030,30 +1008,6 @@ def _neutralize_valuation_signal_fills(wb: Workbook) -> None:
                 cell.fill = neutral_fill
 
 
-def _neutralize_red_green_flags(wb: Workbook) -> None:
-    if "Valuation" not in wb.sheetnames:
-        return
-    ws = wb["Valuation"]
-    neutral_fill = PatternFill(fill_type=None)
-    ws["A168"] = VALUATION_BLUE_SECTION_HEADERS["A168"]
-    ws["A169"] = "Flag"
-    ws["B169"] = "Status"
-    ws["C169"] = "Evidence"
-    ws["I169"] = "As-of"
-    for row_idx in range(170, 189):
-        label_cell = ws.cell(row_idx, 1)
-        if not isinstance(label_cell, MergedCell):
-            label_cell.value = STANDARD_RED_GREEN_FLAG_LABELS.get(row_idx)
-        for col_idx in range(2, 10):
-            cell = ws.cell(row_idx, col_idx)
-            if isinstance(cell, MergedCell):
-                continue
-            cell.value = None
-            fill = cell.fill.fgColor.rgb if cell.fill and cell.fill.fgColor.type == "rgb" else ""
-            if fill in SIGNAL_FILL_COLORS or fill in STATUS_OUTPUT_FILL_COLORS or fill in GRAY_BLANK_FILLS:
-                cell.fill = neutral_fill
-
-
 def _neutralize_blank_valuation_value_fills(wb: Workbook) -> None:
     if "Valuation" not in wb.sheetnames:
         return
@@ -1235,6 +1189,59 @@ def _ensure_merged_range(ws: Any, range_ref: str) -> None:
         ws.merge_cells(range_ref)
 
 
+def _ranges_intersect(left: str, right: str) -> bool:
+    left_min_col, left_min_row, left_max_col, left_max_row = range_boundaries(left)
+    right_min_col, right_min_row, right_max_col, right_max_row = range_boundaries(right)
+    return not (
+        left_max_col < right_min_col
+        or right_max_col < left_min_col
+        or left_max_row < right_min_row
+        or right_max_row < left_min_row
+    )
+
+
+def _unmerge_intersecting_ranges(ws: Any, target: str) -> None:
+    for merged_range in tuple(map(str, ws.merged_cells.ranges)):
+        if _ranges_intersect(merged_range, target):
+            ws.unmerge_cells(merged_range)
+
+
+def _remove_validations_intersecting_range(ws: Any, target: str) -> None:
+    for validation in tuple(ws.data_validations.dataValidation):
+        retained = [
+            str(cell_range)
+            for cell_range in validation.ranges.ranges
+            if not _ranges_intersect(str(cell_range), target)
+        ]
+        if retained:
+            validation.sqref = " ".join(retained)
+        else:
+            ws.data_validations.dataValidation.remove(validation)
+
+
+def _clear_locked_inactive_range(ws: Any, target: str) -> None:
+    _unmerge_intersecting_ranges(ws, target)
+    _remove_validations_intersecting_range(ws, target)
+    min_col, min_row, max_col, max_row = range_boundaries(target)
+    for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
+        for cell in row:
+            cell.value = None
+            cell.hyperlink = None
+            cell.comment = None
+            cell.style = "Normal"
+            cell.protection = Protection(locked=True)
+
+
+def _retire_product_pass2b_valuation_capacity(wb: Workbook) -> None:
+    if "Valuation" not in wb.sheetnames:
+        return
+    ws = wb["Valuation"]
+    _clear_locked_inactive_range(ws, "O37:AC47")
+    _clear_locked_inactive_range(ws, "A145:M188")
+    for row_idx in range(145, 189):
+        ws.row_dimensions[row_idx].hidden = True
+
+
 def _style_cells(
     ws: Any,
     range_ref: str,
@@ -1268,8 +1275,20 @@ def _ensure_valuation_guidance_sidecar_headers(wb: Workbook) -> None:
     left_center = Alignment(horizontal="left", vertical="center", wrap_text=True)
     center_center = Alignment(horizontal="center", vertical="center")
 
-    for range_ref in ("H138:I138",):
+    _clear_locked_inactive_range(ws, "O22:AC26")
+    for target in ("O7:AC35", "O48:AA62"):
+        _unmerge_intersecting_ranges(ws, target)
+    for range_ref in ("H138:I138", "O7:AC7", "O27:AC27", "O48:AA48", "O49:AA49"):
         _ensure_merged_range(ws, range_ref)
+    for row_idx in (*range(8, 22), 28, *range(29, 36)):
+        _ensure_merged_range(ws, f"O{row_idx}:P{row_idx}")
+        _ensure_merged_range(ws, f"S{row_idx}:W{row_idx}")
+        _ensure_merged_range(ws, f"AA{row_idx}:AC{row_idx}")
+    for row_idx in (50, *range(51, 59)):
+        _ensure_merged_range(ws, f"O{row_idx}:P{row_idx}")
+        _ensure_merged_range(ws, f"Q{row_idx}:W{row_idx}")
+        _ensure_merged_range(ws, f"X{row_idx}:Y{row_idx}")
+        _ensure_merged_range(ws, f"Z{row_idx}:AA{row_idx}")
 
     for coord, value in {**VALUATION_GUIDANCE_SIDECAR_HEADERS, **VALUATION_STRUCTURAL_HEADERS}.items():
         cell = ws[coord]
@@ -1287,14 +1306,13 @@ def _ensure_valuation_guidance_sidecar_headers(wb: Workbook) -> None:
             cell.font = section_font
             cell.alignment = left_center
 
+    _style_cells(ws, "O8:AC8", fill=column_header_fill, font=header_font, alignment=left_center)
+    _style_cells(ws, "O28:AC28", fill=column_header_fill, font=header_font, alignment=left_center)
+    _style_cells(ws, "O50:AA50", fill=column_header_fill, font=header_font, alignment=left_center)
     _style_cells(ws, "B138:I138", fill=column_header_fill, font=header_font, alignment=left_center)
-    _style_cells(ws, "A145:M145", fill=section_fill)
-    _style_cells(ws, "A151:M151", fill=section_fill)
-    _style_cells(ws, "A158:D158", fill=section_fill)
-    _style_cells(ws, "A169:I169", fill=column_header_fill, font=header_font, alignment=center_center)
     _style_cells(ws, "B192:S192", fill=section_fill, font=title_font)
 
-    for coord in ("A122", "A145", "A151", "A158", "A168"):
+    for coord in ("A122",):
         ws[coord].font = section_font
     ws["B192"].value = "Valuation"
     ws["B192"].font = title_font
@@ -1839,7 +1857,6 @@ def _materialize_rich_shell(
     _neutralize_writable_data_like_fills(wb, manifest)
     _neutralize_visible_blank_gray_fills(wb)
     _neutralize_valuation_signal_fills(wb)
-    _neutralize_red_green_flags(wb)
     _neutralize_blank_valuation_value_fills(wb)
     _ensure_promise_progress_structure(wb)
     _configure_narrative_text_layout(wb)
@@ -1868,6 +1885,7 @@ def _materialize_rich_shell(
         wb,
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
     )
+    _retire_product_pass2b_valuation_capacity(wb)
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _ensure_qa_headers(wb)
     _remove_qa_excel_tables(wb)
@@ -1988,6 +2006,7 @@ def materialize_shell(
     _configure_summary_liquidity_layout(wb)
     _configure_scalar_debt_liquidity_snapshot(wb)
     _configure_narrative_text_layout(wb)
+    _ensure_valuation_guidance_sidecar_headers(wb)
     apply_standard_formula_contracts(
         wb,
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
@@ -1998,6 +2017,7 @@ def materialize_shell(
         wb,
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
     )
+    _retire_product_pass2b_valuation_capacity(wb)
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _configure_calculation(wb)
     _configure_deterministic_properties(wb)

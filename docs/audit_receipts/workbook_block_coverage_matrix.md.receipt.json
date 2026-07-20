@@ -4,7 +4,7 @@
   "reason": "",
   "artifact": {
     "path": "docs/workbook_block_coverage_matrix.md",
-    "sha256": "6357db44a13f1eeafc700817ddcab3ffe4fbbee2f7a78eb543a44d762e604dc6",
+    "sha256": "4bd2690e4823084b9f88698f18e841e63c9dcd43f45f4bbca31dde896b761de9",
     "output_schema": "text/markdown",
     "output_version": "markdown-v1"
   },
@@ -15,11 +15,11 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "2d8102730d5279be43f23b0c97c9f6107304949d158b30b1f3699fcbf43167ab"
+      "sha256": "50bf7f1f89f7c31543e5162290505b27b11ac9d75afe9efb27042593a4324939"
     },
     {
       "path": "docs/workbook_binding_map.json",
-      "sha256": "3f2c6b99c3fce1b83f8a384504634d4f533caf269d4c3efe529c10a5dca0f8eb"
+      "sha256": "5c2dffcc4c14b967b5185b6ef0f785769a066564b0ab3a244705785101a0cee0"
     },
     {
       "path": "docs/sheet_data_flow_map.json",
@@ -56,38 +56,38 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "59af62cff425d641779df333039993f174481da9e3f29b746ccb047929bb458d",
+    "run_generation_id": "c5bcd089bbc9d820488a8f81db8358e08ce3d0c734ccdd16f195b37df9c6b788",
     "generated_outputs": [
       {
-        "canonical_content_sha256": "0686c85f9b157399523c869d945aa172d9f7b84adc9897bd741e0f76d1ea1c02",
+        "canonical_content_sha256": "c13b82181f5de72d51e8fa670523db82273057e5655e3d2cd20a208d766ef1b5",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_architecture.json",
-        "sha256": "b136a49f9152aef1decd26e1640d92ac9bd681b1e627ebc375f2c934e7f8f861"
+        "sha256": "a46e823b34179998f282885e42683fc39f51e687ed8f528fc3b85cd60abd1fa4"
       },
       {
-        "canonical_content_sha256": "603d0f2695e8f87be3a3bf77e22c368a7aa2bb0969d6f341270ee98c2116b9b2",
+        "canonical_content_sha256": "b9bc6d2f0cc9df0e72c5ce1279e2b4c65dcb35de3666610351831f3df527ad55",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/workbook_block_architecture.md",
-        "sha256": "ddd0f9953c3cc9d829a2455028d2a1d7baa91f7d5fb3a8c809a20db99fb8ddcc"
+        "sha256": "e7298ff2642aebb5a3b33dc2b24f8419a943398fb4aa7959ffef56a562073cc6"
       },
       {
-        "canonical_content_sha256": "4d89dd00cc92c1558619272626bf003a286cc9c6e4dfb3781db9dbd1bdc16f6f",
+        "canonical_content_sha256": "7a8f2c9e8dd96fb1d8a117f16b6f47a27841320584cb3bef093b708cbf32e60b",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_coverage_matrix.json",
-        "sha256": "63bf483d69786c7b014a6e70f5abf4e05eadb8bfdcc9c5004c98e46f853eb6a4"
+        "sha256": "7fad6cae3833d4d6b18e7d01c73d904fbf1377ecf6ca9f300a8f85b323308bb7"
       },
       {
-        "canonical_content_sha256": "3eec12b6f627c41d13b37bc76a320ef769c57a9f933a978a3f6a84b5ee638cce",
+        "canonical_content_sha256": "fcc33465f7c140dbb1eb14f53d2e656eb5e9acce4782b891779dcbeab3da2e72",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/workbook_block_coverage_matrix.md",
-        "sha256": "6357db44a13f1eeafc700817ddcab3ffe4fbbee2f7a78eb543a44d762e604dc6"
+        "sha256": "4bd2690e4823084b9f88698f18e841e63c9dcd43f45f4bbca31dde896b761de9"
       }
     ]
   },
-  "generated_at_utc": "2026-07-19T17:09:06+00:00",
-  "generation_id": "15603ba07532cbe6323e19d36b011d60aefc985b9f7fe9f36b78b91984f28165"
+  "generated_at_utc": "2026-07-20T00:28:56+00:00",
+  "generation_id": "ba0a4d5c68386aad8ac20c01e17474256e62605de6134463354da0f01e0dd2d5"
 }

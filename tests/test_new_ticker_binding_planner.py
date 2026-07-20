@@ -394,13 +394,13 @@ def test_real_contract_plans_seven_business_flows_to_exact_cells() -> None:
     assert writes[("BS_Segments", "B7")].value == "2025-Q4"
     assert writes[("BS_Segments", "C7")].value == "2026-Q1"
 
-    # Guidance uses merge anchors only and a separate status cell.
-    guidance_key = "Revenue|FY2026|2026-07-07|test-guidance-2026q1"
+    # Guidance uses merge anchors and one resolved row disposition.
+    guidance_key = "current_primary|1|revenue|FY2026|test-guidance-2026q1"
     assert writes[("Valuation", "O9")].value == "Revenue"
     assert writes[("Valuation", "Q9")].value == "2026-Q1"
     assert writes[("Valuation", "R9")].value == "FY2026"
     assert writes[("Valuation", "S9")].value.startswith("Revenue growth")
-    assert writes[("Valuation", "AA9")].value == "open"
+    assert writes[("Valuation", "AA9")].value == "current_primary / accepted"
     assert writes[("Valuation", "S9")].row_key == guidance_key
     assert ("Valuation", "T9") not in writes
 
@@ -502,7 +502,7 @@ def test_required_or_blocked_if_missing_binding_creates_p1_and_fails_plan() -> N
 
 def test_manifest_rejects_guidance_write_to_merge_non_anchor_t9() -> None:
     bindings = _bindings()
-    guidance = _binding(bindings, "valuation_guidance_rows")
+    guidance = _binding(bindings, "valuation_guidance_current_primary_rows")
     value_column = next(column for column in guidance["target_columns"] if column["source_field"] == "value")
     value_column["target_column"] = "T"
 
@@ -653,7 +653,7 @@ def test_planner_source_has_no_sequential_dump_or_silent_capacity_slice() -> Non
     assert "for source_position, row in enumerate(rows):" in source
 
 
-def test_current_guidance_rowset_excludes_history_with_an_explicit_reason() -> None:
+def test_historical_guidance_projects_only_through_its_resolved_rowset() -> None:
     package = _package()
     historical = deepcopy(package["normalized_guidance"]["items"][0])
     historical["source_date"] = "2025-03-01"
@@ -667,10 +667,18 @@ def test_current_guidance_rowset_excludes_history_with_an_explicit_reason() -> N
     plan = _plan(package)
 
     assert plan.status == "PASS", [issue.to_dict() for issue in plan.issues]
-    assert not any(write.row_key.endswith("test-guidance-history") for write in plan.planned_writes)
-    reports = [report for report in plan.binding_reports if report["binding_id"] in {"valuation_guidance_rows", "pp_guidance_timeline_rows"}]
-    assert reports
-    assert all(any(skip["row_key"].endswith("test-guidance-history") and skip["reason"].startswith("row_selector_excluded") for skip in report["skipped_rows"]) for report in reports)
+    projected = [write for write in plan.planned_writes if write.row_key.endswith("test-guidance-history")]
+    assert len(projected) == 8
+    assert {write.binding_id for write in projected} == {"valuation_guidance_historical_rows"}
+    assert {write.target_cell for write in projected} == {"O29", "Q29", "R29", "S29", "X29", "Y29", "Z29", "AA29"}
+    assert not any(
+        write.row_key.endswith("test-guidance-history")
+        for write in plan.planned_writes
+        if write.binding_id in {
+            "valuation_guidance_current_primary_rows",
+            "valuation_guidance_current_secondary_rows",
+        }
+    )
 
 
 def test_pick_selector_reconciles_eligible_selected_and_structured_exclusions() -> None:

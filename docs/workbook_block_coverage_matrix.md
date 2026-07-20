@@ -22,12 +22,10 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | summary_revenue_mix_label | SUMMARY | yes | same | similar | same | same | - |
 | summary_revolver_availability_as_of_value | SUMMARY | yes | same | same | same | same | - |
 | summary_liquidity_as_of_value | SUMMARY | yes | same | same | same | same | - |
-| valuation_guidance_values | Valuation | yes | same | similar | similar | same | - |
-| valuation_guidance_status_values | Valuation | yes | same | similar | similar | same | - |
-| valuation_guidance_values_lower | Valuation | yes | same | similar | different | same | - |
-| valuation_operating_driver_values | Valuation | yes | same | similar | similar | same | - |
-| valuation_thesis_bridge_values | Valuation | yes | same | similar | different | same | - |
-| valuation_guidance_status_values_lower | Valuation | yes | same | similar | different | same | - |
+| valuation_guidance_current_primary_rows | Valuation | yes | same | similar | different | same | - |
+| valuation_guidance_current_secondary_rows | Valuation | yes | same | similar | different | same | - |
+| valuation_guidance_historical_rows | Valuation | yes | same | similar | different | same | - |
+| valuation_thesis_debate_rows | Valuation | yes | same | similar | different | same | - |
 | valuation_debt_snapshot_values | Valuation | yes | same | similar | same | same | - |
 | valuation_debt_snapshot_periods | Valuation | yes | same | same | same | same | - |
 | valuation_debt_snapshot_statuses | Valuation | yes | same | same | same | same | - |
