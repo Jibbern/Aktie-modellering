@@ -1,8 +1,8 @@
 {
   "version": "0.2.0",
   "generator_version": "anf_legacy_adapter_audits/0.2.0",
-  "source_package_content_sha256": "419981fb6b6e47d1772f2839b7fc7a60bbb504f552c54828de925cdb9d60ea58",
-  "generated_at_utc": "2026-07-19T10:51:02+00:00",
+  "source_package_content_sha256": "b077c96b517d2dd93993b78fd56dca0cf392310d409b1f7d5e3afd952a039531",
+  "generated_at_utc": "2026-07-21T17:05:23+00:00",
   "ticker": "ANF",
   "data_root": "C:\\Users\\Jibbe\\Aktier\\StockModelData",
   "legacy_workbook": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -120,6 +120,7 @@
     {
       "section": "debt_liquidity",
       "available_source_candidates": [
+        "StockModelData/sec_cache/ANF local 10-Q/10-K Borrowings notes and Inline XBRL",
         "ANF_model.xlsx!Leverage_Liquidity",
         "ANF_model.xlsx!History_Q",
         "ANF_model.xlsx!Slides_Debt_Profile"
@@ -131,11 +132,11 @@
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": true,
-      "populated_field_count": 12,
+      "populated_field_count": 179,
       "field_status_counts": {
-        "missing_source": 3,
+        "missing_source": 5,
         "not_applicable": 1,
-        "populated": 12
+        "populated": 179
       },
       "manual_review_record_count": 2
     },

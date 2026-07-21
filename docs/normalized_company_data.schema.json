@@ -115,6 +115,10 @@
     "debt_liquidity.liquidity",
     "debt_liquidity.lease_liabilities",
     "debt_liquidity.interest_expense",
+    "debt_liquidity.facilities",
+    "debt_liquidity.instruments",
+    "debt_liquidity.maturities",
+    "debt_liquidity.credit_notes",
     "capital_returns.buybacks",
     "capital_returns.dividends",
     "capital_returns.share_issuance",
@@ -463,6 +467,22 @@
             "type": "object",
             "additionalProperties": true
           }
+        },
+        "facilities": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/debtFacilityItem"}
+        },
+        "instruments": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/debtInstrumentItem"}
+        },
+        "maturities": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/debtMaturityItem"}
+        },
+        "credit_notes": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/debtCreditNoteItem"}
         }
       }
     },
@@ -582,6 +602,195 @@
     }
   },
   "$defs": {
+    "debtAmountFact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value", "status", "currency", "unit", "source_value", "source_unit",
+        "source_scale", "as_of_date", "source_ref", "source_row_ref",
+        "evidence_refs", "evidence_classification", "derivation", "reason", "core"
+      ],
+      "properties": {
+        "value": {"type": ["number", "null"]},
+        "status": {"enum": ["populated", "missing_source", "manual_review_required", "parser_conflict", "not_applicable"]},
+        "currency": {"const": "USD"},
+        "unit": {"const": "$m"},
+        "source_value": {"type": ["number", "null"]},
+        "source_unit": {"type": "string", "minLength": 1},
+        "source_scale": {"enum": ["ones", "thousands", "millions", "not_applicable"]},
+        "as_of_date": {"type": "string", "format": "date"},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_row_ref": {"type": "string", "minLength": 1},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "evidence_classification": {"enum": ["source_backed_fact", "source_backed_calculation", "unavailable"]},
+        "derivation": {"type": "string"},
+        "reason": {"type": "string"},
+        "core": {"const": false}
+      }
+    },
+    "debtFacilityItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "facility_id", "facility_name", "facility_type", "borrower", "currency",
+        "as_of_date", "publication_date", "period_role", "source_status",
+        "source_table_scope", "aggregation_role", "commitment", "loan_cap",
+        "drawn_balance", "drawn_status", "letters_of_credit", "gross_capacity",
+        "minimum_excess_availability", "net_availability", "cash_and_equivalents",
+        "restricted_cash", "same_date_liquidity", "facility_expiry_date",
+        "evidence_key", "evidence_refs", "source_refs", "source_ref",
+        "source_row_ref", "source_document_sha256", "business_key",
+        "resolution_status", "reason"
+      ],
+      "properties": {
+        "facility_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "facility_name": {"type": "string", "minLength": 1},
+        "facility_type": {"enum": ["asset_based_revolver", "revolving_credit_facility"]},
+        "borrower": {"type": "string", "minLength": 1},
+        "currency": {"const": "USD"},
+        "as_of_date": {"type": "string", "format": "date"},
+        "publication_date": {"type": "string", "format": "date"},
+        "period_role": {"enum": ["current", "historical"]},
+        "source_status": {"enum": ["accepted", "manual_review_required", "rejected"]},
+        "source_table_scope": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "aggregation_role": {"const": "liquidity_capacity"},
+        "commitment": {"$ref": "#/$defs/debtAmountFact"},
+        "loan_cap": {"$ref": "#/$defs/debtAmountFact"},
+        "drawn_balance": {"$ref": "#/$defs/debtAmountFact"},
+        "drawn_status": {"enum": ["reported_zero", "reported_value", "not_reported"]},
+        "letters_of_credit": {"$ref": "#/$defs/debtAmountFact"},
+        "gross_capacity": {"$ref": "#/$defs/debtAmountFact"},
+        "minimum_excess_availability": {"$ref": "#/$defs/debtAmountFact"},
+        "net_availability": {"$ref": "#/$defs/debtAmountFact"},
+        "cash_and_equivalents": {"$ref": "#/$defs/debtAmountFact"},
+        "restricted_cash": {"$ref": "#/$defs/debtAmountFact"},
+        "same_date_liquidity": {"$ref": "#/$defs/debtAmountFact"},
+        "facility_expiry_date": {"type": "string"},
+        "evidence_key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "source_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_row_ref": {"type": "string", "minLength": 1},
+        "source_document_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "business_key": {"type": "string", "minLength": 1},
+        "resolution_status": {"enum": ["populated", "manual_review_required"]},
+        "reason": {"type": "string"}
+      }
+    },
+    "debtInstrumentItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instrument_id", "instrument_name", "instrument_type", "issuer", "currency",
+        "as_of_date", "publication_date", "period_role", "source_status",
+        "source_table_scope", "aggregation_role", "balance", "current_balance",
+        "noncurrent_balance", "rate_type", "reference_rate", "spread_bps",
+        "effective_rate", "maturity_date", "secured_status", "seniority",
+        "evidence_key", "evidence_refs", "source_refs", "source_ref",
+        "source_row_ref", "source_document_sha256", "business_key",
+        "resolution_status", "reason"
+      ],
+      "properties": {
+        "instrument_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "instrument_name": {"type": "string", "minLength": 1},
+        "instrument_type": {"enum": ["senior_note", "bond", "term_loan", "finance_lease", "operating_lease_liability", "other_funded_debt"]},
+        "issuer": {"type": "string", "minLength": 1},
+        "currency": {"const": "USD"},
+        "as_of_date": {"type": "string", "format": "date"},
+        "publication_date": {"type": "string", "format": "date"},
+        "period_role": {"enum": ["current", "historical"]},
+        "source_status": {"enum": ["accepted", "manual_review_required", "rejected"]},
+        "source_table_scope": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "aggregation_role": {"enum": ["core_debt", "excluded_from_core_debt"]},
+        "balance": {"$ref": "#/$defs/debtAmountFact"},
+        "current_balance": {"$ref": "#/$defs/debtAmountFact"},
+        "noncurrent_balance": {"$ref": "#/$defs/debtAmountFact"},
+        "rate_type": {"enum": ["fixed", "floating", "mixed", "not_reported", "not_applicable"]},
+        "reference_rate": {"type": "string"},
+        "spread_bps": {"type": ["number", "null"]},
+        "effective_rate": {"type": ["number", "null"]},
+        "maturity_date": {"type": "string"},
+        "secured_status": {"enum": ["secured", "unsecured", "mixed", "not_reported", "not_applicable"]},
+        "seniority": {"enum": ["senior", "subordinated", "mixed", "not_reported", "not_applicable"]},
+        "evidence_key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "source_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_row_ref": {"type": "string", "minLength": 1},
+        "source_document_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "business_key": {"type": "string", "minLength": 1},
+        "resolution_status": {"enum": ["populated", "manual_review_required"]},
+        "reason": {"type": "string"}
+      }
+    },
+    "debtMaturityItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maturity_id", "instrument_id", "maturity_type", "due_date",
+        "maturity_bucket", "currency", "as_of_date", "publication_date",
+        "period_role", "source_status", "source_table_scope", "aggregation_role",
+        "amount", "evidence_key", "evidence_refs", "source_refs", "source_ref",
+        "source_row_ref", "source_document_sha256", "business_key",
+        "resolution_status", "reason"
+      ],
+      "properties": {
+        "maturity_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "instrument_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "maturity_type": {"enum": ["scheduled_principal", "current_portion", "contractual_principal"]},
+        "due_date": {"type": "string", "format": "date"},
+        "maturity_bucket": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "currency": {"const": "USD"},
+        "as_of_date": {"type": "string", "format": "date"},
+        "publication_date": {"type": "string", "format": "date"},
+        "period_role": {"enum": ["current", "historical"]},
+        "source_status": {"enum": ["accepted", "manual_review_required", "rejected"]},
+        "source_table_scope": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "aggregation_role": {"const": "core_debt_maturity"},
+        "amount": {"$ref": "#/$defs/debtAmountFact"},
+        "evidence_key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "source_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_row_ref": {"type": "string", "minLength": 1},
+        "source_document_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "business_key": {"type": "string", "minLength": 1},
+        "resolution_status": {"enum": ["populated", "manual_review_required"]},
+        "reason": {"type": "string"}
+      }
+    },
+    "debtCreditNoteItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note_id", "subject_id", "note_type", "text", "as_of_date",
+        "publication_date", "period_role", "source_status", "source_table_scope",
+        "aggregation_role", "evidence_key", "evidence_refs", "source_refs",
+        "source_ref", "source_row_ref", "source_document_sha256", "business_key",
+        "resolution_status", "reason"
+      ],
+      "properties": {
+        "note_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "subject_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "note_type": {"enum": ["facility_draw_status", "covenant_compliance", "facility_amendment", "refinancing", "debt_redemption", "borrowing_restriction", "credit_rating"]},
+        "text": {"type": "string"},
+        "as_of_date": {"type": "string", "format": "date"},
+        "publication_date": {"type": "string", "format": "date"},
+        "period_role": {"enum": ["current", "historical"]},
+        "source_status": {"enum": ["accepted", "manual_review_required", "rejected"]},
+        "source_table_scope": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "aggregation_role": {"const": "non_additive_context"},
+        "evidence_key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "evidence_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "source_refs": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "source_ref": {"type": "string", "minLength": 1},
+        "source_row_ref": {"type": "string", "minLength": 1},
+        "source_document_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "business_key": {"type": "string", "minLength": 1},
+        "resolution_status": {"enum": ["populated", "manual_review_required"]},
+        "reason": {"type": "string"}
+      }
+    },
     "fieldStatus": {
       "type": "string",
       "enum": [

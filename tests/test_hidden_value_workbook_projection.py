@@ -267,7 +267,7 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
     assert len(hidden_writes) == 1_983
     assert _digest(hidden_writes) == "67d7f2ed7ca085859e0ba56f2e13cf9df2bb3b05918720bc63927ec46d5ded5d"
     assert len(accepted_writes) == 20_388
-    assert _digest(accepted_writes) == "3aa35d2f580890c8831b548c98cdd04a5df013fe97d60a1e42df952c9cbd6082"
+    assert _digest(accepted_writes) == "51c957eab123aef5aaebeaf55562f44d67a96504235e025fb493368cb793baf1"
     assert _digest(plan["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
 
     recompute_writes = [row for row in hidden_writes if row["binding_id"] == "hidden_value_recompute_rows"]

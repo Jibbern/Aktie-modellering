@@ -20,6 +20,7 @@ from pbi_xbrl.new_ticker_guidance_scope import (
     latest_scope_publications,
     normalize_guidance_scope,
 )
+from pbi_xbrl.new_ticker_debt_scope import DebtResolutionError, resolve_debt_collections
 from pbi_xbrl.valuation_scenario_economics import (
     canonicalize_scenario_contract,
     validate_scenario_contract,
@@ -413,6 +414,7 @@ def validate_normalized_company_data(
             scenario_tokens_canonicalized=True,
         )
     )
+    issues.extend(_validate_debt_collection_semantics(package))
     issues.extend(_validate_debt_liquidity_semantics(package))
     issues.extend(_validate_source_backed_core_field_lineage(package, bindings))
     issues.extend(_validate_guidance(package))
@@ -1293,6 +1295,44 @@ def _validate_liquidity_freshness_contract(section: Mapping[str, Any]) -> List[N
             )
         )
     return issues
+
+
+def _validate_debt_collection_semantics(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:
+    section = _path_get(package, "debt_liquidity")
+    if not isinstance(section, Mapping) or not any(
+        collection in section for collection in ("facilities", "instruments", "maturities", "credit_notes")
+    ):
+        return []
+    try:
+        resolve_debt_collections(section)
+    except DebtResolutionError as exc:
+        context = exc.context
+        return [
+            NormalizedDataIssue(
+                severity="P1",
+                rule_id=exc.rule_id,
+                field="debt_liquidity",
+                message=str(exc),
+                source_ref=str(
+                    context.get("conflicting_source_row_ref")
+                    or context.get("source_row_ref")
+                    or ""
+                ),
+                suggested_action="Correct the typed debt identity, source semantics, or lineage before planning.",
+                normalized_path="debt_liquidity",
+                business_row_key=str(context.get("business_key") or ""),
+                evidence_key=str(
+                    context.get("conflicting_evidence_key")
+                    or context.get("evidence_key")
+                    or ""
+                ),
+                root_cause="debt_collection_semantics",
+                issue_type="semantic_contract",
+                promotion_blocking=True,
+                render_blocking=True,
+            )
+        ]
+    return []
 
 
 def _validate_debt_liquidity_semantics(package: Mapping[str, Any]) -> List[NormalizedDataIssue]:

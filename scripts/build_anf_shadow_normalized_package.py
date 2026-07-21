@@ -31,6 +31,10 @@ from pbi_xbrl.normalized_company_data_validation import (  # noqa: E402
     classify_normalized_text_quality,
     validate_normalized_company_data,
 )
+from pbi_xbrl.anf_debt_source_adapter import (  # noqa: E402
+    ANFDebtSourceExtraction,
+    build_anf_debt_collections,
+)
 from pbi_xbrl.json_schema_validation import load_json_strict  # noqa: E402
 from pbi_xbrl.new_ticker_guidance_scope import (  # noqa: E402
     guidance_scope_key,
@@ -1388,6 +1392,68 @@ def _build_quarterly_financial_rows(
         )
     _attach_financial_definitions(out)
     return out
+
+
+def _apply_source_native_anf_revolver_correction(
+    quarterly_rows: list[dict[str, Any]],
+    debt_extraction: ANFDebtSourceExtraction,
+) -> None:
+    target_rows = [
+        row
+        for row in quarterly_rows
+        if str(row.get("period") or "") == "2026-Q1"
+        and str(row.get("period_end") or "") == "2026-05-02"
+    ]
+    source_rows = [
+        row
+        for row in debt_extraction.facilities
+        if str(row.get("facility_id") or "") == "anf_abl_facility"
+        and str(row.get("as_of_date") or "") == "2026-05-02"
+        and str(row.get("source_status") or "") == "accepted"
+    ]
+    if len(target_rows) != 1 or len(source_rows) != 1:
+        raise ValueError(
+            "The bounded ANF 2026-Q1 revolver correction requires one exact quarterly row "
+            f"and one exact source-native facility row; found {len(target_rows)} and {len(source_rows)}."
+    )
+    source_row = source_rows[0]
+    amount = source_row.get("net_availability")
+    if (
+        not isinstance(amount, Mapping)
+        or amount.get("status") != "populated"
+        or isinstance(amount.get("value"), bool)
+        or not isinstance(amount.get("value"), (int, float))
+        or amount.get("as_of_date") != "2026-05-02"
+        or amount.get("unit") != "$m"
+        or amount.get("source_scale") != "thousands"
+    ):
+        raise ValueError(
+            "The source-native 2026-05-02 net-availability fact is incomplete or has incompatible semantics."
+        )
+    corrected = _field(
+        amount["value"],
+        source_ref=str(amount.get("source_ref") or ""),
+        unit="$m",
+        period="2026-Q1",
+        confidence="source_native_filing_backed",
+        definition="Net borrowing capacity after letters of credit and minimum excess availability.",
+        evidence_refs=tuple(amount.get("evidence_refs") or ()),
+        evidence_classification="source_backed_fact",
+        review_state="accepted",
+    )
+    corrected.update(
+        {
+            "as_of_date": "2026-05-02",
+            "publication_date": str(source_row.get("publication_date") or ""),
+            "source_value": amount.get("source_value"),
+            "source_unit": str(amount.get("source_unit") or ""),
+            "source_scale": str(amount.get("source_scale") or ""),
+            "source_row_ref": str(amount.get("source_row_ref") or ""),
+            "source_document_sha256": str(source_row.get("source_document_sha256") or ""),
+            "source_table_scope": str(source_row.get("source_table_scope") or ""),
+        }
+    )
+    target_rows[0]["revolver_availability"] = corrected
 
 
 def _build_annual_financial_rows(
@@ -4040,6 +4106,8 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
     adapter_truncations: list[dict[str, Any]] = []
     adapter_deduplications: list[dict[str, Any]] = []
     source_coverage = _source_coverage(data_root, workbook_path)
+    source_native_debt = build_anf_debt_collections(data_root / "sec_cache" / "ANF")
+    source_coverage["source_native_debt"] = source_native_debt.coverage()
     unsupported_zero_placeholders = _read_legacy_unsupported_zero_placeholders(workbook_path)
 
     full_quarterly_financials = _build_quarterly_financial_rows(
@@ -4048,6 +4116,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
         unsupported_zero_placeholders=unsupported_zero_placeholders,
         review_flags=adapter_review_flags,
     )
+    _apply_source_native_anf_revolver_correction(full_quarterly_financials, source_native_debt)
     calculation_history = _build_calculation_history(full_quarterly_financials)
     quarterly_financials = _limit_legacy_adapter_rows(
         full_quarterly_financials,
@@ -4074,6 +4143,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
         workbook_path,
         adapter_review_flags,
     )
+    debt_liquidity.update(source_native_debt.package_section())
     valuation_inputs = _build_valuation_inputs(
         quarterly_financials,
         debt_liquidity,
@@ -4463,7 +4533,12 @@ def build_source_audit(package: Mapping[str, Any], *, data_root: Path, workbook_
         "quarterly_financials": ["ANF_model.xlsx!History_Q", "SEC/XBRL cache", "earnings release financial schedules"],
         "calculation_history": ["ANF_model.xlsx!History_Q projected as a period-keyed formula input ledger"],
         "annual_financials": ["ANF_model.xlsx!History_Q aggregated by fiscal_year", "annual reports", "earnings release annual schedules"],
-        "debt_liquidity": ["ANF_model.xlsx!Leverage_Liquidity", "ANF_model.xlsx!History_Q", "ANF_model.xlsx!Slides_Debt_Profile"],
+        "debt_liquidity": [
+            "StockModelData/sec_cache/ANF local 10-Q/10-K Borrowings notes and Inline XBRL",
+            "ANF_model.xlsx!Leverage_Liquidity",
+            "ANF_model.xlsx!History_Q",
+            "ANF_model.xlsx!Slides_Debt_Profile",
+        ],
         "capital_returns": ["ANF_model.xlsx!History_Q", "earnings release capital allocation text"],
         "normalized_guidance": ["ANF_model.xlsx!Guidance_Normalized", "ANF_model.xlsx!Promise_Progress", "earnings releases", "transcripts"],
         "promise_progress": ["ANF_model.xlsx!Guidance_Normalized", "ANF_model.xlsx!Promise_Progress", "annual reports", "earnings releases", "transcripts"],

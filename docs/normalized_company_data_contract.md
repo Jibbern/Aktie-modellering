@@ -182,6 +182,27 @@ Debt and liquidity fields:
 - interest expense
 - maturity schedule references
 
+Optional typed debt collections provide source-native analytical depth without
+changing the scalar SUMMARY/Valuation contract:
+
+- `facilities`: facility identity, commitment, loan cap, drawn state, letters of
+  credit, gross capacity, minimum excess availability, net availability,
+  same-date cash/liquidity and facility expiry
+- `instruments`: funded-debt or lease identity, balances, rate metadata, maturity,
+  security/seniority and an explicit aggregation role
+- `maturities`: exact funded-debt instrument, due date/bucket and principal amount;
+  facility expiry is not a debt maturity
+- `credit_notes`: bounded typed source statements for draw status, covenants,
+  amendments, refinancing, redemption, restrictions or ratings
+
+Every collection row has one canonical business identity and exact as-of and
+publication dates. Currency, normalized unit, source unit/scale, source-table
+scope, source status, evidence IDs/references, source-row reference and source
+document SHA-256 are mandatory. Amounts fail closed when any companion identity
+or lineage is incompatible. Operating leases are explicitly excluded from core
+debt, restricted cash is excluded from available liquidity, and unavailable is
+never normalized to zero.
+
 Liquidity components must share one as-of date. A newer cash observation may
 not be combined with older revolver evidence. If the latest complete total is
 older than SUMMARY, it is either visibly dated or excluded from the current
