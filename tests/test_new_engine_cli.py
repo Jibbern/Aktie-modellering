@@ -10,6 +10,7 @@ from pbi_xbrl.new_engine import main
 
 
 ROOT = Path(__file__).resolve().parents[1]
+HEAD = "e76f93979c59ab821e30124cd4f28121e275aaae"
 
 
 def _package_path() -> Path:
@@ -70,7 +71,7 @@ def test_plan_cli_reports_ticker_mismatch_without_traceback(tmp_path: Path, caps
     assert not (tmp_path / "run").exists()
 
 
-def test_render_and_validate_cli_forward_release_arguments(
+def test_render_validate_promote_and_rollback_cli_forward_release_arguments(
     tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     observed: list[tuple[str, dict[str, object]]] = []
@@ -83,8 +84,18 @@ def test_render_and_validate_cli_forward_release_arguments(
         observed.append(("validate", kwargs))
         return {"status": "PASS", "receipt_path": tmp_path / "validate.json"}
 
+    def fake_promote(**kwargs: object) -> dict[str, object]:
+        observed.append(("promote", kwargs))
+        return {"status": "PASS", "mode": "dry-run"}
+
+    def fake_rollback(**kwargs: object) -> dict[str, object]:
+        observed.append(("rollback", kwargs))
+        return {"status": "PASS", "mode": "dry-run"}
+
     monkeypatch.setattr(cli, "render_shadow", fake_render)
     monkeypatch.setattr(cli, "validate_workbook_immutable", fake_validate)
+    monkeypatch.setattr(cli, "promote_workbook", fake_promote)
+    monkeypatch.setattr(cli, "rollback_workbook", fake_rollback)
     common = [
         "--package",
         str(ROOT / "package.json"),
@@ -112,6 +123,53 @@ def test_render_and_validate_cli_forward_release_arguments(
         ]
     ) == 0
     json.loads(capsys.readouterr().out)
+
+    assert main(
+        [
+            "promote",
+            *common,
+            "--run-dir",
+            str(tmp_path / "promote"),
+            "--plan-receipt",
+            str(tmp_path / "plan.json"),
+            "--shadow-workbook",
+            str(tmp_path / "shadow.xlsx"),
+            "--shadow-receipt",
+            str(tmp_path / "shadow.run.json"),
+            "--canonical-workbook",
+            str(tmp_path / "canonical.xlsx"),
+            "--rollback-dir",
+            str(tmp_path / "rollbacks"),
+            "--expected-shadow-sha256",
+            "a" * 64,
+            "--product-approval-reference",
+            "approval:ANF-v8",
+            "--expected-head",
+            HEAD,
+            "--excel-locale-id",
+            "1053",
+        ]
+    ) == 0
+    json.loads(capsys.readouterr().out)
+
+    assert main(
+        [
+            "rollback",
+            "--run-dir",
+            str(tmp_path / "rollback"),
+            "--canonical-workbook",
+            str(tmp_path / "canonical.xlsx"),
+            "--rollback-record",
+            str(tmp_path / "rollback.json"),
+            "--expected-rollback-record-sha256",
+            "b" * 64,
+            "--product-approval-reference",
+            "approval:rollback-ANF-v8",
+            "--expected-head",
+            HEAD,
+        ]
+    ) == 0
+    json.loads(capsys.readouterr().out)
     assert main(
         [
             "validate",
@@ -132,8 +190,13 @@ def test_render_and_validate_cli_forward_release_arguments(
     assert observed[0][1]["version"] == "v8"
     assert observed[0][1]["excel_native"] == "required"
     assert observed[0][1]["required_locale_id"] == 1053
-    assert observed[1][0] == "validate"
-    assert observed[1][1]["excel_native"] == "off"
+    assert observed[1][0] == "promote"
+    assert observed[1][1]["execute"] is False
+    assert observed[1][1]["required_locale_id"] == 1053
+    assert observed[2][0] == "rollback"
+    assert observed[2][1]["execute"] is False
+    assert observed[3][0] == "validate"
+    assert observed[3][1]["excel_native"] == "off"
 
 
 def test_cli_reports_operational_filesystem_errors_without_traceback(

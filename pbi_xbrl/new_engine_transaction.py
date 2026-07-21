@@ -136,3 +136,22 @@ def publish_no_overwrite(
         raise NewEngineTransactionError(
             f"No safe no-overwrite publication primitive succeeded for {candidate}: {exc}"
         ) from exc
+
+
+def replace_existing_atomic(candidate_path: Path | str, final_path: Path | str) -> None:
+    """Atomically replace one existing same-directory workbook."""
+
+    candidate = Path(candidate_path)
+    final = Path(final_path)
+    if candidate.parent.resolve() != final.parent.resolve():
+        raise NewEngineTransactionError("Candidate and final workbook must be in the same directory.")
+    if not candidate.is_file():
+        raise NewEngineTransactionError(f"Workbook candidate does not exist: {candidate}")
+    if not final.is_file():
+        raise NewEngineTransactionError(f"Existing destination workbook does not exist: {final}")
+    try:
+        os.replace(candidate, final)
+    except OSError as exc:
+        raise NewEngineTransactionError(
+            f"Atomic workbook replacement failed for {final}: {exc}"
+        ) from exc

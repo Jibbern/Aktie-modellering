@@ -7,6 +7,7 @@ import sys
 
 import pytest
 
+import pbi_xbrl.new_engine_transaction as transaction
 from pbi_xbrl.new_engine_transaction import (
     NewEngineTransactionError,
     candidate_path_for,
@@ -57,6 +58,28 @@ def test_posix_publication_uses_no_overwrite_link_semantics(tmp_path: Path) -> N
 
     assert final_path.read_bytes() == b"candidate"
     assert not candidate.exists()
+
+
+def test_existing_destination_replacement_is_same_directory_and_atomic(tmp_path: Path) -> None:
+    assert hasattr(transaction, "replace_existing_atomic"), "atomic replacement primitive is missing"
+    replace_existing_atomic = transaction.replace_existing_atomic
+    canonical = tmp_path / "ANF_model.xlsx"
+    canonical.write_bytes(b"old canonical")
+    candidate = candidate_path_for(canonical)
+    candidate.write_bytes(b"accepted shadow")
+
+    replace_existing_atomic(candidate, canonical)
+
+    assert canonical.read_bytes() == b"accepted shadow"
+    assert not candidate.exists()
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    wrong_parent = outside / "candidate.xlsx"
+    wrong_parent.write_bytes(b"wrong")
+    with pytest.raises(NewEngineTransactionError, match="same directory"):
+        replace_existing_atomic(wrong_parent, canonical)
+    assert canonical.read_bytes() == b"accepted shadow"
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows ACL validation is Windows-only")

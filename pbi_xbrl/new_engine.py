@@ -14,6 +14,11 @@ from pbi_xbrl.new_engine_orchestration import (
     run_plan,
     validate_workbook_immutable,
 )
+from pbi_xbrl.new_engine_promotion import (
+    NewEnginePromotionError,
+    promote_workbook,
+    rollback_workbook,
+)
 from pbi_xbrl.new_engine_transaction import NewEngineTransactionError
 from pbi_xbrl.new_ticker_style_planner import DEFAULT_MODULE_MANIFEST, DEFAULT_STYLE_POLICY
 from pbi_xbrl.new_ticker_value_filler import DEFAULT_BINDING_MAP, DEFAULT_MANIFEST, DEFAULT_TEMPLATE
@@ -43,7 +48,9 @@ def _add_common_arguments(parser: argparse.ArgumentParser) -> None:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m pbi_xbrl.new_engine",
-        description="Plan, render and validate deterministic versioned new-engine shadow workbooks.",
+        description=(
+            "Plan, render, validate, promote and roll back deterministic new-engine workbooks."
+        ),
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -67,6 +74,30 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--workbook", required=True, type=Path, dest="workbook_path")
     validate.add_argument("--excel-native", choices=("off", "required"), default="off")
     validate.add_argument("--excel-locale-id", type=int, dest="required_locale_id")
+
+    promote = subparsers.add_parser("promote", help="Dry-run or execute canonical workbook promotion.")
+    _add_common_arguments(promote)
+    promote.add_argument("--run-dir", required=True, type=Path)
+    promote.add_argument("--plan-receipt", required=True, type=Path, dest="plan_receipt_path")
+    promote.add_argument("--shadow-workbook", required=True, type=Path)
+    promote.add_argument("--shadow-receipt", required=True, type=Path, dest="shadow_receipt_path")
+    promote.add_argument("--canonical-workbook", required=True, type=Path)
+    promote.add_argument("--rollback-dir", required=True, type=Path)
+    promote.add_argument("--expected-shadow-sha256", required=True)
+    promote.add_argument("--product-approval-reference", required=True)
+    promote.add_argument("--expected-head", required=True)
+    promote.add_argument("--excel-locale-id", required=True, type=int, dest="required_locale_id")
+    promote.add_argument("--execute", action="store_true")
+
+    rollback = subparsers.add_parser("rollback", help="Dry-run or execute one workbook-specific rollback.")
+    rollback.add_argument("--run-dir", required=True, type=Path)
+    rollback.add_argument("--canonical-workbook", required=True, type=Path)
+    rollback.add_argument("--rollback-record", required=True, type=Path, dest="rollback_record_path")
+    rollback.add_argument("--expected-rollback-record-sha256", required=True)
+    rollback.add_argument("--product-approval-reference", required=True)
+    rollback.add_argument("--expected-head", required=True)
+    rollback.add_argument("--execute", action="store_true")
+    rollback.add_argument("--log-level", choices=("DEBUG", "INFO", "WARNING", "ERROR"), default="INFO")
     return parser
 
 
@@ -91,9 +122,19 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = run_plan(**args)
         elif command == "render-shadow":
             result = render_shadow(**args)
-        else:
+        elif command == "validate":
             result = validate_workbook_immutable(**args)
-    except (NewEngineOrchestrationError, NewEngineTransactionError, ExcelNativeValidationError, OSError) as exc:
+        elif command == "promote":
+            result = promote_workbook(**args)
+        else:
+            result = rollback_workbook(**args)
+    except (
+        NewEngineOrchestrationError,
+        NewEnginePromotionError,
+        NewEngineTransactionError,
+        ExcelNativeValidationError,
+        OSError,
+    ) as exc:
         print(
             json.dumps(
                 {"status": "FAIL", "reason": type(exc).__name__, "message": str(exc)},
