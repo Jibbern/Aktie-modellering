@@ -90,14 +90,16 @@ def _parser() -> argparse.ArgumentParser:
     promote.add_argument("--execute", action="store_true")
 
     rollback = subparsers.add_parser("rollback", help="Dry-run or execute one workbook-specific rollback.")
+    _add_common_arguments(rollback)
     rollback.add_argument("--run-dir", required=True, type=Path)
+    rollback.add_argument("--plan-receipt", required=True, type=Path, dest="plan_receipt_path")
     rollback.add_argument("--canonical-workbook", required=True, type=Path)
     rollback.add_argument("--rollback-record", required=True, type=Path, dest="rollback_record_path")
     rollback.add_argument("--expected-rollback-record-sha256", required=True)
     rollback.add_argument("--product-approval-reference", required=True)
     rollback.add_argument("--expected-head", required=True)
+    rollback.add_argument("--excel-locale-id", required=True, type=int, dest="required_locale_id")
     rollback.add_argument("--execute", action="store_true")
-    rollback.add_argument("--log-level", choices=("DEBUG", "INFO", "WARNING", "ERROR"), default="INFO")
     return parser
 
 

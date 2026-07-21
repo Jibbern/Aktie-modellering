@@ -113,19 +113,31 @@ Any handled failure after replacement automatically restores the previous bytes.
 The promotion result reports both `rollback_record` and
 `rollback_record_sha256`. Supply both to rollback; the independently supplied digest
 prevents an edited record from authorizing a restore. Rollback is also dry-run by
-default.
+default. Supply a freshly reproduced package and plan receipt for the workbook version
+stored in the rollback record. The rollback source, staged candidate, and restored
+canonical workbook all undergo strict, saved-workbook, and required Excel-native
+validation against that context.
 
 ```powershell
 python -m pbi_xbrl.new_engine rollback `
+  --package C:\path\to\ANF_normalized_data_package.json `
+  --ticker ANF `
+  --profile-id full_union `
   --run-dir C:\path\to\runs\v8-rollback `
+  --plan-receipt C:\path\to\runs\previous-version-plan\run_receipt.json `
   --canonical-workbook "C:\path\to\Excel stock models\ANF_model.xlsx" `
   --rollback-record C:\path\to\rollback\ANF\ANF_model.<operation>.rollback.json `
   --expected-rollback-record-sha256 <EXACT_RECORD_SHA256> `
   --product-approval-reference <ROLLBACK_APPROVAL_REFERENCE> `
-  --expected-head <EXACT_GIT_HEAD>
+  --expected-head <EXACT_GIT_HEAD> `
+  --excel-locale-id 1053
 ```
 
 Repeat with `--execute` only after the dry run passes. Rollback requires the current
 canonical hash to equal the promoted hash recorded by the corresponding promotion;
-it refuses to overwrite a workbook changed by another operation. Its receipt is
-stored in `--run-dir` and is operational evidence only.
+it refuses to overwrite a workbook changed by another operation. Immediately before
+replacement it strictly reloads and hash-verifies both the immutable rollback record
+and rollback workbook. A validation or receipt failure after replacement reapplies
+the exact pre-rollback promoted bytes. Its receipt is stored in `--run-dir` and is
+operational evidence only. The receipt records the fresh package and plan-receipt
+hashes, ticker/profile identity, and required Excel locale used for validation.

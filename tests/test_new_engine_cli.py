@@ -155,8 +155,11 @@ def test_render_validate_promote_and_rollback_cli_forward_release_arguments(
     assert main(
         [
             "rollback",
+            *common,
             "--run-dir",
             str(tmp_path / "rollback"),
+            "--plan-receipt",
+            str(tmp_path / "rollback-plan.json"),
             "--canonical-workbook",
             str(tmp_path / "canonical.xlsx"),
             "--rollback-record",
@@ -167,6 +170,8 @@ def test_render_validate_promote_and_rollback_cli_forward_release_arguments(
             "approval:rollback-ANF-v8",
             "--expected-head",
             HEAD,
+            "--excel-locale-id",
+            "1053",
         ]
     ) == 0
     json.loads(capsys.readouterr().out)
@@ -195,6 +200,9 @@ def test_render_validate_promote_and_rollback_cli_forward_release_arguments(
     assert observed[1][1]["required_locale_id"] == 1053
     assert observed[2][0] == "rollback"
     assert observed[2][1]["execute"] is False
+    assert observed[2][1]["ticker"] == "ANF"
+    assert observed[2][1]["profile_id"] == "full_union"
+    assert observed[2][1]["required_locale_id"] == 1053
     assert observed[3][0] == "validate"
     assert observed[3][1]["excel_native"] == "off"
 
