@@ -9,6 +9,87 @@ Canonical promotion and workbook-specific rollback are available through explici
 dry-run-first commands. Neither command changes workbook economics or trusts a
 serialized plan or receipt in place of fresh validation.
 
+## Composed check tiers
+
+`scripts/run_new_engine_checks.py` is the supported composition layer for existing
+checks. It does not implement validation logic. Fast and checkpoint runs put pytest,
+bytecode, and validator reports under one owned temporary directory and remove it
+before returning.
+
+Run a focused development tier against the current worktree:
+
+```powershell
+python -B scripts/run_new_engine_checks.py fast `
+  --changed-from HEAD `
+  --pytest-target tests/test_new_engine_cli.py `
+  --pytest-target tests/test_new_engine_orchestration.py `
+  --package C:\path\to\ANF_normalized_data_package.json `
+  --ticker ANF `
+  --profile-id full_union
+```
+
+The fast tier compiles changed Python in memory, strictly parses changed JSON, runs
+both unstaged and staged `git diff --check`, and executes only the supplied pytest
+targets with its cache provider disabled. `--package`, `--ticker`, and `--profile-id`
+are optional as a group. When present, the runner delegates semantic and optional
+expected-digest verification to `python -m pbi_xbrl.new_engine plan` inside its owned
+temporary directory; the runner contains no digest logic. The optional flags are
+`--expected-contract-digest`, `--expected-value-plan-digest`, and
+`--expected-style-plan-digest`.
+
+Checkpoint adds shell validation and explicitly affected deterministic audit replay.
+Saved-workbook validation is included only when both its workbook location and ticker
+set are declared. Checkpoint fails closed unless at least one relevant
+`--cross-profile-pytest-target` is declared:
+
+```powershell
+python -B scripts/run_new_engine_checks.py checkpoint `
+  --changed-from HEAD `
+  --pytest-target tests/test_new_engine_cli.py `
+  --cross-profile-pytest-target tests/test_workbook_module_manifest.py `
+  --package C:\path\to\ANF_normalized_data_package.json `
+  --ticker ANF `
+  --profile-id full_union `
+  --audit-generator scripts/build_standard_template_binding_audit.py `
+  --saved-workbook-dir C:\path\to\saved-models `
+  --saved-ticker PBI --saved-ticker GPRE --saved-ticker ANF
+```
+
+Release requires a clean repository at the exact expected HEAD. It replays all
+declared deterministic audits, reproduces plans, transactionally renders one new
+versioned shadow with required desktop Excel, validates that shadow immutably with a
+second Excel roundtrip, writes the existing visual audit reports, and finishes with
+canonical promotion dry-run. It never passes `--execute`.
+
+```powershell
+python -B scripts/run_new_engine_checks.py release `
+  --changed-from HEAD^ `
+  --pytest-target tests/test_new_engine_cli.py `
+  --pytest-target tests/test_new_engine_orchestration.py `
+  --cross-profile-pytest-target tests/test_workbook_module_manifest.py `
+  --full-pytest-target tests/test_new_engine_cli.py `
+  --full-pytest-target tests/test_new_engine_orchestration.py `
+  --package C:\path\to\ANF_normalized_data_package.json `
+  --ticker ANF --profile-id full_union `
+  --output-root C:\path\to\versioned-shadows `
+  --version v8 `
+  --reports-dir C:\path\to\release-reports\ANF-v8 `
+  --canonical-workbook "C:\path\to\Excel stock models\ANF_model.xlsx" `
+  --rollback-dir C:\path\to\rollback\ANF `
+  --product-approval-reference approval:ANF-v8 `
+  --expected-head <EXACT_GIT_HEAD> `
+  --excel-locale-id 1053
+```
+
+`--output-root` and `--reports-dir` must be outside the repository and must not
+contain the requested version already. The only persistent release artifacts are
+the explicit `<TICKER>_shadow_model_<version>.xlsx`, its adjacent run receipt, and
+the declared report directory. Technical visual failures are blocking. A COM visual
+render that is explicitly skipped is advisory and yields `PASS_WITH_ADVISORIES`;
+the required Excel-native workbook validation remains blocking. Release fails before
+creating outputs unless both relevant cross-profile and full-release pytest selections
+are explicitly declared, and canonical promotion is always dry-run without `--execute`.
+
 ## Plan
 
 Planning validates the normalized package and independently reproduces the value and
