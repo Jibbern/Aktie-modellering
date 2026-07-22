@@ -136,6 +136,7 @@ def fill_standard_template_from_package(
         _resolve_ticker_sheet(wb, ticker)
         written = _execute_binding_plan(wb, plan)
         styled = apply_style_plan(wb, style_plan).applied_action_count
+        _apply_planned_sheet_visibility(wb, plan)
         serialize_workbook_formulas_for_ooxml(wb)
         wb.save(out_path)
     except (FormulaSerializationError, StyleApplicationError) as exc:
@@ -189,6 +190,22 @@ def _execute_binding_plan(wb: Any, plan: BindingPlan) -> int:
         cell.value = write.get("value")
         written += 1
     return written
+
+
+def _apply_planned_sheet_visibility(wb: Any, plan: BindingPlan) -> None:
+    """Apply only planner-owned, freshly reproduced sheet-state decisions."""
+
+    if not isinstance(plan, BindingPlan) or plan.status != "PASS" or plan.has_blockers:
+        raise BindingContractError("Sheet visibility requires an independently reproduced PASS BindingPlan.")
+    allowed_states = {"visible", "hidden", "veryHidden"}
+    for sheet_name, state in sorted(plan.sheet_visibility.items()):
+        if sheet_name not in wb.sheetnames:
+            raise BindingContractError(f"Sheet visibility plan references missing sheet {sheet_name!r}.")
+        if state not in allowed_states:
+            raise BindingContractError(
+                f"Sheet visibility plan uses unsupported state {state!r} for {sheet_name!r}."
+            )
+        wb[sheet_name].sheet_state = state
 
 
 def _load_json(path: Path) -> dict[str, Any]:

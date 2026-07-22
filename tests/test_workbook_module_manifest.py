@@ -346,7 +346,11 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
         for name, contract in sheet_contracts(_payload()).items():
             if contract["role"] != "visible_product":
                 assert wb[name].sheet_state != "visible"
-                assert [wb[name].cell(1, col).value for col in range(1, len(contract["headers"]) + 1)] == contract["headers"]
+                header_row = int(contract.get("header_row") or 1)
+                assert [
+                    wb[name].cell(header_row, col).value
+                    for col in range(1, len(contract["headers"]) + 1)
+                ] == contract["headers"]
         resolved = resolve_module_profile(_payload(), "core_only")
         assert validate_workbook_execution_ownership(wb, _payload(), bindings, resolved) == []
         disabled_shared_cells = (

@@ -4706,6 +4706,656 @@
       "allowed_target_types": [
         "text"
       ]
+    },
+    {
+      "contract_id": "support_debt_profile_resolved_rows_category",
+      "sheet": "Debt_Profile",
+      "target": "A4:A14",
+      "writable": true,
+      "target_role": "debt_profile_resolved_rows.category",
+      "allowed_binding_ids": [
+        "debt_profile_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_profile_resolved_rows_item",
+      "sheet": "Debt_Profile",
+      "target": "B4:B14",
+      "writable": true,
+      "target_role": "debt_profile_resolved_rows.item",
+      "allowed_binding_ids": [
+        "debt_profile_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_profile_resolved_rows_facility_or_instrument",
+      "sheet": "Debt_Profile",
+      "target": "C4:C14",
+      "writable": true,
+      "target_role": "debt_profile_resolved_rows.facility_or_instrument",
+      "allowed_binding_ids": [
+        "debt_profile_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_profile_resolved_rows_value",
+      "sheet": "Debt_Profile",
+      "target": "D4:D14",
+      "writable": true,
+      "target_role": "debt_profile_resolved_rows.value",
+      "allowed_binding_ids": [
+        "debt_profile_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_debt_profile_resolved_rows_unit",
+      "sheet": "Debt_Profile",
+      "target": "E4:E14",
+      "writable": true,
+      "target_role": "debt_profile_resolved_rows.unit",
+      "allowed_binding_ids": [
+        "debt_profile_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_profile_resolved_rows_as_of_date",
+      "sheet": "Debt_Profile",
+      "target": "F4:F14",
+      "writable": true,
+      "target_role": "debt_profile_resolved_rows.as_of_date",
+      "allowed_binding_ids": [
+        "debt_profile_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "support_debt_profile_resolved_rows_expiry_or_maturity",
+      "sheet": "Debt_Profile",
+      "target": "G4:G14",
+      "writable": true,
+      "target_role": "debt_profile_resolved_rows.expiry_or_maturity",
+      "allowed_binding_ids": [
+        "debt_profile_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "support_debt_profile_resolved_rows_state",
+      "sheet": "Debt_Profile",
+      "target": "H4:H14",
+      "writable": true,
+      "target_role": "debt_profile_resolved_rows.state",
+      "allowed_binding_ids": [
+        "debt_profile_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "support_debt_profile_resolved_rows_evidence_key",
+      "sheet": "Debt_Profile",
+      "target": "I4:I14",
+      "writable": true,
+      "target_role": "debt_profile_resolved_rows.evidence_key",
+      "allowed_binding_ids": [
+        "debt_profile_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_profile_resolved_rows_definition_or_source",
+      "sheet": "Debt_Profile",
+      "target": "J4:J14",
+      "writable": true,
+      "target_role": "debt_profile_resolved_rows.definition_or_source",
+      "allowed_binding_ids": [
+        "debt_profile_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_resolved_rows_as_of_date",
+      "sheet": "Revolver_History",
+      "target": "A4:A15",
+      "writable": true,
+      "target_role": "revolver_history_resolved_rows.as_of_date",
+      "allowed_binding_ids": [
+        "revolver_history_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_resolved_rows_publication_date",
+      "sheet": "Revolver_History",
+      "target": "B4:B15",
+      "writable": true,
+      "target_role": "revolver_history_resolved_rows.publication_date",
+      "allowed_binding_ids": [
+        "revolver_history_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_resolved_rows_facility",
+      "sheet": "Revolver_History",
+      "target": "C4:C15",
+      "writable": true,
+      "target_role": "revolver_history_resolved_rows.facility",
+      "allowed_binding_ids": [
+        "revolver_history_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_resolved_rows_commitment",
+      "sheet": "Revolver_History",
+      "target": "D4:D15",
+      "writable": true,
+      "target_role": "revolver_history_resolved_rows.commitment",
+      "allowed_binding_ids": [
+        "revolver_history_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_resolved_rows_loan_cap",
+      "sheet": "Revolver_History",
+      "target": "E4:E15",
+      "writable": true,
+      "target_role": "revolver_history_resolved_rows.loan_cap",
+      "allowed_binding_ids": [
+        "revolver_history_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_resolved_rows_drawn",
+      "sheet": "Revolver_History",
+      "target": "F4:F15",
+      "writable": true,
+      "target_role": "revolver_history_resolved_rows.drawn",
+      "allowed_binding_ids": [
+        "revolver_history_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_resolved_rows_letters_of_credit",
+      "sheet": "Revolver_History",
+      "target": "G4:G15",
+      "writable": true,
+      "target_role": "revolver_history_resolved_rows.letters_of_credit",
+      "allowed_binding_ids": [
+        "revolver_history_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_resolved_rows_gross_capacity",
+      "sheet": "Revolver_History",
+      "target": "H4:H15",
+      "writable": true,
+      "target_role": "revolver_history_resolved_rows.gross_capacity",
+      "allowed_binding_ids": [
+        "revolver_history_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_resolved_rows_minimum_excess",
+      "sheet": "Revolver_History",
+      "target": "I4:I15",
+      "writable": true,
+      "target_role": "revolver_history_resolved_rows.minimum_excess",
+      "allowed_binding_ids": [
+        "revolver_history_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_resolved_rows_net_availability",
+      "sheet": "Revolver_History",
+      "target": "J4:J15",
+      "writable": true,
+      "target_role": "revolver_history_resolved_rows.net_availability",
+      "allowed_binding_ids": [
+        "revolver_history_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_companion_rows_rate_basis",
+      "sheet": "Revolver_History",
+      "target": "L4:L15",
+      "writable": true,
+      "target_role": "revolver_history_companion_rows.rate_basis",
+      "allowed_binding_ids": [
+        "revolver_history_companion_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_companion_rows_expiry",
+      "sheet": "Revolver_History",
+      "target": "M4:M15",
+      "writable": true,
+      "target_role": "revolver_history_companion_rows.expiry",
+      "allowed_binding_ids": [
+        "revolver_history_companion_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_companion_rows_covenant_state",
+      "sheet": "Revolver_History",
+      "target": "N4:N15",
+      "writable": true,
+      "target_role": "revolver_history_companion_rows.covenant_state",
+      "allowed_binding_ids": [
+        "revolver_history_companion_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_companion_rows_source_state",
+      "sheet": "Revolver_History",
+      "target": "O4:O15",
+      "writable": true,
+      "target_role": "revolver_history_companion_rows.source_state",
+      "allowed_binding_ids": [
+        "revolver_history_companion_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "support_revolver_history_companion_rows_evidence_source",
+      "sheet": "Revolver_History",
+      "target": "P4:P15",
+      "writable": true,
+      "target_role": "revolver_history_companion_rows.evidence_source",
+      "allowed_binding_ids": [
+        "revolver_history_companion_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_leverage_liquidity_resolved_rows_period",
+      "sheet": "Leverage_Liquidity",
+      "target": "A4:A15",
+      "writable": true,
+      "target_role": "leverage_liquidity_resolved_rows.period",
+      "allowed_binding_ids": [
+        "leverage_liquidity_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "period"
+      ]
+    },
+    {
+      "contract_id": "support_leverage_liquidity_resolved_rows_cash",
+      "sheet": "Leverage_Liquidity",
+      "target": "B4:B15",
+      "writable": true,
+      "target_role": "leverage_liquidity_resolved_rows.cash",
+      "allowed_binding_ids": [
+        "leverage_liquidity_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_leverage_liquidity_resolved_rows_restricted_cash",
+      "sheet": "Leverage_Liquidity",
+      "target": "C4:C15",
+      "writable": true,
+      "target_role": "leverage_liquidity_resolved_rows.restricted_cash",
+      "allowed_binding_ids": [
+        "leverage_liquidity_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_leverage_liquidity_resolved_rows_core_debt",
+      "sheet": "Leverage_Liquidity",
+      "target": "D4:D15",
+      "writable": true,
+      "target_role": "leverage_liquidity_resolved_rows.core_debt",
+      "allowed_binding_ids": [
+        "leverage_liquidity_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_leverage_liquidity_resolved_rows_operating_leases",
+      "sheet": "Leverage_Liquidity",
+      "target": "E4:E15",
+      "writable": true,
+      "target_role": "leverage_liquidity_resolved_rows.operating_leases",
+      "allowed_binding_ids": [
+        "leverage_liquidity_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_leverage_liquidity_availability_rows_revolver_availability",
+      "sheet": "Leverage_Liquidity",
+      "target": "G4:G15",
+      "writable": true,
+      "target_role": "leverage_liquidity_availability_rows.revolver_availability",
+      "allowed_binding_ids": [
+        "leverage_liquidity_availability_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_leverage_liquidity_companion_rows_disposition_state",
+      "sheet": "Leverage_Liquidity",
+      "target": "L4:L15",
+      "writable": true,
+      "target_role": "leverage_liquidity_companion_rows.disposition_state",
+      "allowed_binding_ids": [
+        "leverage_liquidity_companion_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "support_leverage_liquidity_companion_rows_evidence_key",
+      "sheet": "Leverage_Liquidity",
+      "target": "M4:M15",
+      "writable": true,
+      "target_role": "leverage_liquidity_companion_rows.evidence_key",
+      "allowed_binding_ids": [
+        "leverage_liquidity_companion_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_leverage_liquidity_companion_rows_component_period_explanation",
+      "sheet": "Leverage_Liquidity",
+      "target": "N4:N15",
+      "writable": true,
+      "target_role": "leverage_liquidity_companion_rows.component_period_explanation",
+      "allowed_binding_ids": [
+        "leverage_liquidity_companion_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_credit_notes_resolved_rows_topic",
+      "sheet": "Debt_Credit_Notes",
+      "target": "A4:A9",
+      "writable": true,
+      "target_role": "debt_credit_notes_resolved_rows.topic",
+      "allowed_binding_ids": [
+        "debt_credit_notes_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_credit_notes_resolved_rows_facility_or_instrument",
+      "sheet": "Debt_Credit_Notes",
+      "target": "B4:B9",
+      "writable": true,
+      "target_role": "debt_credit_notes_resolved_rows.facility_or_instrument",
+      "allowed_binding_ids": [
+        "debt_credit_notes_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_credit_notes_resolved_rows_as_of_date",
+      "sheet": "Debt_Credit_Notes",
+      "target": "C4:C9",
+      "writable": true,
+      "target_role": "debt_credit_notes_resolved_rows.as_of_date",
+      "allowed_binding_ids": [
+        "debt_credit_notes_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "support_debt_credit_notes_resolved_rows_publication_date",
+      "sheet": "Debt_Credit_Notes",
+      "target": "D4:D9",
+      "writable": true,
+      "target_role": "debt_credit_notes_resolved_rows.publication_date",
+      "allowed_binding_ids": [
+        "debt_credit_notes_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "support_debt_credit_notes_resolved_rows_exact_bounded_note",
+      "sheet": "Debt_Credit_Notes",
+      "target": "E4:E9",
+      "writable": true,
+      "target_role": "debt_credit_notes_resolved_rows.exact_bounded_note",
+      "allowed_binding_ids": [
+        "debt_credit_notes_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_credit_notes_resolved_rows_state",
+      "sheet": "Debt_Credit_Notes",
+      "target": "F4:F9",
+      "writable": true,
+      "target_role": "debt_credit_notes_resolved_rows.state",
+      "allowed_binding_ids": [
+        "debt_credit_notes_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "support_debt_credit_notes_resolved_rows_evidence_key",
+      "sheet": "Debt_Credit_Notes",
+      "target": "G4:G9",
+      "writable": true,
+      "target_role": "debt_credit_notes_resolved_rows.evidence_key",
+      "allowed_binding_ids": [
+        "debt_credit_notes_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_credit_notes_resolved_rows_source",
+      "sheet": "Debt_Credit_Notes",
+      "target": "H4:H9",
+      "writable": true,
+      "target_role": "debt_credit_notes_resolved_rows.source",
+      "allowed_binding_ids": [
+        "debt_credit_notes_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_maturity_ladder_resolved_rows_instrument",
+      "sheet": "Debt_Maturity_Ladder",
+      "target": "A4:A20",
+      "writable": true,
+      "target_role": "debt_maturity_ladder_resolved_rows.instrument",
+      "allowed_binding_ids": [
+        "debt_maturity_ladder_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_maturity_ladder_resolved_rows_maturity_bucket",
+      "sheet": "Debt_Maturity_Ladder",
+      "target": "B4:B20",
+      "writable": true,
+      "target_role": "debt_maturity_ladder_resolved_rows.maturity_bucket",
+      "allowed_binding_ids": [
+        "debt_maturity_ladder_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_maturity_ladder_resolved_rows_amount",
+      "sheet": "Debt_Maturity_Ladder",
+      "target": "C4:C20",
+      "writable": true,
+      "target_role": "debt_maturity_ladder_resolved_rows.amount",
+      "allowed_binding_ids": [
+        "debt_maturity_ladder_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_debt_maturity_ladder_resolved_rows_unit",
+      "sheet": "Debt_Maturity_Ladder",
+      "target": "D4:D20",
+      "writable": true,
+      "target_role": "debt_maturity_ladder_resolved_rows.unit",
+      "allowed_binding_ids": [
+        "debt_maturity_ladder_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_debt_maturity_ladder_resolved_rows_due_date",
+      "sheet": "Debt_Maturity_Ladder",
+      "target": "E4:E20",
+      "writable": true,
+      "target_role": "debt_maturity_ladder_resolved_rows.due_date",
+      "allowed_binding_ids": [
+        "debt_maturity_ladder_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "support_debt_maturity_ladder_resolved_rows_as_of_date",
+      "sheet": "Debt_Maturity_Ladder",
+      "target": "F4:F20",
+      "writable": true,
+      "target_role": "debt_maturity_ladder_resolved_rows.as_of_date",
+      "allowed_binding_ids": [
+        "debt_maturity_ladder_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "date"
+      ]
+    },
+    {
+      "contract_id": "support_debt_maturity_ladder_resolved_rows_state",
+      "sheet": "Debt_Maturity_Ladder",
+      "target": "G4:G20",
+      "writable": true,
+      "target_role": "debt_maturity_ladder_resolved_rows.state",
+      "allowed_binding_ids": [
+        "debt_maturity_ladder_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "status"
+      ]
+    },
+    {
+      "contract_id": "support_debt_maturity_ladder_resolved_rows_evidence_source",
+      "sheet": "Debt_Maturity_Ladder",
+      "target": "H4:H20",
+      "writable": true,
+      "target_role": "debt_maturity_ladder_resolved_rows.evidence_source",
+      "allowed_binding_ids": [
+        "debt_maturity_ladder_resolved_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
     }
   ],
   "planner_merge_families": [
@@ -7029,6 +7679,10 @@
         "status",
         "definition"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "core_financial_history",
       "module_role": "hidden_support",
@@ -7064,6 +7718,10 @@
         "status",
         "definition"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "balance_cash_flow",
       "module_role": "hidden_support",
@@ -7099,6 +7757,10 @@
         "status",
         "definition"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "balance_cash_flow",
       "module_role": "hidden_support",
@@ -7133,6 +7795,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "quarter_notes_evidence",
       "module_role": "hidden_support",
@@ -7167,6 +7833,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "quarter_notes_evidence",
       "module_role": "hidden_support",
@@ -7201,6 +7871,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "quarter_notes_evidence",
       "module_role": "hidden_support",
@@ -7231,6 +7905,10 @@
         "resolved_revenue_growth_bull",
         "resolved_revenue_growth_custom"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
@@ -7265,6 +7943,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "guidance_promises",
       "module_role": "hidden_support",
@@ -7300,6 +7982,10 @@
         "status",
         "source_ref"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "guidance_promises",
       "module_role": "hidden_support",
@@ -7336,6 +8022,10 @@
         "source_ref",
         "notes"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "guidance_promises",
       "module_role": "hidden_support",
@@ -7371,6 +8061,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "core_financial_history",
       "module_role": "hidden_support",
@@ -7406,6 +8100,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "operating_drivers",
       "module_role": "hidden_support",
@@ -7440,6 +8138,10 @@
         "fiscal_quarter",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "core_financial_history",
       "module_role": "hidden_support",
@@ -7481,6 +8183,10 @@
         "source_refs",
         "audit_id"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "hidden_value_signals",
       "module_role": "hidden_support",
@@ -7536,6 +8242,10 @@
         "parity_status",
         "discrepancy_reason"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "hidden_value_signals",
       "module_role": "hidden_support",
@@ -7634,6 +8344,10 @@
         "recomputed_triggered",
         "candidate_parity"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "hidden_value_signals",
       "module_role": "hidden_support",
@@ -7675,6 +8389,10 @@
         "source_refs",
         "formula_ids"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "hidden_value_signals",
       "module_role": "hidden_support",
@@ -7687,8 +8405,16 @@
       "writable_zones": [
         {
           "zone_id": "module_debt_liquidity_revolver_history_rows",
-          "target": "A2:G5000",
-          "anchor_label": "period",
+          "target": "A4:J15",
+          "anchor_label": "As of",
+          "value_shapes": [
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "module_debt_liquidity_revolver_history_rows_2",
+          "target": "L4:P15",
+          "anchor_label": "As of",
           "value_shapes": [
             "table_rows"
           ]
@@ -7697,18 +8423,58 @@
       "non_writable_zones": [
         {
           "zone_id": "module_debt_liquidity_revolver_history_headers",
-          "target": "A1:G1",
+          "target": "A3:P3",
           "reason": "Neutral module support headers owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_debt_liquidity_revolver_history_title",
+          "target": "A1:P1",
+          "reason": "Neutral module product title owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_debt_liquidity_revolver_history_formula_1",
+          "target": "K4:K15",
+          "reason": "Formula-owned Hidden Value recomputation surface."
         }
       ],
       "formulas_static_labels": [
-        "period",
-        "capacity",
-        "drawn",
-        "availability",
-        "covenant_status",
-        "source_ref",
-        "status"
+        "As of",
+        "Publication date",
+        "Facility",
+        "Commitment",
+        "Loan cap",
+        "Drawn",
+        "Letters of credit",
+        "Gross capacity",
+        "Minimum excess",
+        "Net availability",
+        "Utilization",
+        "Rate basis",
+        "Expiry",
+        "Covenant state",
+        "Source state",
+        "Evidence / source"
+      ],
+      "support_title": "Revolver history",
+      "support_header_row": 3,
+      "support_freeze_panes": "A4",
+      "support_column_widths": [
+        14.0,
+        14.0,
+        22.0,
+        14.0,
+        14.0,
+        12.0,
+        14.0,
+        14.0,
+        14.0,
+        14.0,
+        12.0,
+        18.0,
+        14.0,
+        22.0,
+        26.0,
+        38.0
       ],
       "worksheet_protection": true,
       "module_id": "debt_liquidity",
@@ -7745,6 +8511,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "hidden_support",
@@ -7756,9 +8526,9 @@
       "static_layout_owner": "frozen_template_shell",
       "writable_zones": [
         {
-          "zone_id": "module_debt_liquidity_debt_profile_rows",
-          "target": "A2:F1000",
-          "anchor_label": "metric",
+          "zone_id": "debt_profile_product_rows",
+          "target": "A4:J14",
+          "anchor_label": "Category",
           "value_shapes": [
             "table_rows"
           ]
@@ -7767,17 +8537,51 @@
       "non_writable_zones": [
         {
           "zone_id": "module_debt_liquidity_debt_profile_headers",
-          "target": "A1:F1",
+          "target": "A3:J3",
           "reason": "Neutral module support headers owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_debt_liquidity_debt_profile_title",
+          "target": "A1:J1",
+          "reason": "Neutral module product title owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_debt_liquidity_debt_profile_reserved_1",
+          "target": "A2:J2",
+          "reason": "Reserved neutral support capacity; no binding or formula ownership."
+        },
+        {
+          "zone_id": "module_debt_liquidity_debt_profile_reserved_2",
+          "target": "A15:J16",
+          "reason": "Reserved neutral support capacity; no binding or formula ownership."
         }
       ],
       "formulas_static_labels": [
-        "metric",
-        "value",
-        "period",
-        "unit",
-        "source_ref",
-        "status"
+        "Category",
+        "Item",
+        "Facility or instrument",
+        "Value",
+        "Unit",
+        "As of",
+        "Expiry or maturity",
+        "State",
+        "Evidence",
+        "Definition or source"
+      ],
+      "support_title": "Debt and liquidity profile",
+      "support_header_row": 3,
+      "support_freeze_panes": "A4",
+      "support_column_widths": [
+        16.0,
+        38.0,
+        24.0,
+        14.0,
+        10.0,
+        14.0,
+        18.0,
+        24.0,
+        30.0,
+        48.0
       ],
       "worksheet_protection": true,
       "module_id": "debt_liquidity",
@@ -7790,9 +8594,9 @@
       "static_layout_owner": "frozen_template_shell",
       "writable_zones": [
         {
-          "zone_id": "module_debt_liquidity_debt_credit_notes_rows",
-          "target": "A2:F1000",
-          "anchor_label": "period",
+          "zone_id": "debt_credit_notes_product_rows",
+          "target": "A4:H9",
+          "anchor_label": "Topic",
           "value_shapes": [
             "table_rows"
           ]
@@ -7801,17 +8605,37 @@
       "non_writable_zones": [
         {
           "zone_id": "module_debt_liquidity_debt_credit_notes_headers",
-          "target": "A1:F1",
+          "target": "A3:H3",
           "reason": "Neutral module support headers owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_debt_liquidity_debt_credit_notes_title",
+          "target": "A1:H1",
+          "reason": "Neutral module product title owned by the frozen shell."
         }
       ],
       "formulas_static_labels": [
-        "period",
-        "topic",
-        "note",
-        "covenant",
-        "source_ref",
-        "status"
+        "Topic",
+        "Facility / instrument",
+        "As of",
+        "Publication date",
+        "Exact bounded note",
+        "State",
+        "Evidence",
+        "Source"
+      ],
+      "support_title": "Debt and credit notes",
+      "support_header_row": 3,
+      "support_freeze_panes": "A4",
+      "support_column_widths": [
+        38.0,
+        24.0,
+        14.0,
+        14.0,
+        72.0,
+        20.0,
+        30.0,
+        38.0
       ],
       "worksheet_protection": true,
       "module_id": "debt_liquidity",
@@ -7825,8 +8649,24 @@
       "writable_zones": [
         {
           "zone_id": "module_debt_liquidity_leverage_liquidity_rows",
-          "target": "A2:H5000",
-          "anchor_label": "period",
+          "target": "A4:E15",
+          "anchor_label": "Period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "module_debt_liquidity_leverage_liquidity_rows_2",
+          "target": "G4:G15",
+          "anchor_label": "Period",
+          "value_shapes": [
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "module_debt_liquidity_leverage_liquidity_rows_3",
+          "target": "L4:N15",
+          "anchor_label": "Period",
           "value_shapes": [
             "table_rows"
           ]
@@ -7835,19 +8675,59 @@
       "non_writable_zones": [
         {
           "zone_id": "module_debt_liquidity_leverage_liquidity_headers",
-          "target": "A1:H1",
+          "target": "A3:N3",
           "reason": "Neutral module support headers owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_debt_liquidity_leverage_liquidity_title",
+          "target": "A1:N1",
+          "reason": "Neutral module product title owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_debt_liquidity_leverage_liquidity_formula_1",
+          "target": "F4:F15",
+          "reason": "Formula-owned Hidden Value recomputation surface."
+        },
+        {
+          "zone_id": "module_debt_liquidity_leverage_liquidity_formula_2",
+          "target": "H4:K15",
+          "reason": "Formula-owned Hidden Value recomputation surface."
         }
       ],
       "formulas_static_labels": [
-        "period",
-        "gross_debt",
-        "net_debt",
-        "liquidity",
-        "leverage",
-        "coverage",
-        "source_ref",
-        "status"
+        "Period",
+        "Cash",
+        "Restricted cash",
+        "Core debt",
+        "Operating leases",
+        "Net debt",
+        "Revolver availability",
+        "Same-date liquidity",
+        "Gross leverage",
+        "Net leverage",
+        "Interest coverage",
+        "Disposition / state",
+        "Evidence",
+        "Component-period explanation"
+      ],
+      "support_title": "Leverage and liquidity",
+      "support_header_row": 3,
+      "support_freeze_panes": "A4",
+      "support_column_widths": [
+        12.0,
+        14.0,
+        14.0,
+        14.0,
+        16.0,
+        14.0,
+        16.0,
+        16.0,
+        14.0,
+        14.0,
+        14.0,
+        26.0,
+        32.0,
+        54.0
       ],
       "worksheet_protection": true,
       "module_id": "debt_liquidity",
@@ -7885,6 +8765,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
@@ -7920,6 +8804,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
@@ -7955,6 +8843,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
@@ -8001,6 +8893,10 @@
         "source_ref",
         "reason"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "investment_case_market_implied",
       "module_role": "hidden_support",
@@ -8036,6 +8932,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "non_gaap_adjustments",
       "module_role": "hidden_support",
@@ -8081,6 +8981,10 @@
         "reason",
         "profile_pack_id"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
@@ -8092,9 +8996,9 @@
       "static_layout_owner": "frozen_template_shell",
       "writable_zones": [
         {
-          "zone_id": "module_debt_liquidity_debt_maturity_ladder_rows",
-          "target": "A2:G1000",
-          "anchor_label": "instrument",
+          "zone_id": "debt_maturity_product_rows",
+          "target": "A4:H20",
+          "anchor_label": "Instrument",
           "value_shapes": [
             "table_rows"
           ]
@@ -8103,18 +9007,37 @@
       "non_writable_zones": [
         {
           "zone_id": "module_debt_liquidity_debt_maturity_ladder_headers",
-          "target": "A1:G1",
+          "target": "A3:H3",
           "reason": "Neutral module support headers owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_debt_liquidity_debt_maturity_ladder_title",
+          "target": "A1:H1",
+          "reason": "Neutral module product title owned by the frozen shell."
         }
       ],
       "formulas_static_labels": [
-        "instrument",
-        "bucket",
-        "amount",
-        "unit",
-        "maturity",
-        "source_ref",
-        "status"
+        "Instrument",
+        "Bucket",
+        "Amount",
+        "Unit",
+        "Due date",
+        "As of",
+        "State",
+        "Evidence / source"
+      ],
+      "support_title": "Debt maturity ladder",
+      "support_header_row": 3,
+      "support_freeze_panes": "A4",
+      "support_column_widths": [
+        26.0,
+        16.0,
+        14.0,
+        10.0,
+        14.0,
+        14.0,
+        20.0,
+        40.0
       ],
       "worksheet_protection": true,
       "module_id": "debt_liquidity",
@@ -8150,6 +9073,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
@@ -8186,6 +9113,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
@@ -8222,6 +9153,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "debt_liquidity",
       "module_role": "module_capacity",
@@ -8247,6 +9182,10 @@
         "value",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
@@ -8283,6 +9222,10 @@
         "status",
         "source_ref"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "guidance_promises",
       "module_role": "module_capacity",
@@ -8320,6 +9263,10 @@
         "source_ref",
         "status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "non_gaap_adjustments",
       "module_role": "module_capacity",
@@ -8354,6 +9301,10 @@
         "parser_status",
         "review_status"
       ],
+      "support_title": "",
+      "support_header_row": 1,
+      "support_freeze_panes": "A2",
+      "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "qa_lineage",
       "module_role": "module_capacity",
@@ -8582,31 +9533,31 @@
   "semantic_contract_version": "1.8.0",
   "shell_identity": {
     "semantic_contract_version": "1.8.0",
-    "workbook_sha256": "27acd59bce6993fe28c67232b673edf8d5c85780b58035baed46e38b3d720df4",
-    "manifest_contract_signature": "f326fd45ad2b3ead7e1924b34c13a423f17a6cab71bcbbc2bbe6060fa7d1fc5a",
+    "workbook_sha256": "7a6fc3509d2b7f182c95b96cadf03767a7e7adc888d6ae57cda0d37e013fe29e",
+    "manifest_contract_signature": "8f7740d17ad42933a69c387eab9bad9f64d6d965a8e1aa493369a98755341f07",
     "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
-    "sheet_view_signature": "05ae7b3677f3e327032c0dbbd0953f8c059c7d333d84c0fb7ed8662a9d00fd6c",
+    "sheet_view_signature": "d583fad43975558f16f3cbdc2b9fa1f904d2d5889f7cfc5eb0a33b76f0878345",
     "merge_signature": "7bbc65e9ab02f63e70548527ca52bdb1182d91af9d46025e45acab9794064de5",
-    "defined_name_signature": "7ef9a4a53ff6743a596ea79880ca042eabcdac6f51b19d2f732cb955ab4110b6",
-    "writable_target_signature": "27e414e15db002db35b0a990ea30baffc48dba82b94c825a665d0131e30977c7",
-    "binding_contract_signature": "d66559c536a3c5121cf1b0830565506fb70c50e232f3694b120cd318393dd70a",
-    "formula_static_zone_signature": "59c79e1d65cf1707090592f7d05cc2d90a6e5add908b12ef3d53de3b28f30fc2",
+    "defined_name_signature": "7db74841e94b719ada62ff0af793d070c4bf7513cdbf2e728d952240f2cb5369",
+    "writable_target_signature": "8257710bd20954af2305596f8e5a3391765eb8bf5069ed243ce4ec4eb5e6b54a",
+    "binding_contract_signature": "964ddd37f8ccf5aef7ee85b39337178235a4372cbf3f0219ff8f7a9e3c2545a3",
+    "formula_static_zone_signature": "23213a116ee6057fd8259537d31d5885d7f7be5496bac32adb5018874a7a14eb",
     "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
     "editable_surface_signature": "29b6308c01ee5961305a12fac0b20ab202f4edae22390e5a07cf27be48d94732",
     "counts": {
       "sheets": 46,
       "sheet_views": 46,
       "merges": 1754,
-      "defined_names": 271,
-      "writable_targets": 512,
-      "binding_contracts": 180,
-      "formula_cells": 2141,
-      "static_cells": 1623,
+      "defined_names": 279,
+      "writable_targets": 570,
+      "binding_contracts": 188,
+      "formula_cells": 2213,
+      "static_cells": 1650,
       "protected_worksheets": 46,
       "editable_cells": 122
     }
   },
-  "formula_contract_version": "2.1.0",
+  "formula_contract_version": "2.2.0",
   "union_sheet_order": [
     "SUMMARY",
     "Valuation",
@@ -8658,8 +9609,8 @@
   "module_manifest": {
     "path": "docs/workbook_module_manifest.json",
     "version": "1.0.0",
-    "module_contract_version": "1.1.0",
-    "signature": "fe2b6fa3f70b29b213cf22947cc0a36d8f50a5a707b8bea4cadfdd308927af56"
+    "module_contract_version": "1.2.0",
+    "signature": "330c5a438c5c7b4e5b4ee923df7dedb542e7f3b5f937bf913d81dd7090acdc69"
   },
   "module_profile": {
     "profile_id": "full_union",
@@ -8782,6 +9733,12 @@
       "cash_interest_coverage",
       "core_net_cash",
       "debt_issuance_ttm",
+      "debt_product_gross_leverage",
+      "debt_product_interest_coverage",
+      "debt_product_net_debt",
+      "debt_product_net_leverage",
+      "debt_product_revolver_utilization",
+      "debt_product_same_date_liquidity",
       "debt_repayment_ttm",
       "diluted_shares_qoq",
       "diluted_shares_yoy",

@@ -15,6 +15,7 @@ from pbi_xbrl.new_engine_orchestration import (
     run_plan,
     validate_workbook_immutable,
 )
+from pbi_xbrl.new_ticker_value_filler import fill_standard_template_from_package
 from pbi_xbrl.workbook_validation_runner import ValidationIssue, WorkbookValidationResult
 
 
@@ -39,21 +40,6 @@ def _package_path() -> Path:
         if candidate.exists():
             return candidate
     pytest.skip("ANF normalized package is unavailable for full orchestration testing.")
-
-
-def _excel_saved_shadow_path() -> Path:
-    for parent in (ROOT, *ROOT.parents):
-        candidate = (
-            parent
-            / "StockModelData"
-            / "outputs"
-            / "stress_tests"
-            / "ANF_new_ticker_engine"
-            / "ANF_shadow_model_v7.xlsx"
-        )
-        if candidate.exists():
-            return candidate
-    pytest.skip("Accepted Excel-saved ANF shadow is unavailable for immutable validation testing.")
 
 
 def _sha256(path: Path) -> str:
@@ -89,15 +75,15 @@ def test_plan_writes_reproducible_plans_and_non_authoritative_receipt(anf_plan: 
     assert receipt["command"] == "plan"
     assert receipt["contract_profile"]["profile_id"] == "full_union"
     assert receipt["plans"]["binding"]["digest"]
-    assert receipt["plans"]["binding"]["planned_write_count"] == 22_371
+    assert receipt["plans"]["binding"]["planned_write_count"] == 22_760
     assert receipt["plans"]["binding"]["structured_skip_count"] == 2_017
     assert receipt["plans"]["binding"]["issue_count"] == 761
     assert receipt["plans"]["binding"]["occurrence_count"] == 2_323
     assert receipt["plans"]["binding"]["blocking_issue_count"] == 0
     assert receipt["plans"]["style"]["digest"]
-    assert receipt["plans"]["style"]["action_count"] == 721
-    assert receipt["plans"]["style"]["decision_count"] == 1_261
-    assert receipt["formula_inventory"]["cell_formula_count"] == 2141
+    assert receipt["plans"]["style"]["action_count"] == 738
+    assert receipt["plans"]["style"]["decision_count"] == 1_298
+    assert receipt["formula_inventory"]["cell_formula_count"] == 2213
 
 
 def test_ticker_profile_and_digest_mismatch_fail_before_artifacts(tmp_path: Path) -> None:
@@ -220,10 +206,11 @@ def test_validate_is_immutable_even_when_excel_uses_an_isolated_copy(
     assert observed_native_modes == [True, True]
 
 
-def test_validate_accepts_excel_saved_shadow_without_mutating_input(
+def test_validate_accepts_current_filled_shadow_without_mutating_input(
     tmp_path: Path, anf_plan: dict[str, object]
 ) -> None:
-    workbook = _excel_saved_shadow_path()
+    workbook = tmp_path / "ANF_shadow_model_current.xlsx"
+    fill_standard_template_from_package(_package_path(), output_path=workbook)
     before = _sha256(workbook)
 
     result = validate_workbook_immutable(

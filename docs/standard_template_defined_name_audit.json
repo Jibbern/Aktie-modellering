@@ -2,9 +2,9 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 271,
+    "retained_count": 279,
     "classification_counts": {
-      "active_binding_anchor": 158,
+      "active_binding_anchor": 166,
       "formula_dependency": 76,
       "generic_named_range": 21,
       "required_shell_anchor": 16
@@ -1054,6 +1054,30 @@
       "company_specific": false
     },
     {
+      "name": "debt_credit_notes_resolved_rows",
+      "attr_text": "'Debt_Credit_Notes'!$A$4",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Debt_Credit_Notes'!$A$4",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "debt_maturity_ladder_resolved_rows",
+      "attr_text": "'Debt_Maturity_Ladder'!$A$4",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Debt_Maturity_Ladder'!$A$4",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "debt_profile_resolved_rows",
+      "attr_text": "'Debt_Profile'!$A$4",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Debt_Profile'!$A$4",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "hidden_value_audit_rows",
       "attr_text": "'Hidden_Value_Audit'!$A$2",
       "classification": "active_binding_anchor",
@@ -1186,6 +1210,30 @@
       "attr_text": "'{ticker}_Investment_Case'!$A$5",
       "classification": "required_shell_anchor",
       "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "leverage_liquidity_availability_rows",
+      "attr_text": "'Leverage_Liquidity'!$G$4",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Leverage_Liquidity'!$G$4",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "leverage_liquidity_companion_rows",
+      "attr_text": "'Leverage_Liquidity'!$L$4",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Leverage_Liquidity'!$L$4",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "leverage_liquidity_resolved_rows",
+      "attr_text": "'Leverage_Liquidity'!$A$4",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Leverage_Liquidity'!$A$4",
       "target_matches": true,
       "company_specific": false
     },
@@ -1394,6 +1442,22 @@
       "attr_text": "'Quarter_Notes_UI'!$A$10",
       "classification": "required_shell_anchor",
       "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "revolver_history_companion_rows",
+      "attr_text": "'Revolver_History'!$L$4",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Revolver_History'!$L$4",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "revolver_history_resolved_rows",
+      "attr_text": "'Revolver_History'!$A$4",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Revolver_History'!$A$4",
       "target_matches": true,
       "company_specific": false
     },

@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-19T17:08:37+00:00",
+  "generated_at": "2026-07-21T23:26:10+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "support_sheets": [
     {
@@ -184,15 +184,17 @@
       "lifecycle": "static_template",
       "neutral_shell_required": true,
       "headers_required": [
-        "period",
-        "topic",
-        "note",
-        "covenant",
-        "source_ref",
-        "status"
+        "Topic",
+        "Facility / instrument",
+        "As of",
+        "Publication date",
+        "Exact bounded note",
+        "State",
+        "Evidence",
+        "Source"
       ],
       "allowed_writable_zones": [
-        "A2:F1000"
+        "A2:H9"
       ],
       "source_of_data": "normalized company data package through module-owned exact-cell bindings",
       "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
@@ -210,16 +212,17 @@
       "lifecycle": "static_template",
       "neutral_shell_required": true,
       "headers_required": [
-        "instrument",
-        "bucket",
-        "amount",
-        "unit",
-        "maturity",
-        "source_ref",
-        "status"
+        "Instrument",
+        "Bucket",
+        "Amount",
+        "Unit",
+        "Due date",
+        "As of",
+        "State",
+        "Evidence / source"
       ],
       "allowed_writable_zones": [
-        "A2:G1000"
+        "A2:H20"
       ],
       "source_of_data": "normalized company data package through module-owned exact-cell bindings",
       "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
@@ -237,15 +240,19 @@
       "lifecycle": "static_template",
       "neutral_shell_required": true,
       "headers_required": [
-        "metric",
-        "value",
-        "period",
-        "unit",
-        "source_ref",
-        "status"
+        "Category",
+        "Item",
+        "Facility or instrument",
+        "Value",
+        "Unit",
+        "As of",
+        "Expiry or maturity",
+        "State",
+        "Evidence",
+        "Definition or source"
       ],
       "allowed_writable_zones": [
-        "A2:F1000"
+        "A2:J16"
       ],
       "source_of_data": "normalized company data package through module-owned exact-cell bindings",
       "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
@@ -631,17 +638,23 @@
       "lifecycle": "static_template",
       "neutral_shell_required": true,
       "headers_required": [
-        "period",
-        "gross_debt",
-        "net_debt",
-        "liquidity",
-        "leverage",
-        "coverage",
-        "source_ref",
-        "status"
+        "Period",
+        "Cash",
+        "Restricted cash",
+        "Core debt",
+        "Operating leases",
+        "Net debt",
+        "Revolver availability",
+        "Same-date liquidity",
+        "Gross leverage",
+        "Net leverage",
+        "Interest coverage",
+        "Disposition / state",
+        "Evidence",
+        "Component-period explanation"
       ],
       "allowed_writable_zones": [
-        "A2:H5000"
+        "A2:N15"
       ],
       "source_of_data": "normalized company data package through module-owned exact-cell bindings",
       "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
@@ -1010,16 +1023,25 @@
       "lifecycle": "static_template",
       "neutral_shell_required": true,
       "headers_required": [
-        "period",
-        "capacity",
-        "drawn",
-        "availability",
-        "covenant_status",
-        "source_ref",
-        "status"
+        "As of",
+        "Publication date",
+        "Facility",
+        "Commitment",
+        "Loan cap",
+        "Drawn",
+        "Letters of credit",
+        "Gross capacity",
+        "Minimum excess",
+        "Net availability",
+        "Utilization",
+        "Rate basis",
+        "Expiry",
+        "Covenant state",
+        "Source state",
+        "Evidence / source"
       ],
       "allowed_writable_zones": [
-        "A2:G5000"
+        "A2:P15"
       ],
       "source_of_data": "normalized company data package through module-owned exact-cell bindings",
       "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",

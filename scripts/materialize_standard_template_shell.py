@@ -16,7 +16,7 @@ from copy import copy
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import MergedCell
@@ -1736,6 +1736,10 @@ def _neutralize_support_sheet(
     *,
     state: str = "hidden",
     protect: bool = False,
+    title: str = "",
+    header_row: int = 1,
+    freeze_panes: str = "",
+    column_widths: list[float] | None = None,
 ) -> None:
     for table_name in list(ws.tables.keys()):
         del ws.tables[table_name]
@@ -1759,14 +1763,29 @@ def _neutralize_support_sheet(
             cell.protection = Protection(locked=True)
     ws.row_dimensions.clear()
     ws.column_dimensions.clear()
+    if title and header_row > 1:
+        for col_idx in range(1, max(1, len(headers)) + 1):
+            cell = ws.cell(1, col_idx)
+            cell.fill = PatternFill("solid", fgColor="1F4E78")
+            cell.protection = Protection(locked=True)
+        title_cell = ws.cell(1, 1, title)
+        title_cell.font = Font(name="Aptos Display", size=14, bold=True, color="FFFFFF")
+        title_cell.alignment = Alignment(horizontal="left", vertical="center")
+        ws.row_dimensions[1].height = 24.0
+        ws.row_dimensions[2].height = 8.0
     for col_idx, header in enumerate(headers, start=1):
-        cell = ws.cell(1, col_idx, header)
+        cell = ws.cell(header_row, col_idx, header)
         cell.font = Font(name="Aptos", size=10, bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="4472C4")
         cell.alignment = Alignment(horizontal="left", vertical="center")
-        ws.column_dimensions[get_column_letter(col_idx)].width = max(12.0, min(32.0, len(header) + 2.0))
-    ws.row_dimensions[1].height = 20.0
-    ws.freeze_panes = "A2"
+        width = (
+            float(column_widths[col_idx - 1])
+            if column_widths and col_idx <= len(column_widths)
+            else max(12.0, min(32.0, len(header) + 2.0))
+        )
+        ws.column_dimensions[get_column_letter(col_idx)].width = width
+    ws.row_dimensions[header_row].height = 20.0
+    ws.freeze_panes = freeze_panes or f"A{header_row + 1}"
     ws.sheet_view.showGridLines = False
     ws.protection.sheet = protect
     ws.sheet_state = state
@@ -1801,6 +1820,10 @@ def _neutralize_hidden_support_sheets(wb: Workbook, manifest: dict[str, Any]) ->
             headers,
             state=str(contract["state"]),
             protect=bool(module_contract.get("worksheet_protection")),
+            title=str(module_contract.get("support_title") or ""),
+            header_row=int(module_contract.get("support_header_row") or 1),
+            freeze_panes=str(module_contract.get("support_freeze_panes") or ""),
+            column_widths=[float(value) for value in module_contract.get("support_column_widths") or []],
         )
 
     wb._sheets = [wb[sheet_name] for sheet_name in union_order]  # type: ignore[attr-defined]
@@ -1997,6 +2020,10 @@ def materialize_shell(
                 [str(value) for value in sheet_def.get("formulas_static_labels") or []],
                 state=str(sheet_def["state"]),
                 protect=bool(sheet_def.get("worksheet_protection")),
+                title=str(sheet_def.get("support_title") or ""),
+                header_row=int(sheet_def.get("support_header_row") or 1),
+                freeze_panes=str(sheet_def.get("support_freeze_panes") or ""),
+                column_widths=[float(value) for value in sheet_def.get("support_column_widths") or []],
             )
             continue
         sheet_bindings = [entry for entry in bindings if entry["sheet"] == sheet_name]
@@ -2084,12 +2111,22 @@ def _ensure_hidden_support_planner_contracts(
         ):
             zone_ids_by_sheet.setdefault(sheet, set()).add(str(binding.get("shell_zone") or ""))
     for sheet, zone_ids in zone_ids_by_sheet.items():
-        if len(zone_ids) != 1 or "" in zone_ids:
-            raise ValueError(f"{sheet}: active support bindings require one shared non-empty shell zone.")
+        if "" in zone_ids:
+            raise ValueError(f"{sheet}: active support bindings require non-empty shell-zone identities.")
         writable_zones = support_rows[sheet].get("writable_zones") or []
-        if len(writable_zones) != 1:
-            raise ValueError(f"{sheet}: support binding requires exactly one writable shell zone.")
-        writable_zones[0]["zone_id"] = next(iter(zone_ids))
+        if len(writable_zones) == len(zone_ids) == 1:
+            writable_zones[0]["zone_id"] = next(iter(zone_ids))
+            continue
+        declared_zone_ids = {
+            str(row.get("zone_id") or "")
+            for row in writable_zones
+            if isinstance(row, Mapping)
+        }
+        if zone_ids != declared_zone_ids:
+            raise ValueError(
+                f"{sheet}: active support binding zones {sorted(zone_ids)!r} do not match "
+                f"the declared writable zones {sorted(declared_zone_ids)!r}."
+            )
     contracts = list(manifest.get("planner_cell_contracts") or [])
     for binding in binding_payload.get("bindings") or []:
         if (

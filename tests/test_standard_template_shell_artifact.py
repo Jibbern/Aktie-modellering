@@ -87,6 +87,11 @@ FORMULA_OUTPUT_SUPPORT_SHEETS = {
     for sheet in module["sheets"]
     if sheet.get("data_surface") == "formula_output" or sheet.get("formula_owned_ranges")
 }
+HEADERED_DEBT_PRODUCT_SHELLS = {
+    "Debt_Profile",
+    "Debt_Credit_Notes",
+    "Debt_Maturity_Ladder",
+}
 REQUIRED_PROMISE_ANNUAL_HEADERS = [
     "Metric",
     "Initial guide",
@@ -730,6 +735,14 @@ def test_standard_template_shell_required_support_sheets_are_neutral_shells() ->
                 ]
                 assert formulas
                 assert all(cell.protection.locked for cell in formulas)
+            elif sheet_name in HEADERED_DEBT_PRODUCT_SHELLS:
+                assert _nonempty_count(ws, f"A2:{ws.cell(2, max(ws.max_column, 1)).coordinate}") == 0
+                assert any(ws.cell(3, column).value not in (None, "") for column in range(1, ws.max_column + 1))
+                if ws.max_row >= 4:
+                    assert _nonempty_count(
+                        ws,
+                        f"A4:{ws.cell(ws.max_row, max(ws.max_column, 1)).coordinate}",
+                    ) == 0
             else:
                 assert _nonempty_count(ws, f"A2:{ws.cell(max(ws.max_row, 2), max(ws.max_column, 1)).coordinate}") == 0
     finally:

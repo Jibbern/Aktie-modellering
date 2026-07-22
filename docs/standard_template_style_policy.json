@@ -1,6 +1,6 @@
 {
   "$schema": "https://local.stockmodel/standard_template_style_policy.schema.json",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "style_plan_contract_version": "1.0.0",
   "description": "Ticker-neutral exact-cell signal-fill policies for activated standard-template modules. The contract owns thresholds, polarity, comparison basis and palette; formula economics remain owned by the generic formula contracts.",
   "palette_tokens": {
@@ -2258,9 +2258,181 @@
           ]
         }
       ]
+    },
+    {
+      "policy_id": "debt_profile_product_state",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "debt_profile_product"
+      ],
+      "state_overlays": {
+        "excluded_from_calculation": "hidden_value_unavailable",
+        "missing_source": "hidden_value_unavailable",
+        "not_reported": "hidden_value_unavailable",
+        "unavailable": "hidden_value_unavailable"
+      },
+      "no_style_states": [
+        "populated",
+        "reported_zero"
+      ],
+      "target_selectors": [
+        {
+          "selector_type": "binding_state",
+          "target_id": "debt_profile_resolved_rows",
+          "state_field": "state",
+          "period_field": "as_of_date",
+          "target_fields": [
+            "state"
+          ]
+        }
+      ]
+    },
+    {
+      "policy_id": "revolver_history_product_state",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "revolver_history_product"
+      ],
+      "state_overlays": {
+        "accepted_with_missing_drawn": "hidden_value_unavailable"
+      },
+      "no_style_states": [
+        "accepted"
+      ],
+      "target_selectors": [
+        {
+          "selector_type": "binding_state",
+          "target_id": "revolver_history_companion_rows",
+          "state_field": "source_state",
+          "period_field": "source_state",
+          "target_fields": [
+            "source_state"
+          ]
+        }
+      ]
+    },
+    {
+      "policy_id": "leverage_liquidity_product_state",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "leverage_liquidity_product"
+      ],
+      "state_overlays": {
+        "debt_unavailable": "hidden_value_unavailable"
+      },
+      "no_style_states": [
+        "source_backed"
+      ],
+      "target_selectors": [
+        {
+          "selector_type": "binding_state",
+          "target_id": "leverage_liquidity_companion_rows",
+          "state_field": "disposition_state",
+          "period_field": "disposition_state",
+          "target_fields": [
+            "disposition_state"
+          ]
+        }
+      ]
+    },
+    {
+      "policy_id": "debt_credit_notes_product_state",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "debt_credit_notes_product"
+      ],
+      "state_overlays": {
+        "unavailable": "hidden_value_unavailable"
+      },
+      "no_style_states": [
+        "accepted"
+      ],
+      "target_selectors": [
+        {
+          "selector_type": "binding_state",
+          "target_id": "debt_credit_notes_resolved_rows",
+          "state_field": "state",
+          "period_field": "as_of_date",
+          "target_fields": [
+            "state"
+          ]
+        }
+      ]
+    },
+    {
+      "policy_id": "debt_maturity_product_state",
+      "owner_module_id": "debt_liquidity",
+      "owned_style_ids": [
+        "debt_maturity_product"
+      ],
+      "state_overlays": {
+        "unavailable": "hidden_value_unavailable"
+      },
+      "no_style_states": [
+        "accepted"
+      ],
+      "target_selectors": [
+        {
+          "selector_type": "binding_state",
+          "target_id": "debt_maturity_ladder_resolved_rows",
+          "state_field": "state",
+          "period_field": "as_of_date",
+          "target_fields": [
+            "state"
+          ]
+        }
+      ]
     }
   ],
   "style_disabled": [
+    {
+      "formula_id": "debt_product_revolver_utilization",
+      "sheet": "Revolver_History",
+      "target": "K4:K15",
+      "owner_module_id": "debt_liquidity",
+      "economic_reason": "Revolver utilization is a transparent row calculation; the resolved source-state anchor owns unavailable presentation.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "debt_product_net_debt",
+      "sheet": "Leverage_Liquidity",
+      "target": "F4:F15",
+      "owner_module_id": "debt_liquidity",
+      "economic_reason": "Net debt is a transparent row calculation and has no independent directional signal in this product.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "debt_product_same_date_liquidity",
+      "sheet": "Leverage_Liquidity",
+      "target": "H4:H15",
+      "owner_module_id": "debt_liquidity",
+      "economic_reason": "Same-date liquidity is a transparent row calculation and carries no independent comparison overlay.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "debt_product_gross_leverage",
+      "sheet": "Leverage_Liquidity",
+      "target": "I4:I15",
+      "owner_module_id": "debt_liquidity",
+      "economic_reason": "Gross leverage remains blank without compatible debt and has no separate signal overlay in this pass.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "debt_product_net_leverage",
+      "sheet": "Leverage_Liquidity",
+      "target": "J4:J15",
+      "owner_module_id": "debt_liquidity",
+      "economic_reason": "Net leverage remains blank without compatible net debt and has no separate signal overlay in this pass.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "debt_product_interest_coverage",
+      "sheet": "Leverage_Liquidity",
+      "target": "K4:K15",
+      "owner_module_id": "debt_liquidity",
+      "economic_reason": "Interest coverage reuses the accepted Valuation economics and must not add a competing style signal.",
+      "expected_empty_behavior": "no_style"
+    },
     {
       "formula_id": "summary_revenue_ttm",
       "sheet": "SUMMARY",

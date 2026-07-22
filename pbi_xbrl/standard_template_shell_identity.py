@@ -32,7 +32,7 @@ from pbi_xbrl.standard_template_formula_contract import (
 
 SHELL_SEMANTIC_CONTRACT_VERSION = "1.8.0"
 SHEET_VIEW_IDENTITY_CONTRACT_VERSION = "1.0.0"
-BINDING_PLANNER_CONTRACT_VERSION = "1.4.0"
+BINDING_PLANNER_CONTRACT_VERSION = "1.5.0"
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_SCHEMA_PATH = ROOT / "docs" / "standard_template_shell_manifest.schema.json"
 BINDING_SCHEMA_PATH = ROOT / "docs" / "workbook_binding_map.schema.json"
@@ -705,6 +705,17 @@ def verify_post_fill_structural_identity(
             from pbi_xbrl.new_ticker_style_application import apply_style_plan
 
             apply_style_plan(source_wb, reproduced_style_plan)
+        if reproduced_plan is not None:
+            for sheet_name, state in sorted(reproduced_plan.sheet_visibility.items()):
+                if sheet_name not in source_wb.sheetnames or state not in {"visible", "hidden", "veryHidden"}:
+                    issues.append(
+                        {
+                            "rule_id": "post_fill_sheet_visibility_plan_invalid",
+                            "message": f"Reproduced visibility decision {sheet_name!r}={state!r} is invalid.",
+                        }
+                    )
+                    continue
+                source_wb[sheet_name].sheet_state = state
         bindings = list(binding_payload.get("bindings") or []) if isinstance(binding_payload, Mapping) else list(binding_payload)
         allowed_cells = _exact_writable_cells(bindings)
         source_payload = _post_fill_structural_payload(source_wb, allowed_cells=allowed_cells)

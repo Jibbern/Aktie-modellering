@@ -386,7 +386,7 @@ def test_product_pass2b_checked_in_shell_retires_inactive_capacity() -> None:
             for row in sheet.iter_rows()
             for cell in row
             if isinstance(cell.value, str) and cell.value.startswith("=")
-        ) == 2_141
+        ) == 2_213
         assert len(workbook.worksheets) == 46
         assert all(sheet.protection.sheet for sheet in workbook.worksheets)
     finally:

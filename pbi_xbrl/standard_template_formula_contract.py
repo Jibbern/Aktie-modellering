@@ -32,7 +32,7 @@ from pbi_xbrl.valuation_scenario_economics import (
 )
 
 
-FORMULA_CONTRACT_VERSION = "2.1.0"
+FORMULA_CONTRACT_VERSION = "2.2.0"
 ROOT = Path(__file__).resolve().parents[1]
 HIDDEN_VALUE_SIGNAL_CONTRACT = ROOT / "docs" / "hidden_value_signal_contract.json"
 HIDDEN_VALUE_DETAIL_FIRST_ROW = 2
@@ -313,6 +313,12 @@ def formula_target_contracts() -> tuple[FormulaTargetContract, ...]:
             FormulaTargetContract("summary_interest_coverage", "SUMMARY", ("B42",)),
             FormulaTargetContract("valuation_output_formulas", "Valuation", ("N194:N210",)),
             FormulaTargetContract("valuation_sidecar_formulas", "Valuation", ("U64:U70", "U72:U75")),
+            FormulaTargetContract("debt_product_revolver_utilization", "Revolver_History", ("K4:K15",)),
+            FormulaTargetContract("debt_product_net_debt", "Leverage_Liquidity", ("F4:F15",)),
+            FormulaTargetContract("debt_product_same_date_liquidity", "Leverage_Liquidity", ("H4:H15",)),
+            FormulaTargetContract("debt_product_gross_leverage", "Leverage_Liquidity", ("I4:I15",)),
+            FormulaTargetContract("debt_product_net_leverage", "Leverage_Liquidity", ("J4:J15",)),
+            FormulaTargetContract("debt_product_interest_coverage", "Leverage_Liquidity", ("K4:K15",)),
             FormulaTargetContract(
                 "valuation_scenario_formulas",
                 "Valuation",
@@ -724,6 +730,77 @@ def apply_standard_support_formula_contracts(
         _apply_valuation_grid_formulas(workbook["Valuation_Grid"], enabled)
     _apply_scenario_revenue_route_formulas(workbook, enabled)
     _apply_hidden_value_support_formulas(workbook, enabled)
+    _apply_debt_product_formulas(workbook, enabled)
+
+
+def _debt_product_valuation_lookup_formula(period_cell: str, source_row: int) -> str:
+    headers = "'Valuation'!$B$6:$M$6"
+    values = f"'Valuation'!$B${source_row}:$M${source_row}"
+    match = f"MATCH({period_cell},{headers},0)"
+    resolved = f"INDEX({values},1,{match})"
+    return (
+        f'=IFERROR(IF(OR({period_cell}="",COUNTIF({headers},{period_cell})<>1,'
+        f'NOT(ISNUMBER({resolved}))),"",{resolved}),"")'
+    )
+
+
+def _debt_product_leverage_formula(row: int, numerator_cell: str) -> str:
+    period_cell = f"$A{row}"
+    headers = "'Valuation'!$B$6:$M$6"
+    values = "'Valuation'!$B$21:$M$21"
+    match = f"MATCH({period_cell},{headers},0)"
+    denominator = f"INDEX({values},1,{match})"
+    return (
+        f'=IFERROR(IF(OR({period_cell}="",COUNTIF({headers},{period_cell})<>1,'
+        f'NOT(ISNUMBER({numerator_cell})),NOT(ISNUMBER({denominator})),{denominator}=0),"",'
+        f'{numerator_cell}/{denominator}),"")'
+    )
+
+
+def _apply_debt_product_formulas(workbook: Any, enabled_formula_ids: set[str]) -> None:
+    if "Revolver_History" in workbook.sheetnames:
+        ws = workbook["Revolver_History"]
+        for row in range(4, 16):
+            if "debt_product_revolver_utilization" in enabled_formula_ids:
+                _set_formula(
+                    ws[f"K{row}"],
+                    f'=IFERROR(IF(OR(NOT(ISNUMBER(F{row})),NOT(ISNUMBER(D{row})),D{row}=0),"",F{row}/D{row}),"")',
+                    "0.0%;[Red]-0.0%",
+                )
+    if "Leverage_Liquidity" not in workbook.sheetnames:
+        return
+    ws = workbook["Leverage_Liquidity"]
+    for row in range(4, 16):
+        formulas = {
+            "debt_product_net_debt": (
+                f"F{row}",
+                f'=IFERROR(IF(OR(NOT(ISNUMBER(D{row})),NOT(ISNUMBER(B{row}))),"",D{row}-B{row}),"")',
+                "#,##0.0;[Red]-#,##0.0",
+            ),
+            "debt_product_same_date_liquidity": (
+                f"H{row}",
+                f'=IFERROR(IF(OR(NOT(ISNUMBER(B{row})),NOT(ISNUMBER(G{row}))),"",B{row}+G{row}),"")',
+                "#,##0.0;[Red]-#,##0.0",
+            ),
+            "debt_product_gross_leverage": (
+                f"I{row}",
+                _debt_product_leverage_formula(row, f"D{row}"),
+                "0.00x;[Red]-0.00x",
+            ),
+            "debt_product_net_leverage": (
+                f"J{row}",
+                _debt_product_leverage_formula(row, f"F{row}"),
+                "0.00x;[Red]-0.00x",
+            ),
+            "debt_product_interest_coverage": (
+                f"K{row}",
+                _debt_product_valuation_lookup_formula(f"$A{row}", 88),
+                "0.00x;[Red]-0.00x",
+            ),
+        }
+        for formula_id, (coordinate, formula, number_format) in formulas.items():
+            if formula_id in enabled_formula_ids:
+                _set_formula(ws[coordinate], formula, number_format)
 
 
 def _apply_scenario_revenue_route_formulas(workbook: Any, enabled_formula_ids: set[str]) -> None:

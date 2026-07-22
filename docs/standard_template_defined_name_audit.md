@@ -1,6 +1,6 @@
 # Standard Template Defined-Name Audit
 
-- Retained names: `271`
+- Retained names: `279`
 - Target mismatches: `0`
 - Company-specific names/constants: `0`
 - Removed constant: `ThesisBaseAdjEBITDA_FY=815.59`
@@ -138,6 +138,9 @@
 | `bs_total_equity_series` | `active_binding_anchor` | `'BS_Segments'!$B$47` | True |
 | `bs_total_liabilities_series` | `active_binding_anchor` | `'BS_Segments'!$B$45` | True |
 | `calculation_history_quarterly_rows` | `active_binding_anchor` | `'History_Q'!$A$2` | True |
+| `debt_credit_notes_resolved_rows` | `active_binding_anchor` | `'Debt_Credit_Notes'!$A$4` | True |
+| `debt_maturity_ladder_resolved_rows` | `active_binding_anchor` | `'Debt_Maturity_Ladder'!$A$4` | True |
+| `debt_profile_resolved_rows` | `active_binding_anchor` | `'Debt_Profile'!$A$4` | True |
 | `hidden_value_audit_rows` | `active_binding_anchor` | `'Hidden_Value_Audit'!$A$2` | True |
 | `hidden_value_base_rows` | `active_binding_anchor` | `'Hidden_Value_Base'!$A$2` | True |
 | `hidden_value_flags_rows` | `active_binding_anchor` | `'Hidden_Value_Flags'!$A$2` | True |
@@ -155,6 +158,9 @@
 | `ic_why_it_can_work` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$6` | True |
 | `investment_key_debate_anchor` | `required_shell_anchor` | `'{ticker}_Investment_Case'!$A$7` | True |
 | `investment_snapshot_anchor` | `required_shell_anchor` | `'{ticker}_Investment_Case'!$A$5` | True |
+| `leverage_liquidity_availability_rows` | `active_binding_anchor` | `'Leverage_Liquidity'!$G$4` | True |
+| `leverage_liquidity_companion_rows` | `active_binding_anchor` | `'Leverage_Liquidity'!$L$4` | True |
+| `leverage_liquidity_resolved_rows` | `active_binding_anchor` | `'Leverage_Liquidity'!$A$4` | True |
 | `needs_review_rows_anchor` | `required_shell_anchor` | `'Needs_Review'!$A$1` | True |
 | `needs_review_validation_rows` | `active_binding_anchor` | `'Needs_Review'!$A$2` | True |
 | `od_current_actual_read` | `active_binding_anchor` | `'Operating_Drivers'!$B$13` | True |
@@ -181,6 +187,8 @@
 | `qn_quarter_summary_watch_next` | `active_binding_anchor` | `'Quarter_Notes_UI'!$B$5` | True |
 | `qn_quarter_summary_what_changed` | `active_binding_anchor` | `'Quarter_Notes_UI'!$B$4` | True |
 | `quarter_notes_blocks_anchor` | `required_shell_anchor` | `'Quarter_Notes_UI'!$A$10` | True |
+| `revolver_history_companion_rows` | `active_binding_anchor` | `'Revolver_History'!$L$4` | True |
+| `revolver_history_resolved_rows` | `active_binding_anchor` | `'Revolver_History'!$A$4` | True |
 | `summary_as_of_quarter` | `active_binding_anchor` | `'SUMMARY'!$B$26` | True |
 | `summary_company_description` | `active_binding_anchor` | `'SUMMARY'!$A$3` | True |
 | `summary_company_overview_anchor` | `required_shell_anchor` | `'SUMMARY'!$A$3` | True |

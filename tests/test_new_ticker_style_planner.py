@@ -144,8 +144,8 @@ def test_style_contract_schema_palette_and_authoritative_ownership() -> None:
     assert {key: colors[key] for key in LEGACY_COLORS} == LEGACY_COLORS
     assert {key: colors[key] for key in HIDDEN_VALUE_COLORS} == HIDDEN_VALUE_COLORS
     assert len(contract["policies"]) == 44
-    assert len(contract["state_policies"]) == 5
-    assert len(contract["style_disabled"]) == 35
+    assert len(contract["state_policies"]) == 10
+    assert len(contract["style_disabled"]) == 41
 
 
 @pytest.mark.parametrize(
@@ -514,8 +514,23 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         "valuation_thesis_debate_rows": 32,
     }
     product_pass_2b_net_business_additions = 157
+    product_pass_3a2_binding_ids = {
+        "debt_profile_resolved_rows",
+        "revolver_history_resolved_rows",
+        "revolver_history_companion_rows",
+        "leverage_liquidity_resolved_rows",
+        "leverage_liquidity_availability_rows",
+        "leverage_liquidity_companion_rows",
+        "debt_credit_notes_resolved_rows",
+        "debt_maturity_ladder_resolved_rows",
+    }
+    product_pass_3a2_business_additions = sum(
+        write.binding_id in product_pass_3a2_binding_ids for write in value_plan.planned_writes
+    )
+    assert product_pass_3a2_business_additions == 389
     assert (
         len(value_plan.planned_writes)
+        - product_pass_3a2_business_additions
         - product_pass_2b_net_business_additions
         - hidden_value_additions
         - sum(additive_binding_counts.values())
@@ -523,10 +538,16 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         - product_pass_2a_qa_additions
         == 19_746
     )
-    assert len(value_plan.planned_writes) - product_pass_2b_net_business_additions - hidden_value_additions == 20_231
-    assert len(value_plan.planned_writes) == 22_371
-    assert len(style_plan.actions) == 721
-    assert len(style_plan.decisions) == 1_261
+    assert (
+        len(value_plan.planned_writes)
+        - product_pass_3a2_business_additions
+        - product_pass_2b_net_business_additions
+        - hidden_value_additions
+        == 20_231
+    )
+    assert len(value_plan.planned_writes) == 22_760
+    assert len(style_plan.actions) == 738
+    assert len(style_plan.decisions) == 1_298
     style_payload = style_plan.to_dict()
 
     def outside_retired_segment_surface(row: dict[str, Any]) -> bool:
@@ -543,22 +564,42 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
             or str(row.get("cell") or "") in {f"X{row_idx}" for row_idx in range(51, 59)}
         )
 
+    def outside_product_pass_3a2_status_surface(row: dict[str, Any]) -> bool:
+        return row.get("policy_id") not in {
+            "debt_profile_product_state",
+            "revolver_history_product_state",
+            "leverage_liquidity_product_state",
+            "debt_credit_notes_product_state",
+            "debt_maturity_product_state",
+        }
+
     stable_actions = [
         row
         for row in style_payload["actions"]
-        if outside_retired_segment_surface(row) and outside_product_pass_2b_status_surface(row)
+        if outside_retired_segment_surface(row)
+        and outside_product_pass_2b_status_surface(row)
+        and outside_product_pass_3a2_status_surface(row)
     ]
     stable_decisions = [
         row
         for row in style_payload["decisions"]
-        if outside_retired_segment_surface(row) and outside_product_pass_2b_status_surface(row)
+        if outside_retired_segment_surface(row)
+        and outside_product_pass_2b_status_surface(row)
+        and outside_product_pass_3a2_status_surface(row)
     ]
     assert len(stable_actions) == 651
     assert _canonical_digest(stable_actions) == "31ef27704d765b69bb158626b097cadb37ad3858f6357c49d475c36e8a2ac419"
     assert len(stable_decisions) == 1_145
     assert _canonical_digest(stable_decisions) == "3520d546878b0a682a433976007f6259e5b8244dde6562d8eb099213b5bfd245"
     assert validate_json_schema(style_plan.to_dict(), load_json_strict(STYLE_PLAN_SCHEMA)) == []
-    assert {action.sheet for action in style_plan.actions} == {"Valuation", "BS_Segments", "Hidden_Value_Audit"}
+    assert {action.sheet for action in style_plan.actions} == {
+        "Valuation",
+        "BS_Segments",
+        "Hidden_Value_Audit",
+        "Debt_Profile",
+        "Revolver_History",
+        "Leverage_Liquidity",
+    }
     assert sum(action.policy_id == "hidden_value_audit_candidate_state" for action in style_plan.actions) == 6
     assert sum(row.policy_id == "hidden_value_audit_candidate_state" for row in style_plan.decisions) == 7
     assert sum(action.policy_id == "valuation_thesis_review_state" for action in style_plan.actions) == 7

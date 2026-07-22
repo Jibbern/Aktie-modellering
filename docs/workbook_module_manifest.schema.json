@@ -18,7 +18,7 @@
   "properties": {
     "$schema": {"type": "string", "format": "uri"},
     "version": {"type": "string", "const": "1.0.0"},
-    "module_contract_version": {"type": "string", "const": "1.1.0"},
+    "module_contract_version": {"type": "string", "const": "1.2.0"},
     "description": {"type": "string", "minLength": 1},
     "union_shell_profile_id": {"type": "string", "minLength": 1},
     "union_sheet_order": {
@@ -90,6 +90,14 @@
         "capacity_rows": {"type": "integer", "minimum": 1},
         "capacity_columns": {"type": "integer", "minimum": 1, "maximum": 16384},
         "headers": {"$ref": "#/$defs/stringList"},
+        "title": {"type": "string", "minLength": 1},
+        "header_row": {"type": "integer", "minimum": 1},
+        "freeze_panes": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*$"},
+        "column_widths": {
+          "type": "array",
+          "items": {"type": "number", "exclusiveMinimum": 0},
+          "maxItems": 16384
+        },
         "empty_state": {"type": "string", "minLength": 1},
         "style_owner": {"type": "string", "minLength": 1},
         "formula_owner": {"type": "string", "minLength": 1},

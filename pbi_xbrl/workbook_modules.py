@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_MODULE_MANIFEST = ROOT / "docs" / "workbook_module_manifest.json"
 MODULE_MANIFEST_SCHEMA = ROOT / "docs" / "workbook_module_manifest.schema.json"
 MODULE_MANIFEST_VERSION = "1.0.0"
-MODULE_CONTRACT_VERSION = "1.1.0"
+MODULE_CONTRACT_VERSION = "1.2.0"
 
 
 @dataclass(frozen=True)
@@ -679,6 +679,10 @@ def canonical_json_sha256(value: Any) -> str:
 
 def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
     headers = [str(value) for value in contract.get("headers") or []]
+    title = str(contract.get("title") or "")
+    header_row = int(contract.get("header_row") or 1)
+    freeze_panes = str(contract.get("freeze_panes") or (f"A{header_row + 1}" if header_row > 1 else "A2"))
+    column_widths = [float(value) for value in contract.get("column_widths") or []]
     max_column = int(contract.get("capacity_columns") or max(1, len(headers)))
     max_row = int(contract.get("capacity_rows") or 5000)
     last_column = get_column_letter(max_column)
@@ -702,9 +706,20 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
         non_writable_zones = [
             {
                 "zone_id": f"module_{module_token}_{sheet_token}_headers",
-                "target": f"A1:{last_column}1",
+                "target": f"A{header_row}:{last_column}{header_row}",
                 "reason": "Neutral module support headers owned by the frozen shell.",
             },
+            *(
+                [
+                    {
+                        "zone_id": f"module_{module_token}_{sheet_token}_title",
+                        "target": f"A1:{last_column}1",
+                        "reason": "Neutral module product title owned by the frozen shell.",
+                    }
+                ]
+                if title and header_row != 1
+                else []
+            ),
             *[
                 {
                     "zone_id": f"module_{module_token}_{sheet_token}_formula_{index + 1}",
@@ -728,6 +743,10 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
             "writable_zones": writable_zones,
             "non_writable_zones": non_writable_zones,
             "formulas_static_labels": headers,
+            "support_title": title,
+            "support_header_row": header_row,
+            "support_freeze_panes": freeze_panes,
+            "support_column_widths": column_widths,
             "worksheet_protection": sheet_protection,
         }
     if str(contract.get("data_surface") or "binding_rows") == "formula_output":
@@ -743,6 +762,10 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
                 }
             ],
             "formulas_static_labels": headers,
+            "support_title": title,
+            "support_header_row": header_row,
+            "support_freeze_panes": freeze_panes,
+            "support_column_widths": column_widths,
             "worksheet_protection": sheet_protection,
         }
     return {
@@ -759,11 +782,15 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
         "non_writable_zones": [
             {
                 "zone_id": f"module_{str(contract['module_id'])}_{_safe_id(sheet_name)}_headers",
-                "target": f"A1:{last_column}1",
+                "target": f"A{header_row}:{last_column}{header_row}",
                 "reason": "Neutral module support headers owned by the frozen shell.",
             }
         ],
         "formulas_static_labels": headers,
+        "support_title": title,
+        "support_header_row": header_row,
+        "support_freeze_panes": freeze_panes,
+        "support_column_widths": column_widths,
         "worksheet_protection": sheet_protection,
     }
 

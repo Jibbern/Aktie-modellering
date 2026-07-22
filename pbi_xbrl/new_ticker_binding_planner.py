@@ -47,7 +47,7 @@ DEFAULT_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
 DEFAULT_SHELL = ROOT / "templates" / "standard_stock_model_template.xlsx"
 ISSUE_LEDGER_SCHEMA = ROOT / "docs" / "new_ticker_issue_ledger.schema.json"
 BINDING_PLAN_SCHEMA = ROOT / "docs" / "new_ticker_binding_plan.schema.json"
-BINDING_PLAN_VERSION = "1.0.0"
+BINDING_PLAN_VERSION = "1.1.0"
 BINDING_PLAN_SNAPSHOT_VERSION = "1.0.0"
 _RANGE_RE = re.compile(r"^([A-Z]+)([1-9]\d*)(?::([A-Z]+)([1-9]\d*))?$")
 _QUARTER_PERIOD_RE = re.compile(r"^(?P<year>[0-9]{4})-Q(?P<quarter>[1-4])$")
@@ -160,6 +160,7 @@ class BindingPlan:
     issue_ledger: dict[str, Any] = field(default_factory=dict)
     period_axes: dict[str, dict[str, Any]] = field(default_factory=dict)
     derived_plan_reports: list[dict[str, Any]] = field(default_factory=list)
+    sheet_visibility: dict[str, str] = field(default_factory=dict)
     shell_identity_report: dict[str, Any] = field(default_factory=dict)
     qa_snapshot_status: str = "not_planned"
     planning_completed: bool = False
@@ -230,6 +231,7 @@ class BindingPlan:
             "issue_ledger": self.issue_ledger,
             "period_axes": self.period_axes,
             "derived_plans": self.derived_plan_reports,
+            "sheet_visibility": dict(sorted(self.sheet_visibility.items())),
             "shell_identity": self.shell_identity_report,
             "qa_snapshot_status": self.qa_snapshot_status,
         }
@@ -349,6 +351,53 @@ def plan_standard_template_writes(
     enabled_modules = {str(value) for value in module_profile.get("enabled_modules") or [] if str(value)}
     profile_pack_ids = {str(value) for value in module_profile.get("profile_pack_ids") or [] if str(value)}
     derived_workbook: dict[str, Any] = {}
+
+    if "debt_liquidity" in enabled_modules:
+        try:
+            from pbi_xbrl.new_ticker_debt_projection import build_debt_workbook_projection
+
+            debt_projection = build_debt_workbook_projection(package, debt_module_active=True)
+            debt_payload = debt_projection.to_dict()
+            derived_workbook["debt"] = debt_payload
+            plan.sheet_visibility.update(dict(debt_projection.sheet_states))
+            plan.derived_plan_reports.append(
+                {
+                    "plan_id": "debt_workbook_projection",
+                    "status": "FAIL" if debt_projection.blocking_issues else "PASS",
+                    "projection_digest": debt_projection.projection_digest,
+                    "debt_profile_row_count": len(debt_projection.debt_profile_rows),
+                    "revolver_history_row_count": len(debt_projection.revolver_history_rows),
+                    "leverage_liquidity_row_count": len(debt_projection.leverage_liquidity_rows),
+                    "debt_credit_note_row_count": len(debt_projection.debt_credit_note_rows),
+                    "debt_maturity_row_count": len(debt_projection.debt_maturity_rows),
+                    "sheet_visibility": dict(debt_projection.sheet_states),
+                }
+            )
+            for issue in debt_projection.blocking_issues:
+                plan.planner_issues.append(
+                    _planner_issue(
+                        str(issue.get("severity") or "P1"),
+                        str(issue.get("rule_id") or "debt_workbook_projection_blocked"),
+                        str(issue.get("business_key") or "debt_liquidity"),
+                        str(issue.get("message") or "Debt workbook projection is blocked."),
+                    )
+                )
+            if debt_projection.blocking_issues:
+                _refresh_issue_ledger(plan)
+                _add_blocking_reports(plan, bindings)
+                return plan
+        except Exception as exc:
+            plan.planner_issues.append(
+                _planner_issue(
+                    "P1",
+                    "debt_workbook_projection_failed",
+                    "debt_liquidity",
+                    str(exc),
+                )
+            )
+            _refresh_issue_ledger(plan)
+            _add_blocking_reports(plan, bindings)
+            return plan
 
     if "guidance_promises" in enabled_modules:
         try:

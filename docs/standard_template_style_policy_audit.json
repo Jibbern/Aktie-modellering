@@ -2,16 +2,16 @@
   "audit_version": "1.1.0",
   "status": "PASS",
   "authoritative_contract": "docs/standard_template_style_policy.json",
-  "authoritative_contract_digest": "2c3441bc58622adb779728e06e1d5b5a1a5cc1148565aa9bfadc883aefe9e68a",
-  "module_manifest_digest": "fe2b6fa3f70b29b213cf22947cc0a36d8f50a5a707b8bea4cadfdd308927af56",
-  "binding_contract_digest": "d66559c536a3c5121cf1b0830565506fb70c50e232f3694b120cd318393dd70a",
+  "authoritative_contract_digest": "14feeeda362edcc9154c8870cc12bb9d41ad2a324dbca30a26f95fb48d350389",
+  "module_manifest_digest": "330c5a438c5c7b4e5b4ee923df7dedb542e7f3b5f937bf913d81dd7090acdc69",
+  "binding_contract_digest": "964ddd37f8ccf5aef7ee85b39337178235a4372cbf3f0219ff8f7a9e3c2545a3",
   "policy_count": 44,
-  "state_policy_count": 5,
-  "total_policy_count": 49,
+  "state_policy_count": 10,
+  "total_policy_count": 54,
   "numerical_selector_count": 112,
-  "state_selector_count": 7,
-  "selector_count": 119,
-  "style_disabled_count": 35,
+  "state_selector_count": 12,
+  "selector_count": 124,
+  "style_disabled_count": 41,
   "palette_tokens": {
     "strong_negative": {
       "fill": {
@@ -118,7 +118,7 @@
   "counts_by_module": {
     "balance_cash_flow": 22,
     "core_financial_history": 7,
-    "debt_liquidity": 7,
+    "debt_liquidity": 12,
     "guidance_promises": 1,
     "hidden_value_signals": 3,
     "investment_case_market_implied": 1,
@@ -143,26 +143,31 @@
     "lower_is_better": 13
   },
   "state_counts_by_overlay": {
+    "accepted_with_missing_drawn": 1,
     "current_primary / conflict": 1,
     "current_primary / manual_review_required": 1,
     "current_primary / unavailable": 1,
     "current_secondary / conflict": 1,
     "current_secondary / manual_review_required": 1,
     "current_secondary / unavailable": 1,
+    "debt_unavailable": 1,
+    "excluded_from_calculation": 1,
     "history / conflict": 1,
     "history / manual_review_required": 1,
     "history / unavailable": 1,
     "insufficient_evidence": 1,
     "invalid_input": 1,
     "manual_review_required": 1,
+    "missing_source": 1,
     "near_miss": 1,
+    "not_reported": 1,
     "triggered": 3,
-    "unavailable": 2
+    "unavailable": 5
   },
   "style_disabled_by_module": {
     "balance_cash_flow": 5,
     "core_financial_history": 5,
-    "debt_liquidity": 3,
+    "debt_liquidity": 9,
     "hidden_value_signals": 1,
     "investment_case_market_implied": 8,
     "valuation_scenarios": 13
@@ -318,11 +323,26 @@
     ],
     "valuation_thesis_review_state": [
       "Valuation"
+    ],
+    "debt_profile_product_state": [
+      "Debt_Profile"
+    ],
+    "revolver_history_product_state": [
+      "Revolver_History"
+    ],
+    "leverage_liquidity_product_state": [
+      "Leverage_Liquidity"
+    ],
+    "debt_credit_notes_product_state": [
+      "Debt_Credit_Notes"
+    ],
+    "debt_maturity_product_state": [
+      "Debt_Maturity_Ladder"
     ]
   },
   "profiles": {
     "full_union": {
-      "policy_count": 49,
+      "policy_count": 54,
       "policy_ids": [
         "bs_debt_formula_direct_lower",
         "bs_debt_raw_lower_yoy",
@@ -334,11 +354,16 @@
         "bs_raw_higher_yoy",
         "bs_raw_lower_yoy",
         "bs_raw_neutral_disabled",
+        "debt_credit_notes_product_state",
+        "debt_maturity_product_state",
+        "debt_profile_product_state",
         "debt_raw_lower_yoy",
         "debt_revolver_raw_higher",
         "hidden_value_audit_candidate_state",
         "hidden_value_flags_triggered_state",
         "hidden_value_valuation_triggered_state",
+        "leverage_liquidity_product_state",
+        "revolver_history_product_state",
         "segment_annual_revenue",
         "segment_quarterly_revenue",
         "valuation_adjusted_delta_disabled",
@@ -376,7 +401,7 @@
       ]
     },
     "anf": {
-      "policy_count": 49,
+      "policy_count": 54,
       "policy_ids": [
         "bs_debt_formula_direct_lower",
         "bs_debt_raw_lower_yoy",
@@ -388,11 +413,16 @@
         "bs_raw_higher_yoy",
         "bs_raw_lower_yoy",
         "bs_raw_neutral_disabled",
+        "debt_credit_notes_product_state",
+        "debt_maturity_product_state",
+        "debt_profile_product_state",
         "debt_raw_lower_yoy",
         "debt_revolver_raw_higher",
         "hidden_value_audit_candidate_state",
         "hidden_value_flags_triggered_state",
         "hidden_value_valuation_triggered_state",
+        "leverage_liquidity_product_state",
+        "revolver_history_product_state",
         "segment_annual_revenue",
         "segment_quarterly_revenue",
         "valuation_adjusted_delta_disabled",
@@ -430,7 +460,7 @@
       ]
     },
     "pbi": {
-      "policy_count": 49,
+      "policy_count": 54,
       "policy_ids": [
         "bs_debt_formula_direct_lower",
         "bs_debt_raw_lower_yoy",
@@ -442,11 +472,16 @@
         "bs_raw_higher_yoy",
         "bs_raw_lower_yoy",
         "bs_raw_neutral_disabled",
+        "debt_credit_notes_product_state",
+        "debt_maturity_product_state",
+        "debt_profile_product_state",
         "debt_raw_lower_yoy",
         "debt_revolver_raw_higher",
         "hidden_value_audit_candidate_state",
         "hidden_value_flags_triggered_state",
         "hidden_value_valuation_triggered_state",
+        "leverage_liquidity_product_state",
+        "revolver_history_product_state",
         "segment_annual_revenue",
         "segment_quarterly_revenue",
         "valuation_adjusted_delta_disabled",
@@ -484,7 +519,7 @@
       ]
     },
     "gpre": {
-      "policy_count": 49,
+      "policy_count": 54,
       "policy_ids": [
         "bs_debt_formula_direct_lower",
         "bs_debt_raw_lower_yoy",
@@ -496,11 +531,16 @@
         "bs_raw_higher_yoy",
         "bs_raw_lower_yoy",
         "bs_raw_neutral_disabled",
+        "debt_credit_notes_product_state",
+        "debt_maturity_product_state",
+        "debt_profile_product_state",
         "debt_raw_lower_yoy",
         "debt_revolver_raw_higher",
         "hidden_value_audit_candidate_state",
         "hidden_value_flags_triggered_state",
         "hidden_value_valuation_triggered_state",
+        "leverage_liquidity_product_state",
+        "revolver_history_product_state",
         "segment_annual_revenue",
         "segment_quarterly_revenue",
         "valuation_adjusted_delta_disabled",

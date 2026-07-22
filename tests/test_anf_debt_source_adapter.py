@@ -489,7 +489,7 @@ def _digest(value: object) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def test_exact_plan_and_style_regression_allows_only_valuation_m95(package) -> None:
+def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> None:
     binding_payload = json.loads((ROOT / "docs" / "workbook_binding_map.json").read_text(encoding="utf-8"))
     manifest = json.loads((ROOT / "docs" / "standard_template_shell_manifest.json").read_text(encoding="utf-8"))
     value_plan, style_plan = reproduce_style_plan(
@@ -501,7 +501,7 @@ def test_exact_plan_and_style_regression_allows_only_valuation_m95(package) -> N
     plan = value_plan.to_dict()
     styles = style_plan.to_dict()
     assert plan["status"] == "PASS"
-    assert plan["planned_write_count"] == 22_371
+    assert plan["planned_write_count"] == 22_760
     assert plan["structured_skip_count"] == 2_017
     assert plan["overflow_count"] == 0
     assert plan["issue_ledger"]["summary"]["canonical_unique_issue_count"] == 761
@@ -515,18 +515,51 @@ def test_exact_plan_and_style_regression_allows_only_valuation_m95(package) -> N
     assert len(m95) == 1
     assert m95[0]["value"] == 449.531
     assert "doc_000101884026000036_anf-20260502.htm" in m95[0]["source_ref"]
+    debt_product_sheets = {
+        "Debt_Profile",
+        "Revolver_History",
+        "Leverage_Liquidity",
+        "Debt_Credit_Notes",
+        "Debt_Maturity_Ladder",
+        "Debt_Tranches_Latest",
+        "Debt_Tranches_Q",
+        "Debt_Buckets",
+        "Debt_Recon",
+    }
     unaffected = [
         row
         for row in plan["planned_writes"]
-        if not (row["target_sheet"] == "Valuation" and row["target_cell"] == "M95")
+        if row["target_sheet"] not in debt_product_sheets
+        and not (row["target_sheet"] == "Valuation" and row["target_cell"] == "M95")
     ]
     assert len(unaffected) == 22_370
     assert _digest(unaffected) == "3605b8f7c9f06cc0a293ec43f000a23fd09e8249bb1d75df720d267057ba66c0"
+    debt_product_writes = [
+        row for row in plan["planned_writes"] if row["target_sheet"] in debt_product_sheets
+    ]
+    assert len(debt_product_writes) == 389
+    assert _digest(debt_product_writes) == "774cc923de372f915599414a60dcd10d52832c746f6c6d73e3275caa7fcef57f"
     assert _digest(plan["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
-    assert styles["action_count"] == 721
-    assert styles["decision_count"] == 1_261
-    assert _digest({"actions": styles["actions"], "decisions": styles["decisions"]}) == (
+    assert styles["action_count"] == 738
+    assert styles["decision_count"] == 1_298
+    debt_policy_ids = {
+        "debt_profile_product_state",
+        "revolver_history_product_state",
+        "leverage_liquidity_product_state",
+        "debt_credit_notes_product_state",
+        "debt_maturity_product_state",
+    }
+    prior_actions = [row for row in styles["actions"] if row["policy_id"] not in debt_policy_ids]
+    prior_decisions = [row for row in styles["decisions"] if row["policy_id"] not in debt_policy_ids]
+    assert _digest({"actions": prior_actions, "decisions": prior_decisions}) == (
         "da237f9bf4e78826d397077ac6075306f1031a516caf536ac8e8499c39525961"
+    )
+    debt_actions = [row for row in styles["actions"] if row["policy_id"] in debt_policy_ids]
+    debt_decisions = [row for row in styles["decisions"] if row["policy_id"] in debt_policy_ids]
+    assert len(debt_actions) == 17
+    assert len(debt_decisions) == 37
+    assert _digest({"actions": debt_actions, "decisions": debt_decisions}) == (
+        "f21653ede9603e06d05d76ba6e2c99e390be5d6f5dcc625d66004023f2e1fd43"
     )
 
 

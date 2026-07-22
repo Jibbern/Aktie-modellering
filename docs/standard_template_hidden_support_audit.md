@@ -1,6 +1,6 @@
 # Standard Template Hidden Support Audit
 
-Generated at: 2026-07-18T22:19:23+00:00
+Generated at: 2026-07-21T23:26:59+00:00
 Template: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\standard_stock_model_template.xlsx`
 ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\lab\ANF_template_lab.xlsx`
 
@@ -25,9 +25,9 @@ ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-templ
 | DATA_LineItem_Map | no | delete_from_shell | 139 | 0 | 1 | 0 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
 | DATA_Period_Index | yes | keep_neutral_helper_shell | 6 | 0 | 0 | 0 | Header-only period index; full raw period detail remains external. |
 | Debt_Buckets | yes | keep_optional_runtime_output_shell | 6 | 0 | 0 | 0 | Reserved hidden capacity for maturity buckets. |
-| Debt_Credit_Notes | yes | keep_optional_runtime_output_shell | 6 | 0 | 0 | 0 | Header-only until reliable credit evidence exists. |
-| Debt_Maturity_Ladder | yes | keep_optional_runtime_output_shell | 7 | 0 | 0 | 0 | Reserved hidden capacity; no user-facing ladder is shown without evidence. |
-| Debt_Profile | yes | keep_optional_runtime_output_shell | 6 | 0 | 0 | 0 | Header-only until source-backed debt or liquidity facts exist. |
+| Debt_Credit_Notes | yes | keep_formula_dependency | 9 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
+| Debt_Maturity_Ladder | yes | keep_formula_dependency | 9 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
+| Debt_Profile | yes | keep_formula_dependency | 11 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | Debt_Recon | yes | keep_optional_runtime_output_shell | 8 | 0 | 0 | 0 | Reserved hidden capacity for a source-backed debt roll-forward. |
 | Debt_Tranches_Latest | yes | keep_optional_runtime_output_shell | 7 | 0 | 0 | 0 | Header-only until source-backed tranche facts exist. |
 | Debt_Tranches_Q | yes | keep_optional_runtime_output_shell | 8 | 0 | 0 | 0 | Reserved hidden capacity for period-keyed tranche history. |
@@ -39,7 +39,7 @@ ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-templ
 | Hidden_Value_Recompute | yes | keep_formula_dependency | 820 | 770 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | History_Q | yes | keep_formula_dependency | 7 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | Info_Log | no | delete_from_shell | 4367 | 0 | 1 | 713 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
-| Leverage_Liquidity | yes | keep_optional_runtime_output_shell | 8 | 0 | 0 | 0 | Header-only and fail-closed when debt evidence is unavailable. |
+| Leverage_Liquidity | yes | keep_formula_dependency | 75 | 60 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | NonGAAP_Bridge | yes | keep_optional_runtime_output_shell | 7 | 0 | 0 | 0 | Header-only until adjustment evidence exists. |
 | NonGAAP_Credibility | yes | keep_optional_runtime_output_shell | 8 | 0 | 0 | 0 | Header-only until reliable adjusted disclosures exist. |
 | NonGAAP_Files | no | delete_from_shell | 1218 | 0 | 1 | 118 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
@@ -54,7 +54,7 @@ ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-templ
 | REPORT_BS_Q | yes | keep_neutral_helper_shell | 7 | 0 | 0 | 0 | Header-only hidden projection until validated balance-sheet facts exist. |
 | REPORT_CF_Q | yes | keep_neutral_helper_shell | 7 | 0 | 0 | 0 | Header-only hidden projection until validated cash-flow facts exist. |
 | REPORT_IS_Q | yes | keep_neutral_helper_shell | 7 | 0 | 0 | 0 | Header-only hidden projection until normalized income-statement history is available. |
-| Revolver_History | yes | keep_optional_runtime_output_shell | 7 | 0 | 0 | 0 | Header-only until source-backed revolver facts exist. |
+| Revolver_History | yes | keep_formula_dependency | 29 | 12 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | SEC_Audit_Log | no | delete_from_shell | 25779 | 0 | 1 | 162 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
 | Scenario_Bridge_Tax_Treatment | yes | keep_optional_runtime_output_shell | 7 | 0 | 0 | 0 | Header-only until scenario adjustments have explicit tax treatment. |
 | Scenario_Driver_Assumptions | yes | keep_formula_dependency | 17 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |

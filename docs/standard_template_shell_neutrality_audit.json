@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-20T01:02:54+00:00",
+  "generated_at": "2026-07-21T23:26:23+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "visible_sheets": [
@@ -54,10 +54,10 @@
     "OCR_Text_Log"
   ],
   "classification_counts": {
-    "formula_static": 2141,
-    "generic_block_label": 626,
-    "row_label_generic": 528,
-    "universal_template_label": 469
+    "formula_static": 2213,
+    "generic_block_label": 622,
+    "row_label_generic": 521,
+    "universal_template_label": 507
   },
   "post_neutrality_summary": {
     "company_specific_value_count": 0,
@@ -435,8 +435,8 @@
       "sheet": "SUMMARY",
       "cell": "A41",
       "value": "Net leverage",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -499,8 +499,8 @@
       "sheet": "SUMMARY",
       "cell": "A44",
       "value": "Revolver availability",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -3731,8 +3731,8 @@
       "sheet": "Valuation",
       "cell": "O50",
       "value": "Item",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -5923,8 +5923,8 @@
       "sheet": "Valuation",
       "cell": "A86",
       "value": "Net leverage",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -6475,8 +6475,8 @@
       "sheet": "Valuation",
       "cell": "A95",
       "value": "Revolver availability",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7491,8 +7491,8 @@
       "sheet": "Valuation",
       "cell": "D123",
       "value": "As of",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7515,8 +7515,8 @@
       "sheet": "Valuation",
       "cell": "A124",
       "value": "Cash",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7531,8 +7531,8 @@
       "sheet": "Valuation",
       "cell": "A125",
       "value": "Revolver availability",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7579,8 +7579,8 @@
       "sheet": "Valuation",
       "cell": "A128",
       "value": "Core debt",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7595,8 +7595,8 @@
       "sheet": "Valuation",
       "cell": "A129",
       "value": "Net debt",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7611,8 +7611,8 @@
       "sheet": "Valuation",
       "cell": "A130",
       "value": "Net leverage",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -7915,8 +7915,8 @@
       "sheet": "Valuation",
       "cell": "B195",
       "value": "As of",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -10483,8 +10483,8 @@
       "sheet": "BS_Segments",
       "cell": "A10",
       "value": "Restricted cash",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -12763,8 +12763,8 @@
       "sheet": "{ticker}_Investment_Case",
       "cell": "A17",
       "value": "Net debt",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -13611,8 +13611,8 @@
       "sheet": "{ticker}_Investment_Case",
       "cell": "H84",
       "value": "Net debt",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -16699,8 +16699,8 @@
       "sheet": "Promise_Progress_UI",
       "cell": "A4",
       "value": "Category",
-      "classification": "row_label_generic",
-      "reason": "Generic row or section label.",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
       "hidden_state": "visible"
     },
     {
@@ -26978,57 +26978,233 @@
     {
       "sheet": "Revolver_History",
       "cell": "A1",
-      "value": "period",
+      "value": "Revolver history",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "A3",
+      "value": "As of",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Revolver_History",
-      "cell": "B1",
-      "value": "capacity",
+      "cell": "B3",
+      "value": "Publication date",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Revolver_History",
-      "cell": "C1",
-      "value": "drawn",
+      "cell": "C3",
+      "value": "Facility",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Revolver_History",
-      "cell": "D1",
-      "value": "availability",
+      "cell": "D3",
+      "value": "Commitment",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Revolver_History",
-      "cell": "E1",
-      "value": "covenant_status",
+      "cell": "E3",
+      "value": "Loan cap",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Revolver_History",
-      "cell": "F1",
-      "value": "source_ref",
+      "cell": "F3",
+      "value": "Drawn",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Revolver_History",
-      "cell": "G1",
-      "value": "status",
+      "cell": "G3",
+      "value": "Letters of credit",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "H3",
+      "value": "Gross capacity",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "I3",
+      "value": "Minimum excess",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "J3",
+      "value": "Net availability",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K3",
+      "value": "Utilization",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "L3",
+      "value": "Rate basis",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "M3",
+      "value": "Expiry",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "N3",
+      "value": "Covenant state",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "O3",
+      "value": "Source state",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "P3",
+      "value": "Evidence / source",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K4",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F4)),NOT(ISNUMBER(D4)),D4=0),\"\",F4/D4),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K5",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F5)),NOT(ISNUMBER(D5)),D5=0),\"\",F5/D5),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K6",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F6)),NOT(ISNUMBER(D6)),D6=0),\"\",F6/D6),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K7",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F7)),NOT(ISNUMBER(D7)),D7=0),\"\",F7/D7),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K8",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F8)),NOT(ISNUMBER(D8)),D8=0),\"\",F8/D8),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K9",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F9)),NOT(ISNUMBER(D9)),D9=0),\"\",F9/D9),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K10",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F10)),NOT(ISNUMBER(D10)),D10=0),\"\",F10/D10),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K11",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F11)),NOT(ISNUMBER(D11)),D11=0),\"\",F11/D11),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K12",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F12)),NOT(ISNUMBER(D12)),D12=0),\"\",F12/D12),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K13",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F13)),NOT(ISNUMBER(D13)),D13=0),\"\",F13/D13),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K14",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F14)),NOT(ISNUMBER(D14)),D14=0),\"\",F14/D14),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Revolver_History",
+      "cell": "K15",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(F15)),NOT(ISNUMBER(D15)),D15=0),\"\",F15/D15),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
     },
     {
@@ -27090,47 +27266,87 @@
     {
       "sheet": "Debt_Profile",
       "cell": "A1",
-      "value": "metric",
+      "value": "Debt and liquidity profile",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "A3",
+      "value": "Category",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Profile",
-      "cell": "B1",
-      "value": "value",
+      "cell": "B3",
+      "value": "Item",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Profile",
-      "cell": "C1",
-      "value": "period",
+      "cell": "C3",
+      "value": "Facility or instrument",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Profile",
-      "cell": "D1",
-      "value": "unit",
+      "cell": "D3",
+      "value": "Value",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Profile",
-      "cell": "E1",
-      "value": "source_ref",
+      "cell": "E3",
+      "value": "Unit",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Profile",
-      "cell": "F1",
-      "value": "status",
+      "cell": "F3",
+      "value": "As of",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "G3",
+      "value": "Expiry or maturity",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "H3",
+      "value": "State",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "I3",
+      "value": "Evidence",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Profile",
+      "cell": "J3",
+      "value": "Definition or source",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
@@ -27138,47 +27354,71 @@
     {
       "sheet": "Debt_Credit_Notes",
       "cell": "A1",
-      "value": "period",
+      "value": "Debt and credit notes",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "cell": "A3",
+      "value": "Topic",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Credit_Notes",
-      "cell": "B1",
-      "value": "topic",
+      "cell": "B3",
+      "value": "Facility / instrument",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Credit_Notes",
-      "cell": "C1",
-      "value": "note",
+      "cell": "C3",
+      "value": "As of",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Credit_Notes",
-      "cell": "D1",
-      "value": "covenant",
+      "cell": "D3",
+      "value": "Publication date",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Credit_Notes",
-      "cell": "E1",
-      "value": "source_ref",
+      "cell": "E3",
+      "value": "Exact bounded note",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Credit_Notes",
-      "cell": "F1",
-      "value": "status",
+      "cell": "F3",
+      "value": "State",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "cell": "G3",
+      "value": "Evidence",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Credit_Notes",
+      "cell": "H3",
+      "value": "Source",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
@@ -27186,65 +27426,601 @@
     {
       "sheet": "Leverage_Liquidity",
       "cell": "A1",
-      "value": "period",
+      "value": "Leverage and liquidity",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "A3",
+      "value": "Period",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Leverage_Liquidity",
-      "cell": "B1",
-      "value": "gross_debt",
+      "cell": "B3",
+      "value": "Cash",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Leverage_Liquidity",
-      "cell": "C1",
-      "value": "net_debt",
+      "cell": "C3",
+      "value": "Restricted cash",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Leverage_Liquidity",
-      "cell": "D1",
-      "value": "liquidity",
+      "cell": "D3",
+      "value": "Core debt",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Leverage_Liquidity",
-      "cell": "E1",
-      "value": "leverage",
+      "cell": "E3",
+      "value": "Operating leases",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Leverage_Liquidity",
-      "cell": "F1",
-      "value": "coverage",
+      "cell": "F3",
+      "value": "Net debt",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Leverage_Liquidity",
-      "cell": "G1",
-      "value": "source_ref",
+      "cell": "G3",
+      "value": "Revolver availability",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Leverage_Liquidity",
-      "cell": "H1",
-      "value": "status",
+      "cell": "H3",
+      "value": "Same-date liquidity",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I3",
+      "value": "Gross leverage",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J3",
+      "value": "Net leverage",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K3",
+      "value": "Interest coverage",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "L3",
+      "value": "Disposition / state",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "M3",
+      "value": "Evidence",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "N3",
+      "value": "Component-period explanation",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F4",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D4)),NOT(ISNUMBER(B4))),\"\",D4-B4),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H4",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B4)),NOT(ISNUMBER(G4))),\"\",B4+G4),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I4",
+      "value": "=IFERROR(IF(OR($A4=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A4)<>1,NOT(ISNUMBER(D4)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A4,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A4,'Valuation'!$B$6:$M$6,0))=0),\"\",D4/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J4",
+      "value": "=IFERROR(IF(OR($A4=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A4)<>1,NOT(ISNUMBER(F4)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A4,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A4,'Valuation'!$B$6:$M$6,0))=0),\"\",F4/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K4",
+      "value": "=IFERROR(IF(OR($A4=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A4)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A4,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A4,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F5",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D5)),NOT(ISNUMBER(B5))),\"\",D5-B5),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H5",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B5)),NOT(ISNUMBER(G5))),\"\",B5+G5),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I5",
+      "value": "=IFERROR(IF(OR($A5=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A5)<>1,NOT(ISNUMBER(D5)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A5,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A5,'Valuation'!$B$6:$M$6,0))=0),\"\",D5/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J5",
+      "value": "=IFERROR(IF(OR($A5=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A5)<>1,NOT(ISNUMBER(F5)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A5,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A5,'Valuation'!$B$6:$M$6,0))=0),\"\",F5/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K5",
+      "value": "=IFERROR(IF(OR($A5=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A5)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A5,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A5,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F6",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D6)),NOT(ISNUMBER(B6))),\"\",D6-B6),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H6",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B6)),NOT(ISNUMBER(G6))),\"\",B6+G6),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I6",
+      "value": "=IFERROR(IF(OR($A6=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A6)<>1,NOT(ISNUMBER(D6)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A6,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A6,'Valuation'!$B$6:$M$6,0))=0),\"\",D6/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J6",
+      "value": "=IFERROR(IF(OR($A6=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A6)<>1,NOT(ISNUMBER(F6)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A6,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A6,'Valuation'!$B$6:$M$6,0))=0),\"\",F6/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K6",
+      "value": "=IFERROR(IF(OR($A6=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A6)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A6,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A6,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F7",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D7)),NOT(ISNUMBER(B7))),\"\",D7-B7),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H7",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B7)),NOT(ISNUMBER(G7))),\"\",B7+G7),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I7",
+      "value": "=IFERROR(IF(OR($A7=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A7)<>1,NOT(ISNUMBER(D7)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A7,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A7,'Valuation'!$B$6:$M$6,0))=0),\"\",D7/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J7",
+      "value": "=IFERROR(IF(OR($A7=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A7)<>1,NOT(ISNUMBER(F7)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A7,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A7,'Valuation'!$B$6:$M$6,0))=0),\"\",F7/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K7",
+      "value": "=IFERROR(IF(OR($A7=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A7)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A7,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A7,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F8",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D8)),NOT(ISNUMBER(B8))),\"\",D8-B8),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H8",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B8)),NOT(ISNUMBER(G8))),\"\",B8+G8),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I8",
+      "value": "=IFERROR(IF(OR($A8=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A8)<>1,NOT(ISNUMBER(D8)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A8,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A8,'Valuation'!$B$6:$M$6,0))=0),\"\",D8/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J8",
+      "value": "=IFERROR(IF(OR($A8=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A8)<>1,NOT(ISNUMBER(F8)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A8,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A8,'Valuation'!$B$6:$M$6,0))=0),\"\",F8/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K8",
+      "value": "=IFERROR(IF(OR($A8=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A8)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A8,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A8,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F9",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D9)),NOT(ISNUMBER(B9))),\"\",D9-B9),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H9",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B9)),NOT(ISNUMBER(G9))),\"\",B9+G9),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I9",
+      "value": "=IFERROR(IF(OR($A9=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A9)<>1,NOT(ISNUMBER(D9)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A9,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A9,'Valuation'!$B$6:$M$6,0))=0),\"\",D9/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J9",
+      "value": "=IFERROR(IF(OR($A9=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A9)<>1,NOT(ISNUMBER(F9)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A9,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A9,'Valuation'!$B$6:$M$6,0))=0),\"\",F9/IN",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K9",
+      "value": "=IFERROR(IF(OR($A9=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A9)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A9,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A9,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F10",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D10)),NOT(ISNUMBER(B10))),\"\",D10-B10),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H10",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B10)),NOT(ISNUMBER(G10))),\"\",B10+G10),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I10",
+      "value": "=IFERROR(IF(OR($A10=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A10)<>1,NOT(ISNUMBER(D10)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A10,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A10,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J10",
+      "value": "=IFERROR(IF(OR($A10=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A10)<>1,NOT(ISNUMBER(F10)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A10,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A10,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K10",
+      "value": "=IFERROR(IF(OR($A10=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A10)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A10,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A10,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F11",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D11)),NOT(ISNUMBER(B11))),\"\",D11-B11),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H11",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B11)),NOT(ISNUMBER(G11))),\"\",B11+G11),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I11",
+      "value": "=IFERROR(IF(OR($A11=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A11)<>1,NOT(ISNUMBER(D11)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A11,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A11,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J11",
+      "value": "=IFERROR(IF(OR($A11=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A11)<>1,NOT(ISNUMBER(F11)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A11,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A11,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K11",
+      "value": "=IFERROR(IF(OR($A11=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A11)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A11,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A11,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F12",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D12)),NOT(ISNUMBER(B12))),\"\",D12-B12),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H12",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B12)),NOT(ISNUMBER(G12))),\"\",B12+G12),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I12",
+      "value": "=IFERROR(IF(OR($A12=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A12)<>1,NOT(ISNUMBER(D12)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A12,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A12,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J12",
+      "value": "=IFERROR(IF(OR($A12=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A12)<>1,NOT(ISNUMBER(F12)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A12,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A12,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K12",
+      "value": "=IFERROR(IF(OR($A12=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A12)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A12,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A12,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F13",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D13)),NOT(ISNUMBER(B13))),\"\",D13-B13),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H13",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B13)),NOT(ISNUMBER(G13))),\"\",B13+G13),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I13",
+      "value": "=IFERROR(IF(OR($A13=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A13)<>1,NOT(ISNUMBER(D13)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A13,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A13,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J13",
+      "value": "=IFERROR(IF(OR($A13=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A13)<>1,NOT(ISNUMBER(F13)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A13,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A13,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K13",
+      "value": "=IFERROR(IF(OR($A13=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A13)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A13,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A13,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F14",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D14)),NOT(ISNUMBER(B14))),\"\",D14-B14),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H14",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B14)),NOT(ISNUMBER(G14))),\"\",B14+G14),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I14",
+      "value": "=IFERROR(IF(OR($A14=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A14)<>1,NOT(ISNUMBER(D14)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A14,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A14,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J14",
+      "value": "=IFERROR(IF(OR($A14=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A14)<>1,NOT(ISNUMBER(F14)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A14,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A14,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K14",
+      "value": "=IFERROR(IF(OR($A14=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A14)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A14,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A14,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "F15",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(D15)),NOT(ISNUMBER(B15))),\"\",D15-B15),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "H15",
+      "value": "=IFERROR(IF(OR(NOT(ISNUMBER(B15)),NOT(ISNUMBER(G15))),\"\",B15+G15),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "I15",
+      "value": "=IFERROR(IF(OR($A15=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A15)<>1,NOT(ISNUMBER(D15)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A15,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A15,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "J15",
+      "value": "=IFERROR(IF(OR($A15=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A15)<>1,NOT(ISNUMBER(F15)),NOT(ISNUMBER(INDEX('Valuation'!$B$21:$M$21,1,MATCH($A15,'Valuation'!$B$6:$M$6,0)))),INDEX('Valuation'!$B$21:$M$21,1,MATCH($A15,'Valuation'!$B$6:$M$6,0))=0),\"\",",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Leverage_Liquidity",
+      "cell": "K15",
+      "value": "=IFERROR(IF(OR($A15=\"\",COUNTIF('Valuation'!$B$6:$M$6,$A15)<>1,NOT(ISNUMBER(INDEX('Valuation'!$B$88:$M$88,1,MATCH($A15,'Valuation'!$B$6:$M$6,0))))),\"\",INDEX('Valuation'!$B$88:$M$88,1,MATCH($A15,'Valuation'!$B$6:$M$6,0))),\"\")",
+      "classification": "formula_static",
+      "reason": "Excel formula retained in protected/static shell structure.",
       "hidden_state": "hidden"
     },
     {
@@ -27762,55 +28538,71 @@
     {
       "sheet": "Debt_Maturity_Ladder",
       "cell": "A1",
-      "value": "instrument",
+      "value": "Debt maturity ladder",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "cell": "A3",
+      "value": "Instrument",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Maturity_Ladder",
-      "cell": "B1",
-      "value": "bucket",
+      "cell": "B3",
+      "value": "Bucket",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Maturity_Ladder",
-      "cell": "C1",
-      "value": "amount",
+      "cell": "C3",
+      "value": "Amount",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Maturity_Ladder",
-      "cell": "D1",
-      "value": "unit",
+      "cell": "D3",
+      "value": "Unit",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Maturity_Ladder",
-      "cell": "E1",
-      "value": "maturity",
+      "cell": "E3",
+      "value": "Due date",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Maturity_Ladder",
-      "cell": "F1",
-      "value": "source_ref",
+      "cell": "F3",
+      "value": "As of",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"
     },
     {
       "sheet": "Debt_Maturity_Ladder",
-      "cell": "G1",
-      "value": "status",
+      "cell": "G3",
+      "value": "State",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "hidden"
+    },
+    {
+      "sheet": "Debt_Maturity_Ladder",
+      "cell": "H3",
+      "value": "Evidence / source",
       "classification": "universal_template_label",
       "reason": "Universal QA/source/status header.",
       "hidden_state": "hidden"

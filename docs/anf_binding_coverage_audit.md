@@ -2,9 +2,9 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-21T17:05:28+00:00`
-- Bindings with populated data: `76` / `180`
-- Bindings that would write useful output: `123`
+- Generated: `2026-07-21T23:29:35+00:00`
+- Bindings with populated data: `76` / `188`
+- Bindings that would write useful output: `130`
 
 | Binding | Sheet | Field | Values | Rows | Would write | Reason if blank |
 | --- | --- | --- | ---: | ---: | --- | --- |
@@ -187,6 +187,14 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `valuation_input_tangible_book_value_per_share` | `Valuation` | `valuation_inputs.tangible_book_value_per_share` | 0 | 0/1 | False | normalized field is absent or not populated |
 | `valuation_input_capex_ttm` | `Valuation` | `valuation_inputs.capex_ttm` | 1 | 1/1 | True |  |
 | `valuation_input_interest_paid_ttm` | `Valuation` | `valuation_inputs.interest_paid_ttm` | 0 | 0/1 | False | normalized field is absent or not populated |
+| `debt_profile_resolved_rows` | `Debt_Profile` | `_derived_workbook.debt.debt_profile_rows.value` | 0 | 0/11 | True |  |
+| `revolver_history_resolved_rows` | `Revolver_History` | `_derived_workbook.debt.revolver_history_rows.value` | 0 | 0/12 | True |  |
+| `revolver_history_companion_rows` | `Revolver_History` | `_derived_workbook.debt.revolver_history_rows.source_state` | 0 | 0/12 | True |  |
+| `leverage_liquidity_resolved_rows` | `Leverage_Liquidity` | `_derived_workbook.debt.leverage_liquidity_rows.value` | 0 | 0/12 | True |  |
+| `leverage_liquidity_availability_rows` | `Leverage_Liquidity` | `_derived_workbook.debt.leverage_liquidity_rows.revolver_availability` | 0 | 0/12 | True |  |
+| `leverage_liquidity_companion_rows` | `Leverage_Liquidity` | `_derived_workbook.debt.leverage_liquidity_rows.disposition_state` | 0 | 0/12 | True |  |
+| `debt_credit_notes_resolved_rows` | `Debt_Credit_Notes` | `_derived_workbook.debt.debt_credit_note_rows.text` | 0 | 0/6 | True |  |
+| `debt_maturity_ladder_resolved_rows` | `Debt_Maturity_Ladder` | `_derived_workbook.debt.debt_maturity_rows.amount` | 0 | 0/17 | False | normalized field is absent or not populated |
 | `valuation_input_net_income_ttm` | `Valuation` | `valuation_inputs.net_income_ttm` | 1 | 1/1 | True |  |
 
 ## Row Schema Observation

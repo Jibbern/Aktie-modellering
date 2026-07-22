@@ -15,7 +15,7 @@
   ],
   "properties": {
     "$schema": {"type": "string", "format": "uri"},
-    "version": {"type": "string", "const": "1.2.0"},
+    "version": {"type": "string", "const": "1.3.0"},
     "style_plan_contract_version": {"type": "string", "const": "1.0.0"},
     "description": {"type": "string", "minLength": 1},
     "palette_tokens": {
@@ -158,7 +158,12 @@
             "history / conflict": {"$ref": "#/$defs/id"},
             "current_primary / unavailable": {"$ref": "#/$defs/id"},
             "current_secondary / unavailable": {"$ref": "#/$defs/id"},
-            "history / unavailable": {"$ref": "#/$defs/id"}
+            "history / unavailable": {"$ref": "#/$defs/id"},
+            "excluded_from_calculation": {"$ref": "#/$defs/id"},
+            "missing_source": {"$ref": "#/$defs/id"},
+            "not_reported": {"$ref": "#/$defs/id"},
+            "accepted_with_missing_drawn": {"$ref": "#/$defs/id"},
+            "debt_unavailable": {"$ref": "#/$defs/id"}
           },
           "additionalProperties": false
         },
@@ -177,7 +182,10 @@
               "accepted",
               "current_primary / accepted",
               "current_secondary / accepted",
-              "history / accepted"
+              "history / accepted",
+              "populated",
+              "reported_zero",
+              "source_backed"
             ]
           }
         },

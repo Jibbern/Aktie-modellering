@@ -529,6 +529,7 @@ def validate_shell(
 ) -> dict[str, Any]:
     issues: list[ShellValidationIssue] = []
     approved_planned_values: dict[tuple[str, str], Any] = {}
+    reproduced_plan = None
     if not template_path.exists():
         return {
             "status": "FAIL",
@@ -593,7 +594,6 @@ def validate_shell(
     else:
         approved_plan = _load_json(approved_plan_path) if approved_plan_path is not None else None
         normalized_package = _load_json(normalized_package_path) if normalized_package_path is not None else None
-        reproduced_plan = None
         reproduced_style_plan = None
         if approved_plan is None or normalized_package is None:
             issues.append(
@@ -705,7 +705,24 @@ def validate_shell(
             )
         )
 
-    expected_visible = _expected_visible_sheets(wb, list(manifest["visible_sheet_order"]), allow_filled_values=allow_filled_values)
+    expected_visible = _expected_visible_sheets(
+        wb,
+        list(manifest["visible_sheet_order"]),
+        allow_filled_values=allow_filled_values,
+    )
+    if allow_filled_values and reproduced_plan is not None:
+        desired_visible = set(expected_visible)
+        for sheet_name, state in reproduced_plan.sheet_visibility.items():
+            workbook_sheet = _workbook_sheet_name(wb, sheet_name, allow_filled_values=True)
+            if state == "visible":
+                desired_visible.add(workbook_sheet)
+            else:
+                desired_visible.discard(workbook_sheet)
+        manifest_order = [
+            _workbook_sheet_name(wb, str(sheet["sheet"]), allow_filled_values=True)
+            for sheet in manifest["sheets"]
+        ]
+        expected_visible = [sheet_name for sheet_name in manifest_order if sheet_name in desired_visible]
     actual_visible = _visible_sheet_names(wb)
     if actual_visible != expected_visible:
         issues.append(
@@ -917,7 +934,12 @@ def validate_shell(
             issues.append(_issue("manifest_sheet_missing", "Manifest sheet does not exist in workbook.", sheet=sheet_name))
             continue
         ws = wb[workbook_sheet_name]
-        if ws.sheet_state == "visible" and sheet_name not in {"QA_Log", "Needs_Review", "QA_Checks"} and not ws.merged_cells.ranges:
+        if (
+            ws.sheet_state == "visible"
+            and sheet_name in set(manifest["visible_sheet_order"])
+            and sheet_name not in {"QA_Log", "Needs_Review", "QA_Checks"}
+            and not ws.merged_cells.ranges
+        ):
             issues.append(_issue("sheet_merge_contract", "Non-QA visible sheet should retain title/section merges.", sheet=sheet_name))
         if sheet_name in {"QA_Log", "Needs_Review", "QA_Checks"} and ws.tables:
             issues.append(

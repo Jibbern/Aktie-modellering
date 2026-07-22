@@ -1,7 +1,7 @@
 {
   "receipt_version": "3.0.0",
   "status": "stale",
-  "reason": "Visual/Excel fidelity replay intentionally not run in this non-rendering pass.",
+  "reason": "Product Pass 3A2 adds debt product surfaces; manual visual audit is deferred to the integrated v8 render.",
   "artifact": {
     "path": "docs/standard_template_shell_visual_gap_audit.json",
     "sha256": "3c884c16dd604b435e6f595e49b17a1639167b985d10b87105393809457398f1",
@@ -11,7 +11,7 @@
   "authoritative_inputs": [
     {
       "path": "templates/standard_stock_model_template.xlsx",
-      "sha256": "1a03e543d13b4ce7c5ab8c07cd11b3635197b806eb547bb8dd2ed962159d91b6"
+      "sha256": "7a6fc3509d2b7f182c95b96cadf03767a7e7adc888d6ae57cda0d37e013fe29e"
     },
     {
       "path": "templates/lab/ANF_template_lab.xlsx",
@@ -19,7 +19,7 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "43c4ab329acc26a671a3165da1dff70c63e72353b5c2676d76dfb8529acc8bea"
+      "sha256": "1da4e344d036262c3bac1dc7fbbeeac53cc58c600b892542fc38b4bf2183f89f"
     }
   ],
   "generator": {
@@ -32,7 +32,7 @@
     "dependencies": [
       {
         "path": "scripts/validate_standard_template_shell.py",
-        "sha256": "e3627cfb84c8a9a42cca9ac7bef7fa3fbc7395ce9d7316d9dabbefbbd8d87848"
+        "sha256": "5d5b59d7019dd786b7117e33fd930d0c5629dd46d0d9a8721bb190ec827b3773"
       }
     ]
   },
@@ -40,9 +40,9 @@
     "mode": "unverified_stale",
     "runner_contract_version": "2.0.0",
     "successful_completion": false,
-    "run_generation_id": "23bd0bb872d4179ac2c7fe6f2bf19bcade11e615c43aadf4968376f0717cb000",
+    "run_generation_id": "f473f680cc67a642b49c84c024d102e0f6313282e1c7193a135705bb53fd7c3d",
     "generated_outputs": []
   },
-  "generated_at_utc": "2026-07-15T21:26:31+00:00",
-  "generation_id": "1b26fb3d44a980eb8127dcedb461af3c016206ea1b1cde6e00b481cb91dd4047"
+  "generated_at_utc": "2026-07-21T23:27:27+00:00",
+  "generation_id": "6f0389aabbcc5a63e821444536202614f11651dae84aa5f3078027d5ad17302c"
 }

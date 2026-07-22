@@ -251,12 +251,29 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
         "hidden_value_valuation_rows",
     }
     hidden_writes = [row for row in plan["planned_writes"] if row["binding_id"] in hidden_bindings]
-    accepted_writes = [row for row in plan["planned_writes"] if row["binding_id"] not in hidden_bindings]
+    debt_product_bindings = {
+        "debt_profile_resolved_rows",
+        "revolver_history_resolved_rows",
+        "revolver_history_companion_rows",
+        "leverage_liquidity_resolved_rows",
+        "leverage_liquidity_availability_rows",
+        "leverage_liquidity_companion_rows",
+        "debt_credit_notes_resolved_rows",
+        "debt_maturity_ladder_resolved_rows",
+    }
+    accepted_writes = [
+        row
+        for row in plan["planned_writes"]
+        if row["binding_id"] not in hidden_bindings | debt_product_bindings
+    ]
+    debt_product_writes = [
+        row for row in plan["planned_writes"] if row["binding_id"] in debt_product_bindings
+    ]
 
     assert package == original_package
     assert "_derived_workbook" not in package
     assert plan["status"] == "PASS"
-    assert plan["planned_write_count"] == 22_371
+    assert plan["planned_write_count"] == 22_760
     assert plan["structured_skip_count"] == 2_017
     assert plan["overflow_count"] == 0
     assert Counter(row["binding_id"] for row in hidden_writes) == {
@@ -268,6 +285,8 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
     assert _digest(hidden_writes) == "67d7f2ed7ca085859e0ba56f2e13cf9df2bb3b05918720bc63927ec46d5ded5d"
     assert len(accepted_writes) == 20_388
     assert _digest(accepted_writes) == "51c957eab123aef5aaebeaf55562f44d67a96504235e025fb493368cb793baf1"
+    assert len(debt_product_writes) == 389
+    assert _digest(debt_product_writes) == "774cc923de372f915599414a60dcd10d52832c746f6c6d73e3275caa7fcef57f"
     assert _digest(plan["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
 
     recompute_writes = [row for row in hidden_writes if row["binding_id"] == "hidden_value_recompute_rows"]
@@ -282,6 +301,7 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
         assert recompute_by_cell[f"F{excel_row}"] == spec["item_id"]
 
     assert {row["plan_id"] for row in plan["derived_plans"]} == {
+        "debt_workbook_projection",
         "valuation_guidance_projection",
         "valuation_thesis_projection",
         "hidden_value_evaluation",

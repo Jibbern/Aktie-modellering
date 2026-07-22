@@ -64,7 +64,7 @@ def test_real_swedish_excel_roundtrip_uses_owned_process_and_leaves_no_workbook(
         assert receipt["validations"]["post_fill"]["status"] == "PASS"
         assert receipt["validations"]["saved_workbook"]["status"] == "PASS"
         formula = receipt["formula_inventory"]
-        assert formula["cell_formula_count"] == 2_141
+        assert formula["cell_formula_count"] == 2_213
         assert formula["function_counts"]["MAXIFS"] == 324
         assert formula["function_counts"]["MINIFS"] == 324
         assert formula["function_counts"]["LET"] == 4

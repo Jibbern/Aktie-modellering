@@ -151,8 +151,8 @@ def test_public_filler_applies_exact_reproduced_style_plan_after_values(
 ) -> None:
     artifacts = filled_anf_style_workbook
     result = artifacts["result"]
-    assert result.written_cell_count == 22_371
-    assert result.styled_cell_count == 721
+    assert result.written_cell_count == 22_760
+    assert result.styled_cell_count == 738
 
     shell = load_workbook(SHELL, data_only=False, read_only=False)
     filled = load_workbook(artifacts["output"], data_only=False, read_only=False)
@@ -200,7 +200,7 @@ def test_strict_post_fill_accepts_only_the_reproduced_style_plan(
     )
 
     assert report["status"] == "PASS", report["issues"][:10]
-    assert report["reproduced_style_action_count"] == 721
+    assert report["reproduced_style_action_count"] == 738
 
 
 def test_strict_post_fill_rejects_fabricated_hidden_value_state_fill(
@@ -415,7 +415,7 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             _wait_for_owned_process_exit(process_id)
 
     inventory = inventory_xlsx_formula_xml(path)
-    assert inventory["cell_formula_count"] == 2141
+    assert inventory["cell_formula_count"] == 2213
     assert inventory["function_counts"]["MAXIFS"] == 324
     assert inventory["function_counts"]["MINIFS"] == 324
     assert inventory["function_counts"]["LET"] == 4

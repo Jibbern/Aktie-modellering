@@ -3,9 +3,9 @@
   "$id": "https://local.stockmodel/new_ticker_binding_plan.schema.json",
   "title": "New-Ticker Binding Plan",
   "type": "object",
-  "required": ["plan_version", "ticker", "status", "planned_write_count", "planned_writes", "bindings", "issue_ledger", "shell_identity"],
+  "required": ["plan_version", "ticker", "status", "planned_write_count", "planned_writes", "bindings", "issue_ledger", "sheet_visibility", "shell_identity"],
   "properties": {
-    "plan_version": {"type": "string", "const": "1.0.0"},
+    "plan_version": {"type": "string", "const": "1.1.0"},
     "ticker": {"type": "string", "pattern": "^[A-Z0-9.-]+$"},
     "status": {"enum": ["PASS", "FAIL"]},
     "planned_write_count": {"type": "integer", "minimum": 0},
@@ -21,6 +21,10 @@
     "issue_ledger": {"type": "object"},
     "period_axes": {"type": "object"},
     "derived_plans": {"type": "array", "items": {"type": "object"}},
+    "sheet_visibility": {
+      "type": "object",
+      "additionalProperties": {"enum": ["visible", "hidden", "veryHidden"]}
+    },
     "shell_identity": {"type": "object"},
     "qa_snapshot_status": {"type": "string"}
   },

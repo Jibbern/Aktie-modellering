@@ -14,6 +14,7 @@ import pytest
 from pbi_xbrl import new_engine_orchestration as orchestration
 from pbi_xbrl import new_engine_promotion as promotion
 from pbi_xbrl.new_engine_orchestration import run_plan, validate_workbook_immutable
+from pbi_xbrl.new_ticker_value_filler import fill_standard_template_from_package
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,14 +25,13 @@ def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _anf_artifacts() -> tuple[Path, Path]:
+def _anf_package() -> Path:
     for parent in (ROOT, *ROOT.parents):
         output = parent / "StockModelData" / "outputs" / "stress_tests" / "ANF_new_ticker_engine"
         package = output / "ANF_normalized_data_package.json"
-        workbook = output / "ANF_shadow_model_v7.xlsx"
-        if package.is_file() and workbook.is_file():
-            return package, workbook
-    pytest.fail("ANF normalized package and v7 workbook are required for promotion integration testing.")
+        if package.is_file():
+            return package
+    pytest.fail("ANF normalized package is required for promotion integration testing.")
 
 
 def _shadow_receipt(path: Path, *, head: str) -> dict[str, Any]:
@@ -58,7 +58,7 @@ def _shadow_receipt(path: Path, *, head: str) -> dict[str, Any]:
 
 
 def _integration_context(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    package, accepted_workbook = _anf_artifacts()
+    package = _anf_package()
     captured_plan_contexts: list[Any] = []
     build_context = orchestration._build_context
 
@@ -78,16 +78,16 @@ def _integration_context(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dic
     style_counts = plan["receipt"]["plans"]["style"]
     formula_counts = plan["receipt"]["formula_inventory"]
     assert binding_counts["status"] == "PASS"
-    assert binding_counts["planned_write_count"] == 22_371
+    assert binding_counts["planned_write_count"] == 22_760
     assert binding_counts["structured_skip_count"] == 2_017
     assert binding_counts["issue_count"] == 761
     assert binding_counts["occurrence_count"] == 2_323
     assert binding_counts["overflow_count"] == 0
     assert binding_counts["blocking_issue_count"] == 0
     assert style_counts["status"] == "PASS"
-    assert style_counts["action_count"] == 721
-    assert style_counts["decision_count"] == 1_261
-    assert formula_counts["cell_formula_count"] == 2_141
+    assert style_counts["action_count"] == 738
+    assert style_counts["decision_count"] == 1_298
+    assert formula_counts["cell_formula_count"] == 2_213
     assert len(captured_plan_contexts) == 1
     plan_context = captured_plan_contexts[0]
 
@@ -102,8 +102,8 @@ def _integration_context(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dic
     shadow = tmp_path / "ANF_shadow_model_integration.xlsx"
     canonical = tmp_path / "canonical" / "ANF_model.xlsx"
     canonical.parent.mkdir()
-    shutil.copyfile(accepted_workbook, shadow)
-    shutil.copyfile(accepted_workbook, canonical)
+    fill_standard_template_from_package(package, output_path=shadow)
+    shutil.copyfile(shadow, canonical)
     with ZipFile(canonical, "a") as archive:
         archive.comment = b"previous canonical integration fixture"
     assert _sha256(canonical) != _sha256(shadow)

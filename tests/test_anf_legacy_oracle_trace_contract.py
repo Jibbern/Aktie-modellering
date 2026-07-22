@@ -594,6 +594,16 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "valuation_guidance_historical_rows",
         "valuation_thesis_debate_rows",
     }
+    product_pass_3a2_binding_ids = {
+        "debt_profile_resolved_rows",
+        "revolver_history_resolved_rows",
+        "revolver_history_companion_rows",
+        "leverage_liquidity_resolved_rows",
+        "leverage_liquidity_availability_rows",
+        "leverage_liquidity_companion_rows",
+        "debt_credit_notes_resolved_rows",
+        "debt_maturity_ladder_resolved_rows",
+    }
     accepted_business_writes = [
         write for write in business_writes if write.binding_id not in hidden_value_binding_ids
     ]
@@ -609,6 +619,10 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "Promise_Progress_UI",
         "History_Q",
         "Scenario_Driver_Assumptions",
+        "Debt_Profile",
+        "Revolver_History",
+        "Leverage_Liquidity",
+        "Debt_Credit_Notes",
     }
     by_binding = Counter(write.binding_id for write in business_writes)
     assert {
@@ -652,8 +666,14 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "ic_scenario_bridge_rows",
         "valuation_input_net_income_ttm",
     }
-    additive_binding_ids = scenario_binding_ids | hidden_value_binding_ids | product_pass_2a_binding_ids | product_pass_2b_binding_ids
-    assert len(payload["planned_writes"]) == 22_371
+    additive_binding_ids = (
+        scenario_binding_ids
+        | hidden_value_binding_ids
+        | product_pass_2a_binding_ids
+        | product_pass_2b_binding_ids
+        | product_pass_3a2_binding_ids
+    )
+    assert len(payload["planned_writes"]) == 22_760
     # Two old raw guidance filters contributed 189 exclusions each, while four
     # deferred scalar-as-table bindings contributed one apiece. Resolved 2B
     # rowsets replace those 382 non-economic skips.
@@ -679,7 +699,16 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     }
     assert len(product_pass_2b_writes) == 192
     assert _canonical_digest(product_pass_2b_writes) == "53f5e48096354e3b3f596b6a999d996a21794aa7b455ee07d589be2acdbda69a"
-    assert len(payload["planned_writes"]) - 157 == 22_214
+    product_pass_3a2_writes = [
+        write
+        for write in payload["planned_writes"]
+        if write.get("binding_id") in product_pass_3a2_binding_ids
+    ]
+    assert len(product_pass_3a2_writes) == 389
+    assert _canonical_digest(product_pass_3a2_writes) == (
+        "774cc923de372f915599414a60dcd10d52832c746f6c6d73e3275caa7fcef57f"
+    )
+    assert len(payload["planned_writes"]) - 157 - 389 == 22_214
     non_scenario_writes = [
         write
         for write in payload["planned_writes"]
@@ -694,7 +723,7 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     # BS_Segments writes and 690 obsolete QA cells. Product Pass 2A then adds
     # 138 QA cells for six explicit unavailable scalar/date dispositions.
     assert len(non_scenario_writes) == 19_849
-    assert _canonical_digest(non_scenario_writes) == "69161dcf670d963dec1eb6136a49a819406b60ea61c533ce2a14ce76debabdec"
+    assert _canonical_digest(non_scenario_writes) == "e4bf5994cc3da5a26d48814bc08bf3cbf60efc1db31b3dae117956eae63dbd80"
     assert len(non_scenario_binding_reports) == 137
     assert _canonical_digest(non_scenario_binding_reports) == "f6c529624b223709bab5965ba6f7ddbdc2ddc0a92592868039201a9b285fcc44"
 
@@ -726,17 +755,19 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         if outside_segment_product_surface(write)
         and write.get("binding_id") not in product_pass_2a_binding_ids
         and write.get("binding_id") not in product_pass_2b_binding_ids
+        and write.get("binding_id") not in product_pass_3a2_binding_ids
     ]
     assert len(stable_business_writes) == 7_414
-    assert _canonical_digest(stable_business_writes) == "7450466273b74ad03caf4142676f2c0247317fbe0c6df4dacbfcf832b6f9b55f"
+    assert _canonical_digest(stable_business_writes) == "5c04671c44343cd3ac694acbb01ec5ab1b0b01a09391b9353031426bcc18bb39"
     all_stable_business_writes = [
         write
         for write in payload["planned_writes"]
         if outside_segment_product_surface(write)
         and write.get("binding_id") not in product_pass_2b_binding_ids
+        and write.get("binding_id") not in product_pass_3a2_binding_ids
     ]
     assert len(all_stable_business_writes) == 7_438
-    assert _canonical_digest(all_stable_business_writes) == "26c87b6a6b98b190e4a5924df0a01fd4752c804214fe59dfcc81b4c5208d200f"
+    assert _canonical_digest(all_stable_business_writes) == "871a762cd7d933b9f8f2e3d78366de61b2b69577e7d1dbbcce1867e58bbe6d75"
     assert _canonical_digest(payload["period_axes"]) == "88b9f00e07414ea100180a8f574e4ca3ab14088885107d888f75e1b143ec8818"
     assert _canonical_digest(payload["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
     assert _canonical_digest(payload["issue_ledger"]["issues"]) == "ce17b225eee5b78725b568fd0b147b14bc797d96a995900b619fa3459a3d2d7c"
