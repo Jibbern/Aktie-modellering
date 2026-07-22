@@ -56,6 +56,24 @@ def test_module_manifest_schema_and_semantics_pass() -> None:
     assert len(payload["union_sheet_order"]) == 46
 
 
+def test_debt_product_layout_is_bounded_in_the_module_manifest() -> None:
+    payload = _payload()
+    debt = next(module for module in payload["modules"] if module["module_id"] == "debt_liquidity")
+    sheets = {row["sheet"]: row for row in debt["sheets"]}
+
+    expected = {
+        "Debt_Profile": (32, 32, ["B", "C", "H", "I", "J"], 95),
+        "Revolver_History": (36, 32, ["N", "O", "P"], 90),
+        "Leverage_Liquidity": (36, 48, ["L", "M", "N"], 90),
+        "Debt_Credit_Notes": (34, 48, ["A", "E", "G", "H"], 95),
+    }
+    for sheet_name, (header, body, wrap, zoom) in expected.items():
+        assert sheets[sheet_name]["header_row_height"] == header
+        assert sheets[sheet_name]["body_row_height"] == body
+        assert sheets[sheet_name]["wrap_columns"] == wrap
+        assert sheets[sheet_name]["zoom_scale"] == zoom
+
+
 def test_all_57_legacy_sheets_have_one_explicit_disposition() -> None:
     payload = _payload()
     rows = payload["legacy_sheet_inventory"]

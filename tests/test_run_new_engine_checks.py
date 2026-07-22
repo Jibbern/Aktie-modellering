@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -459,3 +460,106 @@ def test_release_rejects_existing_destination_before_checks_or_artifacts(tmp_pat
     assert len(commands) == 2
     assert shadow.read_bytes() == b"pre-existing"
     assert not Path(args.reports_dir).exists()
+
+
+def test_release_removes_only_verified_shadow_pair_after_downstream_visual_failure(
+    tmp_path: Path,
+) -> None:
+    args = _release_args(tmp_path)
+    args.cross_profile_pytest_target = ["tests/cross_profile.py"]
+    args.full_pytest_target = ["tests/full_release.py"]
+    Path(args.package).write_text("{}\n", encoding="utf-8")
+    commands: list[tuple[str, ...]] = []
+
+    def runner(argv, **_kwargs):
+        command = tuple(str(item) for item in argv)
+        commands.append(command)
+        if command[:3] == ("git", "rev-parse", "HEAD"):
+            return _completed(argv, stdout=args.expected_head + "\n")
+        if command[:3] == ("git", "status", "--porcelain=v1"):
+            return _completed(argv, stdout="")
+        if command[:3] in {
+            ("git", "diff", "--name-only"),
+            ("git", "ls-files", "--others"),
+        }:
+            return _completed(argv, stdout="")
+        if len(command) >= 4 and command[1:3] == ("-m", "pbi_xbrl.new_engine"):
+            if command[3] == "render-shadow":
+                shadow = Path(args.output_root) / "ANF_shadow_model_v8.xlsx"
+                receipt = Path(args.output_root) / "ANF_shadow_model_v8.run.json"
+                shadow.parent.mkdir(parents=True, exist_ok=True)
+                shadow.write_bytes(b"invocation-owned-shadow")
+                shadow_hash = hashlib.sha256(shadow.read_bytes()).hexdigest()
+                receipt.write_text(
+                    json.dumps(
+                        {
+                            "receipt_version": "new-engine-run/v1",
+                            "command": "render-shadow",
+                            "status": "PASS",
+                            "repo_head": args.expected_head,
+                            "contract_profile": {"ticker": "ANF"},
+                            "output": {
+                                "path": str(shadow.resolve()),
+                                "sha256": shadow_hash,
+                                "size": shadow.stat().st_size,
+                            },
+                        }
+                    )
+                    + "\n",
+                    encoding="utf-8",
+                )
+        return _completed(argv)
+
+    diagnostic: Path | None = None
+
+    def visual_runner(*_args, **kwargs):
+        nonlocal diagnostic
+        diagnostic = Path(kwargs["output_root"]) / "final_validation_v8" / "render_validation_report.json"
+        diagnostic.parent.mkdir(parents=True, exist_ok=True)
+        diagnostic.write_text('{"overall":"FAIL"}\n', encoding="utf-8")
+        return _VisualReport("FAIL")
+
+    payload = checks._run_release(args, command_runner=runner, visual_runner=visual_runner)
+
+    assert payload["status"] == "FAIL"
+    assert payload["checks"][-1]["name"] == "failed_release_output_cleanup"
+    assert payload["checks"][-1]["status"] == "PASS"
+    assert not (Path(args.output_root) / "ANF_shadow_model_v8.xlsx").exists()
+    assert not (Path(args.output_root) / "ANF_shadow_model_v8.run.json").exists()
+    assert diagnostic is not None and diagnostic.is_file()
+    assert not any(command[3:4] == ("promote",) for command in commands if len(command) >= 4)
+
+
+def test_failed_release_cleanup_refuses_tampered_receipt_and_preserves_outputs(tmp_path: Path) -> None:
+    shadow = tmp_path / "ANF_shadow_model_v8.xlsx"
+    receipt = tmp_path / "ANF_shadow_model_v8.run.json"
+    shadow.write_bytes(b"shadow")
+    receipt.write_text(
+        json.dumps(
+            {
+                "receipt_version": "new-engine-run/v1",
+                "command": "render-shadow",
+                "status": "PASS",
+                "repo_head": "a" * 40,
+                "contract_profile": {"ticker": "ANF"},
+                "output": {
+                    "path": str(shadow.resolve()),
+                    "sha256": "0" * 64,
+                    "size": shadow.stat().st_size,
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(checks.CheckTierError, match="output_hash"):
+        checks._cleanup_failed_release_outputs(
+            shadow=shadow,
+            shadow_receipt=receipt,
+            expected_ticker="ANF",
+            expected_head="a" * 40,
+        )
+
+    assert shadow.is_file()
+    assert receipt.is_file()

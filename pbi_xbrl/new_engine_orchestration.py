@@ -1,6 +1,8 @@
 """Supported orchestration for deterministic new-engine shadow workbooks."""
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
 import hashlib
 import json
@@ -10,7 +12,7 @@ import shutil
 import subprocess
 import tempfile
 import uuid
-from typing import Any, Mapping
+from typing import Any, Iterator, Mapping
 
 from pbi_xbrl.excel_formula_serialization import (
     inventory_xlsx_formula_xml,
@@ -41,13 +43,17 @@ from pbi_xbrl.new_ticker_value_filler import (
 from pbi_xbrl.standard_template_formula_contract import FORMULA_CONTRACT_VERSION
 from pbi_xbrl.standard_template_shell_identity import verify_post_fill_structural_identity
 from pbi_xbrl.workbook_modules import canonical_json_sha256
-from pbi_xbrl.workbook_validation_runner import validate_workbook
+from pbi_xbrl.workbook_validation_runner import ValidationConfig, validate_workbook
 
 
 ROOT = Path(__file__).resolve().parents[1]
 FORMULA_CONTRACT_PATH = ROOT / "pbi_xbrl" / "standard_template_formula_contract.py"
 RECEIPT_VERSION = "new-engine-run/v1"
 _VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_SAVED_VALIDATION_BINDING_MAP: ContextVar[tuple[Path, str] | None] = ContextVar(
+    "new_engine_saved_validation_binding_map",
+    default=None,
+)
 
 
 class NewEngineOrchestrationError(RuntimeError):
@@ -494,27 +500,71 @@ def _strict_post_fill_validation(
     return report
 
 
+@contextmanager
+def _binding_map_validation_scope(
+    binding_map_path: Path | str,
+    expected_binding_map_sha256: str,
+) -> Iterator[None]:
+    resolved_binding_map = Path(binding_map_path).resolve()
+    binding_map_before = _file_identity(resolved_binding_map)
+    if binding_map_before["sha256"] != str(expected_binding_map_sha256 or "").lower():
+        raise NewEngineOrchestrationError(
+            "Selected binding map changed after planning: "
+            f"expected={expected_binding_map_sha256}, actual={binding_map_before['sha256']}."
+        )
+    token = _SAVED_VALIDATION_BINDING_MAP.set(
+        (resolved_binding_map, str(binding_map_before["sha256"]))
+    )
+    try:
+        yield
+    finally:
+        _SAVED_VALIDATION_BINDING_MAP.reset(token)
+
+
 def _saved_workbook_validation(path: Path, ticker: str) -> dict[str, Any]:
-    result = validate_workbook(path, ticker)
+    selected = _SAVED_VALIDATION_BINDING_MAP.get()
+    if selected is None:
+        resolved_binding_map = Path(DEFAULT_BINDING_MAP).resolve()
+        expected_binding_map_sha256 = _sha256(resolved_binding_map)
+    else:
+        resolved_binding_map, expected_binding_map_sha256 = selected
+    binding_map_before = _file_identity(resolved_binding_map)
+    if binding_map_before["sha256"] != expected_binding_map_sha256:
+        raise NewEngineOrchestrationError(
+            "Selected binding map changed after planning: "
+            f"expected={expected_binding_map_sha256}, actual={binding_map_before['sha256']}."
+        )
+    result = validate_workbook(
+        path,
+        ticker,
+        config=ValidationConfig(binding_map_path=resolved_binding_map),
+    )
+    binding_map_after = _file_identity(resolved_binding_map)
+    if binding_map_after != binding_map_before:
+        raise NewEngineOrchestrationError(
+            "Selected binding map changed during saved-workbook validation."
+        )
     payload = result.to_dict()
-    # The legacy runner scans every visible prose cell for legacy quarter-label
-    # spellings. In the frozen new-engine shell, actual period axes are already
-    # enforced independently by shell identity and the exact binding plan, so
-    # these broad prose hits remain visible as advisory findings here.
     blocking_counts = {
         "formula_errors": result.formula_error_count,
         "needs_review_p1": result.needs_review_p1_count,
         "qa_blank_nan": result.qa_blank_nan_status_count,
         "cross_company_leakage": result.cross_company_leakage_count,
         "bad_markers": result.bad_marker_count,
+        "quarter_label_issues": result.quarter_label_issue_count,
         "ooxml_table_issues": result.ooxml_table_issue_count,
         "quality_guardrail_p0_p1": result.quality_guardrail_p0_p1_count,
         "missing_required_sheets": len(result.missing_required_sheets),
         "missing_named_ranges": len(result.missing_named_ranges),
         "calc_settings": 0 if result.calc_settings_ok else 1,
     }
-    advisory_issues = [issue.to_dict() for issue in result.issues if issue.category == "quarter_label"]
+    advisory_issues = [
+        issue.to_dict()
+        for issue in result.issues
+        if issue.category == "quarter_label" and issue.classification == "advisory"
+    ]
     payload["runner_overall"] = result.overall
+    payload["binding_map_identity"] = binding_map_after
     payload["blocking_counts"] = blocking_counts
     payload["advisory_issues"] = advisory_issues
     payload["status"] = "PASS" if not any(blocking_counts.values()) else "FAIL"
@@ -638,7 +688,11 @@ def render_shadow(
         except NewTickerValueFillerError as exc:
             raise NewEngineOrchestrationError(f"Exact-cell fill failed: {exc}") from exc
         postfill = _strict_post_fill_validation(candidate, context, plan_paths["binding_plan_path"])
-        saved = _saved_workbook_validation(candidate, context.ticker)
+        with _binding_map_validation_scope(
+            context.binding_map_path,
+            str(context.input_files["binding_map"]["sha256"]),
+        ):
+            saved = _saved_workbook_validation(candidate, context.ticker)
         pre_excel_formula_inventory, pre_excel_formula_digest = _formula_validation(candidate)
         if pre_excel_formula_digest != context.formula_inventory_digest:
             raise NewEngineOrchestrationError(
@@ -658,7 +712,11 @@ def render_shadow(
                 plan_paths["binding_plan_path"],
                 excel_native_roundtrip=True,
             )
-            saved = _saved_workbook_validation(candidate, context.ticker)
+            with _binding_map_validation_scope(
+                context.binding_map_path,
+                str(context.input_files["binding_map"]["sha256"]),
+            ):
+                saved = _saved_workbook_validation(candidate, context.ticker)
         acl_report = normalize_candidate_acl(candidate)
         formula_inventory, formula_digest = _formula_validation(candidate)
         formula_semantics = _verify_formula_inventory_semantics(
@@ -741,7 +799,11 @@ def validate_workbook_immutable(
             plan_paths["binding_plan_path"],
             excel_native_roundtrip=True,
         )
-        saved = _saved_workbook_validation(workbook, context.ticker)
+        with _binding_map_validation_scope(
+            context.binding_map_path,
+            str(context.input_files["binding_map"]["sha256"]),
+        ):
+            saved = _saved_workbook_validation(workbook, context.ticker)
         formula_inventory, formula_digest = _formula_validation(workbook)
         formula_semantics = _verify_formula_inventory_semantics(
             context.formula_inventory,
@@ -765,7 +827,11 @@ def validate_workbook_immutable(
                     plan_paths["binding_plan_path"],
                     excel_native_roundtrip=True,
                 )
-                excel_saved = _saved_workbook_validation(isolated, context.ticker)
+                with _binding_map_validation_scope(
+                    context.binding_map_path,
+                    str(context.input_files["binding_map"]["sha256"]),
+                ):
+                    excel_saved = _saved_workbook_validation(isolated, context.ticker)
         if _sha256(workbook) != original_hash:
             raise NewEngineOrchestrationError("Immutable validation changed the supplied workbook bytes.")
         receipt = _base_receipt(context, "validate")

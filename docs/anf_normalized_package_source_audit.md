@@ -2,7 +2,7 @@
 
 Read-only audit for the ANF shadow normalized-data package. This document does not define workbook rendering behavior.
 
-- Generated: `2026-07-21T17:05:23+00:00`
+- Generated: `2026-07-21T17:05:22+00:00`
 - Legacy workbook: `C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models\ANF_model.xlsx`
 
 | Section | Classification | Source candidates | Populated fields |

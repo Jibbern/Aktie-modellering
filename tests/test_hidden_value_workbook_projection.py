@@ -284,7 +284,7 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
     assert len(hidden_writes) == 1_983
     assert _digest(hidden_writes) == "67d7f2ed7ca085859e0ba56f2e13cf9df2bb3b05918720bc63927ec46d5ded5d"
     assert len(accepted_writes) == 20_388
-    assert _digest(accepted_writes) == "51c957eab123aef5aaebeaf55562f44d67a96504235e025fb493368cb793baf1"
+    assert _digest(accepted_writes) == "c9cde15b80db86d18193a81c73f50884bcde58819a185b2ba1ad00697b1c34a4"
     assert len(debt_product_writes) == 389
     assert _digest(debt_product_writes) == "774cc923de372f915599414a60dcd10d52832c746f6c6d73e3275caa7fcef57f"
     assert _digest(plan["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"

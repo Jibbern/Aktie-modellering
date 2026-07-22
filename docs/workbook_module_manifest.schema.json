@@ -98,6 +98,14 @@
           "items": {"type": "number", "exclusiveMinimum": 0},
           "maxItems": 16384
         },
+        "header_row_height": {"type": "number", "exclusiveMinimum": 0},
+        "body_row_height": {"type": "number", "exclusiveMinimum": 0},
+        "wrap_columns": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z]+$"}
+        },
+        "zoom_scale": {"type": "integer", "minimum": 10, "maximum": 400},
         "empty_state": {"type": "string", "minLength": 1},
         "style_owner": {"type": "string", "minLength": 1},
         "formula_owner": {"type": "string", "minLength": 1},

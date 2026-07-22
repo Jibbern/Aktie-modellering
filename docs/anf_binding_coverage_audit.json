@@ -1,9 +1,9 @@
 {
   "version": "0.3.0",
   "generator_version": "anf_legacy_adapter_audits/0.3.0",
-  "source_package_content_sha256": "b077c96b517d2dd93993b78fd56dca0cf392310d409b1f7d5e3afd952a039531",
+  "source_package_content_sha256": "f4b1987108d2dc599088a2ee821669b3d8d70b4fb48a7dce1b9b4e2d290bd4fb",
   "binding_contract_content_sha256": "964ddd37f8ccf5aef7ee85b39337178235a4372cbf3f0219ff8f7a9e3c2545a3",
-  "generated_at_utc": "2026-07-21T23:29:35+00:00",
+  "generated_at_utc": "2026-07-21T17:05:22+00:00",
   "ticker": "ANF",
   "planner_status": "PASS",
   "planner_total_write_count": 22760,

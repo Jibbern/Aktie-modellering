@@ -6,6 +6,9 @@ import json
 from pathlib import Path
 
 import pytest
+from openpyxl import load_workbook
+
+import pbi_xbrl.new_engine_orchestration as orchestration
 
 from pbi_xbrl.new_engine_orchestration import (
     NewEngineOrchestrationError,
@@ -16,7 +19,12 @@ from pbi_xbrl.new_engine_orchestration import (
     validate_workbook_immutable,
 )
 from pbi_xbrl.new_ticker_value_filler import fill_standard_template_from_package
-from pbi_xbrl.workbook_validation_runner import ValidationIssue, WorkbookValidationResult
+from pbi_xbrl.workbook_validation_runner import (
+    ValidationConfig,
+    ValidationIssue,
+    WorkbookValidationResult,
+    validate_workbook,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -132,7 +140,7 @@ def test_render_shadow_is_no_overwrite_and_cleans_failed_candidate(
     output_root = tmp_path / "output"
     monkeypatch.setattr(
         "pbi_xbrl.new_engine_orchestration._saved_workbook_validation",
-        lambda _path, _ticker: {"status": "PASS", "overall": "PASS", "issues": []},
+        lambda _path, _ticker, **_kwargs: {"status": "PASS", "overall": "PASS", "issues": []},
     )
 
     rendered = render_shadow(
@@ -170,6 +178,7 @@ def test_validate_is_immutable_even_when_excel_uses_an_isolated_copy(
     plan = anf_plan
     observed: list[Path] = []
     observed_native_modes: list[bool] = []
+    observed_saved_binding_maps: list[tuple[Path, str]] = []
 
     def strict_post_fill(*_args: object, **kwargs: object) -> dict[str, object]:
         observed_native_modes.append(bool(kwargs.get("excel_native_roundtrip")))
@@ -179,9 +188,15 @@ def test_validate_is_immutable_even_when_excel_uses_an_isolated_copy(
         "pbi_xbrl.new_engine_orchestration._strict_post_fill_validation",
         strict_post_fill,
     )
+    def saved_validation(_path: Path, _ticker: str) -> dict[str, object]:
+        selected = orchestration._SAVED_VALIDATION_BINDING_MAP.get()
+        assert selected is not None
+        observed_saved_binding_maps.append(selected)
+        return {"status": "PASS", "overall": "PASS", "issues": []}
+
     monkeypatch.setattr(
         "pbi_xbrl.new_engine_orchestration._saved_workbook_validation",
-        lambda _path, _ticker: {"status": "PASS", "overall": "PASS", "issues": []},
+        saved_validation,
     )
 
     def excel_roundtrip(path: Path, **_kwargs: object) -> dict[str, object]:
@@ -204,6 +219,7 @@ def test_validate_is_immutable_even_when_excel_uses_an_isolated_copy(
     assert observed and observed[0] != workbook
     assert not observed[0].exists()
     assert observed_native_modes == [True, True]
+    assert observed_saved_binding_maps == [(BINDING_MAP.resolve(), _sha256(BINDING_MAP))] * 2
 
 
 def test_validate_accepts_current_filled_shadow_without_mutating_input(
@@ -318,7 +334,7 @@ def test_publication_race_preserves_racer_and_removes_candidate(
     monkeypatch.setattr(
         orchestration,
         "_saved_workbook_validation",
-        lambda _path, _ticker: {"status": "PASS", "overall": "PASS", "issues": []},
+        lambda _path, _ticker, **_kwargs: {"status": "PASS", "overall": "PASS", "issues": []},
     )
 
     def race(candidate: Path, final: Path, **kwargs: object) -> None:
@@ -349,22 +365,26 @@ def test_saved_gate_reports_prose_quarter_labels_as_advisory_but_keeps_blockers(
     advisory = WorkbookValidationResult(
         ticker="ANF",
         path=str(workbook),
-        quarter_label_issue_count=1,
+        quarter_label_advisory_count=1,
         issues=[
             ValidationIssue(
                 category="quarter_label",
                 sheet="Quarter_Notes_UI",
                 cell="M10",
                 value="Q4 2025 earnings call",
+                classification="advisory",
             )
         ],
     )
-    monkeypatch.setattr("pbi_xbrl.new_engine_orchestration.validate_workbook", lambda *_args: advisory)
+    monkeypatch.setattr(
+        "pbi_xbrl.new_engine_orchestration.validate_workbook",
+        lambda *_args, **_kwargs: advisory,
+    )
 
     report = _saved_workbook_validation(workbook, "ANF")
 
     assert report["status"] == "PASS"
-    assert report["runner_overall"] == "FAIL"
+    assert report["runner_overall"] == "PASS"
     assert [row["category"] for row in report["advisory_issues"]] == ["quarter_label"]
 
     blocking = WorkbookValidationResult(
@@ -372,9 +392,121 @@ def test_saved_gate_reports_prose_quarter_labels_as_advisory_but_keeps_blockers(
         path=str(workbook),
         missing_required_sheets=["Valuation"],
     )
-    monkeypatch.setattr("pbi_xbrl.new_engine_orchestration.validate_workbook", lambda *_args: blocking)
+    monkeypatch.setattr(
+        "pbi_xbrl.new_engine_orchestration.validate_workbook",
+        lambda *_args, **_kwargs: blocking,
+    )
     with pytest.raises(NewEngineOrchestrationError, match="Saved-workbook validation failed"):
         _saved_workbook_validation(workbook, "ANF")
+
+
+def test_nondefault_binding_map_is_shared_by_plan_saved_and_excel_validation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    selected_map = tmp_path / "selected_binding_map.json"
+    selected_map.write_bytes(BINDING_MAP.read_bytes())
+    selected_hash = _sha256(selected_map)
+    kwargs = _kwargs()
+    kwargs["binding_map_path"] = selected_map
+
+    planned = run_plan(run_dir=tmp_path / "plan", **kwargs)
+    receipt = json.loads(Path(planned["receipt_path"]).read_text(encoding="utf-8"))
+    assert receipt["inputs"]["binding_map"] == {
+        "path": str(selected_map.resolve()),
+        "size": selected_map.stat().st_size,
+        "sha256": selected_hash,
+    }
+
+    workbook = tmp_path / "ANF_selected_binding_map.xlsx"
+    fill_standard_template_from_package(
+        _package_path(),
+        output_path=workbook,
+        ticker_override="ANF",
+        template_path=TEMPLATE,
+        manifest_path=MANIFEST,
+        binding_map_path=selected_map,
+        module_manifest_path=MODULE_MANIFEST,
+        style_policy_path=STYLE_POLICY,
+    )
+
+    observed_paths: list[Path] = []
+    original_validate = orchestration.validate_workbook
+
+    def capture_validate(
+        path: Path,
+        ticker: str,
+        *,
+        config: ValidationConfig | None = None,
+    ) -> WorkbookValidationResult:
+        assert config is not None
+        observed_paths.append(Path(config.binding_map_path).resolve())
+        return original_validate(path, ticker, config=config)
+
+    monkeypatch.setattr(orchestration, "validate_workbook", capture_validate)
+    with orchestration._binding_map_validation_scope(selected_map, selected_hash):
+        report = _saved_workbook_validation(workbook, "ANF")
+    assert report["status"] == "PASS"
+    assert report["binding_map_identity"]["path"] == str(selected_map.resolve())
+    assert report["binding_map_identity"]["sha256"] == selected_hash
+    assert report["quarter_label_advisories"] == 6
+    assert observed_paths == [selected_map.resolve()]
+
+    wb = load_workbook(workbook)
+    wb["Operating_Drivers"]["H13"] = "Use Q4 2025 as the current baseline."
+    wb.save(workbook)
+    wb.close()
+    with pytest.raises(NewEngineOrchestrationError, match="Saved-workbook validation failed"):
+        with orchestration._binding_map_validation_scope(selected_map, selected_hash):
+            _saved_workbook_validation(workbook, "ANF")
+    wb = load_workbook(workbook)
+    wb["Operating_Drivers"]["H13"] = (
+        "Use FY2025 year-end results as the baseline for sales, margin and earnings momentum."
+    )
+    wb.save(workbook)
+    wb.close()
+
+    payload = json.loads(selected_map.read_text(encoding="utf-8"))
+    quarter_binding = next(
+        row for row in payload["bindings"] if row["binding_id"] == "qn_quarter_note_rows"
+    )
+    for collection_name in ("row_schema", "target_columns"):
+        for column in quarter_binding[collection_name]:
+            if column.get("source_field") == "source_display":
+                column["target_role"] = "current_claim"
+    selected_map.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    changed_hash = _sha256(selected_map)
+
+    with pytest.raises(NewEngineOrchestrationError, match="changed after planning"):
+        with orchestration._binding_map_validation_scope(selected_map, selected_hash):
+            _saved_workbook_validation(workbook, "ANF")
+
+    changed_result = validate_workbook(
+        workbook,
+        "ANF",
+        config=ValidationConfig(
+            enable_quality_guardrails=False,
+            binding_map_path=selected_map,
+        ),
+    )
+    assert changed_result.quarter_label_issue_count == 6
+    assert changed_result.quarter_label_advisory_count == 0
+    assert all(
+        issue.classification == "blocking" and "current_claim" in issue.detail
+        for issue in changed_result.issues
+        if issue.category == "quarter_label"
+    )
+    with pytest.raises(NewEngineOrchestrationError, match="Saved-workbook validation failed"):
+        with orchestration._binding_map_validation_scope(selected_map, changed_hash):
+            _saved_workbook_validation(workbook, "ANF")
+
+    missing_map = tmp_path / "missing_binding_map.json"
+    missing_map.write_bytes(BINDING_MAP.read_bytes())
+    missing_hash = _sha256(missing_map)
+    missing_map.unlink()
+    with pytest.raises(NewEngineOrchestrationError, match="Required input does not exist"):
+        with orchestration._binding_map_validation_scope(missing_map, missing_hash):
+            _saved_workbook_validation(workbook, "ANF")
 
 
 def test_excel_shared_formula_inventory_may_reencode_but_semantics_must_match() -> None:

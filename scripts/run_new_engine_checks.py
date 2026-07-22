@@ -449,6 +449,7 @@ def _execute_spec(
                 output_root=spec.details["output_root"],
                 timestamp=spec.details["timestamp"],
                 enable_com=True,
+                module_manifest_path=spec.details.get("module_manifest_path", DEFAULT_MODULE_MANIFEST),
             )
             details = report.to_dict()
             if report.overall == "FAIL":
@@ -742,6 +743,65 @@ def _write_release_receipt(path: Path, payload: Mapping[str, Any]) -> None:
         handle.write("\n")
 
 
+def _cleanup_failed_release_outputs(
+    *,
+    shadow: Path,
+    shadow_receipt: Path,
+    expected_ticker: str,
+    expected_head: str,
+) -> dict[str, Any]:
+    """Remove only a freshly verified render-shadow pair after a later release failure."""
+
+    if not shadow.is_file() or not shadow_receipt.is_file():
+        raise CheckTierError(
+            "Cannot clean a failed release because the invocation-owned shadow pair is incomplete: "
+            f"{shadow}, {shadow_receipt}."
+        )
+    expected_receipt = shadow.with_suffix(".run.json")
+    if shadow_receipt.resolve() != expected_receipt.resolve():
+        raise CheckTierError(
+            f"Shadow receipt is not adjacent to its workbook: {shadow_receipt} != {expected_receipt}."
+        )
+    receipt_hash_before = _sha256(shadow_receipt)
+    receipt = load_json_strict(shadow_receipt)
+    receipt_hash_after = _sha256(shadow_receipt)
+    if receipt_hash_before != receipt_hash_after:
+        raise CheckTierError("Shadow receipt changed while release-failure cleanup was verifying it.")
+    contract_profile = receipt.get("contract_profile") or {}
+    output = receipt.get("output") or {}
+    output_path = Path(str(output.get("path") or "")).resolve()
+    shadow_hash = _sha256(shadow)
+    required_identity = {
+        "receipt_version": receipt.get("receipt_version") == "new-engine-run/v1",
+        "command": receipt.get("command") == "render-shadow",
+        "status": receipt.get("status") == "PASS",
+        "ticker": str(contract_profile.get("ticker") or "").upper() == expected_ticker.upper(),
+        "repo_head": str(receipt.get("repo_head") or "").lower() == expected_head.lower(),
+        "output_path": output_path == shadow.resolve(),
+        "output_hash": str(output.get("sha256") or "").lower() == shadow_hash.lower(),
+        "output_size": int(output.get("size") or -1) == shadow.stat().st_size,
+    }
+    failed = [name for name, passed in required_identity.items() if not passed]
+    if failed:
+        raise CheckTierError(
+            "Invocation-owned release output identity could not be proven before cleanup: "
+            + ", ".join(failed)
+        )
+    shadow.unlink()
+    shadow_receipt.unlink()
+    if shadow.exists() or shadow_receipt.exists():
+        raise CheckTierError("Failed release outputs still exist after exact-path cleanup.")
+    return {
+        "status": "PASS",
+        "shadow_path": str(shadow),
+        "shadow_sha256": shadow_hash,
+        "shadow_receipt_path": str(shadow_receipt),
+        "shadow_receipt_sha256": receipt_hash_before,
+        "identity_checks": required_identity,
+        "removed": True,
+    }
+
+
 def _run_release(
     args: argparse.Namespace,
     *,
@@ -874,6 +934,7 @@ def _run_release(
                                 "workbooks": {args.ticker.upper(): shadow},
                                 "output_root": reports_dir / "visual",
                                 "timestamp": args.version,
+                                "module_manifest_path": Path(args.module_manifest).resolve(),
                             },
                         ),
                     ],
@@ -915,6 +976,34 @@ def _run_release(
                     env=env,
                     command_runner=command_runner,
                     visual_runner=visual_runner,
+                )
+            )
+
+        rendered_successfully = any(
+            result.name == "transactional_shadow_render" and result.status == "PASS"
+            for result in results
+        )
+        if _overall(results) == "FAIL" and rendered_successfully and shadow.exists() and shadow_receipt.exists():
+            started = time.perf_counter()
+            try:
+                cleanup_details = _cleanup_failed_release_outputs(
+                    shadow=shadow,
+                    shadow_receipt=shadow_receipt,
+                    expected_ticker=args.ticker,
+                    expected_head=args.expected_head,
+                )
+                cleanup_status = "PASS"
+            except Exception as exc:
+                cleanup_details = {"error_type": type(exc).__name__, "message": str(exc)}
+                cleanup_status = "FAIL"
+            results.append(
+                CheckResult(
+                    name="failed_release_output_cleanup",
+                    action="artifact_cleanup",
+                    classification=BLOCKING,
+                    status=cleanup_status,
+                    elapsed_seconds=time.perf_counter() - started,
+                    details=cleanup_details,
                 )
             )
 

@@ -533,7 +533,7 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
         and not (row["target_sheet"] == "Valuation" and row["target_cell"] == "M95")
     ]
     assert len(unaffected) == 22_370
-    assert _digest(unaffected) == "3605b8f7c9f06cc0a293ec43f000a23fd09e8249bb1d75df720d267057ba66c0"
+    assert _digest(unaffected) == "3e7797ae2aab0b7bbfb09108f921f796df6586fd500c83fb57a5878a7300006b"
     debt_product_writes = [
         row for row in plan["planned_writes"] if row["target_sheet"] in debt_product_sheets
     ]

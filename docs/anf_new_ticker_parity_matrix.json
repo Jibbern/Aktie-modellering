@@ -4,13 +4,13 @@
   "contract_name": "ANF legacy-oracle parity matrix",
   "architectural_scope": "legacy_adapter_fixture_only; generic engine remains ticker-neutral",
   "inventory_method": "legacy workbook business keys are inventoried first; normalized package and plan are comparison targets only",
-  "formula_contract_version": "2.1.0",
+  "formula_contract_version": "2.2.0",
   "source_digests": {
     "legacy_workbook_sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
-    "normalized_package_sha256": "8a9bf153ca47dc46b36625cf1c1088ede348c1b2f30ab6c2256234b171b5a40d",
-    "binding_plan_sha256": "2e314b4df4e81f6567d2ba2f69d8a59333dacc8a547b9b8b87da1033837796f0",
-    "shell_sha256": "27acd59bce6993fe28c67232b673edf8d5c85780b58035baed46e38b3d720df4",
-    "binding_map_sha256": "5c2dffcc4c14b967b5185b6ef0f785769a066564b0ab3a244705785101a0cee0"
+    "normalized_package_sha256": "55f5a525d3f4041e626d732648946e897209b5153e549a24705b8ee3c711a6da",
+    "binding_plan_sha256": "b293a2d78b1dd319d85e13b5308519b54dbc5b37413e08823ef264d30584138e",
+    "shell_sha256": "6f724ae47d8e9a6e06b8f9c40f1b67c7506da3d91d252cb8f1848a7ced3e33f0",
+    "binding_map_sha256": "13eb6f906f2f18734c2730d422ce4b64720a89ac03c81705c583f0c0b5f589e6"
   },
   "summary": {
     "entry_count": 1772,
@@ -25965,11 +25965,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
       "normalized_package_path": "normalized_guidance.items.192.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C62"
+        "Promise_Progress_UI!C62",
+        "Valuation!S10"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26002,11 +26004,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
       "normalized_package_path": "normalized_guidance.items.193.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C61"
+        "Promise_Progress_UI!C61",
+        "Valuation!S9"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26039,11 +26043,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
       "normalized_package_path": "normalized_guidance.items.188.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C64"
+        "Promise_Progress_UI!C64",
+        "Valuation!S12"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26076,11 +26082,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
       "normalized_package_path": "normalized_guidance.items.189.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C63"
+        "Promise_Progress_UI!C63",
+        "Valuation!S11"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26113,11 +26121,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
       "normalized_package_path": "normalized_guidance.items.183.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C66"
+        "Promise_Progress_UI!C66",
+        "Valuation!S14"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26150,11 +26160,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
       "normalized_package_path": "normalized_guidance.items.184.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C65"
+        "Promise_Progress_UI!C65",
+        "Valuation!S13"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26409,11 +26421,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
       "normalized_package_path": "normalized_guidance.items.191.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C67"
+        "Promise_Progress_UI!C67",
+        "Valuation!S15"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -29998,11 +30012,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
       "normalized_package_path": "normalized_guidance.items.184.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C65"
+        "Promise_Progress_UI!C65",
+        "Valuation!S13"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "may_improve_semantically",
@@ -30566,11 +30582,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
       "normalized_package_path": "normalized_guidance.items.189.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C63"
+        "Promise_Progress_UI!C63",
+        "Valuation!S11"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "may_improve_semantically",
@@ -30692,11 +30710,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
       "normalized_package_path": "normalized_guidance.items.191.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C67"
+        "Promise_Progress_UI!C67",
+        "Valuation!S15"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "may_improve_semantically",
@@ -30976,11 +30996,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
       "normalized_package_path": "normalized_guidance.items.193.value",
       "binding_ids": [
-        "pp_guidance_timeline_rows"
+        "pp_guidance_timeline_rows",
+        "valuation_guidance_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!C61"
+        "Promise_Progress_UI!C61",
+        "Valuation!S9"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "may_improve_semantically",
@@ -31660,7 +31682,7 @@
       "inventory_class": "source_fact",
       "inventory_origin": "legacy_workbook_business_key",
       "legacy_value": "Q4 release and History_Q.",
-      "normalized_value": "Use Q4 2025 as the latest reported baseline for sales, margin and earnings momentum.",
+      "normalized_value": "Use FY2025 year-end results as the baseline for sales, margin and earnings momentum.",
       "unit": "",
       "comparison_result": "investor_wording_improved",
       "formula_contract_status": "not_applicable",

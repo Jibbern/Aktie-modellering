@@ -18,8 +18,9 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 from zipfile import BadZipFile, ZipFile
 
 from openpyxl import load_workbook
-from openpyxl.utils.cell import range_boundaries
+from openpyxl.utils.cell import column_index_from_string, range_boundaries
 
+from .json_schema_validation import load_json_strict
 from .path_config import resolve_stock_model_paths
 from .workbook_quality_guardrails import run_workbook_quality_guardrails
 
@@ -138,6 +139,42 @@ BAD_QUARTER_LABEL_PATTERNS: Sequence[str] = (
     r"\b20\d{2}\s+Q[1-4]\b",
 )
 GOOD_QUARTER_LABEL_PATTERN = re.compile(r"\b20\d{2}-Q[1-4]\b")
+DEFAULT_BINDING_MAP = Path(__file__).resolve().parents[1] / "docs" / "workbook_binding_map.json"
+
+_QUARTER_LABEL_ADVISORY_ROLES = {
+    "evidence",
+    "evidence_ref",
+    "evidence_reference",
+    "evidence_refs",
+    "evidence_ids",
+    "evidence_key",
+    "evidence_source",
+    "historical_note_source",
+    "notes_source",
+    "bounded_source_description",
+    "source_description",
+    "source_display",
+    "source_ref",
+    "source_reference",
+    "source_refs",
+}
+_QUARTER_LABEL_STRUCTURAL_TOKENS = {
+    "applies",
+    "as_of",
+    "date",
+    "fiscal",
+    "horizon",
+    "period",
+    "publication",
+    "quarter",
+    "stated_in",
+}
+_QUARTER_LABEL_CURRENT_ROLES = {
+    "current_actual_use",
+    "current_baseline",
+    "current_claim",
+    "current_outlook",
+}
 
 
 @dataclass(frozen=True)
@@ -147,6 +184,7 @@ class ValidationIssue:
     cell: str = ""
     value: str = ""
     detail: str = ""
+    classification: str = "blocking"
 
     def to_dict(self) -> Dict[str, str]:
         return {
@@ -155,7 +193,15 @@ class ValidationIssue:
             "cell": self.cell,
             "value": self.value,
             "detail": self.detail,
+            "classification": self.classification,
         }
+
+
+@dataclass(frozen=True)
+class QuarterLabelCellRole:
+    classification: str
+    role: str
+    binding_id: str
 
 
 @dataclass(frozen=True)
@@ -174,6 +220,7 @@ class ValidationConfig:
     sample_tail_rows: int = 200
     enable_quality_guardrails: bool = True
     quality_guardrails_warn_only: bool = False
+    binding_map_path: Path | str = DEFAULT_BINDING_MAP
 
 
 @dataclass(frozen=True)
@@ -203,6 +250,7 @@ class WorkbookValidationResult:
     cross_company_leakage_count: int = 0
     bad_marker_count: int = 0
     quarter_label_issue_count: int = 0
+    quarter_label_advisory_count: int = 0
     ooxml_table_issue_count: int = 0
     missing_required_sheets: List[str] = field(default_factory=list)
     missing_named_ranges: List[str] = field(default_factory=list)
@@ -252,6 +300,7 @@ class WorkbookValidationResult:
             "cross_company_leakage": self.cross_company_leakage_count,
             "bad_markers": self.bad_marker_count,
             "quarter_label_issues": self.quarter_label_issue_count,
+            "quarter_label_advisories": self.quarter_label_advisory_count,
             "ooxml_table_issues": self.ooxml_table_issue_count,
             "missing_required_sheets": self.missing_required_sheets,
             "missing_named_ranges": self.missing_named_ranges,
@@ -533,6 +582,92 @@ def _bad_marker_terms_for_ticker(ticker: str) -> List[str]:
     return terms
 
 
+def _quarter_label_role(
+    *,
+    field_name: str,
+    target_role: str,
+    target_type: str,
+    binding_id: str,
+) -> QuarterLabelCellRole:
+    normalized = str(field_name or "").strip().lower()
+    explicit_role = re.sub(
+        r"[^a-z0-9_]+",
+        "_",
+        str(target_role or "").strip().lower(),
+    ).strip("_")
+    role = explicit_role or normalized or str(target_type or "mapped_unspecified").strip().lower()
+    identifiers = {
+        normalized,
+        normalized.rsplit(".", 1)[-1],
+        explicit_role,
+        str(target_type or "").strip().lower(),
+    }
+    if explicit_role in _QUARTER_LABEL_CURRENT_ROLES or explicit_role.startswith("current_"):
+        return QuarterLabelCellRole("blocking", role, binding_id)
+    if any(token in explicit_role for token in _QUARTER_LABEL_STRUCTURAL_TOKENS):
+        return QuarterLabelCellRole("blocking", role, binding_id)
+    if identifiers & _QUARTER_LABEL_ADVISORY_ROLES:
+        return QuarterLabelCellRole("advisory", role, binding_id)
+    if any(token in normalized or token in role for token in _QUARTER_LABEL_STRUCTURAL_TOKENS):
+        return QuarterLabelCellRole("blocking", role, binding_id)
+    return QuarterLabelCellRole("blocking", role, binding_id)
+
+
+def _quarter_label_cell_roles(
+    binding_map_path: Path | str,
+    *,
+    ticker: str,
+) -> dict[tuple[str, int, int], QuarterLabelCellRole]:
+    payload = load_json_strict(Path(binding_map_path))
+    roles: dict[tuple[str, int, int], QuarterLabelCellRole] = {}
+    for binding in payload.get("bindings") or []:
+        if not isinstance(binding, Mapping) or str(binding.get("planning_state") or "active") != "active":
+            continue
+        sheet = str(binding.get("sheet") or "").format(ticker=str(ticker or "").upper())
+        target = str(binding.get("planner_target") or binding.get("target") or "")
+        if not sheet or not target:
+            continue
+        try:
+            min_col, min_row, max_col, max_row = range_boundaries(target)
+        except ValueError:
+            continue
+        binding_id = str(binding.get("binding_id") or "")
+        columns: dict[int, Mapping[str, Any]] = {}
+        for column in [*(binding.get("row_schema") or []), *(binding.get("target_columns") or [])]:
+            if not isinstance(column, Mapping) or not str(column.get("target_column") or ""):
+                continue
+            column_index = column_index_from_string(str(column["target_column"]))
+            if min_col <= column_index <= max_col:
+                columns[column_index] = column
+        if columns:
+            for column_index, column in columns.items():
+                role = _quarter_label_role(
+                    field_name=str(column.get("source_field") or column.get("column_id") or ""),
+                    target_role=str(column.get("target_role") or ""),
+                    target_type=str(column.get("target_type") or ""),
+                    binding_id=binding_id,
+                )
+                for row_index in range(min_row, max_row + 1):
+                    key = (sheet, row_index, column_index)
+                    existing = roles.get(key)
+                    if existing is None or existing.classification == "advisory" and role.classification == "blocking":
+                        roles[key] = role
+            continue
+        role = _quarter_label_role(
+            field_name=str(binding.get("source_path") or binding.get("source_field") or binding.get("normalized_field") or ""),
+            target_role=str(binding.get("target_role") or ""),
+            target_type=str(binding.get("target_type") or ""),
+            binding_id=binding_id,
+        )
+        for row_index in range(min_row, max_row + 1):
+            for column_index in range(min_col, max_col + 1):
+                key = (sheet, row_index, column_index)
+                existing = roles.get(key)
+                if existing is None or existing.classification == "advisory" and role.classification == "blocking":
+                    roles[key] = role
+    return roles
+
+
 def _scan_bad_markers(
     wb: Any,
     ticker: str,
@@ -569,6 +704,7 @@ def _scan_quarter_labels(
     config: ValidationConfig,
 ) -> None:
     patterns = [re.compile(pattern, flags=re.IGNORECASE) for pattern in BAD_QUARTER_LABEL_PATTERNS]
+    cell_roles = _quarter_label_cell_roles(config.binding_map_path, ticker=ticker)
     for cell in _iter_plan_cells(wb, plans, config, _user_facing_sheets_for_ticker(ticker, wb.sheetnames)):
         value = _cell_text(cell.value)
         if not value:
@@ -579,7 +715,12 @@ def _scan_quarter_labels(
                 # label in the same visible cell.
                 if GOOD_QUARTER_LABEL_PATTERN.search(value):
                     continue
-                result.quarter_label_issue_count += 1
+                role = cell_roles.get((cell.parent.title, cell.row, cell.column))
+                classification = role.classification if role is not None else "blocking"
+                if classification == "advisory":
+                    result.quarter_label_advisory_count += 1
+                else:
+                    result.quarter_label_issue_count += 1
                 _append_issue(
                     result,
                     ValidationIssue(
@@ -587,7 +728,12 @@ def _scan_quarter_labels(
                         sheet=cell.parent.title,
                         cell=cell.coordinate,
                         value=value,
-                        detail=f"{cell.parent.title}!{cell.coordinate} has non-standard quarter label: {value}",
+                        detail=(
+                            f"{cell.parent.title}!{cell.coordinate} has non-standard quarter label in "
+                            f"{role.role if role is not None else 'unmapped'} role"
+                            f"{f' ({role.binding_id})' if role is not None else ''}: {value}"
+                        ),
+                        classification=classification,
                     ),
                 )
                 break
@@ -1222,6 +1368,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         help="Directory where JSON/CSV validation reports are written.",
     )
     parser.add_argument("--data-root", default="", help="Portable StockModelData root.")
+    parser.add_argument(
+        "--binding-map",
+        default=DEFAULT_BINDING_MAP,
+        help="Exact workbook binding map used as the quarter-label role authority.",
+    )
     parser.add_argument("--tickers", nargs="*", default=list(TICKERS), help="Tickers to validate.")
     parser.add_argument("--max-full-scan-rows", type=int, default=ValidationConfig.max_full_scan_rows)
     parser.add_argument("--max-full-scan-cells", type=int, default=ValidationConfig.max_full_scan_cells)
@@ -1259,6 +1410,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         sample_tail_rows=args.sample_tail_rows,
         enable_quality_guardrails=not (args.no_quality_guardrails or args.skip_guardrails),
         quality_guardrails_warn_only=bool(args.guardrails_warn_only),
+        binding_map_path=Path(args.binding_map).resolve(),
     )
     results = validate_workbooks(paths, config=config)
     report_paths = write_validation_reports(results, output_dir)

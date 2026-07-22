@@ -1061,7 +1061,7 @@ def _build_anf_source_backed_operating_drivers(period: str) -> dict[str, Any]:
             classification="source_backed_fact",
         ),
         "current_actual_use": _narrative_field(
-            "Use Q4 2025 as the latest reported baseline for sales, margin and earnings momentum.",
+                    "Use FY2025 year-end results as the baseline for sales, margin and earnings momentum.",
             (_anf_transcript_ref(14, 16),),
             classification="evidence_backed_synthesis",
         ),

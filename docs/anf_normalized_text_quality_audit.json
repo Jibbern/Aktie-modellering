@@ -1625,7 +1625,7 @@
       "classification": "clean_visible_ui",
       "is_clean_visible": true,
       "text_length": 84,
-      "text_excerpt": "Use Q4 2025 as the latest reported baseline for sales, margin and earnings momentum.",
+      "text_excerpt": "Use FY2025 year-end results as the baseline for sales, margin and earnings momentum.",
       "source_ref": "tickers/ANF/earnings_transcripts/ANF_Q4_2025_transcript.txt#L14-L16",
       "suggested_action": "No action required."
     },
@@ -7770,8 +7770,8 @@
   ],
   "ticker": "ANF",
   "generator_version": "anf_legacy_adapter_audits/0.2.0",
-  "source_package_content_sha256": "b077c96b517d2dd93993b78fd56dca0cf392310d409b1f7d5e3afd952a039531",
-  "generated_at_utc": "2026-07-21T17:05:28+00:00",
+  "source_package_content_sha256": "f4b1987108d2dc599088a2ee821669b3d8d70b4fb48a7dce1b9b4e2d290bd4fb",
+  "generated_at_utc": "2026-07-21T17:05:22+00:00",
   "demotion_summary": {
     "total_demoted": 1325,
     "by_section": {

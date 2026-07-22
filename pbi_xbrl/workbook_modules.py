@@ -683,8 +683,20 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
     header_row = int(contract.get("header_row") or 1)
     freeze_panes = str(contract.get("freeze_panes") or (f"A{header_row + 1}" if header_row > 1 else "A2"))
     column_widths = [float(value) for value in contract.get("column_widths") or []]
+    layout_metadata = {
+        key: value
+        for key, value in {
+            "support_header_row_height": contract.get("header_row_height"),
+            "support_body_row_height": contract.get("body_row_height"),
+            "support_wrap_columns": [str(value) for value in contract.get("wrap_columns") or []],
+            "support_zoom_scale": contract.get("zoom_scale"),
+        }.items()
+        if value not in (None, [], "")
+    }
     max_column = int(contract.get("capacity_columns") or max(1, len(headers)))
     max_row = int(contract.get("capacity_rows") or 5000)
+    if layout_metadata:
+        layout_metadata["support_capacity_rows"] = max_row
     last_column = get_column_letter(max_column)
     sheet_name = str(contract["sheet"])
     binding_ranges = [str(value) for value in contract.get("binding_owned_ranges") or []]
@@ -747,6 +759,7 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
             "support_header_row": header_row,
             "support_freeze_panes": freeze_panes,
             "support_column_widths": column_widths,
+            **layout_metadata,
             "worksheet_protection": sheet_protection,
         }
     if str(contract.get("data_surface") or "binding_rows") == "formula_output":
@@ -766,6 +779,7 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
             "support_header_row": header_row,
             "support_freeze_panes": freeze_panes,
             "support_column_widths": column_widths,
+            **layout_metadata,
             "worksheet_protection": sheet_protection,
         }
     return {
@@ -791,6 +805,7 @@ def _reserved_sheet_manifest(contract: Mapping[str, Any]) -> dict[str, Any]:
         "support_header_row": header_row,
         "support_freeze_panes": freeze_panes,
         "support_column_widths": column_widths,
+        **layout_metadata,
         "worksheet_protection": sheet_protection,
     }
 

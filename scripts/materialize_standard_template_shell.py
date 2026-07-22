@@ -1163,6 +1163,15 @@ def _ensure_promise_progress_structure(wb: Workbook) -> None:
         cell.value = f"[Guidance metric slot {row_idx}]"
 
 
+def _ensure_promise_progress_status_fill_continuity(wb: Workbook) -> None:
+    if "Promise_Progress_UI" not in wb.sheetnames:
+        return
+    ws = wb["Promise_Progress_UI"]
+    for min_row, max_row in ((13, 20), (24, 27), (30, 32), (35, 36)):
+        for row_idx in range(min_row, max_row + 1):
+            ws[f"H{row_idx}"].fill = copy(ws[f"G{row_idx}"].fill)
+
+
 def _configure_narrative_text_layout(wb: Workbook) -> None:
     if "Operating_Drivers" in wb.sheetnames:
         ws = wb["Operating_Drivers"]
@@ -1740,6 +1749,11 @@ def _neutralize_support_sheet(
     header_row: int = 1,
     freeze_panes: str = "",
     column_widths: list[float] | None = None,
+    header_row_height: float | None = None,
+    body_row_height: float | None = None,
+    wrap_columns: list[str] | None = None,
+    zoom_scale: int | None = None,
+    capacity_rows: int | None = None,
 ) -> None:
     for table_name in list(ws.tables.keys()):
         del ws.tables[table_name]
@@ -1777,16 +1791,33 @@ def _neutralize_support_sheet(
         cell = ws.cell(header_row, col_idx, header)
         cell.font = Font(name="Aptos", size=10, bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="4472C4")
-        cell.alignment = Alignment(horizontal="left", vertical="center")
+        cell.alignment = Alignment(
+            horizontal="left",
+            vertical="center",
+            wrap_text=header_row_height is not None,
+        )
         width = (
             float(column_widths[col_idx - 1])
             if column_widths and col_idx <= len(column_widths)
             else max(12.0, min(32.0, len(header) + 2.0))
         )
         ws.column_dimensions[get_column_letter(col_idx)].width = width
-    ws.row_dimensions[header_row].height = 20.0
+    ws.row_dimensions[header_row].height = float(header_row_height or 20.0)
+    if body_row_height is not None:
+        for row_idx in range(header_row + 1, int(capacity_rows or header_row) + 1):
+            ws.row_dimensions[row_idx].height = float(body_row_height)
+    for column in wrap_columns or []:
+        for row_idx in range(header_row + 1, int(capacity_rows or header_row) + 1):
+            cell = ws[f"{column}{row_idx}"]
+            alignment = copy(cell.alignment)
+            alignment.wrap_text = True
+            alignment.vertical = alignment.vertical or "center"
+            cell.alignment = alignment
     ws.freeze_panes = freeze_panes or f"A{header_row + 1}"
     ws.sheet_view.showGridLines = False
+    if zoom_scale is not None:
+        ws.sheet_view.zoomScale = int(zoom_scale)
+        ws.sheet_view.zoomScaleNormal = int(zoom_scale)
     ws.protection.sheet = protect
     ws.sheet_state = state
 
@@ -1824,6 +1855,17 @@ def _neutralize_hidden_support_sheets(wb: Workbook, manifest: dict[str, Any]) ->
             header_row=int(module_contract.get("support_header_row") or 1),
             freeze_panes=str(module_contract.get("support_freeze_panes") or ""),
             column_widths=[float(value) for value in module_contract.get("support_column_widths") or []],
+            header_row_height=float(module_contract["support_header_row_height"])
+            if module_contract.get("support_header_row_height") is not None
+            else None,
+            body_row_height=float(module_contract["support_body_row_height"])
+            if module_contract.get("support_body_row_height") is not None
+            else None,
+            wrap_columns=[str(value) for value in module_contract.get("support_wrap_columns") or []],
+            zoom_scale=int(module_contract["support_zoom_scale"])
+            if module_contract.get("support_zoom_scale") is not None
+            else None,
+            capacity_rows=int(module_contract.get("support_capacity_rows") or 0),
         )
 
     wb._sheets = [wb[sheet_name] for sheet_name in union_order]  # type: ignore[attr-defined]
@@ -1882,6 +1924,7 @@ def _materialize_rich_shell(
     _neutralize_valuation_signal_fills(wb)
     _neutralize_blank_valuation_value_fills(wb)
     _ensure_promise_progress_structure(wb)
+    _ensure_promise_progress_status_fill_continuity(wb)
     _configure_narrative_text_layout(wb)
     _ensure_valuation_guidance_sidecar_headers(wb)
     _ensure_operating_driver_sheet_headers(wb)
@@ -2024,6 +2067,17 @@ def materialize_shell(
                 header_row=int(sheet_def.get("support_header_row") or 1),
                 freeze_panes=str(sheet_def.get("support_freeze_panes") or ""),
                 column_widths=[float(value) for value in sheet_def.get("support_column_widths") or []],
+                header_row_height=float(sheet_def["support_header_row_height"])
+                if sheet_def.get("support_header_row_height") is not None
+                else None,
+                body_row_height=float(sheet_def["support_body_row_height"])
+                if sheet_def.get("support_body_row_height") is not None
+                else None,
+                wrap_columns=[str(value) for value in sheet_def.get("support_wrap_columns") or []],
+                zoom_scale=int(sheet_def["support_zoom_scale"])
+                if sheet_def.get("support_zoom_scale") is not None
+                else None,
+                capacity_rows=int(sheet_def.get("support_capacity_rows") or 0),
             )
             continue
         sheet_bindings = [entry for entry in bindings if entry["sheet"] == sheet_name]
@@ -2033,6 +2087,7 @@ def materialize_shell(
     _configure_summary_liquidity_layout(wb)
     _configure_scalar_debt_liquidity_snapshot(wb)
     _configure_narrative_text_layout(wb)
+    _ensure_promise_progress_status_fill_continuity(wb)
     _ensure_valuation_guidance_sidecar_headers(wb)
     apply_standard_formula_contracts(
         wb,

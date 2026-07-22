@@ -267,6 +267,113 @@ def test_validation_runner_reports_cells_and_values_for_failures(tmp_path: Path)
     assert "QA_Log!B2" in details
 
 
+def test_quarter_label_validation_uses_binding_roles_for_blocking_and_advisory_cells(
+    tmp_path: Path,
+) -> None:
+    advisory_path = _make_clean_validation_workbook(tmp_path / "ANF_advisory.xlsx", "ANF")
+    wb = load_workbook(advisory_path)
+    for row in range(10, 16):
+        wb["Quarter_Notes_UI"].cell(row, 13, "Q4 2025 earnings call")
+    wb.save(advisory_path)
+    wb.close()
+
+    advisory = validate_workbook(
+        advisory_path,
+        "ANF",
+        config=ValidationConfig(enable_quality_guardrails=False),
+    )
+
+    assert advisory.overall == "PASS"
+    assert advisory.quarter_label_issue_count == 0
+    assert advisory.quarter_label_advisory_count == 6
+    issues = [issue for issue in advisory.issues if issue.category == "quarter_label"]
+    assert [(issue.cell, issue.classification) for issue in issues] == [
+        (f"M{row}", "advisory") for row in range(10, 16)
+    ]
+    assert all("source_display" in issue.detail for issue in issues)
+    assert all("qn_quarter_note_rows" in issue.detail for issue in issues)
+
+    current_claim_path = _make_clean_validation_workbook(tmp_path / "ANF_current_claim.xlsx", "ANF")
+    wb = load_workbook(current_claim_path)
+    wb["Operating_Drivers"]["H13"] = "Use Q4 2025 as the current baseline."
+    wb.save(current_claim_path)
+    wb.close()
+
+    current_claim = validate_workbook(
+        current_claim_path,
+        "ANF",
+        config=ValidationConfig(enable_quality_guardrails=False),
+    )
+
+    assert current_claim.overall == "FAIL"
+    assert current_claim.quarter_label_issue_count == 1
+    assert current_claim.quarter_label_advisory_count == 0
+    issue = next(issue for issue in current_claim.issues if issue.category == "quarter_label")
+    assert (issue.sheet, issue.cell, issue.classification) == (
+        "Operating_Drivers",
+        "H13",
+        "blocking",
+    )
+    assert "current_actual_use" in issue.detail
+    assert "od_current_actual_use" in issue.detail
+
+    structural_path = _make_clean_validation_workbook(tmp_path / "ANF_structural.xlsx", "ANF")
+    wb = load_workbook(structural_path)
+    wb["Valuation"]["Q9"] = "Q4 2025"
+    wb.save(structural_path)
+    wb.close()
+
+    structural = validate_workbook(
+        structural_path,
+        "ANF",
+        config=ValidationConfig(enable_quality_guardrails=False),
+    )
+
+    assert structural.overall == "FAIL"
+    assert structural.quarter_label_issue_count == 1
+    assert structural.quarter_label_advisory_count == 0
+    issue = next(issue for issue in structural.issues if issue.category == "quarter_label")
+    assert issue.classification == "blocking"
+    assert "stated_period" in issue.detail
+
+    unmapped_path = _make_clean_validation_workbook(tmp_path / "ANF_unmapped.xlsx", "ANF")
+    wb = load_workbook(unmapped_path)
+    wb["Quarter_Notes_UI"]["B2"] = "Q4 2025"
+    wb.save(unmapped_path)
+    wb.close()
+
+    unmapped = validate_workbook(
+        unmapped_path,
+        "ANF",
+        config=ValidationConfig(enable_quality_guardrails=False),
+    )
+
+    assert unmapped.overall == "FAIL"
+    assert unmapped.quarter_label_issue_count == 1
+    issue = next(issue for issue in unmapped.issues if issue.category == "quarter_label")
+    assert issue.classification == "blocking"
+    assert "unmapped role" in issue.detail
+
+    evidence_path = _make_clean_validation_workbook(tmp_path / "ANF_evidence.xlsx", "ANF")
+    wb = load_workbook(evidence_path)
+    wb["Valuation"]["Z9"] = "Q4 2025 source reference"
+    wb.save(evidence_path)
+    wb.close()
+
+    evidence = validate_workbook(
+        evidence_path,
+        "ANF",
+        config=ValidationConfig(enable_quality_guardrails=False),
+    )
+
+    assert evidence.overall == "PASS"
+    assert evidence.quarter_label_issue_count == 0
+    assert evidence.quarter_label_advisory_count == 1
+    issue = next(issue for issue in evidence.issues if issue.category == "quarter_label")
+    assert (issue.sheet, issue.cell, issue.classification) == ("Valuation", "Z9", "advisory")
+    assert "evidence_key" in issue.detail
+
+
 def test_validation_runner_batches_all_tickers(tmp_path: Path) -> None:
     paths = {
         "PBI": _make_clean_validation_workbook(tmp_path / "PBI_model.xlsx", "PBI"),

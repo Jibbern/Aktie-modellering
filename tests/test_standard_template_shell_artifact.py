@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from openpyxl import load_workbook
-from openpyxl.utils import coordinate_to_tuple, range_boundaries
+from openpyxl.utils import coordinate_to_tuple, get_column_letter, range_boundaries
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -689,6 +689,68 @@ def test_long_narrative_zones_are_wrapped_and_resized() -> None:
             assert promise[coord].alignment.wrap_text is True
         assert promise.row_dimensions[19].height == 60.0
         assert promise.row_dimensions[67].height == 42.0
+    finally:
+        wb.close()
+
+
+def test_debt_product_shell_layout_matches_bounded_manifest_metadata() -> None:
+    expected = {
+        "Debt_Profile": {
+            "widths": [16, 34, 24, 12, 9, 13, 16, 22, 30, 44],
+            "header": 32,
+            "body": 32,
+            "wrap": {"B", "C", "H", "I", "J"},
+            "zoom": 95,
+            "last_row": 16,
+        },
+        "Revolver_History": {
+            "widths": [12, 13, 18, 12, 12, 10, 13, 13, 13, 13, 11, 16, 12, 20, 24, 44],
+            "header": 36,
+            "body": 32,
+            "wrap": {"N", "O", "P"},
+            "zoom": 90,
+            "last_row": 15,
+        },
+        "Leverage_Liquidity": {
+            "widths": [11, 11, 13, 11, 14, 11, 14, 14, 12, 12, 13, 22, 38, 52],
+            "header": 36,
+            "body": 48,
+            "wrap": {"L", "M", "N"},
+            "zoom": 90,
+            "last_row": 15,
+        },
+        "Debt_Credit_Notes": {
+            "widths": [34, 22, 12, 13, 64, 14, 38, 20],
+            "header": 34,
+            "body": 48,
+            "wrap": {"A", "E", "G", "H"},
+            "zoom": 95,
+            "last_row": 9,
+        },
+    }
+    wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
+    try:
+        for sheet_name, contract in expected.items():
+            ws = wb[sheet_name]
+            widths = [ws.column_dimensions[get_column_letter(index)].width for index in range(1, len(contract["widths"]) + 1)]
+            assert widths == contract["widths"]
+            assert ws.row_dimensions[3].height == contract["header"]
+            assert all(ws.row_dimensions[row].height == contract["body"] for row in range(4, contract["last_row"] + 1))
+            assert all(ws[f"{column}4"].alignment.wrap_text is True for column in contract["wrap"])
+            assert ws.freeze_panes == "A4"
+            assert ws.sheet_view.zoomScale == contract["zoom"]
+            assert not ws.merged_cells.ranges
+    finally:
+        wb.close()
+
+
+def test_promise_progress_status_column_preserves_neutral_zebra_fill_continuity() -> None:
+    wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
+    try:
+        ws = wb["Promise_Progress_UI"]
+        for min_row, max_row in ((13, 20), (24, 27), (30, 32), (35, 36)):
+            for row in range(min_row, max_row + 1):
+                assert ws[f"H{row}"]._style.fillId == ws[f"G{row}"]._style.fillId
     finally:
         wb.close()
 
