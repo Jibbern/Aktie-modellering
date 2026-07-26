@@ -174,7 +174,7 @@ def test_anf_shadow_fill_uses_reproduced_plan_and_strict_post_fill_validation(
     assert postfill["status"] == "PASS"
     assert postfill["strict_post_fill_validation"]["status"] == "PASS"
     assert postfill["strict_post_fill_validation"]["issue_count"] == 0
-    assert shell_report["shell_identity"]["reproduced_style_action_count"] == 738
+    assert shell_report["shell_identity"]["reproduced_style_action_count"] == 770
     assert postfill["approved_plan_status"] == "PASS"
     assert postfill["approved_plan_write_count"] == plan["planned_write_count"]
     assert postfill["layout_signature_unchanged"] is True

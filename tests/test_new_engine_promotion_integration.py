@@ -85,7 +85,7 @@ def _integration_context(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dic
     assert binding_counts["overflow_count"] == 0
     assert binding_counts["blocking_issue_count"] == 0
     assert style_counts["status"] == "PASS"
-    assert style_counts["action_count"] == 738
+    assert style_counts["action_count"] == 770
     assert style_counts["decision_count"] == 1_298
     assert formula_counts["cell_formula_count"] == 2_213
     assert len(captured_plan_contexts) == 1

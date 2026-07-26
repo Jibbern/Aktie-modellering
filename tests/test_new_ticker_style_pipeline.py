@@ -152,7 +152,7 @@ def test_public_filler_applies_exact_reproduced_style_plan_after_values(
     artifacts = filled_anf_style_workbook
     result = artifacts["result"]
     assert result.written_cell_count == 22_760
-    assert result.styled_cell_count == 738
+    assert result.styled_cell_count == 770
 
     shell = load_workbook(SHELL, data_only=False, read_only=False)
     filled = load_workbook(artifacts["output"], data_only=False, read_only=False)
@@ -200,7 +200,7 @@ def test_strict_post_fill_accepts_only_the_reproduced_style_plan(
     )
 
     assert report["status"] == "PASS", report["issues"][:10]
-    assert report["reproduced_style_action_count"] == 738
+    assert report["reproduced_style_action_count"] == 770
 
 
 def test_strict_post_fill_rejects_fabricated_hidden_value_state_fill(

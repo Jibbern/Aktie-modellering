@@ -7024,10 +7024,11 @@
         }
       ],
       "formulas_static_labels": [
-        "Balance sheet & Segments",
+        "Balance Sheet and Segments",
         "Liquidity / Assets",
-        "Quarterly segments",
-        "Annual segments"
+        "Retail balance-sheet diagnostics",
+        "Quarterly segment revenue ($m)",
+        "Annual segment revenue ($m)"
       ],
       "module_id": "balance_cash_flow",
       "module_role": "visible_product",
@@ -9572,15 +9573,15 @@
   "semantic_contract_version": "1.8.0",
   "shell_identity": {
     "semantic_contract_version": "1.8.0",
-    "workbook_sha256": "6f724ae47d8e9a6e06b8f9c40f1b67c7506da3d91d252cb8f1848a7ced3e33f0",
-    "manifest_contract_signature": "b19cab169fa63347257abb0fd6dd32d00fda18081246eb8dc2fad56c44e598d4",
+    "workbook_sha256": "8cc97f138cf1c4e9cf1331d611cbdb4a2f89cf5ca6f9876840031e5b54776d49",
+    "manifest_contract_signature": "482487512c275f230cb4e73df0e4900c3f94918ad7a587f626a0eb18fc1e3c1a",
     "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
     "sheet_view_signature": "9d4fa7cfce19fcd35ae65db64dd0b8028a4fc5563780dc9b63feda5c7700a6db",
     "merge_signature": "7bbc65e9ab02f63e70548527ca52bdb1182d91af9d46025e45acab9794064de5",
     "defined_name_signature": "7db74841e94b719ada62ff0af793d070c4bf7513cdbf2e728d952240f2cb5369",
     "writable_target_signature": "8257710bd20954af2305596f8e5a3391765eb8bf5069ed243ce4ec4eb5e6b54a",
     "binding_contract_signature": "3bfd714dd4e5d34ddf521cb941ad9dc9c91c5e06dbe3d51a4a586422e274b84d",
-    "formula_static_zone_signature": "23213a116ee6057fd8259537d31d5885d7f7be5496bac32adb5018874a7a14eb",
+    "formula_static_zone_signature": "ebe0f021d2b4be4976b29e9ef4e0efa152d77eaba130393fad3ec6708611daa3",
     "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
     "editable_surface_signature": "29b6308c01ee5961305a12fac0b20ab202f4edae22390e5a07cf27be48d94732",
     "counts": {
@@ -9591,12 +9592,12 @@
       "writable_targets": 570,
       "binding_contracts": 188,
       "formula_cells": 2213,
-      "static_cells": 1650,
+      "static_cells": 1637,
       "protected_worksheets": 46,
       "editable_cells": 122
     }
   },
-  "formula_contract_version": "2.2.0",
+  "formula_contract_version": "2.3.0",
   "union_sheet_order": [
     "SUMMARY",
     "Valuation",

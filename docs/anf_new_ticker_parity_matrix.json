@@ -4,12 +4,12 @@
   "contract_name": "ANF legacy-oracle parity matrix",
   "architectural_scope": "legacy_adapter_fixture_only; generic engine remains ticker-neutral",
   "inventory_method": "legacy workbook business keys are inventoried first; normalized package and plan are comparison targets only",
-  "formula_contract_version": "2.2.0",
+  "formula_contract_version": "2.3.0",
   "source_digests": {
     "legacy_workbook_sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
     "normalized_package_sha256": "55f5a525d3f4041e626d732648946e897209b5153e549a24705b8ee3c711a6da",
-    "binding_plan_sha256": "b293a2d78b1dd319d85e13b5308519b54dbc5b37413e08823ef264d30584138e",
-    "shell_sha256": "6f724ae47d8e9a6e06b8f9c40f1b67c7506da3d91d252cb8f1848a7ced3e33f0",
+    "binding_plan_sha256": "1d7c3e617f74d4e16055cfac844f57a084474fc8bb649bb09404ec494bcdff1a",
+    "shell_sha256": "8cc97f138cf1c4e9cf1331d611cbdb4a2f89cf5ca6f9876840031e5b54776d49",
     "binding_map_sha256": "13eb6f906f2f18734c2730d422ce4b64720a89ac03c81705c583f0c0b5f589e6"
   },
   "summary": {
@@ -32,6 +32,2387 @@
     "formula_calculability_counts": {
       "blank_due_to_missing_evidence": 207,
       "economically_calculable": 504
+    },
+    "guidance_destination_lineage": {
+      "module_id": "guidance_promises",
+      "module_profile_id": "full_union",
+      "active_binding_count": 7,
+      "destination_count": 320,
+      "bindings": [
+        {
+          "binding_id": "pp_current_secondary_guidance_rows",
+          "module_id": "guidance_promises",
+          "module_profile_id": "full_union",
+          "destination_sheet": "Promise_Progress_UI",
+          "declared_target": "A39:E58",
+          "source_selector_type": "direct_package_collection",
+          "source_selector": "normalized_guidance.items",
+          "normalized_collection_root": "normalized_guidance.items",
+          "resolved_rowset_producer": "",
+          "resolver_projection_authority": "",
+          "formula_or_value_ownership": "value_binding",
+          "planning_state": "active",
+          "projected_row_count": 6,
+          "product_role": "current_secondary_guidance",
+          "destination_count": 30,
+          "destinations": [
+            {
+              "destination": "Promise_Progress_UI!A39",
+              "normalized_path": "normalized_guidance.items.185.metric",
+              "row_key": "Capex|2026 year|2026-03-04|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "pp_current_secondary_guidance_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B39",
+              "normalized_path": "normalized_guidance.items.185.value",
+              "row_key": "Capex|2026 year|2026-03-04|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "pp_current_secondary_guidance_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!C39",
+              "normalized_path": "normalized_guidance.items.185.horizon",
+              "row_key": "Capex|2026 year|2026-03-04|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "pp_current_secondary_guidance_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!D39",
+              "normalized_path": "normalized_guidance.items.185.progress_status",
+              "row_key": "Capex|2026 year|2026-03-04|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "pp_current_secondary_guidance_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!E39",
+              "normalized_path": "normalized_guidance.items.185.notes_source",
+              "row_key": "Capex|2026 year|2026-03-04|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "pp_current_secondary_guidance_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A40",
+              "normalized_path": "normalized_guidance.items.186.metric",
+              "row_key": "Diluted shares|2026-Q1|2026-03-04|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "pp_current_secondary_guidance_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B40",
+              "normalized_path": "normalized_guidance.items.186.value",
+              "row_key": "Diluted shares|2026-Q1|2026-03-04|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "pp_current_secondary_guidance_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!C40",
+              "normalized_path": "normalized_guidance.items.186.horizon",
+              "row_key": "Diluted shares|2026-Q1|2026-03-04|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "pp_current_secondary_guidance_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!D40",
+              "normalized_path": "normalized_guidance.items.186.progress_status",
+              "row_key": "Diluted shares|2026-Q1|2026-03-04|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "pp_current_secondary_guidance_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!E40",
+              "normalized_path": "normalized_guidance.items.186.notes_source",
+              "row_key": "Diluted shares|2026-Q1|2026-03-04|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "pp_current_secondary_guidance_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A41",
+              "normalized_path": "normalized_guidance.items.187.metric",
+              "row_key": "Diluted shares|2026 year|2026-03-04|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "pp_current_secondary_guidance_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B41",
+              "normalized_path": "normalized_guidance.items.187.value",
+              "row_key": "Diluted shares|2026 year|2026-03-04|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "pp_current_secondary_guidance_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!C41",
+              "normalized_path": "normalized_guidance.items.187.horizon",
+              "row_key": "Diluted shares|2026 year|2026-03-04|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "pp_current_secondary_guidance_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!D41",
+              "normalized_path": "normalized_guidance.items.187.progress_status",
+              "row_key": "Diluted shares|2026 year|2026-03-04|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "pp_current_secondary_guidance_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!E41",
+              "normalized_path": "normalized_guidance.items.187.notes_source",
+              "row_key": "Diluted shares|2026 year|2026-03-04|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "pp_current_secondary_guidance_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A42",
+              "normalized_path": "normalized_guidance.items.190.metric",
+              "row_key": "Real estate activity|2026-Q1|2026-03-04|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "pp_current_secondary_guidance_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B42",
+              "normalized_path": "normalized_guidance.items.190.value",
+              "row_key": "Real estate activity|2026-Q1|2026-03-04|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "pp_current_secondary_guidance_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!C42",
+              "normalized_path": "normalized_guidance.items.190.horizon",
+              "row_key": "Real estate activity|2026-Q1|2026-03-04|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "pp_current_secondary_guidance_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!D42",
+              "normalized_path": "normalized_guidance.items.190.progress_status",
+              "row_key": "Real estate activity|2026-Q1|2026-03-04|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "pp_current_secondary_guidance_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!E42",
+              "normalized_path": "normalized_guidance.items.190.notes_source",
+              "row_key": "Real estate activity|2026-Q1|2026-03-04|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "pp_current_secondary_guidance_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A43",
+              "normalized_path": "normalized_guidance.items.194.metric",
+              "row_key": "Share repurchases|2026-Q1|2026-03-04|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "pp_current_secondary_guidance_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B43",
+              "normalized_path": "normalized_guidance.items.194.value",
+              "row_key": "Share repurchases|2026-Q1|2026-03-04|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "pp_current_secondary_guidance_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!C43",
+              "normalized_path": "normalized_guidance.items.194.horizon",
+              "row_key": "Share repurchases|2026-Q1|2026-03-04|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "pp_current_secondary_guidance_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!D43",
+              "normalized_path": "normalized_guidance.items.194.progress_status",
+              "row_key": "Share repurchases|2026-Q1|2026-03-04|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "pp_current_secondary_guidance_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!E43",
+              "normalized_path": "normalized_guidance.items.194.notes_source",
+              "row_key": "Share repurchases|2026-Q1|2026-03-04|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "pp_current_secondary_guidance_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A44",
+              "normalized_path": "normalized_guidance.items.195.metric",
+              "row_key": "Share repurchases|2026 year|2026-03-04|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "pp_current_secondary_guidance_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B44",
+              "normalized_path": "normalized_guidance.items.195.value",
+              "row_key": "Share repurchases|2026 year|2026-03-04|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "pp_current_secondary_guidance_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!C44",
+              "normalized_path": "normalized_guidance.items.195.horizon",
+              "row_key": "Share repurchases|2026 year|2026-03-04|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "pp_current_secondary_guidance_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!D44",
+              "normalized_path": "normalized_guidance.items.195.progress_status",
+              "row_key": "Share repurchases|2026 year|2026-03-04|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "pp_current_secondary_guidance_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!E44",
+              "normalized_path": "normalized_guidance.items.195.notes_source",
+              "row_key": "Share repurchases|2026 year|2026-03-04|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "pp_current_secondary_guidance_rows.notes_source"
+            }
+          ]
+        },
+        {
+          "binding_id": "pp_guidance_timeline_rows",
+          "module_id": "guidance_promises",
+          "module_profile_id": "full_union",
+          "destination_sheet": "Promise_Progress_UI",
+          "declared_target": "A61:K67",
+          "source_selector_type": "direct_package_collection",
+          "source_selector": "normalized_guidance.items",
+          "normalized_collection_root": "normalized_guidance.items",
+          "resolved_rowset_producer": "",
+          "resolver_projection_authority": "",
+          "formula_or_value_ownership": "value_binding",
+          "planning_state": "active",
+          "projected_row_count": 7,
+          "product_role": "current_primary_guidance",
+          "destination_count": 63,
+          "destinations": [
+            {
+              "destination": "Promise_Progress_UI!A61",
+              "normalized_path": "normalized_guidance.items.193.metric",
+              "row_key": "Revenue|2026 year|2026-03-04|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "pp_guidance_timeline_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B61",
+              "normalized_path": "normalized_guidance.items.193.initial_guide",
+              "row_key": "Revenue|2026 year|2026-03-04|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "pp_guidance_timeline_rows.initial_guide"
+            },
+            {
+              "destination": "Promise_Progress_UI!C61",
+              "normalized_path": "normalized_guidance.items.193.value",
+              "row_key": "Revenue|2026 year|2026-03-04|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "pp_guidance_timeline_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!D61",
+              "normalized_path": "normalized_guidance.items.193.update_stage",
+              "row_key": "Revenue|2026 year|2026-03-04|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "pp_guidance_timeline_rows.update_stage"
+            },
+            {
+              "destination": "Promise_Progress_UI!G61",
+              "normalized_path": "normalized_guidance.items.193.progress_status",
+              "row_key": "Revenue|2026 year|2026-03-04|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "pp_guidance_timeline_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!H61",
+              "normalized_path": "normalized_guidance.items.193.horizon",
+              "row_key": "Revenue|2026 year|2026-03-04|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "pp_guidance_timeline_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!I61",
+              "normalized_path": "normalized_guidance.items.193.stated_in_period",
+              "row_key": "Revenue|2026 year|2026-03-04|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "pp_guidance_timeline_rows.stated_in_period"
+            },
+            {
+              "destination": "Promise_Progress_UI!J61",
+              "normalized_path": "normalized_guidance.items.193.publication_date",
+              "row_key": "Revenue|2026 year|2026-03-04|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "pp_guidance_timeline_rows.publication_date"
+            },
+            {
+              "destination": "Promise_Progress_UI!K61",
+              "normalized_path": "normalized_guidance.items.193.notes_source",
+              "row_key": "Revenue|2026 year|2026-03-04|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "pp_guidance_timeline_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A62",
+              "normalized_path": "normalized_guidance.items.192.metric",
+              "row_key": "Revenue|2026-Q1|2026-03-04|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "pp_guidance_timeline_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B62",
+              "normalized_path": "normalized_guidance.items.192.initial_guide",
+              "row_key": "Revenue|2026-Q1|2026-03-04|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "pp_guidance_timeline_rows.initial_guide"
+            },
+            {
+              "destination": "Promise_Progress_UI!C62",
+              "normalized_path": "normalized_guidance.items.192.value",
+              "row_key": "Revenue|2026-Q1|2026-03-04|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "pp_guidance_timeline_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!D62",
+              "normalized_path": "normalized_guidance.items.192.update_stage",
+              "row_key": "Revenue|2026-Q1|2026-03-04|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "pp_guidance_timeline_rows.update_stage"
+            },
+            {
+              "destination": "Promise_Progress_UI!G62",
+              "normalized_path": "normalized_guidance.items.192.progress_status",
+              "row_key": "Revenue|2026-Q1|2026-03-04|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "pp_guidance_timeline_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!H62",
+              "normalized_path": "normalized_guidance.items.192.horizon",
+              "row_key": "Revenue|2026-Q1|2026-03-04|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "pp_guidance_timeline_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!I62",
+              "normalized_path": "normalized_guidance.items.192.stated_in_period",
+              "row_key": "Revenue|2026-Q1|2026-03-04|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "pp_guidance_timeline_rows.stated_in_period"
+            },
+            {
+              "destination": "Promise_Progress_UI!J62",
+              "normalized_path": "normalized_guidance.items.192.publication_date",
+              "row_key": "Revenue|2026-Q1|2026-03-04|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "pp_guidance_timeline_rows.publication_date"
+            },
+            {
+              "destination": "Promise_Progress_UI!K62",
+              "normalized_path": "normalized_guidance.items.192.notes_source",
+              "row_key": "Revenue|2026-Q1|2026-03-04|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "pp_guidance_timeline_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A63",
+              "normalized_path": "normalized_guidance.items.189.metric",
+              "row_key": "Operating margin|2026 year|2026-03-04|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "pp_guidance_timeline_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B63",
+              "normalized_path": "normalized_guidance.items.189.initial_guide",
+              "row_key": "Operating margin|2026 year|2026-03-04|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "pp_guidance_timeline_rows.initial_guide"
+            },
+            {
+              "destination": "Promise_Progress_UI!C63",
+              "normalized_path": "normalized_guidance.items.189.value",
+              "row_key": "Operating margin|2026 year|2026-03-04|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "pp_guidance_timeline_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!D63",
+              "normalized_path": "normalized_guidance.items.189.update_stage",
+              "row_key": "Operating margin|2026 year|2026-03-04|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "pp_guidance_timeline_rows.update_stage"
+            },
+            {
+              "destination": "Promise_Progress_UI!G63",
+              "normalized_path": "normalized_guidance.items.189.progress_status",
+              "row_key": "Operating margin|2026 year|2026-03-04|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "pp_guidance_timeline_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!H63",
+              "normalized_path": "normalized_guidance.items.189.horizon",
+              "row_key": "Operating margin|2026 year|2026-03-04|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "pp_guidance_timeline_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!I63",
+              "normalized_path": "normalized_guidance.items.189.stated_in_period",
+              "row_key": "Operating margin|2026 year|2026-03-04|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "pp_guidance_timeline_rows.stated_in_period"
+            },
+            {
+              "destination": "Promise_Progress_UI!J63",
+              "normalized_path": "normalized_guidance.items.189.publication_date",
+              "row_key": "Operating margin|2026 year|2026-03-04|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "pp_guidance_timeline_rows.publication_date"
+            },
+            {
+              "destination": "Promise_Progress_UI!K63",
+              "normalized_path": "normalized_guidance.items.189.notes_source",
+              "row_key": "Operating margin|2026 year|2026-03-04|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "pp_guidance_timeline_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A64",
+              "normalized_path": "normalized_guidance.items.188.metric",
+              "row_key": "Operating margin|2026-Q1|2026-03-04|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "pp_guidance_timeline_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B64",
+              "normalized_path": "normalized_guidance.items.188.initial_guide",
+              "row_key": "Operating margin|2026-Q1|2026-03-04|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "pp_guidance_timeline_rows.initial_guide"
+            },
+            {
+              "destination": "Promise_Progress_UI!C64",
+              "normalized_path": "normalized_guidance.items.188.value",
+              "row_key": "Operating margin|2026-Q1|2026-03-04|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "pp_guidance_timeline_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!D64",
+              "normalized_path": "normalized_guidance.items.188.update_stage",
+              "row_key": "Operating margin|2026-Q1|2026-03-04|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "pp_guidance_timeline_rows.update_stage"
+            },
+            {
+              "destination": "Promise_Progress_UI!G64",
+              "normalized_path": "normalized_guidance.items.188.progress_status",
+              "row_key": "Operating margin|2026-Q1|2026-03-04|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "pp_guidance_timeline_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!H64",
+              "normalized_path": "normalized_guidance.items.188.horizon",
+              "row_key": "Operating margin|2026-Q1|2026-03-04|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "pp_guidance_timeline_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!I64",
+              "normalized_path": "normalized_guidance.items.188.stated_in_period",
+              "row_key": "Operating margin|2026-Q1|2026-03-04|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "pp_guidance_timeline_rows.stated_in_period"
+            },
+            {
+              "destination": "Promise_Progress_UI!J64",
+              "normalized_path": "normalized_guidance.items.188.publication_date",
+              "row_key": "Operating margin|2026-Q1|2026-03-04|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "pp_guidance_timeline_rows.publication_date"
+            },
+            {
+              "destination": "Promise_Progress_UI!K64",
+              "normalized_path": "normalized_guidance.items.188.notes_source",
+              "row_key": "Operating margin|2026-Q1|2026-03-04|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "pp_guidance_timeline_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A65",
+              "normalized_path": "normalized_guidance.items.184.metric",
+              "row_key": "Adj EPS|2026 year|2026-03-04|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "pp_guidance_timeline_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B65",
+              "normalized_path": "normalized_guidance.items.184.initial_guide",
+              "row_key": "Adj EPS|2026 year|2026-03-04|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "pp_guidance_timeline_rows.initial_guide"
+            },
+            {
+              "destination": "Promise_Progress_UI!C65",
+              "normalized_path": "normalized_guidance.items.184.value",
+              "row_key": "Adj EPS|2026 year|2026-03-04|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "pp_guidance_timeline_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!D65",
+              "normalized_path": "normalized_guidance.items.184.update_stage",
+              "row_key": "Adj EPS|2026 year|2026-03-04|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "pp_guidance_timeline_rows.update_stage"
+            },
+            {
+              "destination": "Promise_Progress_UI!G65",
+              "normalized_path": "normalized_guidance.items.184.progress_status",
+              "row_key": "Adj EPS|2026 year|2026-03-04|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "pp_guidance_timeline_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!H65",
+              "normalized_path": "normalized_guidance.items.184.horizon",
+              "row_key": "Adj EPS|2026 year|2026-03-04|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "pp_guidance_timeline_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!I65",
+              "normalized_path": "normalized_guidance.items.184.stated_in_period",
+              "row_key": "Adj EPS|2026 year|2026-03-04|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "pp_guidance_timeline_rows.stated_in_period"
+            },
+            {
+              "destination": "Promise_Progress_UI!J65",
+              "normalized_path": "normalized_guidance.items.184.publication_date",
+              "row_key": "Adj EPS|2026 year|2026-03-04|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "pp_guidance_timeline_rows.publication_date"
+            },
+            {
+              "destination": "Promise_Progress_UI!K65",
+              "normalized_path": "normalized_guidance.items.184.notes_source",
+              "row_key": "Adj EPS|2026 year|2026-03-04|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "pp_guidance_timeline_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A66",
+              "normalized_path": "normalized_guidance.items.183.metric",
+              "row_key": "Adj EPS|2026-Q1|2026-03-04|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "pp_guidance_timeline_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B66",
+              "normalized_path": "normalized_guidance.items.183.initial_guide",
+              "row_key": "Adj EPS|2026-Q1|2026-03-04|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "pp_guidance_timeline_rows.initial_guide"
+            },
+            {
+              "destination": "Promise_Progress_UI!C66",
+              "normalized_path": "normalized_guidance.items.183.value",
+              "row_key": "Adj EPS|2026-Q1|2026-03-04|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "pp_guidance_timeline_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!D66",
+              "normalized_path": "normalized_guidance.items.183.update_stage",
+              "row_key": "Adj EPS|2026-Q1|2026-03-04|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "pp_guidance_timeline_rows.update_stage"
+            },
+            {
+              "destination": "Promise_Progress_UI!G66",
+              "normalized_path": "normalized_guidance.items.183.progress_status",
+              "row_key": "Adj EPS|2026-Q1|2026-03-04|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "pp_guidance_timeline_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!H66",
+              "normalized_path": "normalized_guidance.items.183.horizon",
+              "row_key": "Adj EPS|2026-Q1|2026-03-04|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "pp_guidance_timeline_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!I66",
+              "normalized_path": "normalized_guidance.items.183.stated_in_period",
+              "row_key": "Adj EPS|2026-Q1|2026-03-04|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "pp_guidance_timeline_rows.stated_in_period"
+            },
+            {
+              "destination": "Promise_Progress_UI!J66",
+              "normalized_path": "normalized_guidance.items.183.publication_date",
+              "row_key": "Adj EPS|2026-Q1|2026-03-04|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "pp_guidance_timeline_rows.publication_date"
+            },
+            {
+              "destination": "Promise_Progress_UI!K66",
+              "normalized_path": "normalized_guidance.items.183.notes_source",
+              "row_key": "Adj EPS|2026-Q1|2026-03-04|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "pp_guidance_timeline_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A67",
+              "normalized_path": "normalized_guidance.items.191.metric",
+              "row_key": "Real estate activity|2026 year|2026-03-04|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "pp_guidance_timeline_rows.metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B67",
+              "normalized_path": "normalized_guidance.items.191.initial_guide",
+              "row_key": "Real estate activity|2026 year|2026-03-04|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "pp_guidance_timeline_rows.initial_guide"
+            },
+            {
+              "destination": "Promise_Progress_UI!C67",
+              "normalized_path": "normalized_guidance.items.191.value",
+              "row_key": "Real estate activity|2026 year|2026-03-04|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "pp_guidance_timeline_rows.value"
+            },
+            {
+              "destination": "Promise_Progress_UI!D67",
+              "normalized_path": "normalized_guidance.items.191.update_stage",
+              "row_key": "Real estate activity|2026 year|2026-03-04|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "pp_guidance_timeline_rows.update_stage"
+            },
+            {
+              "destination": "Promise_Progress_UI!G67",
+              "normalized_path": "normalized_guidance.items.191.progress_status",
+              "row_key": "Real estate activity|2026 year|2026-03-04|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "pp_guidance_timeline_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!H67",
+              "normalized_path": "normalized_guidance.items.191.horizon",
+              "row_key": "Real estate activity|2026 year|2026-03-04|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "pp_guidance_timeline_rows.horizon"
+            },
+            {
+              "destination": "Promise_Progress_UI!I67",
+              "normalized_path": "normalized_guidance.items.191.stated_in_period",
+              "row_key": "Real estate activity|2026 year|2026-03-04|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "pp_guidance_timeline_rows.stated_in_period"
+            },
+            {
+              "destination": "Promise_Progress_UI!J67",
+              "normalized_path": "normalized_guidance.items.191.publication_date",
+              "row_key": "Real estate activity|2026 year|2026-03-04|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "pp_guidance_timeline_rows.publication_date"
+            },
+            {
+              "destination": "Promise_Progress_UI!K67",
+              "normalized_path": "normalized_guidance.items.191.notes_source",
+              "row_key": "Real estate activity|2026 year|2026-03-04|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "pp_guidance_timeline_rows.notes_source"
+            }
+          ]
+        },
+        {
+          "binding_id": "pp_progress_fy2024_rows",
+          "module_id": "guidance_promises",
+          "module_profile_id": "full_union",
+          "destination_sheet": "Promise_Progress_UI",
+          "declared_target": "A24:I27",
+          "source_selector_type": "direct_package_collection",
+          "source_selector": "promise_progress.items",
+          "normalized_collection_root": "promise_progress.items",
+          "resolved_rowset_producer": "",
+          "resolver_projection_authority": "",
+          "formula_or_value_ownership": "value_binding",
+          "planning_state": "active",
+          "projected_row_count": 2,
+          "product_role": "promise_progress_fy2024",
+          "destination_count": 11,
+          "destinations": [
+            {
+              "destination": "Promise_Progress_UI!A24",
+              "normalized_path": "promise_progress.items.3.display_metric",
+              "row_key": "Revenue|FY2024|4d0c7aefdbfa5554",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q1_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:93",
+              "target_role": "pp_progress_fy2024_rows.display_metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B24",
+              "normalized_path": "promise_progress.items.3.original_commitment",
+              "row_key": "Revenue|FY2024|4d0c7aefdbfa5554",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q1_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:93",
+              "target_role": "pp_progress_fy2024_rows.original_commitment"
+            },
+            {
+              "destination": "Promise_Progress_UI!C24",
+              "normalized_path": "promise_progress.items.3.q1_update",
+              "row_key": "Revenue|FY2024|4d0c7aefdbfa5554",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2024-05-30_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:3",
+              "target_role": "pp_progress_fy2024_rows.q1_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!E24",
+              "normalized_path": "promise_progress.items.3.q3_update",
+              "row_key": "Revenue|FY2024|4d0c7aefdbfa5554",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2024-11-27_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:5",
+              "target_role": "pp_progress_fy2024_rows.q3_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!I24",
+              "normalized_path": "promise_progress.items.3.notes_source",
+              "row_key": "Revenue|FY2024|4d0c7aefdbfa5554",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q1_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:93",
+              "target_role": "pp_progress_fy2024_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A25",
+              "normalized_path": "promise_progress.items.1.display_metric",
+              "row_key": "Operating margin|FY2024|ce036d38c67da725",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q1_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:95",
+              "target_role": "pp_progress_fy2024_rows.display_metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B25",
+              "normalized_path": "promise_progress.items.1.original_commitment",
+              "row_key": "Operating margin|FY2024|ce036d38c67da725",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q1_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:95",
+              "target_role": "pp_progress_fy2024_rows.original_commitment"
+            },
+            {
+              "destination": "Promise_Progress_UI!C25",
+              "normalized_path": "promise_progress.items.1.q1_update",
+              "row_key": "Operating margin|FY2024|ce036d38c67da725",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q1_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:95",
+              "target_role": "pp_progress_fy2024_rows.q1_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!D25",
+              "normalized_path": "promise_progress.items.1.q2_update",
+              "row_key": "Operating margin|FY2024|ce036d38c67da725",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q2_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:116",
+              "target_role": "pp_progress_fy2024_rows.q2_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!E25",
+              "normalized_path": "promise_progress.items.1.q3_update",
+              "row_key": "Operating margin|FY2024|ce036d38c67da725",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2024-11-27_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:7",
+              "target_role": "pp_progress_fy2024_rows.q3_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!I25",
+              "normalized_path": "promise_progress.items.1.notes_source",
+              "row_key": "Operating margin|FY2024|ce036d38c67da725",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q1_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:95",
+              "target_role": "pp_progress_fy2024_rows.notes_source"
+            }
+          ]
+        },
+        {
+          "binding_id": "pp_progress_fy2025_rows",
+          "module_id": "guidance_promises",
+          "module_profile_id": "full_union",
+          "destination_sheet": "Promise_Progress_UI",
+          "declared_target": "A13:I20",
+          "source_selector_type": "direct_package_collection",
+          "source_selector": "promise_progress.items",
+          "normalized_collection_root": "promise_progress.items",
+          "resolved_rowset_producer": "",
+          "resolver_projection_authority": "",
+          "formula_or_value_ownership": "value_binding",
+          "planning_state": "active",
+          "projected_row_count": 8,
+          "product_role": "promise_progress_fy2025",
+          "destination_count": 56,
+          "destinations": [
+            {
+              "destination": "Promise_Progress_UI!A13",
+              "normalized_path": "promise_progress.items.10.display_metric",
+              "row_key": "Revenue|FY2025|3a8b018b81926b5d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:175",
+              "target_role": "pp_progress_fy2025_rows.display_metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B13",
+              "normalized_path": "promise_progress.items.10.original_commitment",
+              "row_key": "Revenue|FY2025|3a8b018b81926b5d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:175",
+              "target_role": "pp_progress_fy2025_rows.original_commitment"
+            },
+            {
+              "destination": "Promise_Progress_UI!C13",
+              "normalized_path": "promise_progress.items.10.q1_update",
+              "row_key": "Revenue|FY2025|3a8b018b81926b5d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-05-29_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:26",
+              "target_role": "pp_progress_fy2025_rows.q1_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!D13",
+              "normalized_path": "promise_progress.items.10.q2_update",
+              "row_key": "Revenue|FY2025|3a8b018b81926b5d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-08-28_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:42",
+              "target_role": "pp_progress_fy2025_rows.q2_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!E13",
+              "normalized_path": "promise_progress.items.10.q3_update",
+              "row_key": "Revenue|FY2025|3a8b018b81926b5d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-11-26_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:60",
+              "target_role": "pp_progress_fy2025_rows.q3_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!F13",
+              "normalized_path": "promise_progress.items.10.q4_update",
+              "row_key": "Revenue|FY2025|3a8b018b81926b5d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:185",
+              "target_role": "pp_progress_fy2025_rows.q4_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!G13",
+              "normalized_path": "promise_progress.items.10.actual",
+              "row_key": "Revenue|FY2025|3a8b018b81926b5d",
+              "source_ref": "tickers/ANF/earnings_transcripts/ANF_Q4_2025_transcript.txt#L16-L18",
+              "target_role": "pp_progress_fy2025_rows.actual"
+            },
+            {
+              "destination": "Promise_Progress_UI!I13",
+              "normalized_path": "promise_progress.items.10.notes_source",
+              "row_key": "Revenue|FY2025|3a8b018b81926b5d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:175",
+              "target_role": "pp_progress_fy2025_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A14",
+              "normalized_path": "promise_progress.items.8.display_metric",
+              "row_key": "Operating margin|FY2025|198d8177ad5fa59c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:177",
+              "target_role": "pp_progress_fy2025_rows.display_metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B14",
+              "normalized_path": "promise_progress.items.8.original_commitment",
+              "row_key": "Operating margin|FY2025|198d8177ad5fa59c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:177",
+              "target_role": "pp_progress_fy2025_rows.original_commitment"
+            },
+            {
+              "destination": "Promise_Progress_UI!C14",
+              "normalized_path": "promise_progress.items.8.q1_update",
+              "row_key": "Operating margin|FY2025|198d8177ad5fa59c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-05-29_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:28",
+              "target_role": "pp_progress_fy2025_rows.q1_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!D14",
+              "normalized_path": "promise_progress.items.8.q2_update",
+              "row_key": "Operating margin|FY2025|198d8177ad5fa59c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-08-28_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:44",
+              "target_role": "pp_progress_fy2025_rows.q2_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!E14",
+              "normalized_path": "promise_progress.items.8.q3_update",
+              "row_key": "Operating margin|FY2025|198d8177ad5fa59c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:151",
+              "target_role": "pp_progress_fy2025_rows.q3_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!F14",
+              "normalized_path": "promise_progress.items.8.q4_update",
+              "row_key": "Operating margin|FY2025|198d8177ad5fa59c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:186",
+              "target_role": "pp_progress_fy2025_rows.q4_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!I14",
+              "normalized_path": "promise_progress.items.8.notes_source",
+              "row_key": "Operating margin|FY2025|198d8177ad5fa59c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:177",
+              "target_role": "pp_progress_fy2025_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A15",
+              "normalized_path": "promise_progress.items.5.display_metric",
+              "row_key": "Adj EPS|FY2025|911c9689420dc1ee",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:173",
+              "target_role": "pp_progress_fy2025_rows.display_metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B15",
+              "normalized_path": "promise_progress.items.5.original_commitment",
+              "row_key": "Adj EPS|FY2025|911c9689420dc1ee",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:173",
+              "target_role": "pp_progress_fy2025_rows.original_commitment"
+            },
+            {
+              "destination": "Promise_Progress_UI!F15",
+              "normalized_path": "promise_progress.items.5.q4_update",
+              "row_key": "Adj EPS|FY2025|911c9689420dc1ee",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
+              "target_role": "pp_progress_fy2025_rows.q4_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!G15",
+              "normalized_path": "promise_progress.items.5.actual",
+              "row_key": "Adj EPS|FY2025|911c9689420dc1ee",
+              "source_ref": "tickers/ANF/earnings_transcripts/ANF_Q4_2025_transcript.txt#L48",
+              "target_role": "pp_progress_fy2025_rows.actual"
+            },
+            {
+              "destination": "Promise_Progress_UI!H15",
+              "normalized_path": "promise_progress.items.5.progress_status",
+              "row_key": "Adj EPS|FY2025|911c9689420dc1ee",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
+              "target_role": "pp_progress_fy2025_rows.progress_status"
+            },
+            {
+              "destination": "Promise_Progress_UI!I15",
+              "normalized_path": "promise_progress.items.5.notes_source",
+              "row_key": "Adj EPS|FY2025|911c9689420dc1ee",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:173",
+              "target_role": "pp_progress_fy2025_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A16",
+              "normalized_path": "promise_progress.items.11.display_metric",
+              "row_key": "Share repurchases|FY2025|c8e1dabf5abcdb58",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:155",
+              "target_role": "pp_progress_fy2025_rows.display_metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B16",
+              "normalized_path": "promise_progress.items.11.original_commitment",
+              "row_key": "Share repurchases|FY2025|c8e1dabf5abcdb58",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:155",
+              "target_role": "pp_progress_fy2025_rows.original_commitment"
+            },
+            {
+              "destination": "Promise_Progress_UI!E16",
+              "normalized_path": "promise_progress.items.11.q3_update",
+              "row_key": "Share repurchases|FY2025|c8e1dabf5abcdb58",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-11-26_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:65",
+              "target_role": "pp_progress_fy2025_rows.q3_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!F16",
+              "normalized_path": "promise_progress.items.11.q4_update",
+              "row_key": "Share repurchases|FY2025|c8e1dabf5abcdb58",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:189",
+              "target_role": "pp_progress_fy2025_rows.q4_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!G16",
+              "normalized_path": "promise_progress.items.11.actual",
+              "row_key": "Share repurchases|FY2025|c8e1dabf5abcdb58",
+              "source_ref": "ANF_model.xlsx!History_Q!fiscal_year:2025",
+              "target_role": "pp_progress_fy2025_rows.actual"
+            },
+            {
+              "destination": "Promise_Progress_UI!I16",
+              "normalized_path": "promise_progress.items.11.notes_source",
+              "row_key": "Share repurchases|FY2025|c8e1dabf5abcdb58",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q3_2025_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:155",
+              "target_role": "pp_progress_fy2025_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A17",
+              "normalized_path": "promise_progress.items.7.display_metric",
+              "row_key": "Diluted shares|FY2025|06b471f0e6190197",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:180",
+              "target_role": "pp_progress_fy2025_rows.display_metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B17",
+              "normalized_path": "promise_progress.items.7.original_commitment",
+              "row_key": "Diluted shares|FY2025|06b471f0e6190197",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:180",
+              "target_role": "pp_progress_fy2025_rows.original_commitment"
+            },
+            {
+              "destination": "Promise_Progress_UI!C17",
+              "normalized_path": "promise_progress.items.7.q1_update",
+              "row_key": "Diluted shares|FY2025|06b471f0e6190197",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-05-29_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:32",
+              "target_role": "pp_progress_fy2025_rows.q1_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!D17",
+              "normalized_path": "promise_progress.items.7.q2_update",
+              "row_key": "Diluted shares|FY2025|06b471f0e6190197",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q2_2025_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:127",
+              "target_role": "pp_progress_fy2025_rows.q2_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!E17",
+              "normalized_path": "promise_progress.items.7.q3_update",
+              "row_key": "Diluted shares|FY2025|06b471f0e6190197",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-11-26_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:67",
+              "target_role": "pp_progress_fy2025_rows.q3_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!F17",
+              "normalized_path": "promise_progress.items.7.q4_update",
+              "row_key": "Diluted shares|FY2025|06b471f0e6190197",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:190",
+              "target_role": "pp_progress_fy2025_rows.q4_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!I17",
+              "normalized_path": "promise_progress.items.7.notes_source",
+              "row_key": "Diluted shares|FY2025|06b471f0e6190197",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:180",
+              "target_role": "pp_progress_fy2025_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A18",
+              "normalized_path": "promise_progress.items.6.display_metric",
+              "row_key": "Capex|FY2025|e11424b6643cb8bc",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:181",
+              "target_role": "pp_progress_fy2025_rows.display_metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B18",
+              "normalized_path": "promise_progress.items.6.original_commitment",
+              "row_key": "Capex|FY2025|e11424b6643cb8bc",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:181",
+              "target_role": "pp_progress_fy2025_rows.original_commitment"
+            },
+            {
+              "destination": "Promise_Progress_UI!C18",
+              "normalized_path": "promise_progress.items.6.q1_update",
+              "row_key": "Capex|FY2025|e11424b6643cb8bc",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-05-29_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:33",
+              "target_role": "pp_progress_fy2025_rows.q1_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!D18",
+              "normalized_path": "promise_progress.items.6.q2_update",
+              "row_key": "Capex|FY2025|e11424b6643cb8bc",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-08-28_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:50",
+              "target_role": "pp_progress_fy2025_rows.q2_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!E18",
+              "normalized_path": "promise_progress.items.6.q3_update",
+              "row_key": "Capex|FY2025|e11424b6643cb8bc",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-11-26_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:68",
+              "target_role": "pp_progress_fy2025_rows.q3_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!F18",
+              "normalized_path": "promise_progress.items.6.q4_update",
+              "row_key": "Capex|FY2025|e11424b6643cb8bc",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:191",
+              "target_role": "pp_progress_fy2025_rows.q4_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!G18",
+              "normalized_path": "promise_progress.items.6.actual",
+              "row_key": "Capex|FY2025|e11424b6643cb8bc",
+              "source_ref": "ANF_model.xlsx!History_Q!fiscal_year:2025",
+              "target_role": "pp_progress_fy2025_rows.actual"
+            },
+            {
+              "destination": "Promise_Progress_UI!I18",
+              "normalized_path": "promise_progress.items.6.notes_source",
+              "row_key": "Capex|FY2025|e11424b6643cb8bc",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:181",
+              "target_role": "pp_progress_fy2025_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A19",
+              "normalized_path": "promise_progress.items.9.display_metric",
+              "row_key": "Real estate activity|FY2025|552b7a135088114f",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:183",
+              "target_role": "pp_progress_fy2025_rows.display_metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B19",
+              "normalized_path": "promise_progress.items.9.original_commitment",
+              "row_key": "Real estate activity|FY2025|552b7a135088114f",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:183",
+              "target_role": "pp_progress_fy2025_rows.original_commitment"
+            },
+            {
+              "destination": "Promise_Progress_UI!C19",
+              "normalized_path": "promise_progress.items.9.q1_update",
+              "row_key": "Real estate activity|FY2025|552b7a135088114f",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-05-29_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:38",
+              "target_role": "pp_progress_fy2025_rows.q1_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!D19",
+              "normalized_path": "promise_progress.items.9.q2_update",
+              "row_key": "Real estate activity|FY2025|552b7a135088114f",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-08-28_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:56",
+              "target_role": "pp_progress_fy2025_rows.q2_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!E19",
+              "normalized_path": "promise_progress.items.9.q3_update",
+              "row_key": "Real estate activity|FY2025|552b7a135088114f",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-11-26_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:75",
+              "target_role": "pp_progress_fy2025_rows.q3_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!F19",
+              "normalized_path": "promise_progress.items.9.q4_update",
+              "row_key": "Real estate activity|FY2025|552b7a135088114f",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:192",
+              "target_role": "pp_progress_fy2025_rows.q4_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!G19",
+              "normalized_path": "promise_progress.items.9.actual",
+              "row_key": "Real estate activity|FY2025|552b7a135088114f",
+              "source_ref": "tickers/ANF/earnings_transcripts/ANF_Q4_2025_transcript.txt#L50",
+              "target_role": "pp_progress_fy2025_rows.actual"
+            },
+            {
+              "destination": "Promise_Progress_UI!I19",
+              "normalized_path": "promise_progress.items.9.notes_source",
+              "row_key": "Real estate activity|FY2025|552b7a135088114f",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\ANF_Q4_2024_earnings_release.pdf#ANF_model.xlsx!Guidance_Normalized!row:183",
+              "target_role": "pp_progress_fy2025_rows.notes_source"
+            },
+            {
+              "destination": "Promise_Progress_UI!A20",
+              "normalized_path": "promise_progress.items.12.display_metric",
+              "row_key": "Tariffs|FY2025|66809d97e771f5f7",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-05-29_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:40",
+              "target_role": "pp_progress_fy2025_rows.display_metric"
+            },
+            {
+              "destination": "Promise_Progress_UI!B20",
+              "normalized_path": "promise_progress.items.12.original_commitment",
+              "row_key": "Tariffs|FY2025|66809d97e771f5f7",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-05-29_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:40",
+              "target_role": "pp_progress_fy2025_rows.original_commitment"
+            },
+            {
+              "destination": "Promise_Progress_UI!C20",
+              "normalized_path": "promise_progress.items.12.q1_update",
+              "row_key": "Tariffs|FY2025|66809d97e771f5f7",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-05-29_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:40",
+              "target_role": "pp_progress_fy2025_rows.q1_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!D20",
+              "normalized_path": "promise_progress.items.12.q2_update",
+              "row_key": "Tariffs|FY2025|66809d97e771f5f7",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-08-28_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:58",
+              "target_role": "pp_progress_fy2025_rows.q2_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!E20",
+              "normalized_path": "promise_progress.items.12.q3_update",
+              "row_key": "Tariffs|FY2025|66809d97e771f5f7",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-11-26_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:78",
+              "target_role": "pp_progress_fy2025_rows.q3_update"
+            },
+            {
+              "destination": "Promise_Progress_UI!I20",
+              "normalized_path": "promise_progress.items.12.notes_source",
+              "row_key": "Tariffs|FY2025|66809d97e771f5f7",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2025-05-29_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:40",
+              "target_role": "pp_progress_fy2025_rows.notes_source"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_guidance_current_primary_rows",
+          "module_id": "guidance_promises",
+          "module_profile_id": "full_union",
+          "destination_sheet": "Valuation",
+          "declared_target": "O9:AC15",
+          "source_selector_type": "derived_resolved_rowset",
+          "source_selector": "_derived_workbook.guidance.current_primary_rows",
+          "normalized_collection_root": "normalized_guidance.items",
+          "resolved_rowset_producer": "valuation_guidance_projection",
+          "resolver_projection_authority": "pbi_xbrl.new_ticker_guidance_scope.build_valuation_guidance_projection",
+          "formula_or_value_ownership": "value_binding",
+          "planning_state": "active",
+          "projected_row_count": 7,
+          "product_role": "current_primary_guidance",
+          "destination_count": 56,
+          "destinations": [
+            {
+              "destination": "Valuation!AA9",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.0.display_state",
+              "row_key": "current_primary|1|revenue|FY2026|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "valuation_guidance_current_primary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O9",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.0.metric_display",
+              "row_key": "current_primary|1|revenue|FY2026|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "valuation_guidance_current_primary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q9",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.0.stated_period",
+              "row_key": "current_primary|1|revenue|FY2026|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "valuation_guidance_current_primary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R9",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.0.horizon",
+              "row_key": "current_primary|1|revenue|FY2026|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "valuation_guidance_current_primary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S9",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.0.value",
+              "row_key": "current_primary|1|revenue|FY2026|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "valuation_guidance_current_primary_rows.value"
+            },
+            {
+              "destination": "Valuation!X9",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.0.unit",
+              "row_key": "current_primary|1|revenue|FY2026|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "valuation_guidance_current_primary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y9",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.0.publication_date",
+              "row_key": "current_primary|1|revenue|FY2026|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "valuation_guidance_current_primary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z9",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.0.evidence_key",
+              "row_key": "current_primary|1|revenue|FY2026|17892347cc65bfd8",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:80",
+              "target_role": "valuation_guidance_current_primary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA10",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.1.display_state",
+              "row_key": "current_primary|2|revenue|2026-Q1|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "valuation_guidance_current_primary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O10",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.1.metric_display",
+              "row_key": "current_primary|2|revenue|2026-Q1|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "valuation_guidance_current_primary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q10",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.1.stated_period",
+              "row_key": "current_primary|2|revenue|2026-Q1|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "valuation_guidance_current_primary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R10",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.1.horizon",
+              "row_key": "current_primary|2|revenue|2026-Q1|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "valuation_guidance_current_primary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S10",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.1.value",
+              "row_key": "current_primary|2|revenue|2026-Q1|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "valuation_guidance_current_primary_rows.value"
+            },
+            {
+              "destination": "Valuation!X10",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.1.unit",
+              "row_key": "current_primary|2|revenue|2026-Q1|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "valuation_guidance_current_primary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y10",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.1.publication_date",
+              "row_key": "current_primary|2|revenue|2026-Q1|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "valuation_guidance_current_primary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z10",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.1.evidence_key",
+              "row_key": "current_primary|2|revenue|2026-Q1|1eebe3d331734079",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:79",
+              "target_role": "valuation_guidance_current_primary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA11",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.2.display_state",
+              "row_key": "current_primary|3|operating_margin|FY2026|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "valuation_guidance_current_primary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O11",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.2.metric_display",
+              "row_key": "current_primary|3|operating_margin|FY2026|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "valuation_guidance_current_primary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q11",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.2.stated_period",
+              "row_key": "current_primary|3|operating_margin|FY2026|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "valuation_guidance_current_primary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R11",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.2.horizon",
+              "row_key": "current_primary|3|operating_margin|FY2026|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "valuation_guidance_current_primary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S11",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.2.value",
+              "row_key": "current_primary|3|operating_margin|FY2026|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "valuation_guidance_current_primary_rows.value"
+            },
+            {
+              "destination": "Valuation!X11",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.2.unit",
+              "row_key": "current_primary|3|operating_margin|FY2026|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "valuation_guidance_current_primary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y11",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.2.publication_date",
+              "row_key": "current_primary|3|operating_margin|FY2026|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "valuation_guidance_current_primary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z11",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.2.evidence_key",
+              "row_key": "current_primary|3|operating_margin|FY2026|da88fd24f7bbbb68",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:82",
+              "target_role": "valuation_guidance_current_primary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA12",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.3.display_state",
+              "row_key": "current_primary|4|operating_margin|2026-Q1|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "valuation_guidance_current_primary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O12",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.3.metric_display",
+              "row_key": "current_primary|4|operating_margin|2026-Q1|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "valuation_guidance_current_primary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q12",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.3.stated_period",
+              "row_key": "current_primary|4|operating_margin|2026-Q1|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "valuation_guidance_current_primary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R12",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.3.horizon",
+              "row_key": "current_primary|4|operating_margin|2026-Q1|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "valuation_guidance_current_primary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S12",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.3.value",
+              "row_key": "current_primary|4|operating_margin|2026-Q1|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "valuation_guidance_current_primary_rows.value"
+            },
+            {
+              "destination": "Valuation!X12",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.3.unit",
+              "row_key": "current_primary|4|operating_margin|2026-Q1|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "valuation_guidance_current_primary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y12",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.3.publication_date",
+              "row_key": "current_primary|4|operating_margin|2026-Q1|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "valuation_guidance_current_primary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z12",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.3.evidence_key",
+              "row_key": "current_primary|4|operating_margin|2026-Q1|c86de8360466668a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:81",
+              "target_role": "valuation_guidance_current_primary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA13",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.4.display_state",
+              "row_key": "current_primary|5|adjusted_eps|FY2026|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "valuation_guidance_current_primary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O13",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.4.metric_display",
+              "row_key": "current_primary|5|adjusted_eps|FY2026|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "valuation_guidance_current_primary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q13",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.4.stated_period",
+              "row_key": "current_primary|5|adjusted_eps|FY2026|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "valuation_guidance_current_primary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R13",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.4.horizon",
+              "row_key": "current_primary|5|adjusted_eps|FY2026|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "valuation_guidance_current_primary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S13",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.4.value",
+              "row_key": "current_primary|5|adjusted_eps|FY2026|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "valuation_guidance_current_primary_rows.value"
+            },
+            {
+              "destination": "Valuation!X13",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.4.unit",
+              "row_key": "current_primary|5|adjusted_eps|FY2026|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "valuation_guidance_current_primary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y13",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.4.publication_date",
+              "row_key": "current_primary|5|adjusted_eps|FY2026|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "valuation_guidance_current_primary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z13",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.4.evidence_key",
+              "row_key": "current_primary|5|adjusted_eps|FY2026|8e3e06475e1fbef0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:84",
+              "target_role": "valuation_guidance_current_primary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA14",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.5.display_state",
+              "row_key": "current_primary|6|adjusted_eps|2026-Q1|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "valuation_guidance_current_primary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O14",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.5.metric_display",
+              "row_key": "current_primary|6|adjusted_eps|2026-Q1|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "valuation_guidance_current_primary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q14",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.5.stated_period",
+              "row_key": "current_primary|6|adjusted_eps|2026-Q1|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "valuation_guidance_current_primary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R14",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.5.horizon",
+              "row_key": "current_primary|6|adjusted_eps|2026-Q1|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "valuation_guidance_current_primary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S14",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.5.value",
+              "row_key": "current_primary|6|adjusted_eps|2026-Q1|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "valuation_guidance_current_primary_rows.value"
+            },
+            {
+              "destination": "Valuation!X14",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.5.unit",
+              "row_key": "current_primary|6|adjusted_eps|2026-Q1|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "valuation_guidance_current_primary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y14",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.5.publication_date",
+              "row_key": "current_primary|6|adjusted_eps|2026-Q1|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "valuation_guidance_current_primary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z14",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.5.evidence_key",
+              "row_key": "current_primary|6|adjusted_eps|2026-Q1|c096c4a3f49c73a6",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:83",
+              "target_role": "valuation_guidance_current_primary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA15",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.6.display_state",
+              "row_key": "current_primary|7|real_estate_activity|FY2026|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "valuation_guidance_current_primary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O15",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.6.metric_display",
+              "row_key": "current_primary|7|real_estate_activity|FY2026|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "valuation_guidance_current_primary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q15",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.6.stated_period",
+              "row_key": "current_primary|7|real_estate_activity|FY2026|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "valuation_guidance_current_primary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R15",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.6.horizon",
+              "row_key": "current_primary|7|real_estate_activity|FY2026|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "valuation_guidance_current_primary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S15",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.6.value",
+              "row_key": "current_primary|7|real_estate_activity|FY2026|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "valuation_guidance_current_primary_rows.value"
+            },
+            {
+              "destination": "Valuation!X15",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.6.unit",
+              "row_key": "current_primary|7|real_estate_activity|FY2026|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "valuation_guidance_current_primary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y15",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.6.publication_date",
+              "row_key": "current_primary|7|real_estate_activity|FY2026|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "valuation_guidance_current_primary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z15",
+              "normalized_path": "_derived_workbook.guidance.current_primary_rows.6.evidence_key",
+              "row_key": "current_primary|7|real_estate_activity|FY2026|6e91a9c4ef6487d0",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:91",
+              "target_role": "valuation_guidance_current_primary_rows.evidence_key"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_guidance_current_secondary_rows",
+          "module_id": "guidance_promises",
+          "module_profile_id": "full_union",
+          "destination_sheet": "Valuation",
+          "declared_target": "O16:AC21",
+          "source_selector_type": "derived_resolved_rowset",
+          "source_selector": "_derived_workbook.guidance.current_secondary_rows",
+          "normalized_collection_root": "normalized_guidance.items",
+          "resolved_rowset_producer": "valuation_guidance_projection",
+          "resolver_projection_authority": "pbi_xbrl.new_ticker_guidance_scope.build_valuation_guidance_projection",
+          "formula_or_value_ownership": "value_binding",
+          "planning_state": "active",
+          "projected_row_count": 6,
+          "product_role": "current_secondary_guidance",
+          "destination_count": 48,
+          "destinations": [
+            {
+              "destination": "Valuation!AA16",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.0.display_state",
+              "row_key": "current_secondary|1|capital_expenditures|FY2026|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "valuation_guidance_current_secondary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O16",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.0.metric_display",
+              "row_key": "current_secondary|1|capital_expenditures|FY2026|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "valuation_guidance_current_secondary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q16",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.0.stated_period",
+              "row_key": "current_secondary|1|capital_expenditures|FY2026|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "valuation_guidance_current_secondary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R16",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.0.horizon",
+              "row_key": "current_secondary|1|capital_expenditures|FY2026|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "valuation_guidance_current_secondary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S16",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.0.value",
+              "row_key": "current_secondary|1|capital_expenditures|FY2026|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "valuation_guidance_current_secondary_rows.value"
+            },
+            {
+              "destination": "Valuation!X16",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.0.unit",
+              "row_key": "current_secondary|1|capital_expenditures|FY2026|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "valuation_guidance_current_secondary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y16",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.0.publication_date",
+              "row_key": "current_secondary|1|capital_expenditures|FY2026|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "valuation_guidance_current_secondary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z16",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.0.evidence_key",
+              "row_key": "current_secondary|1|capital_expenditures|FY2026|a42783e57e2a4705",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
+              "target_role": "valuation_guidance_current_secondary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA17",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.1.display_state",
+              "row_key": "current_secondary|2|diluted_shares|2026-Q1|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "valuation_guidance_current_secondary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O17",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.1.metric_display",
+              "row_key": "current_secondary|2|diluted_shares|2026-Q1|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "valuation_guidance_current_secondary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q17",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.1.stated_period",
+              "row_key": "current_secondary|2|diluted_shares|2026-Q1|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "valuation_guidance_current_secondary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R17",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.1.horizon",
+              "row_key": "current_secondary|2|diluted_shares|2026-Q1|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "valuation_guidance_current_secondary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S17",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.1.value",
+              "row_key": "current_secondary|2|diluted_shares|2026-Q1|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "valuation_guidance_current_secondary_rows.value"
+            },
+            {
+              "destination": "Valuation!X17",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.1.unit",
+              "row_key": "current_secondary|2|diluted_shares|2026-Q1|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "valuation_guidance_current_secondary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y17",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.1.publication_date",
+              "row_key": "current_secondary|2|diluted_shares|2026-Q1|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "valuation_guidance_current_secondary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z17",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.1.evidence_key",
+              "row_key": "current_secondary|2|diluted_shares|2026-Q1|8a71301e54c74a9d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
+              "target_role": "valuation_guidance_current_secondary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA18",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.2.display_state",
+              "row_key": "current_secondary|3|diluted_shares|FY2026|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "valuation_guidance_current_secondary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O18",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.2.metric_display",
+              "row_key": "current_secondary|3|diluted_shares|FY2026|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "valuation_guidance_current_secondary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q18",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.2.stated_period",
+              "row_key": "current_secondary|3|diluted_shares|FY2026|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "valuation_guidance_current_secondary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R18",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.2.horizon",
+              "row_key": "current_secondary|3|diluted_shares|FY2026|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "valuation_guidance_current_secondary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S18",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.2.value",
+              "row_key": "current_secondary|3|diluted_shares|FY2026|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "valuation_guidance_current_secondary_rows.value"
+            },
+            {
+              "destination": "Valuation!X18",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.2.unit",
+              "row_key": "current_secondary|3|diluted_shares|FY2026|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "valuation_guidance_current_secondary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y18",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.2.publication_date",
+              "row_key": "current_secondary|3|diluted_shares|FY2026|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "valuation_guidance_current_secondary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z18",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.2.evidence_key",
+              "row_key": "current_secondary|3|diluted_shares|FY2026|adcb3e4c78f2e682",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
+              "target_role": "valuation_guidance_current_secondary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA19",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.3.display_state",
+              "row_key": "current_secondary|4|real_estate_activity|2026-Q1|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "valuation_guidance_current_secondary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O19",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.3.metric_display",
+              "row_key": "current_secondary|4|real_estate_activity|2026-Q1|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "valuation_guidance_current_secondary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q19",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.3.stated_period",
+              "row_key": "current_secondary|4|real_estate_activity|2026-Q1|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "valuation_guidance_current_secondary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R19",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.3.horizon",
+              "row_key": "current_secondary|4|real_estate_activity|2026-Q1|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "valuation_guidance_current_secondary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S19",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.3.value",
+              "row_key": "current_secondary|4|real_estate_activity|2026-Q1|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "valuation_guidance_current_secondary_rows.value"
+            },
+            {
+              "destination": "Valuation!X19",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.3.unit",
+              "row_key": "current_secondary|4|real_estate_activity|2026-Q1|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "valuation_guidance_current_secondary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y19",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.3.publication_date",
+              "row_key": "current_secondary|4|real_estate_activity|2026-Q1|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "valuation_guidance_current_secondary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z19",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.3.evidence_key",
+              "row_key": "current_secondary|4|real_estate_activity|2026-Q1|c6955fa985404f2e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
+              "target_role": "valuation_guidance_current_secondary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA20",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.4.display_state",
+              "row_key": "current_secondary|5|share_repurchases|2026-Q1|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "valuation_guidance_current_secondary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O20",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.4.metric_display",
+              "row_key": "current_secondary|5|share_repurchases|2026-Q1|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "valuation_guidance_current_secondary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q20",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.4.stated_period",
+              "row_key": "current_secondary|5|share_repurchases|2026-Q1|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "valuation_guidance_current_secondary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R20",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.4.horizon",
+              "row_key": "current_secondary|5|share_repurchases|2026-Q1|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "valuation_guidance_current_secondary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S20",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.4.value",
+              "row_key": "current_secondary|5|share_repurchases|2026-Q1|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "valuation_guidance_current_secondary_rows.value"
+            },
+            {
+              "destination": "Valuation!X20",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.4.unit",
+              "row_key": "current_secondary|5|share_repurchases|2026-Q1|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "valuation_guidance_current_secondary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y20",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.4.publication_date",
+              "row_key": "current_secondary|5|share_repurchases|2026-Q1|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "valuation_guidance_current_secondary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z20",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.4.evidence_key",
+              "row_key": "current_secondary|5|share_repurchases|2026-Q1|836b17e621ea39df",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
+              "target_role": "valuation_guidance_current_secondary_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA21",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.5.display_state",
+              "row_key": "current_secondary|6|share_repurchases|FY2026|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "valuation_guidance_current_secondary_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O21",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.5.metric_display",
+              "row_key": "current_secondary|6|share_repurchases|FY2026|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "valuation_guidance_current_secondary_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q21",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.5.stated_period",
+              "row_key": "current_secondary|6|share_repurchases|FY2026|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "valuation_guidance_current_secondary_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R21",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.5.horizon",
+              "row_key": "current_secondary|6|share_repurchases|FY2026|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "valuation_guidance_current_secondary_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S21",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.5.value",
+              "row_key": "current_secondary|6|share_repurchases|FY2026|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "valuation_guidance_current_secondary_rows.value"
+            },
+            {
+              "destination": "Valuation!X21",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.5.unit",
+              "row_key": "current_secondary|6|share_repurchases|FY2026|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "valuation_guidance_current_secondary_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y21",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.5.publication_date",
+              "row_key": "current_secondary|6|share_repurchases|FY2026|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "valuation_guidance_current_secondary_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z21",
+              "normalized_path": "_derived_workbook.guidance.current_secondary_rows.5.evidence_key",
+              "row_key": "current_secondary|6|share_repurchases|FY2026|c2232236cca38a0a",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
+              "target_role": "valuation_guidance_current_secondary_rows.evidence_key"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_guidance_historical_rows",
+          "module_id": "guidance_promises",
+          "module_profile_id": "full_union",
+          "destination_sheet": "Valuation",
+          "declared_target": "O29:AC35",
+          "source_selector_type": "derived_resolved_rowset",
+          "source_selector": "_derived_workbook.guidance.historical_rows",
+          "normalized_collection_root": "normalized_guidance.items",
+          "resolved_rowset_producer": "valuation_guidance_projection",
+          "resolver_projection_authority": "pbi_xbrl.new_ticker_guidance_scope.build_valuation_guidance_projection",
+          "formula_or_value_ownership": "value_binding",
+          "planning_state": "active",
+          "projected_row_count": 7,
+          "product_role": "historical_guidance",
+          "destination_count": 56,
+          "destinations": [
+            {
+              "destination": "Valuation!AA29",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.0.display_state",
+              "row_key": "history|1|revenue|FY2025|4e6435dffe820a1d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:185",
+              "target_role": "valuation_guidance_historical_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O29",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.0.metric_display",
+              "row_key": "history|1|revenue|FY2025|4e6435dffe820a1d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:185",
+              "target_role": "valuation_guidance_historical_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q29",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.0.stated_period",
+              "row_key": "history|1|revenue|FY2025|4e6435dffe820a1d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:185",
+              "target_role": "valuation_guidance_historical_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R29",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.0.horizon",
+              "row_key": "history|1|revenue|FY2025|4e6435dffe820a1d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:185",
+              "target_role": "valuation_guidance_historical_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S29",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.0.value",
+              "row_key": "history|1|revenue|FY2025|4e6435dffe820a1d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:185",
+              "target_role": "valuation_guidance_historical_rows.value"
+            },
+            {
+              "destination": "Valuation!X29",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.0.unit",
+              "row_key": "history|1|revenue|FY2025|4e6435dffe820a1d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:185",
+              "target_role": "valuation_guidance_historical_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y29",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.0.publication_date",
+              "row_key": "history|1|revenue|FY2025|4e6435dffe820a1d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:185",
+              "target_role": "valuation_guidance_historical_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z29",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.0.evidence_key",
+              "row_key": "history|1|revenue|FY2025|4e6435dffe820a1d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:185",
+              "target_role": "valuation_guidance_historical_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA30",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.1.display_state",
+              "row_key": "history|2|operating_margin|FY2025|68980ea9c3909d65",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:186",
+              "target_role": "valuation_guidance_historical_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O30",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.1.metric_display",
+              "row_key": "history|2|operating_margin|FY2025|68980ea9c3909d65",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:186",
+              "target_role": "valuation_guidance_historical_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q30",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.1.stated_period",
+              "row_key": "history|2|operating_margin|FY2025|68980ea9c3909d65",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:186",
+              "target_role": "valuation_guidance_historical_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R30",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.1.horizon",
+              "row_key": "history|2|operating_margin|FY2025|68980ea9c3909d65",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:186",
+              "target_role": "valuation_guidance_historical_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S30",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.1.value",
+              "row_key": "history|2|operating_margin|FY2025|68980ea9c3909d65",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:186",
+              "target_role": "valuation_guidance_historical_rows.value"
+            },
+            {
+              "destination": "Valuation!X30",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.1.unit",
+              "row_key": "history|2|operating_margin|FY2025|68980ea9c3909d65",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:186",
+              "target_role": "valuation_guidance_historical_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y30",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.1.publication_date",
+              "row_key": "history|2|operating_margin|FY2025|68980ea9c3909d65",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:186",
+              "target_role": "valuation_guidance_historical_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z30",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.1.evidence_key",
+              "row_key": "history|2|operating_margin|FY2025|68980ea9c3909d65",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:186",
+              "target_role": "valuation_guidance_historical_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA31",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.2.display_state",
+              "row_key": "history|3|adjusted_eps|FY2025|07c356d13817458e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
+              "target_role": "valuation_guidance_historical_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O31",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.2.metric_display",
+              "row_key": "history|3|adjusted_eps|FY2025|07c356d13817458e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
+              "target_role": "valuation_guidance_historical_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q31",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.2.stated_period",
+              "row_key": "history|3|adjusted_eps|FY2025|07c356d13817458e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
+              "target_role": "valuation_guidance_historical_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R31",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.2.horizon",
+              "row_key": "history|3|adjusted_eps|FY2025|07c356d13817458e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
+              "target_role": "valuation_guidance_historical_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S31",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.2.value",
+              "row_key": "history|3|adjusted_eps|FY2025|07c356d13817458e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
+              "target_role": "valuation_guidance_historical_rows.value"
+            },
+            {
+              "destination": "Valuation!X31",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.2.unit",
+              "row_key": "history|3|adjusted_eps|FY2025|07c356d13817458e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
+              "target_role": "valuation_guidance_historical_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y31",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.2.publication_date",
+              "row_key": "history|3|adjusted_eps|FY2025|07c356d13817458e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
+              "target_role": "valuation_guidance_historical_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z31",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.2.evidence_key",
+              "row_key": "history|3|adjusted_eps|FY2025|07c356d13817458e",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
+              "target_role": "valuation_guidance_historical_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA32",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.3.display_state",
+              "row_key": "history|4|capital_expenditures|FY2025|8951a929a7f6dd09",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:191",
+              "target_role": "valuation_guidance_historical_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O32",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.3.metric_display",
+              "row_key": "history|4|capital_expenditures|FY2025|8951a929a7f6dd09",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:191",
+              "target_role": "valuation_guidance_historical_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q32",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.3.stated_period",
+              "row_key": "history|4|capital_expenditures|FY2025|8951a929a7f6dd09",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:191",
+              "target_role": "valuation_guidance_historical_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R32",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.3.horizon",
+              "row_key": "history|4|capital_expenditures|FY2025|8951a929a7f6dd09",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:191",
+              "target_role": "valuation_guidance_historical_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S32",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.3.value",
+              "row_key": "history|4|capital_expenditures|FY2025|8951a929a7f6dd09",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:191",
+              "target_role": "valuation_guidance_historical_rows.value"
+            },
+            {
+              "destination": "Valuation!X32",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.3.unit",
+              "row_key": "history|4|capital_expenditures|FY2025|8951a929a7f6dd09",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:191",
+              "target_role": "valuation_guidance_historical_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y32",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.3.publication_date",
+              "row_key": "history|4|capital_expenditures|FY2025|8951a929a7f6dd09",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:191",
+              "target_role": "valuation_guidance_historical_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z32",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.3.evidence_key",
+              "row_key": "history|4|capital_expenditures|FY2025|8951a929a7f6dd09",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:191",
+              "target_role": "valuation_guidance_historical_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA33",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.4.display_state",
+              "row_key": "history|5|diluted_shares|FY2025|d4673c1d51282d72",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:190",
+              "target_role": "valuation_guidance_historical_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O33",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.4.metric_display",
+              "row_key": "history|5|diluted_shares|FY2025|d4673c1d51282d72",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:190",
+              "target_role": "valuation_guidance_historical_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q33",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.4.stated_period",
+              "row_key": "history|5|diluted_shares|FY2025|d4673c1d51282d72",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:190",
+              "target_role": "valuation_guidance_historical_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R33",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.4.horizon",
+              "row_key": "history|5|diluted_shares|FY2025|d4673c1d51282d72",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:190",
+              "target_role": "valuation_guidance_historical_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S33",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.4.value",
+              "row_key": "history|5|diluted_shares|FY2025|d4673c1d51282d72",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:190",
+              "target_role": "valuation_guidance_historical_rows.value"
+            },
+            {
+              "destination": "Valuation!X33",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.4.unit",
+              "row_key": "history|5|diluted_shares|FY2025|d4673c1d51282d72",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:190",
+              "target_role": "valuation_guidance_historical_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y33",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.4.publication_date",
+              "row_key": "history|5|diluted_shares|FY2025|d4673c1d51282d72",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:190",
+              "target_role": "valuation_guidance_historical_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z33",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.4.evidence_key",
+              "row_key": "history|5|diluted_shares|FY2025|d4673c1d51282d72",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:190",
+              "target_role": "valuation_guidance_historical_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA34",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.5.display_state",
+              "row_key": "history|6|real_estate_activity|FY2025|3e1ecdb48116c23d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:192",
+              "target_role": "valuation_guidance_historical_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O34",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.5.metric_display",
+              "row_key": "history|6|real_estate_activity|FY2025|3e1ecdb48116c23d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:192",
+              "target_role": "valuation_guidance_historical_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q34",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.5.stated_period",
+              "row_key": "history|6|real_estate_activity|FY2025|3e1ecdb48116c23d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:192",
+              "target_role": "valuation_guidance_historical_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R34",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.5.horizon",
+              "row_key": "history|6|real_estate_activity|FY2025|3e1ecdb48116c23d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:192",
+              "target_role": "valuation_guidance_historical_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S34",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.5.value",
+              "row_key": "history|6|real_estate_activity|FY2025|3e1ecdb48116c23d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:192",
+              "target_role": "valuation_guidance_historical_rows.value"
+            },
+            {
+              "destination": "Valuation!X34",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.5.unit",
+              "row_key": "history|6|real_estate_activity|FY2025|3e1ecdb48116c23d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:192",
+              "target_role": "valuation_guidance_historical_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y34",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.5.publication_date",
+              "row_key": "history|6|real_estate_activity|FY2025|3e1ecdb48116c23d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:192",
+              "target_role": "valuation_guidance_historical_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z34",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.5.evidence_key",
+              "row_key": "history|6|real_estate_activity|FY2025|3e1ecdb48116c23d",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:192",
+              "target_role": "valuation_guidance_historical_rows.evidence_key"
+            },
+            {
+              "destination": "Valuation!AA35",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.6.display_state",
+              "row_key": "history|7|share_repurchases|FY2025|ffc60aab74cd5b1c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:189",
+              "target_role": "valuation_guidance_historical_rows.display_state"
+            },
+            {
+              "destination": "Valuation!O35",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.6.metric_display",
+              "row_key": "history|7|share_repurchases|FY2025|ffc60aab74cd5b1c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:189",
+              "target_role": "valuation_guidance_historical_rows.metric_display"
+            },
+            {
+              "destination": "Valuation!Q35",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.6.stated_period",
+              "row_key": "history|7|share_repurchases|FY2025|ffc60aab74cd5b1c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:189",
+              "target_role": "valuation_guidance_historical_rows.stated_period"
+            },
+            {
+              "destination": "Valuation!R35",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.6.horizon",
+              "row_key": "history|7|share_repurchases|FY2025|ffc60aab74cd5b1c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:189",
+              "target_role": "valuation_guidance_historical_rows.horizon"
+            },
+            {
+              "destination": "Valuation!S35",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.6.value",
+              "row_key": "history|7|share_repurchases|FY2025|ffc60aab74cd5b1c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:189",
+              "target_role": "valuation_guidance_historical_rows.value"
+            },
+            {
+              "destination": "Valuation!X35",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.6.unit",
+              "row_key": "history|7|share_repurchases|FY2025|ffc60aab74cd5b1c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:189",
+              "target_role": "valuation_guidance_historical_rows.unit"
+            },
+            {
+              "destination": "Valuation!Y35",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.6.publication_date",
+              "row_key": "history|7|share_repurchases|FY2025|ffc60aab74cd5b1c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:189",
+              "target_role": "valuation_guidance_historical_rows.publication_date"
+            },
+            {
+              "destination": "Valuation!Z35",
+              "normalized_path": "_derived_workbook.guidance.historical_rows.6.evidence_key",
+              "row_key": "history|7|share_repurchases|FY2025|ffc60aab74cd5b1c",
+              "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:189",
+              "target_role": "valuation_guidance_historical_rows.evidence_key"
+            }
+          ]
+        }
+      ]
     },
     "promise_progress_key_disposition_counts": {
       "audit_only": 6,
@@ -25966,7 +28347,7 @@
       "normalized_package_path": "normalized_guidance.items.192.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -26005,7 +28386,7 @@
       "normalized_package_path": "normalized_guidance.items.193.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -26044,7 +28425,7 @@
       "normalized_package_path": "normalized_guidance.items.188.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -26083,7 +28464,7 @@
       "normalized_package_path": "normalized_guidance.items.189.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -26122,7 +28503,7 @@
       "normalized_package_path": "normalized_guidance.items.183.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -26161,7 +28542,7 @@
       "normalized_package_path": "normalized_guidance.items.184.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -26199,11 +28580,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:85",
       "normalized_package_path": "normalized_guidance.items.194.value",
       "binding_ids": [
-        "pp_current_secondary_guidance_rows"
+        "pp_current_secondary_guidance_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!B43"
+        "Promise_Progress_UI!B43",
+        "Valuation!S20"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26236,11 +28619,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
       "normalized_package_path": "normalized_guidance.items.195.value",
       "binding_ids": [
-        "pp_current_secondary_guidance_rows"
+        "pp_current_secondary_guidance_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!B44"
+        "Promise_Progress_UI!B44",
+        "Valuation!S21"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26273,11 +28658,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:87",
       "normalized_package_path": "normalized_guidance.items.186.value",
       "binding_ids": [
-        "pp_current_secondary_guidance_rows"
+        "pp_current_secondary_guidance_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!B40"
+        "Promise_Progress_UI!B40",
+        "Valuation!S17"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26310,11 +28697,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
       "normalized_package_path": "normalized_guidance.items.187.value",
       "binding_ids": [
-        "pp_current_secondary_guidance_rows"
+        "pp_current_secondary_guidance_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!B41"
+        "Promise_Progress_UI!B41",
+        "Valuation!S18"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26347,11 +28736,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
       "normalized_package_path": "normalized_guidance.items.185.value",
       "binding_ids": [
-        "pp_current_secondary_guidance_rows"
+        "pp_current_secondary_guidance_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!B39"
+        "Promise_Progress_UI!B39",
+        "Valuation!S16"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26384,11 +28775,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:90",
       "normalized_package_path": "normalized_guidance.items.190.value",
       "binding_ids": [
-        "pp_current_secondary_guidance_rows"
+        "pp_current_secondary_guidance_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!B42"
+        "Promise_Progress_UI!B42",
+        "Valuation!S19"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
@@ -26422,7 +28815,7 @@
       "normalized_package_path": "normalized_guidance.items.191.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -29528,9 +31921,13 @@
       "disposition": "history",
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:185",
       "normalized_package_path": "normalized_guidance.items.179.value",
-      "binding_ids": [],
+      "binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
       "formula_ownership": "value_only_binding",
-      "expected_new_workbook_destination": [],
+      "expected_new_workbook_destination": [
+        "Valuation!S29"
+      ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
       "rejection_reason": "",
@@ -29561,9 +31958,13 @@
       "disposition": "history",
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:186",
       "normalized_package_path": "normalized_guidance.items.176.value",
-      "binding_ids": [],
+      "binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
       "formula_ownership": "value_only_binding",
-      "expected_new_workbook_destination": [],
+      "expected_new_workbook_destination": [
+        "Valuation!S30"
+      ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
       "rejection_reason": "",
@@ -29594,9 +31995,13 @@
       "disposition": "history",
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:187",
       "normalized_package_path": "normalized_guidance.items.171.value",
-      "binding_ids": [],
+      "binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
       "formula_ownership": "value_only_binding",
-      "expected_new_workbook_destination": [],
+      "expected_new_workbook_destination": [
+        "Valuation!S31"
+      ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
       "rejection_reason": "",
@@ -29660,9 +32065,13 @@
       "disposition": "history",
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:189",
       "normalized_package_path": "normalized_guidance.items.182.value",
-      "binding_ids": [],
+      "binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
       "formula_ownership": "value_only_binding",
-      "expected_new_workbook_destination": [],
+      "expected_new_workbook_destination": [
+        "Valuation!S35"
+      ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
       "rejection_reason": "",
@@ -29693,9 +32102,13 @@
       "disposition": "history",
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:190",
       "normalized_package_path": "normalized_guidance.items.174.value",
-      "binding_ids": [],
+      "binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
       "formula_ownership": "value_only_binding",
-      "expected_new_workbook_destination": [],
+      "expected_new_workbook_destination": [
+        "Valuation!S33"
+      ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
       "rejection_reason": "",
@@ -29726,9 +32139,13 @@
       "disposition": "history",
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:191",
       "normalized_package_path": "normalized_guidance.items.172.value",
-      "binding_ids": [],
+      "binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
       "formula_ownership": "value_only_binding",
-      "expected_new_workbook_destination": [],
+      "expected_new_workbook_destination": [
+        "Valuation!S32"
+      ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
       "rejection_reason": "",
@@ -29759,9 +32176,13 @@
       "disposition": "history",
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\press_release\\ANF_2026-01-12_press_release_business_update.pdf#ANF_model.xlsx!Guidance_Normalized!row:192",
       "normalized_package_path": "normalized_guidance.items.177.value",
-      "binding_ids": [],
+      "binding_ids": [
+        "valuation_guidance_historical_rows"
+      ],
       "formula_ownership": "value_only_binding",
-      "expected_new_workbook_destination": [],
+      "expected_new_workbook_destination": [
+        "Valuation!S34"
+      ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "must_reproduce",
       "rejection_reason": "",
@@ -30013,7 +32434,7 @@
       "normalized_package_path": "normalized_guidance.items.184.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -30310,11 +32731,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:89",
       "normalized_package_path": "normalized_guidance.items.185.value",
       "binding_ids": [
-        "pp_current_secondary_guidance_rows"
+        "pp_current_secondary_guidance_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!B39"
+        "Promise_Progress_UI!B39",
+        "Valuation!S16"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "may_improve_semantically",
@@ -30399,11 +32822,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:88",
       "normalized_package_path": "normalized_guidance.items.187.value",
       "binding_ids": [
-        "pp_current_secondary_guidance_rows"
+        "pp_current_secondary_guidance_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!B41"
+        "Promise_Progress_UI!B41",
+        "Valuation!S18"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "may_improve_semantically",
@@ -30583,7 +33008,7 @@
       "normalized_package_path": "normalized_guidance.items.189.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -30711,7 +33136,7 @@
       "normalized_package_path": "normalized_guidance.items.191.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -30997,7 +33422,7 @@
       "normalized_package_path": "normalized_guidance.items.193.value",
       "binding_ids": [
         "pp_guidance_timeline_rows",
-        "valuation_guidance_rows"
+        "valuation_guidance_current_primary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
@@ -31086,11 +33511,13 @@
       "source_ref": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\tickers\\ANF\\earnings_release\\8-K_2026-03-04_earnings_release.htm#ANF_model.xlsx!Guidance_Normalized!row:86",
       "normalized_package_path": "normalized_guidance.items.195.value",
       "binding_ids": [
-        "pp_current_secondary_guidance_rows"
+        "pp_current_secondary_guidance_rows",
+        "valuation_guidance_current_secondary_rows"
       ],
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [
-        "Promise_Progress_UI!B44"
+        "Promise_Progress_UI!B44",
+        "Valuation!S21"
       ],
       "minimum_coverage_requirement": 1,
       "parity_requirement": "may_improve_semantically",

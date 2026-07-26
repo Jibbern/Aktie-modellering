@@ -64,7 +64,7 @@ def test_standard_template_shell_manifest_defines_visible_shell_contract() -> No
     assert manifest["visible_sheet_order"] == VISIBLE_SHEET_ORDER
     assert manifest["version"] == "0.3.0"
     assert manifest["semantic_contract_version"] == "1.8.0"
-    assert manifest["formula_contract_version"] == "2.2.0"
+    assert manifest["formula_contract_version"] == "2.3.0"
     assert manifest["union_sheet_order"] == _module_manifest()["union_sheet_order"]
     assert manifest["module_profile"]["profile_id"] == "full_union"
     assert manifest["ticker_sheet_token_rule"]["template"] == "{ticker}_Investment_Case"

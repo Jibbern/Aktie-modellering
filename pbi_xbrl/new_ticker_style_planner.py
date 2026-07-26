@@ -226,9 +226,9 @@ FORMULA_ECONOMIC_SPECS: dict[str, FormulaEconomicSpec] = {
     "bs_goodwill_assets_ratio": _spec("ratio", ["source:goodwill", "source:total_assets"], "%"),
     "bs_working_capital": _spec("linear", ["source:current_assets", "source:current_liabilities"], "$m", signs=[1, -1]),
     "bs_working_capital_qoq": _spec("period_change", ["formula:bs_working_capital"], "$m", lag=1),
-    "bs_current_ratio": _spec("ratio", ["source:current_assets", "source:current_liabilities"], "%"),
+    "bs_current_ratio": _spec("ratio", ["source:current_assets", "source:current_liabilities"], "x"),
     "_quick_assets": _spec("linear", ["source:current_assets", "source:inventory"], "$m", signs=[1, -1]),
-    "bs_quick_ratio": _spec("ratio", ["formula:_quick_assets", "source:current_liabilities"], "%"),
+    "bs_quick_ratio": _spec("ratio", ["formula:_quick_assets", "source:current_liabilities"], "x"),
     "bs_debt_qoq": _spec("period_change", ["source:debt_core"], "$m", lag=1),
     "bs_inventory_yoy": _spec("period_ratio", ["source:inventory"], "%", lag=4),
     "bs_revenue_yoy": _spec("period_ratio", ["source:revenue"], "%", lag=4),
@@ -685,6 +685,7 @@ def plan_style_actions(
         raise StylePlanningError("Invalid active style contract: " + "; ".join(active_contract_issues[:12]))
 
     histories, conflicts, segment_histories = _build_histories(package)
+    formula_histories, formula_conflicts = _build_formula_histories(package, histories, conflicts)
     threshold_sets = {str(row["threshold_set_id"]): row for row in style_contract.get("threshold_sets") or []}
     palettes = dict(style_contract.get("palette_tokens") or {})
     enabled = set(resolved.enabled_modules)
@@ -697,7 +698,7 @@ def plan_style_actions(
     for write in binding_plan.planned_writes:
         writes_by_binding.setdefault(write.binding_id, []).append(write)
 
-    evaluator = _FormulaEvaluator(histories, conflicts)
+    evaluator = _FormulaEvaluator(formula_histories, formula_conflicts)
     actions: list[PlannedStyleAction] = []
     decisions: list[StyleDecision] = []
     active_policy_ids = {
@@ -1145,8 +1146,9 @@ class FormulaEconomicLookup:
 
     def __init__(self, package: Mapping[str, Any]) -> None:
         histories, conflicts, _ = _build_histories(package)
-        self._histories = histories
-        self._evaluator = _FormulaEvaluator(histories, conflicts)
+        formula_histories, formula_conflicts = _build_formula_histories(package, histories, conflicts)
+        self._histories = formula_histories
+        self._evaluator = _FormulaEvaluator(formula_histories, formula_conflicts)
 
     def formula_point(self, formula_id: str, period: str) -> tuple[EconomicPoint | None, str]:
         return self._evaluator.evaluate(formula_id, period)
@@ -1268,6 +1270,61 @@ def _build_histories(
                 _add_history_point(segment_histories[period_type], conflicts, f"segment_{period_type}", series_key, period, point)
                 break
     return histories, conflicts, segment_histories
+
+
+def _build_formula_histories(
+    package: Mapping[str, Any],
+    histories: Mapping[str, Mapping[str, Mapping[str, EconomicPoint]]],
+    conflicts: set[tuple[str, str, str]],
+) -> tuple[dict[str, dict[str, dict[str, EconomicPoint]]], set[tuple[str, str, str]]]:
+    formula_histories = {
+        period_type: {
+            metric: dict(series)
+            for metric, series in period_histories.items()
+        }
+        for period_type, period_histories in histories.items()
+    }
+    formula_conflicts = set(conflicts)
+    _supplement_quarterly_histories(package, formula_histories["quarter"], formula_conflicts)
+    return formula_histories, formula_conflicts
+
+
+def _supplement_quarterly_histories(
+    package: Mapping[str, Any],
+    history: dict[str, dict[str, EconomicPoint]],
+    conflicts: set[tuple[str, str, str]],
+) -> None:
+    """Fill point-in-time metrics absent from calculation_history.
+
+    Calculation history remains the primary style-economic source. Quarterly
+    financial rows supply accepted balance-sheet points only where that primary
+    series has no value for the period.
+    """
+
+    fallback: dict[str, dict[str, EconomicPoint]] = {}
+    fallback_conflicts: set[tuple[str, str, str]] = set()
+    for row in ((package.get("quarterly_financials") or {}).get("rows") or []):
+        if not isinstance(row, Mapping):
+            continue
+        period = str(row.get("period") or "")
+        if not _period_matches(period, "quarter"):
+            continue
+        for metric, field in row.items():
+            if not isinstance(field, Mapping):
+                continue
+            point = _point_from_mapping(field)
+            if point is not None:
+                _add_history_point(fallback, fallback_conflicts, "quarter", str(metric), period, point)
+
+    for period_type, metric, period in fallback_conflicts:
+        if period not in history.get(metric, {}):
+            conflicts.add((period_type, metric, period))
+    for metric, series in fallback.items():
+        primary_series = history.setdefault(metric, {})
+        for period, point in series.items():
+            key = ("quarter", metric, period)
+            if period not in primary_series and key not in conflicts and key not in fallback_conflicts:
+                primary_series[period] = point
 
 
 def _add_history_point(

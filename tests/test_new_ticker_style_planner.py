@@ -22,6 +22,8 @@ from pbi_xbrl.new_ticker_style_planner import (
     STYLE_POLICY_SCHEMA,
     StylePlanningError,
     _FormulaEvaluator,
+    _build_formula_histories,
+    _build_histories,
     _plan_binding_state_styles,
     _point_from_mapping,
     _style_decision,
@@ -366,6 +368,17 @@ def test_period_contracts_lock_qoq_yoy_ttm_and_annual_lags() -> None:
     assert (policies["segment_annual_revenue"]["period_type"], policies["segment_annual_revenue"]["comparison_lag"]) == ("fiscal_year", 1)
     assert policies["segment_quarterly_revenue"]["comparison_lag"] == 4
 
+    selectors = {
+        policy_id: {row["target_id"] for row in policy["target_selectors"]}
+        for policy_id, policy in policies.items()
+    }
+    assert {"bs_current_ratio", "bs_quick_ratio"} <= selectors["bs_formula_higher_yoy"]
+    assert "x" in policies["bs_formula_higher_yoy"]["accepted_units"]
+    assert "bs_inventory_yoy" in selectors["bs_formula_neutral_disabled"]
+    assert "bs_working_capital_qoq" in selectors["bs_formula_neutral_disabled"]
+    assert "bs_inventory_vs_revenue_growth" in selectors["bs_formula_direct_lower"]
+    assert "bs_working_capital_qoq" not in selectors["bs_formula_direct_higher"]
+
 
 def test_annual_signal_compares_immediately_preceding_fiscal_year() -> None:
     threshold = _threshold()
@@ -402,6 +415,97 @@ def test_formula_yoy_requires_matching_prior_year_metric_and_unit() -> None:
 
     history["quarter"]["revenue"]["2024-Q4"] = _point(100, "%")
     assert _FormulaEvaluator(history, set()).evaluate("revenue_yoy", "2025-Q4")[1] == "formula_comparison_unit_mismatch"
+
+
+def test_quarterly_financials_supplement_missing_balance_sheet_formula_inputs() -> None:
+    package = {
+        "calculation_history": {
+            "quarterly_items": [
+                {
+                    "metric": "revenue",
+                    "period": period,
+                    "value": value,
+                    "unit": "$m",
+                    "status": "populated",
+                    "source_ref": f"calc:{period}",
+                }
+                for period, value in (("2024-Q1", 100.0), ("2025-Q1", 120.0))
+            ]
+        },
+        "quarterly_financials": {
+            "rows": [
+                {
+                    "period": period,
+                    "inventory": {
+                        "value": value,
+                        "unit": "$m",
+                        "status": "populated",
+                        "source_ref": f"quarterly:{period}",
+                    },
+                    "current_assets": {
+                        "value": assets,
+                        "unit": "$m",
+                        "status": "populated",
+                        "source_ref": f"quarterly-assets:{period}",
+                    },
+                    "current_liabilities": {
+                        "value": liabilities,
+                        "unit": "$m",
+                        "status": "populated",
+                        "source_ref": f"quarterly-liabilities:{period}",
+                    },
+                }
+                for period, value, assets, liabilities in (
+                    ("2024-Q1", 80.0, 200.0, 100.0),
+                    ("2025-Q1", 88.0, 240.0, 100.0),
+                )
+            ]
+        },
+    }
+
+    histories, conflicts, _segment_histories = _build_histories(package)
+    formula_histories, formula_conflicts = _build_formula_histories(package, histories, conflicts)
+    evaluator = _FormulaEvaluator(formula_histories, formula_conflicts)
+    inventory_less_revenue, reason = evaluator.evaluate(
+        "bs_inventory_vs_revenue_growth",
+        "2025-Q1",
+    )
+    current_ratio, ratio_reason = evaluator.evaluate("bs_current_ratio", "2025-Q1")
+
+    assert reason == "calculated"
+    assert inventory_less_revenue is not None
+    assert inventory_less_revenue.unit == "%"
+    assert inventory_less_revenue.value == pytest.approx(-0.1)
+    assert ratio_reason == "calculated"
+    assert current_ratio is not None
+    assert current_ratio.value == pytest.approx(2.4)
+    assert current_ratio.unit == "x"
+
+
+def test_quarterly_financial_fallback_conflicts_fail_closed() -> None:
+    package = {
+        "calculation_history": {"quarterly_items": []},
+        "quarterly_financials": {
+            "rows": [
+                {
+                    "period": "2025-Q1",
+                    "inventory": {
+                        "value": value,
+                        "unit": "$m",
+                        "status": "populated",
+                        "source_ref": source_ref,
+                    },
+                }
+                for value, source_ref in ((80.0, "fixture:first"), (81.0, "fixture:second"))
+            ]
+        },
+    }
+
+    histories, conflicts, _segment_histories = _build_histories(package)
+    formula_histories, formula_conflicts = _build_formula_histories(package, histories, conflicts)
+
+    assert "2025-Q1" not in formula_histories["quarter"].get("inventory", {})
+    assert ("quarter", "inventory", "2025-Q1") in formula_conflicts
 
 
 def test_formula_economics_preserve_positive_capex_outflow_and_fcf_subtraction() -> None:
@@ -546,7 +650,7 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         == 20_231
     )
     assert len(value_plan.planned_writes) == 22_760
-    assert len(style_plan.actions) == 738
+    assert len(style_plan.actions) == 770
     assert len(style_plan.decisions) == 1_298
     style_payload = style_plan.to_dict()
 
@@ -587,10 +691,10 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         and outside_product_pass_2b_status_surface(row)
         and outside_product_pass_3a2_status_surface(row)
     ]
-    assert len(stable_actions) == 651
-    assert _canonical_digest(stable_actions) == "31ef27704d765b69bb158626b097cadb37ad3858f6357c49d475c36e8a2ac419"
+    assert len(stable_actions) == 683
+    assert _canonical_digest(stable_actions) == "5fde8a884c74244e25356c758a871a29cf89f3109d32e7cc58fffc544b6b7240"
     assert len(stable_decisions) == 1_145
-    assert _canonical_digest(stable_decisions) == "3520d546878b0a682a433976007f6259e5b8244dde6562d8eb099213b5bfd245"
+    assert _canonical_digest(stable_decisions) == "1a68dc09d335c061c936200954b0eee94e91c8e27d92655dab4aff512977b6b0"
     assert validate_json_schema(style_plan.to_dict(), load_json_strict(STYLE_PLAN_SCHEMA)) == []
     assert {action.sheet for action in style_plan.actions} == {
         "Valuation",
@@ -605,6 +709,22 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
     assert sum(action.policy_id == "valuation_thesis_review_state" for action in style_plan.actions) == 7
     assert sum(row.policy_id == "valuation_thesis_review_state" for row in style_plan.decisions) == 8
     assert sum(row.policy_id == "valuation_guidance_source_state" for row in style_plan.decisions) == 20
+    assert sum(
+        action.sheet == "BS_Segments"
+        and action.policy_id == "bs_formula_higher_yoy"
+        and int(action.cell[1:]) in {36, 38, 39}
+        for action in style_plan.actions
+    ) == 24
+    assert sum(
+        action.sheet == "BS_Segments"
+        and action.policy_id == "bs_formula_direct_lower"
+        and int(action.cell[1:]) == 53
+        for action in style_plan.actions
+    ) == 8
+    assert not any(
+        action.sheet == "BS_Segments" and int(action.cell[1:]) in {51, 54}
+        for action in style_plan.actions
+    )
     assert not any(action.cell in {"B70", "C70", "D70", "E70", "F70", "G70", "H70", "I70", "J70", "K70", "L70", "M70"} and action.sheet == "Valuation" for action in style_plan.actions)
 
 

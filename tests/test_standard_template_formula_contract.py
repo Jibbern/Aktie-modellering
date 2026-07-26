@@ -139,7 +139,7 @@ def test_visible_metric_labels_are_concise_without_losing_definition() -> None:
 
 def test_formula_contract_contains_no_ticker_specific_content() -> None:
     source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
-    assert FORMULA_CONTRACT_VERSION == "2.2.0"
+    assert FORMULA_CONTRACT_VERSION == "2.3.0"
     for forbidden in ("Abercrombie", "Hollister", "ANF_model", "A&F"):
         assert forbidden not in source
 
@@ -172,8 +172,34 @@ def test_summary_formula_contract_is_exact_period_linked_and_fail_closed() -> No
         assert "MATCH($B$26,'Valuation'!$B$6:$M$6,0)<=4" in fcf_yoy
         assert "/ABS(" in fcf_yoy
         assert "=0" in fcf_yoy
-        assert summary["A33"].value == "GAAP EPS YoY % (latest vs LY quarter)"
-        assert summary["C33"].value == "%"
+        assert summary["A27"].value == "Revenue TTM ($m)"
+        assert summary["A32"].value == "GAAP diluted EPS ($/share)"
+        assert summary["A33"].value == "GAAP diluted EPS growth YoY (%)"
+        assert summary["A36"].value == "FCF TTM ($m)"
+        assert summary["A41"].value == "Net leverage (x)"
+        assert summary["A42"].value == "Interest coverage, P&L TTM (x)"
+        assert summary["A44"].value == "Revolver availability ($m)"
+        assert summary["A45"].value == "Total liquidity ($m)"
+        assert all(summary.cell(row, 3).value is None for row in range(27, 46))
+    finally:
+        wb.close()
+
+
+def test_balance_sheet_ratio_formats_and_investment_case_units_are_explicit() -> None:
+    wb = load_workbook(SHELL, data_only=False, read_only=False)
+    try:
+        bs = wb["BS_Segments"]
+        assert bs["A38"].value == "Current ratio (x)"
+        assert bs["A39"].value == "Quick ratio (x)"
+        assert all(bs.cell(row, column).number_format == "0.00x;-0.00x" for row in (38, 39) for column in range(2, 14))
+
+        investment_case = wb["{ticker}_Investment_Case"]
+        assert investment_case["A15"].value == "Current share price ($/share)"
+        assert investment_case["A16"].value == "Base shares (m shares; selected denominator)"
+        assert investment_case["A17"].value == "Net debt ($m)"
+        assert investment_case["A18"].value == "Revenue TTM ($m)"
+        assert investment_case["A24"].value == "Revenue growth (%)"
+        assert investment_case["A42"].value == "Target FCF yield (%)"
     finally:
         wb.close()
 

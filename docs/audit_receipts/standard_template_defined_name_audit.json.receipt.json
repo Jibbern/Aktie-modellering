@@ -11,15 +11,15 @@
   "authoritative_inputs": [
     {
       "path": "templates/standard_stock_model_template.xlsx",
-      "sha256": "7a6fc3509d2b7f182c95b96cadf03767a7e7adc888d6ae57cda0d37e013fe29e"
+      "sha256": "8cc97f138cf1c4e9cf1331d611cbdb4a2f89cf5ca6f9876840031e5b54776d49"
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "1da4e344d036262c3bac1dc7fbbeeac53cc58c600b892542fc38b4bf2183f89f"
+      "sha256": "29b521170e14c3996f1aace9cc9d2bcb152ab3711b4785a438360d9413c0230b"
     },
     {
       "path": "docs/workbook_binding_map.json",
-      "sha256": "d666d3c8bc5fa9a6d02999f01053b2053013fc1249e4f0364015ae3f69e62268"
+      "sha256": "13eb6f906f2f18734c2730d422ce4b64720a89ac03c81705c583f0c0b5f589e6"
     }
   ],
   "generator": {
@@ -35,7 +35,7 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "443a4dd4cafec4fcbc8b81d53b3e96fc893441ef47898712c1a8e8e99583628b",
+    "run_generation_id": "602a74317eb1d7ea7aab6c2b62d0aafaa96fecb80281bb202c59194ea6392a4f",
     "generated_outputs": [
       {
         "canonical_content_sha256": "6683ba6f9cc0d0e7d0f4f9c39223dc1bf3117940589309e3abfd010f893a12ef",
@@ -53,6 +53,6 @@
       }
     ]
   },
-  "generated_at_utc": "2026-07-21T23:26:00+00:00",
-  "generation_id": "6be0417f4a0022dd851337f7fceca357895cc4defefd2b798b5356f883cb9e69"
+  "generated_at_utc": "2026-07-26T13:34:49+00:00",
+  "generation_id": "d7eca4f02b593b56e3b9750b717cc924a982ef6ebaa1c9da1fbeb9b5abae83c1"
 }

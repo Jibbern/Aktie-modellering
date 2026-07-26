@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-21T23:26:23+00:00",
+  "generated_at": "2026-07-26T13:34:56+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "visible_sheets": [
@@ -55,9 +55,9 @@
   ],
   "classification_counts": {
     "formula_static": 2213,
-    "generic_block_label": 622,
-    "row_label_generic": 521,
-    "universal_template_label": 507
+    "generic_block_label": 607,
+    "row_label_generic": 527,
+    "universal_template_label": 503
   },
   "post_neutrality_summary": {
     "company_specific_value_count": 0,
@@ -154,7 +154,7 @@
     {
       "sheet": "SUMMARY",
       "cell": "A27",
-      "value": "Revenue (TTM)",
+      "value": "Revenue TTM ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -169,32 +169,16 @@
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C27",
-      "value": "$m",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A28",
-      "value": "Revenue (latest quarter)",
+      "value": "Revenue, latest quarter ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C28",
-      "value": "$m",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A29",
-      "value": "Revenue YoY (latest vs LY quarter)",
+      "value": "Revenue growth YoY, latest quarter (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -209,32 +193,16 @@
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C29",
-      "value": "%",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A30",
-      "value": "Net income (latest quarter)",
+      "value": "Net income, latest quarter ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C30",
-      "value": "$m",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A31",
-      "value": "Net income YoY (latest vs LY quarter)",
+      "value": "Net income growth YoY, latest quarter (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -249,16 +217,8 @@
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C31",
-      "value": "%",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A32",
-      "value": "EPS (latest quarter, GAAP diluted)",
+      "value": "GAAP diluted EPS ($/share)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -273,16 +233,8 @@
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C32",
-      "value": "$/share",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A33",
-      "value": "GAAP EPS YoY % (latest vs LY quarter)",
+      "value": "GAAP diluted EPS growth YoY (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -297,16 +249,8 @@
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C33",
-      "value": "%",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A34",
-      "value": "Total debt (latest quarter)",
+      "value": "Total debt, latest quarter ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -321,16 +265,8 @@
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C34",
-      "value": "$m",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A35",
-      "value": "Debt-to-equity (latest quarter)",
+      "value": "Debt-to-equity, latest quarter (x)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -346,7 +282,7 @@
     {
       "sheet": "SUMMARY",
       "cell": "A36",
-      "value": "Free cash flow (TTM)",
+      "value": "FCF TTM ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -361,16 +297,8 @@
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C36",
-      "value": "$m",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A37",
-      "value": "FCF YoY (latest quarter vs LY quarter)",
+      "value": "FCF growth YoY, latest quarter (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -385,16 +313,8 @@
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C37",
-      "value": "%",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A38",
-      "value": "P/E (price-linked)",
+      "value": "P/E, price-linked (x)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -410,7 +330,7 @@
     {
       "sheet": "SUMMARY",
       "cell": "A39",
-      "value": "P/S (price-linked)",
+      "value": "P/S, price-linked (x)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -434,23 +354,15 @@
     {
       "sheet": "SUMMARY",
       "cell": "A41",
-      "value": "Net leverage",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
-      "cell": "C41",
-      "value": "x",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "value": "Net leverage (x)",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {
       "sheet": "SUMMARY",
       "cell": "A42",
-      "value": "Interest coverage (P&L)",
+      "value": "Interest coverage, P&L TTM (x)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -465,16 +377,8 @@
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C42",
-      "value": "x",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A43",
-      "value": "Interest coverage (cash)",
+      "value": "Interest coverage, cash TTM (x)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -489,42 +393,18 @@
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C43",
-      "value": "x",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
       "cell": "A44",
-      "value": "Revolver availability",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
-      "cell": "C44",
-      "value": "$m",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
-      "hidden_state": "visible"
-    },
-    {
-      "sheet": "SUMMARY",
-      "cell": "A45",
-      "value": "Total liquidity",
+      "value": "Revolver availability ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {
       "sheet": "SUMMARY",
-      "cell": "C45",
-      "value": "$m",
-      "classification": "generic_block_label",
-      "reason": "Reusable block label or neutral UI text.",
+      "cell": "A45",
+      "value": "Total liquidity ($m)",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {
@@ -10370,7 +10250,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A1",
-      "value": "Balance Sheet & Segments",
+      "value": "Scale",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10442,7 +10322,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A4",
-      "value": "Balance sheet & Segments",
+      "value": "Balance Sheet and Segments",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10474,7 +10354,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A9",
-      "value": "Cash & cash equivalents",
+      "value": "Cash & cash equivalents ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10482,15 +10362,15 @@
     {
       "sheet": "BS_Segments",
       "cell": "A10",
-      "value": "Restricted cash",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
+      "value": "Restricted cash ($m)",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {
       "sheet": "BS_Segments",
       "cell": "A11",
-      "value": "Total cash + restricted cash",
+      "value": "Total cash + restricted cash ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10698,7 +10578,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A13",
-      "value": "Short-term investments / marketable securities",
+      "value": "Short-term investments / marketable securities ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10706,7 +10586,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A14",
-      "value": "Accounts receivable (net)",
+      "value": "Accounts receivable (net) ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10714,7 +10594,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A15",
-      "value": "Inventory",
+      "value": "Inventory ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10722,7 +10602,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A16",
-      "value": "Derivative financial instruments (asset)",
+      "value": "Derivative financial instruments (asset, $m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10730,7 +10610,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A17",
-      "value": "Prepaid & other current assets",
+      "value": "Prepaid & other current assets ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10738,7 +10618,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A18",
-      "value": "Total current assets",
+      "value": "Total current assets ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10746,7 +10626,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A19",
-      "value": "Property, plant & equipment (net)",
+      "value": "Property, plant & equipment (net, $m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10754,7 +10634,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A20",
-      "value": "Operating lease right-of-use assets",
+      "value": "Operating lease right-of-use assets ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10762,7 +10642,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A21",
-      "value": "Deferred income taxes, net",
+      "value": "Deferred income taxes, net ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10770,7 +10650,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A22",
-      "value": "Goodwill",
+      "value": "Goodwill ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10778,7 +10658,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A23",
-      "value": "Intangibles (net)",
+      "value": "Intangibles (net, $m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10786,7 +10666,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A24",
-      "value": "Other long-term assets",
+      "value": "Other long-term assets ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10794,7 +10674,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A25",
-      "value": "Total assets",
+      "value": "Total assets ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10802,7 +10682,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A26",
-      "value": "Goodwill % of assets",
+      "value": "Goodwill as % of assets (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10914,7 +10794,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A28",
-      "value": "Accounts payable",
+      "value": "Accounts payable ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10922,7 +10802,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A29",
-      "value": "Accrued liabilities",
+      "value": "Accrued liabilities ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10930,7 +10810,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A30",
-      "value": "Deferred revenue / customer deposits",
+      "value": "Deferred revenue / customer deposits ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10938,7 +10818,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A31",
-      "value": "Derivative financial instruments (liability)",
+      "value": "Derivative financial instruments (liability, $m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10946,7 +10826,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A32",
-      "value": "Short-term borrowings",
+      "value": "Short-term borrowings ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10954,7 +10834,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A33",
-      "value": "Current maturities of long-term debt",
+      "value": "Current maturities of long-term debt ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10962,7 +10842,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A34",
-      "value": "Operating lease current liabilities",
+      "value": "Operating lease current liabilities ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10970,7 +10850,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A35",
-      "value": "Total current liabilities",
+      "value": "Total current liabilities ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -10978,7 +10858,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A36",
-      "value": "Net working capital",
+      "value": "Net working capital ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11082,7 +10962,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A37",
-      "value": "Δ NWC QoQ",
+      "value": "Δ NWC QoQ ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11186,7 +11066,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A38",
-      "value": "Current ratio",
+      "value": "Current ratio (x)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11290,7 +11170,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A39",
-      "value": "Quick ratio",
+      "value": "Quick ratio (x)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11394,7 +11274,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A40",
-      "value": "Debt (core borrowings)",
+      "value": "Debt (core borrowings, $m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11506,7 +11386,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A42",
-      "value": "Operating lease long-term liabilities",
+      "value": "Operating lease long-term liabilities ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11514,7 +11394,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A43",
-      "value": "Pension / OPEB obligation (net)",
+      "value": "Pension / OPEB obligation (net, $m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11522,7 +11402,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A44",
-      "value": "Other long-term liabilities",
+      "value": "Other long-term liabilities ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11530,7 +11410,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A45",
-      "value": "Total liabilities",
+      "value": "Total liabilities ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11546,7 +11426,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A47",
-      "value": "Total equity",
+      "value": "Total equity ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11554,7 +11434,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A48",
-      "value": "Shares outstanding (m)",
+      "value": "Shares outstanding (m shares)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11562,7 +11442,15 @@
     {
       "sheet": "BS_Segments",
       "cell": "A49",
-      "value": "Shares diluted (m)",
+      "value": "Shares diluted (m shares)",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "BS_Segments",
+      "cell": "A50",
+      "value": "Retail balance-sheet diagnostics",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11570,7 +11458,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A51",
-      "value": "Inventory YoY",
+      "value": "Inventory YoY (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11674,7 +11562,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A52",
-      "value": "Sales YoY",
+      "value": "Sales YoY (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11778,7 +11666,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A53",
-      "value": "Inventory less sales YoY",
+      "value": "Inventory growth less revenue growth (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11882,7 +11770,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A54",
-      "value": "Net cash",
+      "value": "Net cash ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -11986,7 +11874,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A55",
-      "value": "Total lease liabilities",
+      "value": "Total lease liabilities ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12090,7 +11978,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A56",
-      "value": "Diluted shares YoY",
+      "value": "Diluted shares YoY (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12194,7 +12082,15 @@
     {
       "sheet": "BS_Segments",
       "cell": "A58",
-      "value": "Quarterly segments",
+      "value": "Quarterly segment revenue ($m)",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "BS_Segments",
+      "cell": "A59",
+      "value": "Geography and brand are separate analytical views; Total Company must not be added across both dimensions.",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12210,7 +12106,7 @@
     {
       "sheet": "BS_Segments",
       "cell": "A69",
-      "value": "Annual segments",
+      "value": "Annual segment revenue ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12698,7 +12594,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A15",
-      "value": "Current share price",
+      "value": "Current share price ($/share)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12730,7 +12626,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A16",
-      "value": "Base shares (selected denominator)",
+      "value": "Base shares (m shares; selected denominator)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12762,9 +12658,9 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A17",
-      "value": "Net debt",
-      "classification": "universal_template_label",
-      "reason": "Universal QA/source/status header.",
+      "value": "Net debt ($m)",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {
@@ -12794,7 +12690,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A18",
-      "value": "Revenue TTM",
+      "value": "Revenue TTM ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12826,7 +12722,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A19",
-      "value": "Net income TTM",
+      "value": "Net income TTM ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12858,7 +12754,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A20",
-      "value": "EBITDA (base, TTM)",
+      "value": "Base EBITDA TTM ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12890,7 +12786,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A21",
-      "value": "Adjusted EBITDA (TTM)",
+      "value": "Adjusted EBITDA TTM ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12922,7 +12818,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A22",
-      "value": "FCF TTM",
+      "value": "FCF TTM ($m)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12962,7 +12858,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A24",
-      "value": "Revenue growth",
+      "value": "Revenue growth (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12970,7 +12866,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A25",
-      "value": "Base EBITDA margin",
+      "value": "Base EBITDA margin (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12978,7 +12874,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A26",
-      "value": "Adjusted EBITDA margin",
+      "value": "Adjusted EBITDA margin (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -12994,7 +12890,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A28",
-      "value": "Tax rate",
+      "value": "Tax rate (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"
@@ -13106,7 +13002,7 @@
     {
       "sheet": "{ticker}_Investment_Case",
       "cell": "A42",
-      "value": "Target FCF yield",
+      "value": "Target FCF yield (%)",
       "classification": "row_label_generic",
       "reason": "Generic row or section label.",
       "hidden_state": "visible"

@@ -19,6 +19,7 @@ from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.workbook.defined_name import DefinedName
 
 from pbi_xbrl.json_schema_validation import load_json_strict
+from pbi_xbrl.workbook_number_formats import neutralize_negative_number_format
 
 from pbi_xbrl.valuation_scenario_economics import (
     CANONICAL_DIRECT_REVENUE_PROPAGATION,
@@ -32,7 +33,7 @@ from pbi_xbrl.valuation_scenario_economics import (
 )
 
 
-FORMULA_CONTRACT_VERSION = "2.2.0"
+FORMULA_CONTRACT_VERSION = "2.3.0"
 ROOT = Path(__file__).resolve().parents[1]
 HIDDEN_VALUE_SIGNAL_CONTRACT = ROOT / "docs" / "hidden_value_signal_contract.json"
 HIDDEN_VALUE_DETAIL_FIRST_ROW = 2
@@ -64,6 +65,13 @@ class FormulaRow:
     row: int
     number_format: str
     description: str
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "number_format",
+            neutralize_negative_number_format(self.number_format),
+        )
 
 
 @dataclass(frozen=True)
@@ -980,10 +988,60 @@ def _apply_hidden_value_visible_layout(ws: Any) -> None:
 
 def _apply_balance_sheet_labels(ws: Any) -> None:
     labels = {
-        13: "Short-term investments / marketable securities",
-        32: "Short-term borrowings",
-        33: "Current maturities of long-term debt",
-        40: "Debt (core borrowings)",
+        1: "Scale",
+        4: "Balance Sheet and Segments",
+        9: "Cash & cash equivalents ($m)",
+        10: "Restricted cash ($m)",
+        11: "Total cash + restricted cash ($m)",
+        12: "Δ Cash QoQ ($m)",
+        13: "Short-term investments / marketable securities ($m)",
+        14: "Accounts receivable (net) ($m)",
+        15: "Inventory ($m)",
+        16: "Derivative financial instruments (asset, $m)",
+        17: "Prepaid & other current assets ($m)",
+        18: "Total current assets ($m)",
+        19: "Property, plant & equipment (net, $m)",
+        20: "Operating lease right-of-use assets ($m)",
+        21: "Deferred income taxes, net ($m)",
+        22: "Goodwill ($m)",
+        23: "Intangibles (net, $m)",
+        24: "Other long-term assets ($m)",
+        25: "Total assets ($m)",
+        26: "Goodwill as % of assets (%)",
+        28: "Accounts payable ($m)",
+        29: "Accrued liabilities ($m)",
+        30: "Deferred revenue / customer deposits ($m)",
+        31: "Derivative financial instruments (liability, $m)",
+        32: "Short-term borrowings ($m)",
+        33: "Current maturities of long-term debt ($m)",
+        34: "Operating lease current liabilities ($m)",
+        35: "Total current liabilities ($m)",
+        36: "Net working capital ($m)",
+        37: "Δ NWC QoQ ($m)",
+        38: "Current ratio (x)",
+        39: "Quick ratio (x)",
+        40: "Debt (core borrowings, $m)",
+        41: "Δ Total debt QoQ ($m)",
+        42: "Operating lease long-term liabilities ($m)",
+        43: "Pension / OPEB obligation (net, $m)",
+        44: "Other long-term liabilities ($m)",
+        45: "Total liabilities ($m)",
+        47: "Total equity ($m)",
+        48: "Shares outstanding (m shares)",
+        49: "Shares diluted (m shares)",
+        50: "Retail balance-sheet diagnostics",
+        51: "Inventory YoY (%)",
+        52: "Sales YoY (%)",
+        53: "Inventory growth less revenue growth (%)",
+        54: "Net cash ($m)",
+        55: "Total lease liabilities ($m)",
+        56: "Diluted shares YoY (%)",
+        58: "Quarterly segment revenue ($m)",
+        59: (
+            "Geography and brand are separate analytical views; "
+            "Total Company must not be added across both dimensions."
+        ),
+        69: "Annual segment revenue ($m)",
     }
     for row, label in labels.items():
         ws.cell(row, 1).value = label
@@ -1065,8 +1123,29 @@ def _summary_free_cash_flow_yoy_formula() -> str:
 
 
 def _apply_summary_formulas(ws: Any, enabled_formula_ids: set[str]) -> None:
-    ws["A33"] = "GAAP EPS YoY % (latest vs LY quarter)"
-    ws["C33"] = "%"
+    labels = {
+        27: "Revenue TTM ($m)",
+        28: "Revenue, latest quarter ($m)",
+        29: "Revenue growth YoY, latest quarter (%)",
+        30: "Net income, latest quarter ($m)",
+        31: "Net income growth YoY, latest quarter (%)",
+        32: "GAAP diluted EPS ($/share)",
+        33: "GAAP diluted EPS growth YoY (%)",
+        34: "Total debt, latest quarter ($m)",
+        35: "Debt-to-equity, latest quarter (x)",
+        36: "FCF TTM ($m)",
+        37: "FCF growth YoY, latest quarter (%)",
+        38: "P/E, price-linked (x)",
+        39: "P/S, price-linked (x)",
+        41: "Net leverage (x)",
+        42: "Interest coverage, P&L TTM (x)",
+        43: "Interest coverage, cash TTM (x)",
+        44: "Revolver availability ($m)",
+        45: "Total liquidity ($m)",
+    }
+    for row, label in labels.items():
+        ws.cell(row, 1).value = label
+        ws.cell(row, 3).value = None
     formulas = {
         "summary_revenue_ttm": ("B27", _summary_valuation_value_formula(10), "#,##0.0;[Red]-#,##0.0"),
         "summary_revenue_yoy": ("B29", _summary_valuation_value_formula(11), "0.0%;[Red]-0.0%"),
@@ -1179,7 +1258,12 @@ def _apply_balance_sheet_formulas(ws: Any, enabled_formula_ids: set[str]) -> Non
         for row, formula in formulas.items():
             if formula_ids_by_row[row] not in enabled_formula_ids:
                 continue
-            number_format = "0.0%;[Red]-0.0%" if row in {26, 38, 39, 51, 52, 53, 56} else "#,##0.0;[Red]-#,##0.0"
+            if row in {38, 39}:
+                number_format = "0.00x;-0.00x"
+            elif row in {26, 51, 52, 53, 56}:
+                number_format = "0.0%;-0.0%"
+            else:
+                number_format = "#,##0.0;-#,##0.0"
             _set_formula(ws.cell(row, column), formula, number_format)
 
 
@@ -1484,20 +1568,20 @@ def _apply_investment_case_scenario_formulas(ws: Any, enabled_formula_ids: set[s
     labels = {
         13: "Typed Scenario Inputs",
         14: "Input / assumption",
-        15: "Current share price",
-        16: "Base shares (selected denominator)",
-        17: "Net debt",
-        18: "Revenue TTM",
-        19: "Net income TTM",
-        20: "EBITDA (base, TTM)",
-        21: "Adjusted EBITDA (TTM)",
-        22: "FCF TTM",
+        15: "Current share price ($/share)",
+        16: "Base shares (m shares; selected denominator)",
+        17: "Net debt ($m)",
+        18: "Revenue TTM ($m)",
+        19: "Net income TTM ($m)",
+        20: "Base EBITDA TTM ($m)",
+        21: "Adjusted EBITDA TTM ($m)",
+        22: "FCF TTM ($m)",
         23: "Fiscal horizon",
-        24: "Revenue growth",
-        25: "Base EBITDA margin",
-        26: "Adjusted EBITDA margin",
+        24: "Revenue growth (%)",
+        25: "Base EBITDA margin (%)",
+        26: "Adjusted EBITDA margin (%)",
         27: "Pre-tax earnings bridge ($m)",
-        28: "Tax rate",
+        28: "Tax rate (%)",
         29: "Earnings-bridge tax treatment",
         30: "Cash-interest change ($m)",
         31: "Cash-interest tax treatment",
@@ -1511,7 +1595,7 @@ def _apply_investment_case_scenario_formulas(ws: Any, enabled_formula_ids: set[s
         39: "Target EV/EBITDA (base, x)",
         40: "Target EV/Revenue (x)",
         41: "Target P/E (x)",
-        42: "Target FCF yield",
+        42: "Target FCF yield (%)",
         47: "Typed Scenario Driver Bridge",
         48: "Only explicit typed assumptions affect scenario economics; source guidance remains separate until selected.",
         49: "Bridge output",
@@ -2142,7 +2226,7 @@ def _apply_hidden_value_defined_names(workbook: Any) -> None:
 
 def _set_formula(cell: Any, formula: str, number_format: str) -> None:
     cell.value = formula
-    cell.number_format = number_format
+    cell.number_format = neutralize_negative_number_format(number_format)
     protection = copy(cell.protection)
     protection.locked = True
     cell.protection = protection

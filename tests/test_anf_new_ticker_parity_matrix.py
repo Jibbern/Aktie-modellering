@@ -2,12 +2,23 @@ from __future__ import annotations
 
 import copy
 from collections import Counter
+from functools import lru_cache
 from pathlib import Path
 
 from openpyxl import load_workbook
 
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
-from scripts.build_anf_new_ticker_parity_matrix import build_parity_matrix
+from pbi_xbrl.new_ticker_binding_planner import (
+    DEFAULT_MANIFEST,
+    reproduce_binding_plan,
+)
+from scripts.build_anf_new_ticker_parity_matrix import (
+    GUIDANCE_MODULE_ID,
+    GUIDANCE_PROJECTION_AUTHORITY,
+    GUIDANCE_PROJECTION_ID,
+    build_parity_matrix,
+    _guidance_destination_lineage,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,12 +29,41 @@ BINDING_MAP = ROOT / "docs" / "workbook_binding_map.json"
 DATA_ROOT = ROOT.parents[2] / "StockModelData"
 ANF_DIR = DATA_ROOT / "outputs" / "stress_tests" / "ANF_new_ticker_engine"
 PACKAGE = ANF_DIR / "ANF_normalized_data_package.json"
-PLAN = ANF_DIR / "ANF_binding_plan.json"
 LEGACY = DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
 
 
 def _matrix() -> dict:
     return load_json_strict(MATRIX)
+
+
+@lru_cache(maxsize=1)
+def _fresh_plan() -> dict:
+    return reproduce_binding_plan(
+        load_json_strict(PACKAGE),
+        binding_payload=load_json_strict(BINDING_MAP),
+        manifest=load_json_strict(DEFAULT_MANIFEST),
+        shell_path=SHELL,
+    ).to_dict()
+
+
+@lru_cache(maxsize=1)
+def _fresh_matrix() -> dict:
+    return build_parity_matrix(
+        package=load_json_strict(PACKAGE),
+        plan=_fresh_plan(),
+        legacy_path=LEGACY,
+        shell_path=SHELL,
+        binding_path=BINDING_MAP,
+    )
+
+
+def _active_guidance_binding_ids(binding_document: dict) -> set[str]:
+    return {
+        str(binding["binding_id"])
+        for binding in binding_document["bindings"]
+        if binding.get("module_id") == GUIDANCE_MODULE_ID
+        and binding.get("planning_state") == "active"
+    }
 
 
 def test_parity_matrix_is_schema_valid_and_has_unique_business_keys() -> None:
@@ -55,6 +95,127 @@ def test_all_available_required_items_are_reproduced() -> None:
         "source_evidence_business_key",
     }
     assert matrix["summary"]["independent_source_fact_reproduced_count"] == matrix["summary"]["independent_source_fact_count"]
+
+
+def test_guidance_destination_lineage_exactly_matches_the_fresh_plan() -> None:
+    plan = _fresh_plan()
+    binding_document = load_json_strict(BINDING_MAP)
+    active_binding_ids = _active_guidance_binding_ids(binding_document)
+    planned_writes = [
+        write
+        for write in plan["planned_writes"]
+        if write["binding_id"] in active_binding_ids
+    ]
+    planned_destinations = {
+        f"{write['target_sheet']}!{write['target_cell']}"
+        for write in planned_writes
+    }
+
+    lineage = _matrix()["summary"]["guidance_destination_lineage"]
+    lineage_destinations = [
+        destination["destination"]
+        for binding in lineage["bindings"]
+        for destination in binding["destinations"]
+    ]
+    lineage_by_id = {
+        binding["binding_id"]: binding
+        for binding in lineage["bindings"]
+    }
+
+    assert lineage["module_id"] == GUIDANCE_MODULE_ID
+    assert lineage["module_profile_id"] == "full_union"
+    assert lineage["active_binding_count"] == len(active_binding_ids) == 7
+    assert lineage["destination_count"] == len(planned_destinations) == 320
+    assert len(lineage_destinations) == len(set(lineage_destinations))
+    assert set(lineage_destinations) == planned_destinations
+    assert set(lineage_by_id) == active_binding_ids
+    assert {"Valuation", "Promise_Progress_UI"} == {
+        destination.split("!", 1)[0]
+        for destination in lineage_destinations
+    }
+
+    for binding_id in (
+        "valuation_guidance_current_primary_rows",
+        "valuation_guidance_current_secondary_rows",
+        "valuation_guidance_historical_rows",
+    ):
+        binding = lineage_by_id[binding_id]
+        assert binding["source_selector_type"] == "derived_resolved_rowset"
+        assert binding["normalized_collection_root"] == "normalized_guidance.items"
+        assert binding["resolved_rowset_producer"] == GUIDANCE_PROJECTION_ID
+        assert binding["resolver_projection_authority"] == GUIDANCE_PROJECTION_AUTHORITY
+        assert binding["formula_or_value_ownership"] == "value_binding"
+
+    for binding_id in (
+        "pp_progress_fy2025_rows",
+        "pp_progress_fy2024_rows",
+        "pp_current_secondary_guidance_rows",
+        "pp_guidance_timeline_rows",
+    ):
+        binding = lineage_by_id[binding_id]
+        assert binding["source_selector_type"] == "direct_package_collection"
+        assert not binding["resolved_rowset_producer"]
+        assert not binding["resolver_projection_authority"]
+
+    inactive_ids = {
+        str(binding["binding_id"])
+        for binding in binding_document["bindings"]
+        if binding.get("module_id") == GUIDANCE_MODULE_ID
+        and binding.get("planning_state") != "active"
+    }
+    assert inactive_ids
+    assert inactive_ids.isdisjoint(lineage_by_id)
+    assert _matrix() == _fresh_matrix()
+
+
+def test_guidance_lineage_is_independent_of_plan_order_and_ticker_identity() -> None:
+    plan = copy.deepcopy(_fresh_plan())
+    binding_document = load_json_strict(BINDING_MAP)
+    expected = _guidance_destination_lineage(plan, binding_document)
+
+    plan["planned_writes"].reverse()
+    plan["ticker"] = "XYZ"
+
+    assert _guidance_destination_lineage(plan, binding_document) == expected
+
+
+def test_derived_valuation_guidance_restores_the_exact_lost_destinations() -> None:
+    rows = {row["parity_id"]: row for row in _matrix()["entries"]}
+    expected = {
+        "legacy-guidance:79:revenue:2026-Q1": "Valuation!S10",
+        "legacy-guidance:80:revenue:FY2026": "Valuation!S9",
+        "legacy-guidance:81:operating_margin:2026-Q1": "Valuation!S12",
+        "legacy-guidance:82:operating_margin:FY2026": "Valuation!S11",
+        "legacy-guidance:83:adjusted_eps:2026-Q1": "Valuation!S14",
+        "legacy-guidance:84:adjusted_eps:FY2026": "Valuation!S13",
+        "legacy-guidance:91:real_estate_activity:FY2026": "Valuation!S15",
+        "promise-progress:adjusted_eps:FY2026": "Valuation!S13",
+        "promise-progress:operating_margin:FY2026": "Valuation!S11",
+        "promise-progress:real_estate_activity:FY2026": "Valuation!S15",
+        "promise-progress:revenue:FY2026": "Valuation!S9",
+    }
+
+    for parity_id, destination in expected.items():
+        row = rows[parity_id]
+        assert destination in row["expected_new_workbook_destination"]
+        assert "valuation_guidance_current_primary_rows" in row["binding_ids"]
+
+    primary_value_destinations = {
+        destination["destination"]
+        for binding in _matrix()["summary"]["guidance_destination_lineage"]["bindings"]
+        if binding["binding_id"] == "valuation_guidance_current_primary_rows"
+        for destination in binding["destinations"]
+        if destination["target_role"].endswith(".value")
+    }
+    assert primary_value_destinations == {
+        "Valuation!S9",
+        "Valuation!S10",
+        "Valuation!S11",
+        "Valuation!S12",
+        "Valuation!S13",
+        "Valuation!S14",
+        "Valuation!S15",
+    }
 
 
 def test_promise_progress_legacy_aliases_and_visible_row_routes_are_reproduced() -> None:
@@ -152,7 +313,7 @@ def test_removing_an_annual_package_row_cannot_remove_the_legacy_parity_item() -
     ]
     matrix = build_parity_matrix(
         package=package,
-        plan=load_json_strict(PLAN),
+        plan=_fresh_plan(),
         legacy_path=LEGACY,
         shell_path=SHELL,
         binding_path=BINDING_MAP,

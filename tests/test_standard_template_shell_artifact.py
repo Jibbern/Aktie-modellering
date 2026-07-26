@@ -356,7 +356,7 @@ def test_standard_template_shell_clears_representative_source_value_leaks() -> N
         representative_source_cells = {
             "SUMMARY": ["A3", "A5", "A7", "B28"],
             "Valuation": ["B6", "B9", "M18", "S10", "AA14"],
-            "BS_Segments": ["B7", "B47", "I49", "A50"],
+            "BS_Segments": ["B7", "B47", "I49", "A62"],
             "Operating_Drivers": ["B6", "H6"],
             "{ticker}_Investment_Case": ["A185", "B191", "B209", "F221", "H231"],
             "Quarter_Notes_UI": ["B3", "B4", "B5", "B6"],
@@ -679,6 +679,10 @@ def test_operating_drivers_sheet_preserves_standard_subheaders() -> None:
 def test_long_narrative_zones_are_wrapped_and_resized() -> None:
     wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
     try:
+        summary = wb["SUMMARY"]
+        assert all(summary.row_dimensions[row].height == 36.0 for row in range(17, 22))
+        assert all(summary.row_dimensions[row].height == 42.0 for row in (23, 24))
+
         drivers = wb["Operating_Drivers"]
         for row_idx in (6, 7, 8, 9, 14, 15):
             assert drivers[f"B{row_idx}"].alignment.wrap_text is True
@@ -691,6 +695,63 @@ def test_long_narrative_zones_are_wrapped_and_resized() -> None:
         assert promise.row_dimensions[67].height == 42.0
     finally:
         wb.close()
+
+
+def test_focused_pass_a_bs_segments_hierarchy_and_fiscal_headers_are_exact() -> None:
+    wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
+    try:
+        ws = wb["BS_Segments"]
+        assert ws["A1"].value == "Scale"
+        assert ws["A4"].value == "Balance Sheet and Segments"
+        assert ws["A50"].value == "Retail balance-sheet diagnostics"
+        assert ws["A58"].value == "Quarterly segment revenue ($m)"
+        assert ws["A59"].value == (
+            "Geography and brand are separate analytical views; "
+            "Total Company must not be added across both dimensions."
+        )
+        assert ws["A69"].value == "Annual segment revenue ($m)"
+        assert ws["A38"].value == "Current ratio (x)"
+        assert ws["A39"].value == "Quick ratio (x)"
+        assert ws["A51"].value == "Inventory YoY (%)"
+        assert ws["A53"].value == "Inventory growth less revenue growth (%)"
+
+        fiscal_headers = [ws.cell(70, column) for column in range(2, 10)]
+        assert all(cell.font.sz == 13 for cell in fiscal_headers)
+        assert all(cell.alignment.horizontal == "center" for cell in fiscal_headers)
+        assert len({cell.fill.fgColor.rgb for cell in fiscal_headers}) == 1
+        assert len({cell.borderId if hasattr(cell, "borderId") else cell._style.borderId for cell in fiscal_headers}) == 1
+        assert all(ws.row_dimensions[row].height == 18.0 for row in range(76, 79))
+    finally:
+        wb.close()
+
+
+def test_standard_template_contains_no_red_number_format_or_font_rule() -> None:
+    import zipfile
+
+    wb = load_workbook(TEMPLATE, data_only=False, read_only=False)
+    try:
+        offenders = [
+            f"{ws.title}!{cell.coordinate}"
+            for ws in wb.worksheets
+            for cell in ws._cells.values()
+            if "[red]" in str(cell.number_format).casefold()
+        ]
+        red_fonts = [
+            f"{ws.title}!{cell.coordinate}"
+            for ws in wb.worksheets
+            for cell in ws._cells.values()
+            if cell.font.color is not None
+            and cell.font.color.type == "rgb"
+            and str(cell.font.color.rgb).upper() in {"FFFF0000", "00FF0000"}
+        ]
+        assert offenders == []
+        assert red_fonts == []
+    finally:
+        wb.close()
+
+    with zipfile.ZipFile(TEMPLATE) as archive:
+        styles_xml = archive.read("xl/styles.xml").decode("utf-8")
+    assert "[red]" not in styles_xml.casefold()
 
 
 def test_debt_product_shell_layout_matches_bounded_manifest_metadata() -> None:

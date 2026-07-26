@@ -49,6 +49,7 @@ from pbi_xbrl.excel_formula_serialization import (
 )
 from pbi_xbrl.json_schema_validation import load_json_strict
 from pbi_xbrl.standard_template_audit_freshness import write_audit_freshness
+from pbi_xbrl.workbook_number_formats import neutralize_workbook_negative_number_formats
 from pbi_xbrl.workbook_modules import (
     DEFAULT_MODULE_MANIFEST,
     ResolvedModuleProfile,
@@ -1173,6 +1174,13 @@ def _ensure_promise_progress_status_fill_continuity(wb: Workbook) -> None:
 
 
 def _configure_narrative_text_layout(wb: Workbook) -> None:
+    if "SUMMARY" in wb.sheetnames:
+        ws = wb["SUMMARY"]
+        for row_idx in range(17, 22):
+            ws.row_dimensions[row_idx].height = 36.0
+        for row_idx in (23, 24):
+            ws.row_dimensions[row_idx].height = 42.0
+
     if "Operating_Drivers" in wb.sheetnames:
         ws = wb["Operating_Drivers"]
         for row_idx in (6, 7, 8, 9, 14, 15):
@@ -1514,7 +1522,7 @@ def _neutralize_blank_bs_signal_fills(wb: Workbook) -> None:
         return
     ws = wb["BS_Segments"]
     white = PatternFill("solid", fgColor="FFFFFF")
-    section_rows = {8, 27, 46, 58, 60, 69, 71}
+    section_rows = {8, 27, 46, 50, 58, 60, 69, 71}
     for row in range(9, 57):
         if row in section_rows:
             continue
@@ -1522,6 +1530,31 @@ def _neutralize_blank_bs_signal_fills(wb: Workbook) -> None:
             cell = ws.cell(row, column)
             if cell.value in (None, ""):
                 cell.fill = copy(white)
+
+
+def _configure_bs_segments_presentation(wb: Workbook) -> None:
+    if "BS_Segments" not in wb.sheetnames:
+        return
+    ws = wb["BS_Segments"]
+
+    for column in range(2, 14):
+        ws.cell(50, column)._style = copy(ws.cell(46, column)._style)
+        ws.cell(50, column).protection = copy(ws.cell(46, column).protection)
+
+    fiscal_header_style = copy(ws["B70"]._style)
+    fiscal_header_alignment = copy(ws["B70"].alignment)
+    fiscal_header_alignment.horizontal = "center"
+    fiscal_header_alignment.vertical = "center"
+    fiscal_header_font = copy(ws["B70"].font)
+    fiscal_header_font.size = 13
+    for column in range(2, 10):
+        cell = ws.cell(70, column)
+        cell._style = copy(fiscal_header_style)
+        cell.alignment = copy(fiscal_header_alignment)
+        cell.font = copy(fiscal_header_font)
+
+    for row_idx in range(76, 79):
+        ws.row_dimensions[row_idx].height = 18.0
 
 
 def _configure_summary_liquidity_layout(wb: Workbook) -> None:
@@ -1583,7 +1616,7 @@ def _configure_scalar_debt_liquidity_snapshot(wb: Workbook) -> None:
         ws.cell(row, 4).value = None
         ws.cell(row, 5).value = "unavailable" if row == 131 else None
         ws.cell(row, 6).value = definition
-        ws.cell(row, 2).number_format = "0.00x;[Red]-0.00x" if row == 130 else "#,##0.0;[Red]-#,##0.0"
+        ws.cell(row, 2).number_format = "0.00x;-0.00x" if row == 130 else "#,##0.0;-#,##0.0"
         for column in range(1, 14):
             cell = ws.cell(row, column)
             if not isinstance(cell, MergedCell):
@@ -1951,6 +1984,8 @@ def _materialize_rich_shell(
         wb,
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
     )
+    _configure_bs_segments_presentation(wb)
+    neutralize_workbook_negative_number_formats(wb)
     _retire_product_pass2b_valuation_capacity(wb)
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _ensure_qa_headers(wb)
@@ -2099,6 +2134,8 @@ def materialize_shell(
         wb,
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
     )
+    _configure_bs_segments_presentation(wb)
+    neutralize_workbook_negative_number_formats(wb)
     _retire_product_pass2b_valuation_capacity(wb)
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _configure_calculation(wb)

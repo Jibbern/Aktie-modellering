@@ -1432,7 +1432,8 @@
       "threshold_set_id": "legacy_five_band_change",
       "accepted_units": [
         "$m",
-        "%"
+        "%",
+        "x"
       ],
       "applies_to": [
         "formula"
@@ -1513,11 +1514,6 @@
         },
         {
           "selector_type": "formula",
-          "target_id": "bs_working_capital_qoq",
-          "metric_id": "bs_working_capital_qoq"
-        },
-        {
-          "selector_type": "formula",
           "target_id": "bs_revenue_yoy",
           "metric_id": "bs_revenue_yoy"
         }
@@ -1558,6 +1554,11 @@
           "selector_type": "formula",
           "target_id": "bs_diluted_shares_yoy",
           "metric_id": "bs_diluted_shares_yoy"
+        },
+        {
+          "selector_type": "formula",
+          "target_id": "bs_inventory_vs_revenue_growth",
+          "metric_id": "bs_inventory_vs_revenue_growth"
         }
       ]
     },
@@ -1636,8 +1637,8 @@
         },
         {
           "selector_type": "formula",
-          "target_id": "bs_inventory_vs_revenue_growth",
-          "metric_id": "bs_inventory_vs_revenue_growth"
+          "target_id": "bs_working_capital_qoq",
+          "metric_id": "bs_working_capital_qoq"
         },
         {
           "selector_type": "formula",

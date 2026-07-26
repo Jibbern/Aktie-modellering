@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-07T20:18:00.518946+00:00",
+  "generated_at": "2026-07-26T13:38:09.442334+00:00",
   "preview_mode": "openpyxl_static_not_excel_com",
   "standard_shell": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "anf_template_lab": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\lab\\ANF_template_lab.xlsx",
@@ -9,13 +9,69 @@
     "status": "PASS",
     "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
     "issue_count": 0,
-    "issues": []
+    "issues": [],
+    "shell_identity": {
+      "status": "PASS",
+      "issues": [],
+      "expected": {
+        "semantic_contract_version": "1.8.0",
+        "workbook_sha256": "8cc97f138cf1c4e9cf1331d611cbdb4a2f89cf5ca6f9876840031e5b54776d49",
+        "manifest_contract_signature": "482487512c275f230cb4e73df0e4900c3f94918ad7a587f626a0eb18fc1e3c1a",
+        "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
+        "sheet_view_signature": "9d4fa7cfce19fcd35ae65db64dd0b8028a4fc5563780dc9b63feda5c7700a6db",
+        "merge_signature": "7bbc65e9ab02f63e70548527ca52bdb1182d91af9d46025e45acab9794064de5",
+        "defined_name_signature": "7db74841e94b719ada62ff0af793d070c4bf7513cdbf2e728d952240f2cb5369",
+        "writable_target_signature": "8257710bd20954af2305596f8e5a3391765eb8bf5069ed243ce4ec4eb5e6b54a",
+        "binding_contract_signature": "3bfd714dd4e5d34ddf521cb941ad9dc9c91c5e06dbe3d51a4a586422e274b84d",
+        "formula_static_zone_signature": "ebe0f021d2b4be4976b29e9ef4e0efa152d77eaba130393fad3ec6708611daa3",
+        "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
+        "editable_surface_signature": "29b6308c01ee5961305a12fac0b20ab202f4edae22390e5a07cf27be48d94732",
+        "counts": {
+          "sheets": 46,
+          "sheet_views": 46,
+          "merges": 1754,
+          "defined_names": 279,
+          "writable_targets": 570,
+          "binding_contracts": 188,
+          "formula_cells": 2213,
+          "static_cells": 1637,
+          "protected_worksheets": 46,
+          "editable_cells": 122
+        }
+      },
+      "actual": {
+        "semantic_contract_version": "1.8.0",
+        "workbook_sha256": "8cc97f138cf1c4e9cf1331d611cbdb4a2f89cf5ca6f9876840031e5b54776d49",
+        "manifest_contract_signature": "482487512c275f230cb4e73df0e4900c3f94918ad7a587f626a0eb18fc1e3c1a",
+        "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
+        "sheet_view_signature": "9d4fa7cfce19fcd35ae65db64dd0b8028a4fc5563780dc9b63feda5c7700a6db",
+        "merge_signature": "7bbc65e9ab02f63e70548527ca52bdb1182d91af9d46025e45acab9794064de5",
+        "defined_name_signature": "7db74841e94b719ada62ff0af793d070c4bf7513cdbf2e728d952240f2cb5369",
+        "writable_target_signature": "8257710bd20954af2305596f8e5a3391765eb8bf5069ed243ce4ec4eb5e6b54a",
+        "binding_contract_signature": "3bfd714dd4e5d34ddf521cb941ad9dc9c91c5e06dbe3d51a4a586422e274b84d",
+        "formula_static_zone_signature": "ebe0f021d2b4be4976b29e9ef4e0efa152d77eaba130393fad3ec6708611daa3",
+        "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
+        "editable_surface_signature": "29b6308c01ee5961305a12fac0b20ab202f4edae22390e5a07cf27be48d94732",
+        "counts": {
+          "sheets": 46,
+          "sheet_views": 46,
+          "merges": 1754,
+          "defined_names": 279,
+          "writable_targets": 570,
+          "binding_contracts": 188,
+          "formula_cells": 2213,
+          "static_cells": 1637,
+          "protected_worksheets": 46,
+          "editable_cells": 122
+        }
+      }
+    }
   },
   "previews": {
     "preview_mode": "openpyxl_static_not_excel_com",
-    "standard_shell_contact_sheet": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\lab\\previews\\standard_shell_contact_sheet.png",
-    "anf_template_lab_contact_sheet": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\lab\\previews\\anf_template_lab_contact_sheet.png",
-    "shell_vs_anf_contact_sheet": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\lab\\previews\\shell_vs_anf_contact_sheet.png"
+    "standard_shell_contact_sheet": "C:\\Users\\Jibbe\\AppData\\Local\\Temp\\standard-template-audit-u4m9ge8r\\previews\\standard_shell_contact_sheet.png",
+    "anf_template_lab_contact_sheet": "C:\\Users\\Jibbe\\AppData\\Local\\Temp\\standard-template-audit-u4m9ge8r\\previews\\anf_template_lab_contact_sheet.png",
+    "shell_vs_anf_contact_sheet": "C:\\Users\\Jibbe\\AppData\\Local\\Temp\\standard-template-audit-u4m9ge8r\\previews\\shell_vs_anf_contact_sheet.png"
   },
   "sheet_reports": [
     {
@@ -28,8 +84,8 @@
       },
       "source_lab": {
         "non_empty_cells": 85,
-        "static_template_label_count": 44,
-        "row_label_count": 29,
+        "static_template_label_count": 48,
+        "row_label_count": 28,
         "formula_count": 0,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 0,
@@ -41,25 +97,25 @@
         "source_specific_text_count": 4
       },
       "standard_shell": {
-        "non_empty_cells": 44,
-        "static_template_label_count": 44,
-        "row_label_count": 29,
-        "formula_count": 0,
+        "non_empty_cells": 41,
+        "static_template_label_count": 33,
+        "row_label_count": 28,
+        "formula_count": 8,
         "formula_count_inside_writable": 0,
-        "formula_count_outside_writable": 0,
-        "merge_count": 26,
+        "formula_count_outside_writable": 8,
+        "merge_count": 28,
         "numeric_value_count": 0,
-        "text_value_count": 44,
+        "text_value_count": 33,
         "hidden_columns": [],
         "freeze_panes": "A2",
         "source_specific_text_count": 0
       },
       "blank_writable_cells": {
-        "blank": 41,
+        "blank": 31,
         "nonblank": 0,
-        "total": 41
+        "total": 31
       },
-      "row_height_similarity": 1.0,
+      "row_height_similarity": 0.844,
       "column_width_similarity": 1.0,
       "missing_section_labels": [],
       "missing_row_labels": [],
@@ -70,15 +126,20 @@
         "What the company does": true,
         "Current strategic context": true,
         "Key competitive advantage": true,
-        "Business model / revenue streams": true,
         "Operating model per segment": true,
         "Key dependencies": true,
         "What would make me wrong": true,
         "Key Financials": true,
         "Leverage / Liquidity": true
       },
-      "gap_classifications": [],
-      "visually_complete": true
+      "gap_classifications": [
+        {
+          "classification": "should_keep_style_or_layout",
+          "severity": "P2",
+          "message": "Row-height or column-width similarity is below the rich-shell threshold."
+        }
+      ],
+      "visually_complete": false
     },
     {
       "sheet": "Valuation",
@@ -86,15 +147,15 @@
       "preview_mode": "openpyxl_static_not_excel_com",
       "used_range": {
         "source_lab": "A1:AI261",
-        "standard_shell": "A1:AI261"
+        "standard_shell": "A1:AI271"
       },
       "source_lab": {
         "non_empty_cells": 1748,
-        "static_template_label_count": 478,
-        "row_label_count": 164,
+        "static_template_label_count": 592,
+        "row_label_count": 163,
         "formula_count": 75,
-        "formula_count_inside_writable": 11,
-        "formula_count_outside_writable": 64,
+        "formula_count_inside_writable": 0,
+        "formula_count_outside_writable": 75,
         "merge_count": 422,
         "numeric_value_count": 947,
         "text_value_count": 725,
@@ -102,18 +163,18 @@
           "AI"
         ],
         "freeze_panes": "B7",
-        "source_specific_text_count": 2
+        "source_specific_text_count": 7
       },
       "standard_shell": {
-        "non_empty_cells": 477,
-        "static_template_label_count": 413,
-        "row_label_count": 164,
-        "formula_count": 64,
+        "non_empty_cells": 1230,
+        "static_template_label_count": 442,
+        "row_label_count": 142,
+        "formula_count": 788,
         "formula_count_inside_writable": 0,
-        "formula_count_outside_writable": 64,
-        "merge_count": 424,
+        "formula_count_outside_writable": 788,
+        "merge_count": 319,
         "numeric_value_count": 0,
-        "text_value_count": 413,
+        "text_value_count": 442,
         "hidden_columns": [
           "AI"
         ],
@@ -121,11 +182,11 @@
         "source_specific_text_count": 0
       },
       "blank_writable_cells": {
-        "blank": 2634,
+        "blank": 649,
         "nonblank": 0,
-        "total": 2634
+        "total": 649
       },
-      "row_height_similarity": 1.0,
+      "row_height_similarity": 0.982,
       "column_width_similarity": 1.0,
       "missing_section_labels": [],
       "missing_row_labels": [],
@@ -143,7 +204,9 @@
         "Metric": true,
         "Stated in": true,
         "Applies to": true,
-        "Trend / realized": true
+        "Role / source status": true,
+        "Historical guidance": true,
+        "Thesis / debate evidence": true
       },
       "gap_classifications": [],
       "visually_complete": true
@@ -154,12 +217,12 @@
       "preview_mode": "openpyxl_static_not_excel_com",
       "used_range": {
         "source_lab": "A1:I74",
-        "standard_shell": "A1:I120"
+        "standard_shell": "A1:M78"
       },
       "source_lab": {
         "non_empty_cells": 358,
-        "static_template_label_count": 77,
-        "row_label_count": 70,
+        "static_template_label_count": 68,
+        "row_label_count": 61,
         "formula_count": 0,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 0,
@@ -171,42 +234,51 @@
         "source_specific_text_count": 6
       },
       "standard_shell": {
-        "non_empty_cells": 71,
-        "static_template_label_count": 71,
-        "row_label_count": 64,
-        "formula_count": 0,
+        "non_empty_cells": 235,
+        "static_template_label_count": 67,
+        "row_label_count": 60,
+        "formula_count": 168,
         "formula_count_inside_writable": 0,
-        "formula_count_outside_writable": 0,
+        "formula_count_outside_writable": 168,
         "merge_count": 4,
         "numeric_value_count": 0,
-        "text_value_count": 71,
+        "text_value_count": 67,
         "hidden_columns": [],
         "freeze_panes": "B8",
         "source_specific_text_count": 0
       },
       "blank_writable_cells": {
-        "blank": 904,
+        "blank": 482,
         "nonblank": 0,
-        "total": 904
+        "total": 482
       },
-      "row_height_similarity": 1.0,
-      "column_width_similarity": 1.0,
+      "row_height_similarity": 0.97,
+      "column_width_similarity": 0.692,
       "missing_section_labels": [],
       "missing_row_labels": [],
       "missing_formula_static_helper_areas": [],
       "company_specific_anf_values_removed": true,
       "major_section_header_presence": {
-        "Balance Sheet & Segments": true,
+        "Balance Sheet and Segments": true,
         "Quarter": true,
         "Liquidity / Assets": true,
-        "Cash & cash equivalents": true,
-        "Total assets": true,
-        "Total liabilities": true,
-        "Total equity": true,
-        "Shares diluted": true
+        "Cash & cash equivalents ($m)": true,
+        "Total assets ($m)": true,
+        "Total liabilities ($m)": true,
+        "Total equity ($m)": true,
+        "Shares diluted (m shares)": true,
+        "Retail balance-sheet diagnostics": true,
+        "Quarterly segment revenue ($m)": true,
+        "Annual segment revenue ($m)": true
       },
-      "gap_classifications": [],
-      "visually_complete": true
+      "gap_classifications": [
+        {
+          "classification": "should_keep_style_or_layout",
+          "severity": "P2",
+          "message": "Row-height or column-width similarity is below the rich-shell threshold."
+        }
+      ],
+      "visually_complete": false
     },
     {
       "sheet": "Operating_Drivers",
@@ -218,8 +290,8 @@
       },
       "source_lab": {
         "non_empty_cells": 540,
-        "static_template_label_count": 116,
-        "row_label_count": 110,
+        "static_template_label_count": 112,
+        "row_label_count": 106,
         "formula_count": 0,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 0,
@@ -231,25 +303,25 @@
         "source_specific_text_count": 17
       },
       "standard_shell": {
-        "non_empty_cells": 106,
-        "static_template_label_count": 106,
-        "row_label_count": 100,
+        "non_empty_cells": 45,
+        "static_template_label_count": 45,
+        "row_label_count": 39,
         "formula_count": 0,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 0,
         "merge_count": 61,
         "numeric_value_count": 0,
-        "text_value_count": 106,
+        "text_value_count": 45,
         "hidden_columns": [],
         "freeze_panes": "A2",
         "source_specific_text_count": 0
       },
       "blank_writable_cells": {
-        "blank": 1008,
+        "blank": 999,
         "nonblank": 0,
-        "total": 1008
+        "total": 999
       },
-      "row_height_similarity": 0.991,
+      "row_height_similarity": 0.939,
       "column_width_similarity": 1.0,
       "missing_section_labels": [],
       "missing_row_labels": [],
@@ -275,11 +347,11 @@
       },
       "source_lab": {
         "non_empty_cells": 807,
-        "static_template_label_count": 192,
-        "row_label_count": 192,
+        "static_template_label_count": 425,
+        "row_label_count": 191,
         "formula_count": 208,
-        "formula_count_inside_writable": 199,
-        "formula_count_outside_writable": 9,
+        "formula_count_inside_writable": 41,
+        "formula_count_outside_writable": 167,
         "merge_count": 295,
         "numeric_value_count": 22,
         "text_value_count": 577,
@@ -288,39 +360,46 @@
         "source_specific_text_count": 35
       },
       "standard_shell": {
-        "non_empty_cells": 197,
-        "static_template_label_count": 188,
-        "row_label_count": 188,
-        "formula_count": 9,
+        "non_empty_cells": 235,
+        "static_template_label_count": 129,
+        "row_label_count": 100,
+        "formula_count": 106,
         "formula_count_inside_writable": 0,
-        "formula_count_outside_writable": 9,
-        "merge_count": 295,
+        "formula_count_outside_writable": 106,
+        "merge_count": 270,
         "numeric_value_count": 0,
-        "text_value_count": 188,
+        "text_value_count": 129,
         "hidden_columns": [],
         "freeze_panes": "A4",
         "source_specific_text_count": 0
       },
       "blank_writable_cells": {
-        "blank": 1153,
+        "blank": 290,
         "nonblank": 0,
-        "total": 1153
+        "total": 290
       },
       "row_height_similarity": 1.0,
       "column_width_similarity": 1.0,
       "missing_section_labels": [],
       "missing_row_labels": [],
-      "missing_formula_static_helper_areas": [],
+      "missing_formula_static_helper_areas": [
+        "Formula/helper count outside writable zones is lower than the ANF lab contract. shell=106 lab=167."
+      ],
       "company_specific_anf_values_removed": true,
       "major_section_header_presence": {
-        "{ticker} Investment Case": true,
         "Investment Snapshot": true,
         "Key Debate": true,
-        "Manual Market / Scenario Inputs": true,
+        "Typed Scenario Inputs": true,
         "Scenario Driver Bridge": true
       },
-      "gap_classifications": [],
-      "visually_complete": true
+      "gap_classifications": [
+        {
+          "classification": "should_keep_formula",
+          "severity": "P2",
+          "message": "Formula/helper count outside writable zones is lower than the ANF lab contract. shell=106 lab=167."
+        }
+      ],
+      "visually_complete": false
     },
     {
       "sheet": "Quarter_Notes_UI",
@@ -328,12 +407,12 @@
       "preview_mode": "openpyxl_static_not_excel_com",
       "used_range": {
         "source_lab": "A1:O353",
-        "standard_shell": "A1:O360"
+        "standard_shell": "A1:O353"
       },
       "source_lab": {
         "non_empty_cells": 1054,
-        "static_template_label_count": 306,
-        "row_label_count": 306,
+        "static_template_label_count": 1020,
+        "row_label_count": 300,
         "formula_count": 0,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 0,
@@ -345,23 +424,23 @@
         "source_specific_text_count": 7
       },
       "standard_shell": {
-        "non_empty_cells": 306,
-        "static_template_label_count": 306,
-        "row_label_count": 306,
+        "non_empty_cells": 276,
+        "static_template_label_count": 276,
+        "row_label_count": 144,
         "formula_count": 0,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 0,
         "merge_count": 1006,
         "numeric_value_count": 0,
-        "text_value_count": 306,
+        "text_value_count": 276,
         "hidden_columns": [],
         "freeze_panes": "A2",
         "source_specific_text_count": 0
       },
       "blank_writable_cells": {
-        "blank": 1490,
+        "blank": 34,
         "nonblank": 0,
-        "total": 1490
+        "total": 34
       },
       "row_height_similarity": 1.0,
       "column_width_similarity": 1.0,
@@ -392,8 +471,8 @@
       },
       "source_lab": {
         "non_empty_cells": 654,
-        "static_template_label_count": 190,
-        "row_label_count": 91,
+        "static_template_label_count": 158,
+        "row_label_count": 52,
         "formula_count": 0,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 0,
@@ -409,15 +488,15 @@
         "source_specific_text_count": 29
       },
       "standard_shell": {
-        "non_empty_cells": 189,
-        "static_template_label_count": 189,
-        "row_label_count": 90,
+        "non_empty_cells": 124,
+        "static_template_label_count": 124,
+        "row_label_count": 25,
         "formula_count": 0,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 0,
         "merge_count": 66,
         "numeric_value_count": 0,
-        "text_value_count": 189,
+        "text_value_count": 124,
         "hidden_columns": [
           "M",
           "N",
@@ -427,11 +506,11 @@
         "source_specific_text_count": 0
       },
       "blank_writable_cells": {
-        "blank": 1050,
+        "blank": 903,
         "nonblank": 0,
-        "total": 1050
+        "total": 903
       },
-      "row_height_similarity": 1.0,
+      "row_height_similarity": 0.982,
       "column_width_similarity": 1.0,
       "missing_section_labels": [],
       "missing_row_labels": [],
@@ -490,23 +569,29 @@
         "nonblank": 0,
         "total": 129974
       },
-      "row_height_similarity": 1.0,
-      "column_width_similarity": 1.0,
+      "row_height_similarity": 0.0,
+      "column_width_similarity": 0.0,
       "missing_section_labels": [],
       "missing_row_labels": [],
       "missing_formula_static_helper_areas": [],
       "company_specific_anf_values_removed": true,
       "major_section_header_presence": {
-        "QA Log": true,
+        "issue_id": true,
         "severity": true,
         "rule_id": true,
-        "field": true,
-        "message": true,
-        "source_ref": true,
-        "status": true
+        "issue_type": true,
+        "section": true,
+        "occurrence_count": true,
+        "detail_ref": true
       },
-      "gap_classifications": [],
-      "visually_complete": true
+      "gap_classifications": [
+        {
+          "classification": "should_keep_style_or_layout",
+          "severity": "P2",
+          "message": "Row-height or column-width similarity is below the rich-shell threshold."
+        }
+      ],
+      "visually_complete": false
     },
     {
       "sheet": "Needs_Review",
@@ -531,15 +616,15 @@
         "source_specific_text_count": 0
       },
       "standard_shell": {
-        "non_empty_cells": 13,
-        "static_template_label_count": 13,
+        "non_empty_cells": 11,
+        "static_template_label_count": 11,
         "row_label_count": 1,
         "formula_count": 0,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 0,
         "merge_count": 0,
         "numeric_value_count": 0,
-        "text_value_count": 13,
+        "text_value_count": 11,
         "hidden_columns": [],
         "freeze_panes": "A2",
         "source_specific_text_count": 0
@@ -549,23 +634,28 @@
         "nonblank": 0,
         "total": 129974
       },
-      "row_height_similarity": 1.0,
-      "column_width_similarity": 1.0,
+      "row_height_similarity": 0.0,
+      "column_width_similarity": 0.154,
       "missing_section_labels": [],
       "missing_row_labels": [],
       "missing_formula_static_helper_areas": [],
       "company_specific_anf_values_removed": true,
       "major_section_header_presence": {
-        "Needs Review": true,
+        "issue_id": true,
         "severity": true,
         "rule_id": true,
-        "field": true,
-        "message": true,
-        "source_ref": true,
-        "status": true
+        "normalized_path": true,
+        "occurrence_count": true,
+        "detail_ref": true
       },
-      "gap_classifications": [],
-      "visually_complete": true
+      "gap_classifications": [
+        {
+          "classification": "should_keep_style_or_layout",
+          "severity": "P2",
+          "message": "Row-height or column-width similarity is below the rich-shell threshold."
+        }
+      ],
+      "visually_complete": false
     },
     {
       "sheet": "QA_Checks",
@@ -590,15 +680,15 @@
         "source_specific_text_count": 6
       },
       "standard_shell": {
-        "non_empty_cells": 24,
-        "static_template_label_count": 24,
+        "non_empty_cells": 9,
+        "static_template_label_count": 9,
         "row_label_count": 1,
         "formula_count": 0,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 0,
         "merge_count": 0,
         "numeric_value_count": 0,
-        "text_value_count": 24,
+        "text_value_count": 9,
         "hidden_columns": [],
         "freeze_panes": "A2",
         "source_specific_text_count": 0
@@ -608,23 +698,28 @@
         "nonblank": 0,
         "total": 129974
       },
-      "row_height_similarity": 1.0,
-      "column_width_similarity": 1.0,
+      "row_height_similarity": 0.0,
+      "column_width_similarity": 0.625,
       "missing_section_labels": [],
       "missing_row_labels": [],
       "missing_formula_static_helper_areas": [],
       "company_specific_anf_values_removed": true,
       "major_section_header_presence": {
-        "QA Checks": true,
-        "severity": true,
         "rule_id": true,
-        "field": true,
-        "message": true,
-        "source_ref": true,
-        "status": true
+        "status": true,
+        "unique_issue_count": true,
+        "occurrence_count": true,
+        "blocking_count": true,
+        "detail_ref": true
       },
-      "gap_classifications": [],
-      "visually_complete": true
+      "gap_classifications": [
+        {
+          "classification": "should_keep_style_or_layout",
+          "severity": "P2",
+          "message": "Row-height or column-width similarity is below the rich-shell threshold."
+        }
+      ],
+      "visually_complete": false
     }
   ],
   "gap_classification_legend": [

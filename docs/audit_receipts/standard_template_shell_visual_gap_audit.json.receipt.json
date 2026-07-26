@@ -1,17 +1,17 @@
 {
   "receipt_version": "3.0.0",
-  "status": "stale",
-  "reason": "Product Pass 3A2 adds debt product surfaces; manual visual audit is deferred to the integrated v8 render.",
+  "status": "generated",
+  "reason": "",
   "artifact": {
     "path": "docs/standard_template_shell_visual_gap_audit.json",
-    "sha256": "3c884c16dd604b435e6f595e49b17a1639167b985d10b87105393809457398f1",
+    "sha256": "6733c4d41a655acf407e6a54a2226a28260f42c749ec76657678bd3c9f249693",
     "output_schema": "json",
     "output_version": "0.1.0"
   },
   "authoritative_inputs": [
     {
       "path": "templates/standard_stock_model_template.xlsx",
-      "sha256": "7a6fc3509d2b7f182c95b96cadf03767a7e7adc888d6ae57cda0d37e013fe29e"
+      "sha256": "8cc97f138cf1c4e9cf1331d611cbdb4a2f89cf5ca6f9876840031e5b54776d49"
     },
     {
       "path": "templates/lab/ANF_template_lab.xlsx",
@@ -19,30 +19,45 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "1da4e344d036262c3bac1dc7fbbeeac53cc58c600b892542fc38b4bf2183f89f"
+      "sha256": "29b521170e14c3996f1aace9cc9d2bcb152ab3711b4785a438360d9413c0230b"
     }
   ],
   "generator": {
-    "path": "scripts/build_standard_template_shell_visual_gap_audit.py",
     "contract_version": "1.0.0",
-    "implementation_sha256": "40acaa66cae048b68baaffbc8f0902e5d2b6df46f3eb299d6e6a627de9cdd2ec",
-    "receipt_engine_sha256": "7a235734fe4851f27b7b5daf946b874f716d2a8e24eab75ab66c6069e39e3336",
-    "runner_implementation_sha256": "a2d09fd4edefa35cbadb27ffbf3dd569c1bd3d0b306eaa12bd95555511b46291",
-    "execution_contract_sha256": "594167b5a91a4a2ecc056f5436b85053482b0a09e6cb6e222662fcedede12a4f",
     "dependencies": [
       {
         "path": "scripts/validate_standard_template_shell.py",
-        "sha256": "5d5b59d7019dd786b7117e33fd930d0c5629dd46d0d9a8721bb190ec827b3773"
+        "sha256": "7dbd0090aedecbd4c5659a9e6516f13f9457af6ea8dfbefcadb27379bdfd4946"
+      }
+    ],
+    "execution_contract_sha256": "594167b5a91a4a2ecc056f5436b85053482b0a09e6cb6e222662fcedede12a4f",
+    "implementation_sha256": "23e43dcdc6901aae89e9f17985c3efd16a926c851099b1abbc7f674c7e79122d",
+    "path": "scripts/build_standard_template_shell_visual_gap_audit.py",
+    "receipt_engine_sha256": "7a235734fe4851f27b7b5daf946b874f716d2a8e24eab75ab66c6069e39e3336",
+    "runner_implementation_sha256": "a2d09fd4edefa35cbadb27ffbf3dd569c1bd3d0b306eaa12bd95555511b46291"
+  },
+  "verification": {
+    "mode": "controlled_isolated_generator_run",
+    "runner_contract_version": "2.0.0",
+    "successful_completion": true,
+    "run_generation_id": "24f7269c46401f551e2b02b2016bba47781e951babf718f610d7c8bf9db4765d",
+    "generated_outputs": [
+      {
+        "canonical_content_sha256": "f555b7823ceb705fb0043740302fb2448a38bb78ed11a2e48724fa26a4608824",
+        "output_schema": "json",
+        "output_version": "0.1.0",
+        "path": "docs/standard_template_shell_visual_gap_audit.json",
+        "sha256": "6733c4d41a655acf407e6a54a2226a28260f42c749ec76657678bd3c9f249693"
+      },
+      {
+        "canonical_content_sha256": "02d640f343f233ad025dd56b4df77169b465b5ff51131e89c18a9934d861ed33",
+        "output_schema": "text/markdown",
+        "output_version": "markdown-v1",
+        "path": "docs/standard_template_shell_visual_gap_audit.md",
+        "sha256": "f79d47dbcabbd6562bc106273a4f692393b92c0d74b156c1963d6c3dbb82684a"
       }
     ]
   },
-  "verification": {
-    "mode": "unverified_stale",
-    "runner_contract_version": "2.0.0",
-    "successful_completion": false,
-    "run_generation_id": "f473f680cc67a642b49c84c024d102e0f6313282e1c7193a135705bb53fd7c3d",
-    "generated_outputs": []
-  },
-  "generated_at_utc": "2026-07-21T23:27:27+00:00",
-  "generation_id": "6f0389aabbcc5a63e821444536202614f11651dae84aa5f3078027d5ad17302c"
+  "generated_at_utc": "2026-07-26T13:38:09+00:00",
+  "generation_id": "3d949e7304f330b412595f3f875a93269b32c0ef8b599bed0e71615f34251a10"
 }

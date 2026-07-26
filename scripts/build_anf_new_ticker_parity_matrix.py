@@ -42,6 +42,14 @@ DEFAULT_BINDINGS = ROOT / "docs" / "workbook_binding_map.json"
 DEFAULT_OUTPUT_JSON = ROOT / "docs" / "anf_new_ticker_parity_matrix.json"
 DEFAULT_OUTPUT_MD = ROOT / "docs" / "anf_new_ticker_parity_matrix.md"
 
+GUIDANCE_MODULE_ID = "guidance_promises"
+DERIVED_GUIDANCE_ROOT = "_derived_workbook.guidance."
+GUIDANCE_SOURCE_COLLECTION = "normalized_guidance.items"
+GUIDANCE_PROJECTION_ID = "valuation_guidance_projection"
+GUIDANCE_PROJECTION_AUTHORITY = (
+    "pbi_xbrl.new_ticker_guidance_scope.build_valuation_guidance_projection"
+)
+
 LEGACY_REPORT_PLACEHOLDER_ROWS = {
     "total_debt": ("REPORT_BS_Q", "Total debt"),
     "debt_core": ("REPORT_BS_Q", "Debt core"),
@@ -259,6 +267,232 @@ def _write_index(plan: Mapping[str, Any]) -> dict[str, list[Mapping[str, Any]]]:
         if isinstance(write, Mapping):
             result[str(write.get("normalized_path") or "")].append(write)
     return result
+
+
+def _planned_write_sort_key(write: Mapping[str, Any]) -> tuple[Any, ...]:
+    target_cell = str(write.get("target_cell") or "")
+    match = re.fullmatch(r"([A-Z]+)(\d+)", target_cell)
+    column = match.group(1) if match else target_cell
+    row = int(match.group(2)) if match else 0
+    return (
+        str(write.get("target_sheet") or ""),
+        row,
+        column,
+        str(write.get("binding_id") or ""),
+        str(write.get("target_role") or ""),
+        str(write.get("normalized_path") or ""),
+    )
+
+
+def _active_guidance_bindings(
+    binding_document: Mapping[str, Any],
+) -> dict[str, Mapping[str, Any]]:
+    result: dict[str, Mapping[str, Any]] = {}
+    for binding in binding_document.get("bindings") or []:
+        if not isinstance(binding, Mapping):
+            continue
+        if str(binding.get("module_id") or "") != GUIDANCE_MODULE_ID:
+            continue
+        if str(binding.get("planning_state") or "") != "active":
+            continue
+        binding_id = str(binding.get("binding_id") or "")
+        if not binding_id:
+            raise ValueError("Active Guidance binding is missing binding_id.")
+        if binding_id in result:
+            raise ValueError(f"Duplicate active Guidance binding_id: {binding_id}")
+        result[binding_id] = binding
+    return result
+
+
+def _guidance_projection_plan(plan: Mapping[str, Any]) -> Mapping[str, Any]:
+    matches = [
+        row
+        for row in plan.get("derived_plans") or []
+        if isinstance(row, Mapping)
+        and str(row.get("plan_id") or "") == GUIDANCE_PROJECTION_ID
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            "Derived Guidance bindings require exactly one "
+            f"{GUIDANCE_PROJECTION_ID!r} plan; found {len(matches)}."
+        )
+    return matches[0]
+
+
+def _guidance_destination_lineage(
+    plan: Mapping[str, Any],
+    binding_document: Mapping[str, Any],
+) -> dict[str, Any]:
+    active_bindings = _active_guidance_bindings(binding_document)
+    binding_index = {
+        str(binding.get("binding_id") or ""): binding
+        for binding in binding_document.get("bindings") or []
+        if isinstance(binding, Mapping) and binding.get("binding_id")
+    }
+    plan_writes = [
+        write
+        for write in plan.get("planned_writes") or []
+        if isinstance(write, Mapping)
+    ]
+    for write in plan_writes:
+        binding = binding_index.get(str(write.get("binding_id") or ""))
+        if (
+            binding is not None
+            and str(binding.get("module_id") or "") == GUIDANCE_MODULE_ID
+            and str(binding.get("planning_state") or "") != "active"
+        ):
+            raise ValueError(
+                "Inactive Guidance binding produced a planned write: "
+                f"{write.get('binding_id')}"
+            )
+
+    derived_bindings = {
+        binding_id
+        for binding_id, binding in active_bindings.items()
+        if str((binding.get("row_selector") or {}).get("source_path") or "").startswith(
+            DERIVED_GUIDANCE_ROOT
+        )
+    }
+    projection_plan = _guidance_projection_plan(plan) if derived_bindings else {}
+    profile_id = str(binding_document.get("module_profile_id") or "")
+    seen_destinations: dict[str, str] = {}
+    lineage_bindings: list[dict[str, Any]] = []
+
+    for binding_id, binding in sorted(active_bindings.items()):
+        row_selector = binding.get("row_selector") or {}
+        source_path = str(row_selector.get("source_path") or binding.get("normalized_field") or "")
+        derived = source_path.startswith(DERIVED_GUIDANCE_ROOT)
+        binding_writes = sorted(
+            (
+                write
+                for write in plan_writes
+                if str(write.get("binding_id") or "") == binding_id
+            ),
+            key=_planned_write_sort_key,
+        )
+        destination_rows: list[dict[str, Any]] = []
+        for write in binding_writes:
+            destination = f"{write.get('target_sheet')}!{write.get('target_cell')}"
+            previous_owner = seen_destinations.get(destination)
+            if previous_owner is not None:
+                raise ValueError(
+                    "Duplicate active Guidance destination "
+                    f"{destination}: {previous_owner} and {binding_id}"
+                )
+            seen_destinations[destination] = binding_id
+            destination_rows.append(
+                {
+                    "destination": destination,
+                    "normalized_path": str(write.get("normalized_path") or ""),
+                    "row_key": str(write.get("row_key") or ""),
+                    "source_ref": str(write.get("source_ref") or ""),
+                    "target_role": str(write.get("target_role") or ""),
+                }
+            )
+
+        lineage_bindings.append(
+            {
+                "binding_id": binding_id,
+                "module_id": GUIDANCE_MODULE_ID,
+                "module_profile_id": profile_id,
+                "destination_sheet": str(binding.get("sheet") or ""),
+                "declared_target": str(binding.get("planner_target") or binding.get("target") or ""),
+                "source_selector_type": (
+                    "derived_resolved_rowset" if derived else "direct_package_collection"
+                ),
+                "source_selector": source_path,
+                "normalized_collection_root": (
+                    GUIDANCE_SOURCE_COLLECTION if derived else source_path
+                ),
+                "resolved_rowset_producer": (
+                    str(projection_plan.get("plan_id") or "") if derived else ""
+                ),
+                "resolver_projection_authority": (
+                    GUIDANCE_PROJECTION_AUTHORITY if derived else ""
+                ),
+                "formula_or_value_ownership": "value_binding",
+                "planning_state": str(binding.get("planning_state") or ""),
+                "projected_row_count": len(
+                    {
+                        str(write.get("row_key") or "")
+                        for write in binding_writes
+                        if write.get("row_key")
+                    }
+                ),
+                "product_role": str(binding.get("rowset_id") or binding.get("section") or ""),
+                "destination_count": len(destination_rows),
+                "destinations": destination_rows,
+            }
+        )
+
+    return {
+        "module_id": GUIDANCE_MODULE_ID,
+        "module_profile_id": profile_id,
+        "active_binding_count": len(lineage_bindings),
+        "destination_count": len(seen_destinations),
+        "bindings": lineage_bindings,
+    }
+
+
+def _derived_guidance_value_write_index(
+    plan: Mapping[str, Any],
+    binding_document: Mapping[str, Any],
+) -> dict[str, list[Mapping[str, Any]]]:
+    active_bindings = _active_guidance_bindings(binding_document)
+    derived_binding_ids = {
+        binding_id
+        for binding_id, binding in active_bindings.items()
+        if str((binding.get("row_selector") or {}).get("source_path") or "").startswith(
+            DERIVED_GUIDANCE_ROOT
+        )
+    }
+    result: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for write in plan.get("planned_writes") or []:
+        if not isinstance(write, Mapping):
+            continue
+        if str(write.get("binding_id") or "") not in derived_binding_ids:
+            continue
+        if not str(write.get("normalized_path") or "").endswith(".value"):
+            continue
+        source_ref = str(write.get("source_ref") or "")
+        if source_ref:
+            result[source_ref].append(write)
+    return {
+        source_ref: sorted(writes, key=_planned_write_sort_key)
+        for source_ref, writes in result.items()
+    }
+
+
+def _guidance_item_source_refs(item: Mapping[str, Any]) -> set[str]:
+    refs = {
+        str(item.get("source_ref") or ""),
+        *(str(ref or "") for ref in item.get("evidence_refs") or []),
+    }
+    return {ref for ref in refs if ref}
+
+
+def _merge_guidance_value_writes(
+    direct_writes: Sequence[Mapping[str, Any]],
+    item: Mapping[str, Any],
+    derived_writes_by_source_ref: Mapping[str, Sequence[Mapping[str, Any]]],
+) -> list[Mapping[str, Any]]:
+    writes = [
+        *direct_writes,
+        *(
+            write
+            for source_ref in sorted(_guidance_item_source_refs(item))
+            for write in derived_writes_by_source_ref.get(source_ref, [])
+        ),
+    ]
+    unique: dict[tuple[str, str, str], Mapping[str, Any]] = {}
+    for write in writes:
+        key = (
+            str(write.get("binding_id") or ""),
+            str(write.get("target_sheet") or ""),
+            str(write.get("target_cell") or ""),
+        )
+        unique[key] = write
+    return sorted(unique.values(), key=_planned_write_sort_key)
 
 
 def _destinations(writes: Sequence[Mapping[str, Any]]) -> list[str]:
@@ -818,7 +1052,11 @@ def _guidance_parity_entries(
     package: Mapping[str, Any],
     writes_by_path: Mapping[str, Sequence[Mapping[str, Any]]],
     legacy_path: Path,
+    derived_writes_by_source_ref: Mapping[
+        str, Sequence[Mapping[str, Any]]
+    ] | None = None,
 ) -> list[dict[str, Any]]:
+    derived_writes_by_source_ref = derived_writes_by_source_ref or {}
     legacy_rows = _legacy_guidance_inventory(legacy_path)
     package_rows = _path_get(package, "normalized_guidance.items") or []
     package_by_signature: dict[tuple[Any, ...], list[tuple[int, Mapping[str, Any]]]] = defaultdict(list)
@@ -839,7 +1077,11 @@ def _guidance_parity_entries(
             if package_index >= 0
             else f"normalized_guidance.items[missing:{legacy['row_number']}].value"
         )
-        writes = list(writes_by_path.get(path, []))
+        writes = _merge_guidance_value_writes(
+            writes_by_path.get(path, []),
+            package_item,
+            derived_writes_by_source_ref,
+        )
         evidence_refs = package_item.get("evidence_refs", []) if isinstance(package_item, Mapping) else []
         lineage_retained = legacy["source_ref"] in evidence_refs
         role = str(package_item.get("display_role") or "") if isinstance(package_item, Mapping) else ""
@@ -1082,9 +1324,13 @@ def _promise_progress_parity_entries(
     package: Mapping[str, Any],
     writes_by_path: Mapping[str, Sequence[Mapping[str, Any]]],
     legacy_path: Path,
+    derived_writes_by_source_ref: Mapping[
+        str, Sequence[Mapping[str, Any]]
+    ] | None = None,
 ) -> list[dict[str, Any]]:
     """Inventory legacy Promise Progress scopes before matching normalized routes."""
 
+    derived_writes_by_source_ref = derived_writes_by_source_ref or {}
     legacy_metric_aliases = {
         "eps": "Adj EPS",
         "diluted-share": "Diluted shares",
@@ -1249,7 +1495,11 @@ def _promise_progress_parity_entries(
                     disposition_paths = []
                     disposition_source_refs = []
                     occurrence_dispositions = Counter()
-            writes = list(writes_by_path.get(path, []))
+            writes = _merge_guidance_value_writes(
+                writes_by_path.get(path, []),
+                row,
+                derived_writes_by_source_ref,
+            )
         rows = inventory["rows"]
         entries.append(_entry(
             parity_id=f"promise-progress:{metric}:FY{fiscal_year}", domain="promise_progress", metric=metric,
@@ -1302,6 +1552,11 @@ def build_parity_matrix(
     entries: list[dict[str, Any]] = []
 
     binding_document = load_json_strict(binding_path)
+    guidance_destination_lineage = _guidance_destination_lineage(plan, binding_document)
+    derived_guidance_writes = _derived_guidance_value_write_index(
+        plan,
+        binding_document,
+    )
     dispositions = _financial_dispositions(binding_document)
     selector_exclusions = _selector_exclusion_index(plan)
     history_rows, history_headers = _legacy_history_rows(legacy_path)
@@ -1664,8 +1919,22 @@ def build_parity_matrix(
     finally:
         legacy_wb.close()
 
-    entries.extend(_guidance_parity_entries(package, writes_by_path, legacy_path))
-    entries.extend(_promise_progress_parity_entries(package, writes_by_path, legacy_path))
+    entries.extend(
+        _guidance_parity_entries(
+            package,
+            writes_by_path,
+            legacy_path,
+            derived_guidance_writes,
+        )
+    )
+    entries.extend(
+        _promise_progress_parity_entries(
+            package,
+            writes_by_path,
+            legacy_path,
+            derived_guidance_writes,
+        )
+    )
     entries.extend(_legacy_narrative_scalar_entries(package, writes_by_path, legacy_path))
     entries.extend(_legacy_narrative_row_entries(package, writes_by_path, legacy_path))
 
@@ -1837,6 +2106,7 @@ def build_parity_matrix(
             "inventory_class_counts": dict(sorted(inventory_class_counts.items())),
             "formula_contract_counts": dict(sorted(formula_contract_counts.items())),
             "formula_calculability_counts": dict(sorted(formula_calculability_counts.items())),
+            "guidance_destination_lineage": guidance_destination_lineage,
             "promise_progress_key_disposition_counts": dict(sorted(promise_key_disposition_counts.items())),
             "promise_progress_occurrence_disposition_counts": dict(sorted(promise_occurrence_disposition_counts.items())),
             "domain_status_counts": {key: dict(value) for key, value in sorted(domain_counts.items())},

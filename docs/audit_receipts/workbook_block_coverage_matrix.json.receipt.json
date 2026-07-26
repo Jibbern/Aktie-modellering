@@ -4,7 +4,7 @@
   "reason": "",
   "artifact": {
     "path": "docs/workbook_block_coverage_matrix.json",
-    "sha256": "1fd8e1480717826a44d493aba810efe369a0ef613a7e01b3726ad56ecbd5a6fc",
+    "sha256": "6994ae2706bb7a8266e2e4961203385d2cbac65426ec57cd202bb458a06d6253",
     "output_schema": "json",
     "output_version": "0.1.0"
   },
@@ -15,11 +15,11 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "1da4e344d036262c3bac1dc7fbbeeac53cc58c600b892542fc38b4bf2183f89f"
+      "sha256": "29b521170e14c3996f1aace9cc9d2bcb152ab3711b4785a438360d9413c0230b"
     },
     {
       "path": "docs/workbook_binding_map.json",
-      "sha256": "d666d3c8bc5fa9a6d02999f01053b2053013fc1249e4f0364015ae3f69e62268"
+      "sha256": "13eb6f906f2f18734c2730d422ce4b64720a89ac03c81705c583f0c0b5f589e6"
     },
     {
       "path": "docs/sheet_data_flow_map.json",
@@ -56,14 +56,14 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "0efccc47d35f37f7d7bc0208d80159fbc04aa2a61adba28c697abb7654ef9104",
+    "run_generation_id": "443c568ed9003dd699498ba4626a940b46773d5d72721490f210f1b948b3e741",
     "generated_outputs": [
       {
         "canonical_content_sha256": "c13b82181f5de72d51e8fa670523db82273057e5655e3d2cd20a208d766ef1b5",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_architecture.json",
-        "sha256": "b6018a6e66a8ea6e86f66ff74d1c5029e12f936640f0afcd46c35a00de586e97"
+        "sha256": "0306e3883a5ae97d3d61b44cc52c47253db0aea1812be8cf318a42aa500be7fb"
       },
       {
         "canonical_content_sha256": "b9bc6d2f0cc9df0e72c5ce1279e2b4c65dcb35de3666610351831f3df527ad55",
@@ -77,7 +77,7 @@
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_coverage_matrix.json",
-        "sha256": "1fd8e1480717826a44d493aba810efe369a0ef613a7e01b3726ad56ecbd5a6fc"
+        "sha256": "6994ae2706bb7a8266e2e4961203385d2cbac65426ec57cd202bb458a06d6253"
       },
       {
         "canonical_content_sha256": "fcc33465f7c140dbb1eb14f53d2e656eb5e9acce4782b891779dcbeab3da2e72",
@@ -88,6 +88,6 @@
       }
     ]
   },
-  "generated_at_utc": "2026-07-21T23:26:45+00:00",
-  "generation_id": "ad5e963ddc639e18fd341880c49fa59af70ea654c9f6bcb10f9da129e890ac22"
+  "generated_at_utc": "2026-07-26T13:35:14+00:00",
+  "generation_id": "8ad1d6a52821587fa795b4b9823204228ed84d8df15137b0406d685e17c55338"
 }

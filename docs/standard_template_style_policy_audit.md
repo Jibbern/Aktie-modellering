@@ -3,7 +3,7 @@
 Status: **PASS**
 
 - Authoritative contract: `docs/standard_template_style_policy.json`
-- Contract digest: `14feeeda362edcc9154c8870cc12bb9d41ad2a324dbca30a26f95fb48d350389`
+- Contract digest: `2c7f1bb733a8f51e5c691c888dc08d717d92f4acbaadf96b6d86e1b3bd1d9e53`
 - Numerical policies: 44
 - Categorical state policies: 10
 - Total policies: 54

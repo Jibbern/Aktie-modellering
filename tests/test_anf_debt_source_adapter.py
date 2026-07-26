@@ -540,7 +540,7 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
     assert len(debt_product_writes) == 389
     assert _digest(debt_product_writes) == "774cc923de372f915599414a60dcd10d52832c746f6c6d73e3275caa7fcef57f"
     assert _digest(plan["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
-    assert styles["action_count"] == 738
+    assert styles["action_count"] == 770
     assert styles["decision_count"] == 1_298
     debt_policy_ids = {
         "debt_profile_product_state",
@@ -552,7 +552,7 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
     prior_actions = [row for row in styles["actions"] if row["policy_id"] not in debt_policy_ids]
     prior_decisions = [row for row in styles["decisions"] if row["policy_id"] not in debt_policy_ids]
     assert _digest({"actions": prior_actions, "decisions": prior_decisions}) == (
-        "da237f9bf4e78826d397077ac6075306f1031a516caf536ac8e8499c39525961"
+        "919d1b8abcdc1cc1aef9a84835d2b3a0f0a8c79446947472297453ddf2329687"
     )
     debt_actions = [row for row in styles["actions"] if row["policy_id"] in debt_policy_ids]
     debt_decisions = [row for row in styles["decisions"] if row["policy_id"] in debt_policy_ids]
