@@ -25,6 +25,7 @@ from pbi_xbrl.standard_template_shell_identity import (
 )
 from pbi_xbrl.new_ticker_binding_planner import reproduce_binding_plan_snapshot
 from pbi_xbrl.new_ticker_value_filler import _execute_binding_plan, _resolve_ticker_sheet
+from pbi_xbrl.standard_template_formula_contract import USER_INPUT_CONTRACTS
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -598,32 +599,25 @@ def test_company_specific_labels_and_constant_defined_name_are_absent() -> None:
         assert wb["SUMMARY"]["A8"].value is None
         assert wb["{ticker}_Investment_Case"]["A1"].value is None
         assert "ThesisBaseAdjEBITDA_FY" not in wb.defined_names
-        assert wb["{ticker}_Investment_Case"]["A193"].value == "Business Health"
-        assert wb["{ticker}_Investment_Case"]["A211"].value == "Asset Productivity / Capacity Returns"
+        investment_case_values = {
+            cell.value
+            for cell in wb["{ticker}_Investment_Case"]._cells.values()
+            if isinstance(cell.value, str) and not cell.value.startswith("=")
+        }
+        assert "Business Health" not in investment_case_values
+        assert "Asset Productivity / Capacity Returns" not in investment_case_values
+        assert all(
+            wb["{ticker}_Investment_Case"].row_dimensions[row].hidden
+            for row in range(226, 241)
+        )
         investment_case_validation_targets = {
             str(validation.sqref)
             for validation in wb["{ticker}_Investment_Case"].data_validations.dataValidation
         }
         assert investment_case_validation_targets == {
-            "A161:A163",
-            "A172:A174",
-            "A178:A180",
-            "B23:D23",
-            "B24:D26",
-            "B27:D27",
-            "B28:D28",
-            "B29:D29",
-            "B30:D30",
-            "B31:D31",
-            "B32:D33",
-            "B34:D34",
-            "B35:D35",
-            "B36:D37",
-            "B38:D41",
-            "B42:D42",
-            "B160:D160",
-            "B171:D171",
-            "B177:D177",
+            contract.target
+            for contract in USER_INPUT_CONTRACTS
+            if contract.sheet == "{ticker}_Investment_Case"
         }
         assert wb.defined_names["valuation_share_count_anchor"].attr_text == "'Valuation'!$A$102"
         assert wb.defined_names["investment_key_debate_anchor"].attr_text == "'{ticker}_Investment_Case'!$A$7"

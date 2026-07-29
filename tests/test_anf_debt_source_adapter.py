@@ -501,8 +501,8 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
     plan = value_plan.to_dict()
     styles = style_plan.to_dict()
     assert plan["status"] == "PASS"
-    assert plan["planned_write_count"] == 22_760
-    assert plan["structured_skip_count"] == 2_017
+    assert plan["planned_write_count"] == 23_521
+    assert plan["structured_skip_count"] == 2_012
     assert plan["overflow_count"] == 0
     assert plan["issue_ledger"]["summary"]["canonical_unique_issue_count"] == 761
     assert plan["issue_ledger"]["summary"]["detailed_occurrence_count"] == 2_323
@@ -530,6 +530,7 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
         row
         for row in plan["planned_writes"]
         if row["target_sheet"] not in debt_product_sheets
+        and row["binding_id"] != "ic_product_projection_rows"
         and not (row["target_sheet"] == "Valuation" and row["target_cell"] == "M95")
     ]
     assert len(unaffected) == 22_370
@@ -539,6 +540,11 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
     ]
     assert len(debt_product_writes) == 389
     assert _digest(debt_product_writes) == "774cc923de372f915599414a60dcd10d52832c746f6c6d73e3275caa7fcef57f"
+    investment_case_writes = [
+        row for row in plan["planned_writes"] if row["binding_id"] == "ic_product_projection_rows"
+    ]
+    assert len(investment_case_writes) == 761
+    assert _digest(investment_case_writes) == "116b42305807cd301b7bbf1b79d3f25f62dae054cbca75dcd8887de98def79cd"
     assert _digest(plan["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
     assert styles["action_count"] == 770
     assert styles["decision_count"] == 1_298

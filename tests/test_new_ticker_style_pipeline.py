@@ -151,7 +151,7 @@ def test_public_filler_applies_exact_reproduced_style_plan_after_values(
 ) -> None:
     artifacts = filled_anf_style_workbook
     result = artifacts["result"]
-    assert result.written_cell_count == 22_760
+    assert result.written_cell_count == 23_521
     assert result.styled_cell_count == 770
 
     shell = load_workbook(SHELL, data_only=False, read_only=False)
@@ -279,6 +279,7 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
     excel = None
     book = None
     valuation = None
+    investment_case = None
     process_id: int | None = None
     ui_language_id: int | None = None
     pythoncom.CoInitialize()
@@ -314,6 +315,7 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
         excel.CalculateFullRebuild()
 
         valuation = book.Worksheets("Valuation")
+        investment_case = book.Worksheets("ANF_Investment_Case")
         future_formula_errors: list[str] = []
         for row in (10, 15, 21, 25, 34, 39, 46, 49, 50, 63, 64, 65, 66, 67, 88, 89, 109, 111, 271):
             formulas = _formula2_values(valuation.Range(f"B{row}:M{row}").Formula2)
@@ -329,7 +331,8 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             for sheet_name, target in (
                 ("Valuation", "N244"),
                 ("Valuation", "N261"),
-                ("ANF_Investment_Case", "B68"),
+                ("ANF_Investment_Case", "E126"),
+                ("ANF_Investment_Case", "H165"),
                 *(("Hidden_Value_Recompute", f"{column}{row}") for row in (16, 17, 18, 32, 34, 63, 90) for column in ("AB", "AC", "AD")),
             )
             for error in _excel_range_errors(book.Worksheets(sheet_name), target)
@@ -340,7 +343,8 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             for sheet_name, target in (
                 ("Valuation", "N244"),
                 ("Valuation", "N261"),
-                ("ANF_Investment_Case", "B68"),
+                ("ANF_Investment_Case", "E126"),
+                ("ANF_Investment_Case", "H165"),
             )
         )
 
@@ -360,6 +364,140 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
         ]
         name_errors = [error for error in formula_errors if ":-2146826259:" in error]
         assert name_errors == [], "\n".join(name_errors)
+
+        valuation_before = valuation.Range("A1:S261").Value2
+        baseline_growth = float(investment_case.Range("B45").Value)
+        baseline_revenue = float(investment_case.Range("D85").Value)
+        percentage_input = investment_case.Range("D45")
+        assert percentage_input.Validation.InputMessage in (None, "")
+        assert percentage_input.Validation.InputTitle in (None, "")
+        assert str(percentage_input.NumberFormat).replace(",", ".") == "0.0%;-0.0%"
+        percentage_input.Value = "6%"
+        investment_case.Calculate()
+        assert float(percentage_input.Value2) == pytest.approx(0.06)
+        percentage_input.ClearContents()
+        percentage_input.FormulaLocal = "0,06"
+        investment_case.Calculate()
+        assert float(percentage_input.Value2) == pytest.approx(0.06)
+        assert str(percentage_input.NumberFormat).replace(",", ".") == "0.0%;-0.0%"
+        percentage_input.ClearContents()
+        investment_case.Range("D45").Value = baseline_growth + 0.01
+        excel.CalculateFullRebuild()
+        assert float(investment_case.Range("D85").Value) != pytest.approx(baseline_revenue)
+        investment_case.Range("D45").ClearContents()
+        excel.CalculateFullRebuild()
+        assert float(investment_case.Range("D85").Value) == pytest.approx(baseline_revenue)
+
+        manual_inputs = {
+            "D60": 0.25,
+            "D63": 0.0,
+            "D64": 0.0,
+            "D65": 100.0,
+            "D66": 50.0,
+            "D67": 0.0,
+            "D68": 0.0,
+            "C106": 100.0,
+            "C107": 12.0,
+            "C108": 8.0,
+            "C109": 1.0,
+            "C110": 0.07,
+            "C111": 0.03,
+            "C112": 0.10,
+            "C113": 0.03,
+            "C114": 5,
+        }
+        for coordinate, value in manual_inputs.items():
+            investment_case.Range(coordinate).Value = value
+        investment_case.Range("B42").Value = "Brand"
+        investment_case.Range("B69").Value = "Base"
+        excel.CalculateFullRebuild()
+
+        segment_revenue_before = float(investment_case.Range("D85").Value)
+        segment_eps_before = float(investment_case.Range("D98").Value)
+        investment_case.Range("D47").Value = 0.05
+        excel.CalculateFullRebuild()
+        assert float(investment_case.Range("D85").Value) != pytest.approx(segment_revenue_before)
+        assert float(investment_case.Range("D98").Value) != pytest.approx(segment_eps_before)
+
+        brand_revenue = float(investment_case.Range("D85").Value)
+        investment_case.Range("D50").Value = 0.20
+        excel.CalculateFullRebuild()
+        assert float(investment_case.Range("D85").Value) == pytest.approx(brand_revenue)
+
+        investment_case.Range("B42").Value = "Geography"
+        excel.CalculateFullRebuild()
+        geography_revenue = float(investment_case.Range("D85").Value)
+        assert geography_revenue != pytest.approx(brand_revenue)
+        investment_case.Range("D47").Value = 0.10
+        excel.CalculateFullRebuild()
+        assert float(investment_case.Range("D85").Value) == pytest.approx(geography_revenue)
+
+        investment_case.Range("B42").Value = "Total Company"
+        excel.CalculateFullRebuild()
+        total_company_revenue = float(investment_case.Range("D85").Value)
+        investment_case.Range("D47").Value = 0.15
+        investment_case.Range("D50").Value = 0.30
+        excel.CalculateFullRebuild()
+        assert float(investment_case.Range("D85").Value) == pytest.approx(total_company_revenue)
+
+        investment_case.Range("B42").Value = "Brand"
+        investment_case.Range("D47").ClearContents()
+        investment_case.Range("D50").ClearContents()
+        excel.CalculateFullRebuild()
+
+        investment_case.Range("D65").Value = 100.0
+        investment_case.Range("D66").Value = 50.0
+        investment_case.Range("D67").Value = 0.0
+        excel.CalculateFullRebuild()
+        buyback_shares = float(investment_case.Range("D95").Value)
+        buyback_eps = float(investment_case.Range("D98").Value)
+        investment_case.Range("D65").Value = 0.0
+        excel.CalculateFullRebuild()
+        assert buyback_shares < float(investment_case.Range("D95").Value)
+        assert buyback_eps > float(investment_case.Range("D98").Value)
+
+        base_growth = float(investment_case.Range("B45").Value)
+        base_margin = float(investment_case.Range("B57").Value)
+        base_adjusted_margin = float(investment_case.Range("B59").Value)
+        investment_case.Range("B42").Value = "Total Company"
+        for column, growth, margin, adjusted_margin in (
+            ("C", base_growth - 0.02, base_margin - 0.01, base_adjusted_margin - 0.01),
+            ("E", base_growth + 0.02, base_margin + 0.01, base_adjusted_margin + 0.01),
+        ):
+            investment_case.Range(f"{column}45").Value = growth
+            investment_case.Range(f"{column}57").Value = margin
+            investment_case.Range(f"{column}59").Value = adjusted_margin
+            investment_case.Range(f"{column}60").Value = 0.25
+            investment_case.Range(f"{column}65").Value = 0.0
+            investment_case.Range(f"{column}67").Value = 0.0
+            investment_case.Range(f"{column}68").Value = 0.0
+        excel.CalculateFullRebuild()
+        assert float(investment_case.Range("C85").Value) < float(investment_case.Range("E85").Value)
+        assert float(investment_case.Range("C98").Value) < float(investment_case.Range("E98").Value)
+
+        for coordinate in (
+            *manual_inputs,
+            "B42",
+            "B69",
+            "D47",
+            "C45",
+            "C57",
+            "C59",
+            "C60",
+            "C65",
+            "C67",
+            "C68",
+            "E45",
+            "E57",
+            "E59",
+            "E60",
+            "E65",
+            "E67",
+            "E68",
+        ):
+            investment_case.Range(coordinate).ClearContents()
+        excel.CalculateFullRebuild()
+        assert valuation.Range("A1:S261").Value2 == valuation_before
 
         book.Save()
         book.Close(SaveChanges=False)
@@ -382,7 +520,7 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             for sheet_name, target in (
                 ("Valuation", "N244"),
                 ("Valuation", "N261"),
-                ("ANF_Investment_Case", "B68"),
+                ("ANF_Investment_Case", "B69"),
                 *(("Hidden_Value_Recompute", f"{column}{row}") for row in (16, 17, 18, 32, 34, 63, 90) for column in ("AB", "AC", "AD")),
             )
         )
@@ -391,11 +529,12 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             for sheet_name, target in (
                 ("Valuation", "N244"),
                 ("Valuation", "N261"),
-                ("ANF_Investment_Case", "B68"),
+                ("ANF_Investment_Case", "B69"),
             )
         )
         book.Save()
     finally:
+        investment_case = None
         valuation = None
         if book is not None:
             try:
@@ -415,7 +554,7 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             _wait_for_owned_process_exit(process_id)
 
     inventory = inventory_xlsx_formula_xml(path)
-    assert inventory["cell_formula_count"] == 2213
+    assert inventory["cell_formula_count"] == 2690
     assert inventory["function_counts"]["MAXIFS"] == 324
     assert inventory["function_counts"]["MINIFS"] == 324
     assert inventory["function_counts"]["LET"] == 4

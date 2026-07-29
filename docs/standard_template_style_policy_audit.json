@@ -2,16 +2,16 @@
   "audit_version": "1.1.0",
   "status": "PASS",
   "authoritative_contract": "docs/standard_template_style_policy.json",
-  "authoritative_contract_digest": "2c7f1bb733a8f51e5c691c888dc08d717d92f4acbaadf96b6d86e1b3bd1d9e53",
-  "module_manifest_digest": "1d91d9760590f02ac9684f519f92bc8ae173238dd5458ab41ffe0068257b0505",
-  "binding_contract_digest": "3bfd714dd4e5d34ddf521cb941ad9dc9c91c5e06dbe3d51a4a586422e274b84d",
+  "authoritative_contract_digest": "f0da61c70d5acfdcc76797a523c3da036fb9d00e9f865b4c94b95d5d3499ee3c",
+  "module_manifest_digest": "fb85f1b1d1d27732552c2b94df759bc7ec69fb8cc21d68d4b1ee6c46c8b0397b",
+  "binding_contract_digest": "9b27c358603aff9a4fafaffcbfe42d48f08b234b49ce2eb34667f3e89f7a29aa",
   "policy_count": 44,
   "state_policy_count": 10,
   "total_policy_count": 54,
   "numerical_selector_count": 112,
   "state_selector_count": 12,
   "selector_count": 124,
-  "style_disabled_count": 41,
+  "style_disabled_count": 80,
   "palette_tokens": {
     "strong_negative": {
       "fill": {
@@ -169,7 +169,7 @@
     "core_financial_history": 5,
     "debt_liquidity": 9,
     "hidden_value_signals": 1,
-    "investment_case_market_implied": 8,
+    "investment_case_market_implied": 47,
     "valuation_scenarios": 13
   },
   "selector_completeness_contract": {

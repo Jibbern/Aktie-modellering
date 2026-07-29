@@ -96,11 +96,6 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | od_current_outlook_values | Operating_Drivers | yes | same | similar | different | same | GPRE has separate sector overlays that are excluded from standard blocks |
 | od_driver_actuals_values | Operating_Drivers | yes | same | similar | different | same | ANF: source sheet shorter than block range, PBI: source sheet shorter than block range, GPRE: source sheet shorter than block range, +1 more |
 | ic_snapshot_values | {ticker}_Investment_Case | yes | same | similar | same | same | - |
-| ic_lower_comp_history_labels | {ticker}_Investment_Case | yes | missing | similar | different | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: source sheet shorter than block range |
-| ic_lower_business_health_values | {ticker}_Investment_Case | yes | missing | similar | similar | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| ic_lower_inventory_values | {ticker}_Investment_Case | yes | missing | similar | different | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| ic_lower_asset_productivity_values | {ticker}_Investment_Case | yes | missing | similar | different | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
-| ic_lower_guidance_setup_values | {ticker}_Investment_Case | yes | missing | similar | different | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
 | ic_title_value | {ticker}_Investment_Case | yes | same | similar | same | same | - |
 | qn_quarter_summary_values | Quarter_Notes_UI | yes | same | similar | same | same | - |
 | qn_quarter_block_values | Quarter_Notes_UI | yes | same | similar | same | same | - |

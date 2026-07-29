@@ -436,8 +436,31 @@ def plan_standard_template_writes(
 
     if "investment_case_market_implied" in enabled_modules:
         try:
+            from pbi_xbrl.new_ticker_investment_case_projection import (
+                build_investment_case_workbook_projection,
+            )
             from pbi_xbrl.new_ticker_thesis_projection import build_valuation_thesis_projection
 
+            investment_case_projection = build_investment_case_workbook_projection(
+                package,
+                profile_pack_ids=profile_pack_ids,
+            )
+            derived_workbook["investment_case"] = investment_case_projection.to_dict()
+            plan.derived_plan_reports.append(
+                {
+                    "plan_id": "investment_case_workbook_projection",
+                    "status": "PASS",
+                    "projection_digest": investment_case_projection.projection_digest,
+                    "market_input_row_count": len(investment_case_projection.market_inputs),
+                    "segment_input_row_count": len(investment_case_projection.segment_inputs),
+                    "debate_row_count": len(investment_case_projection.debates),
+                    "support_row_count": len(investment_case_projection.workbook_rows),
+                    "fy_period": investment_case_projection.fy_period,
+                    "ttm_period": investment_case_projection.ttm_period,
+                    "full_year_guidance_period": investment_case_projection.full_year_guidance_period,
+                    "quarter_guidance_period": investment_case_projection.quarter_guidance_period,
+                }
+            )
             raw_investment_case = _path_get(package, "investment_case")
             thesis_projection = build_valuation_thesis_projection(
                 raw_investment_case if isinstance(raw_investment_case, Mapping) else {}
@@ -456,7 +479,7 @@ def plan_standard_template_writes(
             plan.planner_issues.append(
                 _planner_issue(
                     "P1",
-                    "valuation_thesis_projection_failed",
+                    "investment_case_workbook_projection_failed",
                     "investment_case_market_implied",
                     str(exc),
                 )

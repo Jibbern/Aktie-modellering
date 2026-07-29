@@ -2100,250 +2100,294 @@
       "module_id": "investment_case_market_implied"
     },
     {
-      "binding_id": "ic_lower_comp_history_labels",
-      "sheet": "{ticker}_Investment_Case",
-      "section": "Scenario Driver Bridge",
-      "target": "A185:K191",
-      "shell_zone": "ic_lower_comp_history_labels",
-      "anchor_label": "Scenario Driver Bridge",
-      "row_family": "investment_case_lower_comp_history_rows",
-      "normalized_field": "operating_drivers.items.0.driver",
+      "binding_id": "ic_product_projection_rows",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "section": "Resolved Investment Case product rows",
+      "target": "T2:BA201",
+      "shell_zone": "module_investment_case_market_implied_ticker__investment_case_data_rows_2",
+      "anchor_label": "row_type",
+      "row_family": "resolved_investment_case_product_rows",
+      "normalized_field": "_derived_workbook.investment_case.workbook_rows",
       "value_shape": "table_rows",
       "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank lower comparison period labels until source-backed history exists",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "unsupported_sector_specific_leakage",
+      "source_policy": "derived",
+      "missing_source_behavior": "block planning; the visible Investment Case requires a freshly reproduced resolved product rowset",
+      "promotion_requirement": "required",
+      "validation_rule": "resolved_investment_case_product_contract",
       "writable": true,
       "planning_mode": "table_rows",
-      "planner_target": "A185:K191",
+      "planner_target": "T2:BA201",
       "target_type": "table_row",
       "row_selector": {
-        "source_path": "operating_drivers.items"
+        "source_path": "_derived_workbook.investment_case.workbook_rows",
+        "pick": "all"
       },
       "row_key": [
-        "topic",
-        "period",
-        "driver"
+        "row_type",
+        "row_key"
       ],
       "sort_order": [
-        "period:asc",
-        "topic:asc",
-        "driver:asc"
+        "priority:asc",
+        "row_key:asc"
       ],
-      "capacity": 7,
+      "capacity": 200,
       "overflow_behavior": "mapping_gap",
       "required_columns": [
-        "driver"
+        "row_type",
+        "row_key",
+        "priority",
+        "slot_key",
+        "metric_id",
+        "metric_label",
+        "unit",
+        "basis_kind",
+        "source_alias",
+        "source_ref",
+        "status"
       ],
       "target_columns": [
         {
-          "column_id": "value",
-          "source_field": "driver",
-          "target_column": "A"
-        }
-      ],
-      "source_ref_required": true,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output.",
-      "module_id": "investment_case_market_implied"
-    },
-    {
-      "binding_id": "ic_lower_business_health_rows",
-      "sheet": "{ticker}_Investment_Case",
-      "section": "Business Health",
-      "target": "B194:K199",
-      "shell_zone": "ic_lower_business_health_values",
-      "anchor_label": "Business Health",
-      "row_family": "investment_case_lower_optional_rows",
-      "normalized_field": "operating_drivers.items.0.current_read",
-      "value_shape": "table_rows",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank optional lower block until source-backed brand/driver data exists",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true,
-      "planning_mode": "table_rows",
-      "planner_target": "B194:K199",
-      "target_type": "table_row",
-      "row_selector": {
-        "source_path": "operating_drivers.items"
-      },
-      "row_key": [
-        "topic",
-        "period",
-        "driver"
-      ],
-      "sort_order": [
-        "period:asc",
-        "topic:asc",
-        "driver:asc"
-      ],
-      "capacity": 6,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "current_read"
-      ],
-      "target_columns": [
+          "column_id": "row_type",
+          "source_field": "row_type",
+          "target_column": "T",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.row_type"
+        },
         {
-          "column_id": "value",
-          "source_field": "current_read",
-          "target_column": "B"
-        }
-      ],
-      "source_ref_required": true,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output.",
-      "block_id": "ic_lower_business_health_values",
-      "module_id": "investment_case_market_implied"
-    },
-    {
-      "binding_id": "ic_lower_inventory_rows",
-      "sheet": "{ticker}_Investment_Case",
-      "section": "Inventory / Markdown Risk",
-      "target": "B202:K209",
-      "shell_zone": "ic_lower_inventory_values",
-      "anchor_label": "Inventory / Markdown Risk",
-      "row_family": "investment_case_lower_optional_rows",
-      "normalized_field": "operating_drivers.items.0.metric_value",
-      "value_shape": "table_rows",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank optional lower block until source-backed inventory/driver data exists",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true,
-      "planning_mode": "table_rows",
-      "planner_target": "B202:K209",
-      "target_type": "table_row",
-      "row_selector": {
-        "source_path": "operating_drivers.items"
-      },
-      "row_key": [
-        "topic",
-        "period",
-        "driver"
-      ],
-      "sort_order": [
-        "period:asc",
-        "topic:asc",
-        "driver:asc"
-      ],
-      "capacity": 8,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "metric_value"
-      ],
-      "target_columns": [
+          "column_id": "row_key",
+          "source_field": "row_key",
+          "target_column": "U",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.row_key"
+        },
         {
-          "column_id": "value",
-          "source_field": "metric_value",
-          "target_column": "B"
-        }
-      ],
-      "source_ref_required": true,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output.",
-      "module_id": "investment_case_market_implied"
-    },
-    {
-      "binding_id": "ic_lower_asset_productivity_rows",
-      "sheet": "{ticker}_Investment_Case",
-      "section": "Asset Productivity / Capacity Returns",
-      "target": "B212:K225",
-      "shell_zone": "ic_lower_asset_productivity_values",
-      "anchor_label": "Asset Productivity / Capacity Returns",
-      "row_family": "investment_case_lower_optional_rows",
-      "normalized_field": "operating_drivers.items.0.metric_value",
-      "value_shape": "table_rows",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank optional lower block until source-backed store/driver data exists",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "unsupported_sector_specific_leakage",
-      "writable": true,
-      "planning_mode": "table_rows",
-      "planner_target": "B212:K225",
-      "target_type": "table_row",
-      "row_selector": {
-        "source_path": "operating_drivers.items"
-      },
-      "row_key": [
-        "topic",
-        "period",
-        "driver"
-      ],
-      "sort_order": [
-        "period:asc",
-        "topic:asc",
-        "driver:asc"
-      ],
-      "capacity": 14,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "metric_value"
-      ],
-      "target_columns": [
+          "column_id": "priority",
+          "source_field": "priority",
+          "target_column": "V",
+          "target_type": "number",
+          "target_role": "ic_product_projection_rows.priority"
+        },
         {
-          "column_id": "value",
-          "source_field": "metric_value",
-          "target_column": "B"
-        }
-      ],
-      "source_ref_required": true,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Lower investment-case section is an optional sector pack, not standard generic output.",
-      "block_id": "ic_lower_asset_productivity_values",
-      "module_id": "investment_case_market_implied"
-    },
-    {
-      "binding_id": "ic_lower_guidance_setup_rows",
-      "sheet": "{ticker}_Investment_Case",
-      "section": "Guidance Beat/Miss Setup",
-      "target": "B228:K233",
-      "shell_zone": "ic_lower_guidance_setup_values",
-      "anchor_label": "Guidance Beat/Miss Setup",
-      "row_family": "investment_case_lower_optional_rows",
-      "normalized_field": "normalized_guidance.items.0.value",
-      "value_shape": "table_rows",
-      "required": false,
-      "source_policy": "source-backed",
-      "missing_source_behavior": "blank optional guidance setup until source-backed guidance exists",
-      "promotion_requirement": "manual_review",
-      "validation_rule": "guidance_metric_misclassification",
-      "writable": true,
-      "planning_mode": "table_rows",
-      "planner_target": "B228:K233",
-      "target_type": "table_row",
-      "row_selector": {
-        "source_path": "normalized_guidance.items"
-      },
-      "row_key": [
-        "metric",
-        "horizon",
-        "source_date"
-      ],
-      "sort_order": [
-        "horizon:asc",
-        "metric:asc",
-        "source_date:asc"
-      ],
-      "capacity": 6,
-      "overflow_behavior": "mapping_gap",
-      "required_columns": [
-        "value"
-      ],
-      "target_columns": [
+          "column_id": "slot_key",
+          "source_field": "slot_key",
+          "target_column": "W",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.slot_key"
+        },
         {
-          "column_id": "value",
-          "source_field": "value",
-          "target_column": "B"
+          "column_id": "metric_id",
+          "source_field": "metric_id",
+          "target_column": "X",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.metric_id"
+        },
+        {
+          "column_id": "metric_label",
+          "source_field": "metric_label",
+          "target_column": "Y",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.metric_label"
+        },
+        {
+          "column_id": "unit",
+          "source_field": "unit",
+          "target_column": "Z",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.unit"
+        },
+        {
+          "column_id": "fy_value",
+          "source_field": "fy_value",
+          "target_column": "AA",
+          "target_type": "number",
+          "target_role": "ic_product_projection_rows.fy_value"
+        },
+        {
+          "column_id": "ttm_value",
+          "source_field": "ttm_value",
+          "target_column": "AB",
+          "target_type": "number",
+          "target_role": "ic_product_projection_rows.ttm_value"
+        },
+        {
+          "column_id": "full_year_guidance_display",
+          "source_field": "full_year_guidance_display",
+          "target_column": "AC",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.full_year_guidance_display"
+        },
+        {
+          "column_id": "full_year_guidance_low",
+          "source_field": "full_year_guidance_low",
+          "target_column": "AD",
+          "target_type": "number",
+          "target_role": "ic_product_projection_rows.full_year_guidance_low"
+        },
+        {
+          "column_id": "full_year_guidance_high",
+          "source_field": "full_year_guidance_high",
+          "target_column": "AE",
+          "target_type": "number",
+          "target_role": "ic_product_projection_rows.full_year_guidance_high"
+        },
+        {
+          "column_id": "quarter_guidance_display",
+          "source_field": "quarter_guidance_display",
+          "target_column": "AF",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.quarter_guidance_display"
+        },
+        {
+          "column_id": "quarter_guidance_low",
+          "source_field": "quarter_guidance_low",
+          "target_column": "AG",
+          "target_type": "number",
+          "target_role": "ic_product_projection_rows.quarter_guidance_low"
+        },
+        {
+          "column_id": "quarter_guidance_high",
+          "source_field": "quarter_guidance_high",
+          "target_column": "AH",
+          "target_type": "number",
+          "target_role": "ic_product_projection_rows.quarter_guidance_high"
+        },
+        {
+          "column_id": "selected_value",
+          "source_field": "selected_value",
+          "target_column": "AI",
+          "target_type": "number",
+          "target_role": "ic_product_projection_rows.selected_value"
+        },
+        {
+          "column_id": "selected_source",
+          "source_field": "selected_source",
+          "target_column": "AJ",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.selected_source"
+        },
+        {
+          "column_id": "fy_period",
+          "source_field": "fy_period",
+          "target_column": "AK",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.fy_period"
+        },
+        {
+          "column_id": "ttm_period",
+          "source_field": "ttm_period",
+          "target_column": "AL",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.ttm_period"
+        },
+        {
+          "column_id": "full_year_guidance_period",
+          "source_field": "full_year_guidance_period",
+          "target_column": "AM",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.full_year_guidance_period"
+        },
+        {
+          "column_id": "quarter_guidance_period",
+          "source_field": "quarter_guidance_period",
+          "target_column": "AN",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.quarter_guidance_period"
+        },
+        {
+          "column_id": "notes",
+          "source_field": "notes",
+          "target_column": "AO",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.notes"
+        },
+        {
+          "column_id": "source_ref",
+          "source_field": "source_ref",
+          "target_column": "AP",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.source_ref"
+        },
+        {
+          "column_id": "status",
+          "source_field": "status",
+          "target_column": "AQ",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.status"
+        },
+        {
+          "column_id": "dimension_id",
+          "source_field": "dimension_id",
+          "target_column": "AR",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.dimension_id"
+        },
+        {
+          "column_id": "member",
+          "source_field": "member",
+          "target_column": "AS",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.member"
+        },
+        {
+          "column_id": "baseline_value",
+          "source_field": "baseline_value",
+          "target_column": "AT",
+          "target_type": "number",
+          "target_role": "ic_product_projection_rows.baseline_value"
+        },
+        {
+          "column_id": "publication_date",
+          "source_field": "publication_date",
+          "target_column": "AU",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.publication_date"
+        },
+        {
+          "column_id": "dimension_option",
+          "source_field": "dimension_option",
+          "target_column": "AV",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.dimension_option"
+        },
+        {
+          "column_id": "basis_kind",
+          "source_field": "basis_kind",
+          "target_column": "AW",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.basis_kind"
+        },
+        {
+          "column_id": "basis_period",
+          "source_field": "basis_period",
+          "target_column": "AX",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.basis_period"
+        },
+        {
+          "column_id": "full_year_guidance_numeric_state",
+          "source_field": "full_year_guidance_numeric_state",
+          "target_column": "AY",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.full_year_guidance_numeric_state"
+        },
+        {
+          "column_id": "quarter_guidance_numeric_state",
+          "source_field": "quarter_guidance_numeric_state",
+          "target_column": "AZ",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.quarter_guidance_numeric_state"
+        },
+        {
+          "column_id": "source_alias",
+          "source_field": "source_alias",
+          "target_column": "BA",
+          "target_type": "text",
+          "target_role": "ic_product_projection_rows.source_alias"
         }
       ],
+      "source_ref_field": "source_ref",
       "source_ref_required": true,
-      "planning_state": "inactive_legacy_contract",
-      "planning_block_reason": "Guidance setup needs a typed scenario collection and explicit selector.",
+      "planning_state": "active",
       "module_id": "investment_case_market_implied"
     },
     {
@@ -10386,6 +10430,6 @@
       ]
     }
   ],
-  "module_manifest_signature": "1d91d9760590f02ac9684f519f92bc8ae173238dd5458ab41ffe0068257b0505",
+  "module_manifest_signature": "fb85f1b1d1d27732552c2b94df759bc7ec69fb8cc21d68d4b1ee6c46c8b0397b",
   "module_profile_signature": "e792faf8030f6035e44d1ba547cb5e44a7f269f5b4beb088814196bf01567f8b"
 }

@@ -116,11 +116,6 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | od_current_outlook_values | Operating_Drivers | B31:N55 | operating_drivers.items.0.driver | source-backed | standard |
 | od_driver_actuals_values | Operating_Drivers | B56:N125 | operating_drivers.items.0.metric_value | source-backed | standard |
 | ic_snapshot_values | {ticker}_Investment_Case | B5:B11 | investment_case.current_stance, investment_case.downside_factors, investment_case.key_debate, investment_case.summary, +3 more | mixed | standard |
-| ic_lower_comp_history_labels | {ticker}_Investment_Case | A185:K191 | operating_drivers.items.0.driver | source-backed | standard |
-| ic_lower_business_health_values | {ticker}_Investment_Case | B194:K199 | operating_drivers.items.0.current_read | source-backed | standard |
-| ic_lower_inventory_values | {ticker}_Investment_Case | B202:K209 | operating_drivers.items.0.metric_value | source-backed | standard |
-| ic_lower_asset_productivity_values | {ticker}_Investment_Case | B212:K225 | operating_drivers.items.0.metric_value | source-backed | standard |
-| ic_lower_guidance_setup_values | {ticker}_Investment_Case | B228:K233 | normalized_guidance.items.0.value | source-backed | standard |
 | ic_title_value | {ticker}_Investment_Case | A1:J1 | ticker_metadata.investment_case_title | derived | standard |
 | qn_quarter_summary_values | Quarter_Notes_UI | B3:O6 | quarter_notes.summary.key_caveat, quarter_notes.summary.model_read, quarter_notes.summary.watch_next, quarter_notes.summary.what_changed | source-backed | standard |
 | qn_quarter_block_values | Quarter_Notes_UI | A10:O15 | quarter_notes.items.commentary | source-backed | standard |
@@ -871,46 +866,6 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
   - Missing data: block promotion; emit manual review flag | leave blank and retain a structured review disposition
   - Validation: placeholder_investment_case, visible_narrative_missing_evidence_refs
-
-- `ic_lower_comp_history_labels` `A185:K191`
-  - Normalized fields: operating_drivers.items.0.driver
-  - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
-  - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py
-  - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
-  - Missing data: blank lower comparison period labels until source-backed history exists
-  - Validation: unsupported_sector_specific_leakage
-
-- `ic_lower_business_health_values` `B194:K199`
-  - Normalized fields: operating_drivers.items.0.current_read
-  - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
-  - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py
-  - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
-  - Missing data: blank optional lower block until source-backed brand/driver data exists
-  - Validation: unsupported_sector_specific_leakage
-
-- `ic_lower_inventory_values` `B202:K209`
-  - Normalized fields: operating_drivers.items.0.metric_value
-  - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
-  - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py
-  - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
-  - Missing data: blank optional lower block until source-backed inventory/driver data exists
-  - Validation: unsupported_sector_specific_leakage
-
-- `ic_lower_asset_productivity_values` `B212:K225`
-  - Normalized fields: operating_drivers.items.0.metric_value
-  - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
-  - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py
-  - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
-  - Missing data: blank optional lower block until source-backed store/driver data exists
-  - Validation: unsupported_sector_specific_leakage
-
-- `ic_lower_guidance_setup_values` `B228:K233`
-  - Normalized fields: normalized_guidance.items.0.value
-  - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
-  - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py
-  - Future owner: future investment_case normalizer/review workflow, docs/workbook_binding_map.json
-  - Missing data: blank optional guidance setup until source-backed guidance exists
-  - Validation: guidance_metric_misclassification
 
 - `ic_title_value` `A1:J1`
   - Normalized fields: ticker_metadata.investment_case_title

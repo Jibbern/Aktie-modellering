@@ -58,9 +58,9 @@ def test_checked_in_shell_has_exact_protected_editable_surface() -> None:
         assert len([ws for ws in workbook.worksheets if ws.sheet_state != "visible"]) == 36
         editable = _editable_cells(workbook)
         assert editable == _expected_full_union_inputs(workbook)
-        assert len(editable) == 122
+        assert len(editable) == 119
         assert sum(sheet == "Valuation" for sheet, _cell in editable) == 44
-        assert sum(sheet == "{ticker}_Investment_Case" for sheet, _cell in editable) == 78
+        assert sum(sheet == "{ticker}_Investment_Case" for sheet, _cell in editable) == 75
         assert workbook["History_Q"]["A2"].protection.locked is True
         assert workbook["Valuation"]["B9"].protection.locked is True
         assert workbook["BS_Segments"]["B9"].protection.locked is True
@@ -71,10 +71,10 @@ def test_checked_in_shell_has_exact_protected_editable_surface() -> None:
 @pytest.mark.parametrize(
     ("profile_id", "expected_editable_count"),
     (
-        ("full_union", 122),
-        ("anf", 122),
-        ("pbi", 122),
-        ("gpre", 122),
+        ("full_union", 119),
+        ("anf", 119),
+        ("pbi", 119),
+        ("gpre", 119),
         ("core_only", 0),
     ),
 )

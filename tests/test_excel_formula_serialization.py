@@ -46,6 +46,8 @@ def test_token_aware_future_function_serialization_is_bounded_and_idempotent() -
     assert serialize_formula_expression(serialized) == serialized
     assert serialize_formula_expression("='MAXIFS data'!A1+Table1[MAXIFS]+MAXIFS_Name") == "='MAXIFS data'!A1+Table1[MAXIFS]+MAXIFS_Name"
     assert serialize_formula_expression('=IF(A1="LET(x,1,x)",SUMIFS(B:B,C:C,1),0)') == '=IF(A1="LET(x,1,x)",SUMIFS(B:B,C:C,1),0)'
+    invariant_b1 = '=IF(ISBLANK(A1),"",IF(ISTEXT(A1),LOWER(A1),SUM(B1:B4)+COUNT(C1:C4)))'
+    assert serialize_formula_expression(invariant_b1) == invariant_b1
 
 
 @pytest.mark.parametrize(
@@ -101,7 +103,7 @@ def test_checked_in_shell_has_exact_future_function_xml_inventory() -> None:
         for column in "BCDEFGHIJKLM"
     }
 
-    assert inventory["cell_formula_count"] == 2213
+    assert inventory["cell_formula_count"] == 2690
     assert inventory["function_counts"]["MAXIFS"] == 324
     assert inventory["function_counts"]["MINIFS"] == 324
     assert inventory["function_counts"]["LET"] == 4
@@ -160,6 +162,6 @@ def test_exact_cell_filler_preserves_serialized_formula_xml(tmp_path: Path, monk
             cell.protection.locked is False
             for ws in workbook.worksheets
             for cell in ws._cells.values()
-        ) == 122
+        ) == 119
     finally:
         workbook.close()

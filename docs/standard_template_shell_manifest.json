@@ -5356,6 +5356,448 @@
       "allowed_target_types": [
         "text"
       ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_row_type",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "T2:T201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.row_type",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_row_key",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "U2:U201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.row_key",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_priority",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "V2:V201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.priority",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_slot_key",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "W2:W201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.slot_key",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_metric_id",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "X2:X201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.metric_id",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_metric_label",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "Y2:Y201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.metric_label",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_unit",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "Z2:Z201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.unit",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_fy_value",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AA2:AA201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.fy_value",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_ttm_value",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AB2:AB201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.ttm_value",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_full_year_guidance_display",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AC2:AC201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.full_year_guidance_display",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_full_year_guidance_low",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AD2:AD201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.full_year_guidance_low",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_full_year_guidance_high",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AE2:AE201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.full_year_guidance_high",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_quarter_guidance_display",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AF2:AF201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.quarter_guidance_display",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_quarter_guidance_low",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AG2:AG201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.quarter_guidance_low",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_quarter_guidance_high",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AH2:AH201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.quarter_guidance_high",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_selected_value",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AI2:AI201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.selected_value",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_selected_source",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AJ2:AJ201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.selected_source",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_fy_period",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AK2:AK201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.fy_period",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_ttm_period",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AL2:AL201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.ttm_period",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_full_year_guidance_period",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AM2:AM201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.full_year_guidance_period",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_quarter_guidance_period",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AN2:AN201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.quarter_guidance_period",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_notes",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AO2:AO201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.notes",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_source_ref",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AP2:AP201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.source_ref",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_status",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AQ2:AQ201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.status",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_dimension_id",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AR2:AR201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.dimension_id",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_member",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AS2:AS201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.member",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_baseline_value",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AT2:AT201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.baseline_value",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_publication_date",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AU2:AU201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.publication_date",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_dimension_option",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AV2:AV201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.dimension_option",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_basis_kind",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AW2:AW201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.basis_kind",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_basis_period",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AX2:AX201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.basis_period",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_full_year_guidance_numeric_state",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AY2:AY201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.full_year_guidance_numeric_state",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_quarter_guidance_numeric_state",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "AZ2:AZ201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.quarter_guidance_numeric_state",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "support_ic_product_projection_rows_source_alias",
+      "sheet": "{ticker}_Investment_Case_Data",
+      "target": "BA2:BA201",
+      "writable": true,
+      "target_role": "ic_product_projection_rows.source_alias",
+      "allowed_binding_ids": [
+        "ic_product_projection_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
     }
   ],
   "planner_merge_families": [
@@ -7138,50 +7580,6 @@
           ]
         },
         {
-          "zone_id": "ic_lower_comp_history_labels",
-          "target": "A185:K191",
-          "anchor_label": "Scenario Driver Bridge",
-          "value_shapes": [
-            "table_rows"
-          ]
-        },
-        {
-          "zone_id": "ic_lower_business_health_values",
-          "target": "B194:K199",
-          "anchor_label": "Business Health",
-          "value_shapes": [
-            "table_rows",
-            "text_block"
-          ]
-        },
-        {
-          "zone_id": "ic_lower_inventory_values",
-          "target": "B202:K209",
-          "anchor_label": "Inventory / Markdown Risk",
-          "value_shapes": [
-            "table_rows",
-            "text_block"
-          ]
-        },
-        {
-          "zone_id": "ic_lower_asset_productivity_values",
-          "target": "B212:K225",
-          "anchor_label": "Asset Productivity / Capacity Returns",
-          "value_shapes": [
-            "table_rows",
-            "text_block"
-          ]
-        },
-        {
-          "zone_id": "ic_lower_guidance_setup_values",
-          "target": "B228:K233",
-          "anchor_label": "Guidance Beat/Miss Setup",
-          "value_shapes": [
-            "table_rows",
-            "text_block"
-          ]
-        },
-        {
           "zone_id": "ic_title_value",
           "target": "A1:J1",
           "anchor_label": "Investment Case",
@@ -7191,7 +7589,7 @@
         },
         {
           "zone_id": "ic_scenario_user_input_1",
-          "target": "B23:D42",
+          "target": "B42:B42",
           "anchor_label": "Typed Scenario Inputs",
           "value_shapes": [
             "scalar",
@@ -7200,7 +7598,7 @@
         },
         {
           "zone_id": "ic_scenario_user_input_2",
-          "target": "B160:D160",
+          "target": "C45:C45",
           "anchor_label": "Typed Scenario Inputs",
           "value_shapes": [
             "scalar",
@@ -7209,7 +7607,7 @@
         },
         {
           "zone_id": "ic_scenario_user_input_3",
-          "target": "A161:A163",
+          "target": "C47:C48",
           "anchor_label": "Typed Scenario Inputs",
           "value_shapes": [
             "scalar",
@@ -7218,7 +7616,7 @@
         },
         {
           "zone_id": "ic_scenario_user_input_4",
-          "target": "B171:D171",
+          "target": "C50:C52",
           "anchor_label": "Typed Scenario Inputs",
           "value_shapes": [
             "scalar",
@@ -7227,7 +7625,7 @@
         },
         {
           "zone_id": "ic_scenario_user_input_5",
-          "target": "A172:A174",
+          "target": "D45:D45",
           "anchor_label": "Typed Scenario Inputs",
           "value_shapes": [
             "scalar",
@@ -7236,7 +7634,7 @@
         },
         {
           "zone_id": "ic_scenario_user_input_6",
-          "target": "B177:D177",
+          "target": "D47:D48",
           "anchor_label": "Typed Scenario Inputs",
           "value_shapes": [
             "scalar",
@@ -7245,7 +7643,187 @@
         },
         {
           "zone_id": "ic_scenario_user_input_7",
-          "target": "A178:A180",
+          "target": "D50:D52",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_8",
+          "target": "E45:E45",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_9",
+          "target": "E47:E48",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_10",
+          "target": "E50:E52",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_11",
+          "target": "B69:B69",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_12",
+          "target": "C56:C60",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_13",
+          "target": "C63:C68",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_14",
+          "target": "D56:D60",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_15",
+          "target": "D63:D68",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_16",
+          "target": "E56:E60",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_17",
+          "target": "E63:E68",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_18",
+          "target": "C106:C114",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_19",
+          "target": "B117:F117",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_20",
+          "target": "I192:I192",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_21",
+          "target": "I193:I193",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_22",
+          "target": "I198:I198",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_23",
+          "target": "I199:I199",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_24",
+          "target": "I204:I204",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_25",
+          "target": "I205:I205",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_26",
+          "target": "I210:I210",
+          "anchor_label": "Typed Scenario Inputs",
+          "value_shapes": [
+            "scalar",
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "ic_scenario_user_input_27",
+          "target": "I211:I211",
           "anchor_label": "Typed Scenario Inputs",
           "value_shapes": [
             "scalar",
@@ -7258,44 +7836,28 @@
           "zone_id": "ic_title_header_rows",
           "target": "A2:K4",
           "reason": "Subtitle and static shell header rows below the runtime-resolved title."
-        },
-        {
-          "zone_id": "ic_lower_static_label_column",
-          "target": "A192:A233",
-          "reason": "Reusable lower-block section and row labels; value cells are writable."
-        },
-        {
-          "zone_id": "ic_static_label_column_1",
-          "target": "A5:A160",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_2",
-          "target": "A164:A171",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_3",
-          "target": "A175:A177",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
-        },
-        {
-          "zone_id": "ic_static_label_column_4",
-          "target": "A181:A184",
-          "reason": "Static thesis/scenario labels next to exact writable inputs."
         }
       ],
       "formulas_static_labels": [
         "Investment Snapshot",
-        "Key Debate",
-        "Manual Market / Scenario Inputs",
-        "Scenario Driver Bridge"
+        "Model Data and Guidance",
+        "Scenario Assumptions",
+        "Selected Scenario Incremental Bridge",
+        "Scenario Output Comparison",
+        "Valuation and DCF Assumptions",
+        "Valuation Summary",
+        "Market Pricing and Guidance",
+        "DCF and Equity Value",
+        "Calculation Details",
+        "Sensitivity Tables",
+        "Key Debates and Invalidators"
       ],
       "module_id": "investment_case_market_implied",
       "module_role": "visible_product",
       "legacy_class": "A",
       "state": "visible",
-      "worksheet_protection": true
+      "worksheet_protection": true,
+      "rich_shell_lab_merge_floor_ratio": 0.1
     },
     {
       "sheet": "Quarter_Notes_UI",
@@ -8899,7 +9461,15 @@
       "writable_zones": [
         {
           "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_rows",
-          "target": "A2:R5000",
+          "target": "A2:R201",
+          "anchor_label": "scenario_id",
+          "value_shapes": [
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_rows_2",
+          "target": "T2:BA201",
           "anchor_label": "scenario_id",
           "value_shapes": [
             "table_rows"
@@ -8909,8 +9479,23 @@
       "non_writable_zones": [
         {
           "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_headers",
-          "target": "A1:R1",
+          "target": "A1:BA1",
           "reason": "Neutral module support headers owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_reserved_1",
+          "target": "S2:S5000",
+          "reason": "Reserved neutral support capacity; no binding or formula ownership."
+        },
+        {
+          "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_reserved_2",
+          "target": "A202:R5000",
+          "reason": "Reserved neutral support capacity; no binding or formula ownership."
+        },
+        {
+          "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_reserved_3",
+          "target": "T202:BA5000",
+          "reason": "Reserved neutral support capacity; no binding or formula ownership."
         }
       ],
       "formulas_static_labels": [
@@ -8931,7 +9516,42 @@
         "propagation_rule",
         "status",
         "source_ref",
-        "reason"
+        "reason",
+        "reserved",
+        "product_row_type",
+        "product_row_key",
+        "product_priority",
+        "product_slot_key",
+        "product_metric_id",
+        "product_metric_label",
+        "product_unit",
+        "product_fy_value",
+        "product_ttm_value",
+        "product_full_year_guidance_display",
+        "product_full_year_guidance_low",
+        "product_full_year_guidance_high",
+        "product_quarter_guidance_display",
+        "product_quarter_guidance_low",
+        "product_quarter_guidance_high",
+        "product_selected_value",
+        "product_selected_source",
+        "product_fy_period",
+        "product_ttm_period",
+        "product_full_year_guidance_period",
+        "product_quarter_guidance_period",
+        "product_notes",
+        "product_source_ref",
+        "product_status",
+        "product_dimension_id",
+        "product_member",
+        "product_baseline_value",
+        "product_publication_date",
+        "product_dimension_option",
+        "product_basis_kind",
+        "product_basis_period",
+        "product_full_year_guidance_numeric_state",
+        "product_quarter_guidance_numeric_state",
+        "product_source_alias"
       ],
       "support_title": "",
       "support_header_row": 1,
@@ -9573,31 +10193,31 @@
   "semantic_contract_version": "1.8.0",
   "shell_identity": {
     "semantic_contract_version": "1.8.0",
-    "workbook_sha256": "8cc97f138cf1c4e9cf1331d611cbdb4a2f89cf5ca6f9876840031e5b54776d49",
-    "manifest_contract_signature": "482487512c275f230cb4e73df0e4900c3f94918ad7a587f626a0eb18fc1e3c1a",
+    "workbook_sha256": "48b3c4eb7d5e297801256d0e2c798faa7d98ea2369b81fa231cde9ceaa02fa67",
+    "manifest_contract_signature": "8390ebc56db2142003448c954c7642f7eddeea4936102709cb614641245da57a",
     "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
-    "sheet_view_signature": "9d4fa7cfce19fcd35ae65db64dd0b8028a4fc5563780dc9b63feda5c7700a6db",
-    "merge_signature": "7bbc65e9ab02f63e70548527ca52bdb1182d91af9d46025e45acab9794064de5",
-    "defined_name_signature": "7db74841e94b719ada62ff0af793d070c4bf7513cdbf2e728d952240f2cb5369",
-    "writable_target_signature": "8257710bd20954af2305596f8e5a3391765eb8bf5069ed243ce4ec4eb5e6b54a",
-    "binding_contract_signature": "3bfd714dd4e5d34ddf521cb941ad9dc9c91c5e06dbe3d51a4a586422e274b84d",
-    "formula_static_zone_signature": "ebe0f021d2b4be4976b29e9ef4e0efa152d77eaba130393fad3ec6708611daa3",
+    "sheet_view_signature": "5ae4c17c9e6e533360466d0ae893a8f0e3f93605fda2cfd63bce85721c1c10b2",
+    "merge_signature": "749efb334802c7a9e0ea6e5bcaf32e1f59713b67ea52273ae6f05618e64a7504",
+    "defined_name_signature": "60a7cb609d8fae5aa025d5d18383edb36bf8b911be48de4d43149ad9565d683e",
+    "writable_target_signature": "b538d79a040ef43260026043547997df21a76b80d03b3a53e4a44947acd9cd14",
+    "binding_contract_signature": "9b27c358603aff9a4fafaffcbfe42d48f08b234b49ce2eb34667f3e89f7a29aa",
+    "formula_static_zone_signature": "61aaf9b483cb0e5333acface8d23199583e133d45e74b2bcebb6c9fdbe172fe0",
     "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
-    "editable_surface_signature": "29b6308c01ee5961305a12fac0b20ab202f4edae22390e5a07cf27be48d94732",
+    "editable_surface_signature": "5d52735aea648ce8a47eea6c04a682440ef9916596c431f18da734851c36c805",
     "counts": {
       "sheets": 46,
       "sheet_views": 46,
-      "merges": 1754,
-      "defined_names": 279,
-      "writable_targets": 570,
-      "binding_contracts": 188,
-      "formula_cells": 2213,
-      "static_cells": 1637,
+      "merges": 1613,
+      "defined_names": 281,
+      "writable_targets": 605,
+      "binding_contracts": 184,
+      "formula_cells": 2690,
+      "static_cells": 1799,
       "protected_worksheets": 46,
-      "editable_cells": 122
+      "editable_cells": 119
     }
   },
-  "formula_contract_version": "2.3.0",
+  "formula_contract_version": "2.5.1",
   "union_sheet_order": [
     "SUMMARY",
     "Valuation",
@@ -9650,7 +10270,7 @@
     "path": "docs/workbook_module_manifest.json",
     "version": "1.0.0",
     "module_contract_version": "1.2.0",
-    "signature": "1d91d9760590f02ac9684f519f92bc8ae173238dd5458ab41ffe0068257b0505"
+    "signature": "fb85f1b1d1d27732552c2b94df759bc7ec69fb8cc21d68d4b1ee6c46c8b0397b"
   },
   "module_profile": {
     "profile_id": "full_union",
@@ -9883,6 +10503,7 @@
       "Implied_EV_EBITDA",
       "Implied_FCFF_Yield",
       "InterestPaid_TTM",
+      "InvestmentCaseDimensionOptions",
       "MaintCapexRatio",
       "MarketCap",
       "NetDebt",

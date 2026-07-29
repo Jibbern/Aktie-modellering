@@ -2,11 +2,11 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 279,
+    "retained_count": 281,
     "classification_counts": {
-      "active_binding_anchor": 166,
-      "formula_dependency": 76,
-      "generic_named_range": 21,
+      "active_binding_anchor": 167,
+      "formula_dependency": 73,
+      "generic_named_range": 25,
       "required_shell_anchor": 16
     },
     "target_mismatch_count": 0,
@@ -350,6 +350,14 @@
       "company_specific": false
     },
     {
+      "name": "InvestmentCaseDimensionOptions",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$AV$2:$AV$4",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
       "name": "MaintCapexRatio",
       "attr_text": "'Valuation'!$D$213",
       "classification": "formula_dependency",
@@ -432,7 +440,7 @@
     {
       "name": "ResolvedRevenueGrowth_Base",
       "attr_text": "'Valuation_Summary'!$I$2",
-      "classification": "formula_dependency",
+      "classification": "generic_named_range",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -440,7 +448,7 @@
     {
       "name": "ResolvedRevenueGrowth_Bear",
       "attr_text": "'Valuation_Summary'!$H$2",
-      "classification": "formula_dependency",
+      "classification": "generic_named_range",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -448,7 +456,7 @@
     {
       "name": "ResolvedRevenueGrowth_Bull",
       "attr_text": "'Valuation_Summary'!$J$2",
-      "classification": "formula_dependency",
+      "classification": "generic_named_range",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -1162,6 +1170,14 @@
       "attr_text": "'{ticker}_Investment_Case'!$B$7",
       "classification": "active_binding_anchor",
       "expected_target": "'{ticker}_Investment_Case'!$B$7",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "ic_product_projection_rows",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$T$2",
+      "classification": "active_binding_anchor",
+      "expected_target": "'{ticker}_Investment_Case_Data'!$T$2",
       "target_matches": true,
       "company_specific": false
     },

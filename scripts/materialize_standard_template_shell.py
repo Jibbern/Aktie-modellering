@@ -485,12 +485,28 @@ def _configure_investment_case_ownership_zones(manifest: dict[str, Any]) -> None
     )
     if not isinstance(sheet, dict):
         return
+    sheet["rich_shell_lab_merge_floor_ratio"] = 0.10
+    sheet["formulas_static_labels"] = [
+        "Investment Snapshot",
+        "Model Data and Guidance",
+        "Scenario Assumptions",
+        "Selected Scenario Incremental Bridge",
+        "Scenario Output Comparison",
+        "Valuation and DCF Assumptions",
+        "Valuation Summary",
+        "Market Pricing and Guidance",
+        "DCF and Equity Value",
+        "Calculation Details",
+        "Sensitivity Tables",
+        "Key Debates and Invalidators",
+    ]
     retained = [
         zone
         for zone in sheet.get("writable_zones") or []
         if str(zone.get("zone_id") or "")
         not in {"ic_key_debate_values", "ic_manual_input_values", "ic_scenario_bridge_values"}
         and not str(zone.get("zone_id") or "").startswith("ic_scenario_user_input_")
+        and not str(zone.get("zone_id") or "").startswith("ic_lower_")
     ]
     snapshot = next((zone for zone in retained if zone.get("zone_id") == "ic_snapshot_values"), None)
     if snapshot is not None:
@@ -510,15 +526,8 @@ def _configure_investment_case_ownership_zones(manifest: dict[str, Any]) -> None
         for zone in sheet.get("non_writable_zones") or []
         if str(zone.get("zone_id") or "") != "ic_static_label_column"
         and not str(zone.get("zone_id") or "").startswith("ic_static_label_column_")
+        and str(zone.get("zone_id") or "") != "ic_lower_static_label_column"
     ]
-    non_writable.extend(
-        {
-            "zone_id": f"ic_static_label_column_{index}",
-            "target": target,
-            "reason": "Static thesis/scenario labels next to exact writable inputs.",
-        }
-        for index, target in enumerate(("A5:A160", "A164:A171", "A175:A177", "A181:A184"), start=1)
-    )
     sheet["non_writable_zones"] = non_writable
 
 
@@ -812,6 +821,8 @@ def _clear_investment_case_scenario_surfaces(wb: Workbook) -> None:
     if sheet_name not in wb.sheetnames:
         return
     ws = wb[sheet_name]
+    ws["A12"] = "Typed Scenario Inputs"
+    ws.row_dimensions[12].hidden = True
     for range_ref in INVESTMENT_CASE_SCENARIO_OWNED_RANGES:
         for row in ws[range_ref]:
             for cell in row:
@@ -1557,6 +1568,13 @@ def _configure_bs_segments_presentation(wb: Workbook) -> None:
         ws.row_dimensions[row_idx].height = 18.0
 
 
+def _configure_investment_case_product_layout(wb: Workbook) -> None:
+    from pbi_xbrl.new_ticker_investment_case_formula_surface import (
+        configure_investment_case_product_layout,
+    )
+
+    configure_investment_case_product_layout(wb)
+
 def _configure_summary_liquidity_layout(wb: Workbook) -> None:
     if "SUMMARY" not in wb.sheetnames:
         return
@@ -1694,6 +1712,17 @@ def _retire_bs_segments_annual_financial_surface(wb: Workbook) -> None:
         return
     ws = wb["BS_Segments"]
     for row in range(79, 105):
+        ws.row_dimensions[row].hidden = True
+
+
+def _retire_investment_case_legacy_lower_surface(wb: Workbook) -> None:
+    """Keep the active Investment Case product bounded at row 211."""
+
+    sheet_name = "{ticker}_Investment_Case"
+    if sheet_name not in wb.sheetnames:
+        return
+    ws = wb[sheet_name]
+    for row in range(212, 241):
         ws.row_dimensions[row].hidden = True
 
 
@@ -1912,6 +1941,16 @@ def _ensure_freeze_panes(wb: Workbook, manifest: dict[str, Any]) -> None:
             wb[sheet_name].freeze_panes = _fallback_freeze(str(sheet_name))
 
 
+def _apply_shared_sheet_view_policy(wb: Workbook, *, zoom_scale: int = 110) -> None:
+    """Apply one deterministic workbook-wide zoom without changing frozen panes."""
+
+    if not 10 <= int(zoom_scale) <= 400:
+        raise ValueError(f"Invalid workbook zoom scale {zoom_scale!r}.")
+    for ws in wb.worksheets:
+        ws.sheet_view.zoomScale = int(zoom_scale)
+        ws.sheet_view.zoomScaleNormal = int(zoom_scale)
+
+
 def _configure_calculation(wb: Workbook) -> None:
     try:
         wb.calculation.calcMode = "auto"
@@ -1978,6 +2017,7 @@ def _materialize_rich_shell(
     )
     _apply_module_profile_boundaries(wb, module_payload, resolved_profile)
     _retire_bs_segments_annual_financial_surface(wb)
+    _retire_investment_case_legacy_lower_surface(wb)
     _remove_company_specific_defined_names(wb)
     _neutralize_hidden_support_sheets(wb, manifest)
     apply_standard_support_formula_contracts(
@@ -1985,6 +2025,7 @@ def _materialize_rich_shell(
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
     )
     _configure_bs_segments_presentation(wb)
+    _configure_investment_case_product_layout(wb)
     neutralize_workbook_negative_number_formats(wb)
     _retire_product_pass2b_valuation_capacity(wb)
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
@@ -1992,6 +2033,7 @@ def _materialize_rich_shell(
     _remove_qa_excel_tables(wb)
     _clear_workbook_comments(wb)
     _ensure_freeze_panes(wb, manifest)
+    _apply_shared_sheet_view_policy(wb)
     _configure_calculation(wb)
     _configure_deterministic_properties(wb)
     active_formula_ids = enabled_formula_ids(module_payload, resolved_profile)
@@ -2130,14 +2172,18 @@ def materialize_shell(
     )
     _apply_module_profile_boundaries(wb, module_payload, resolved_profile)
     _retire_bs_segments_annual_financial_surface(wb)
+    _retire_investment_case_legacy_lower_surface(wb)
     apply_standard_support_formula_contracts(
         wb,
         enabled_formula_ids=enabled_formula_ids(module_payload, resolved_profile),
     )
     _configure_bs_segments_presentation(wb)
+    _configure_investment_case_product_layout(wb)
     neutralize_workbook_negative_number_formats(wb)
     _retire_product_pass2b_valuation_capacity(wb)
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
+    _ensure_freeze_panes(wb, manifest)
+    _apply_shared_sheet_view_policy(wb)
     _configure_calculation(wb)
     _configure_deterministic_properties(wb)
     active_formula_ids = enabled_formula_ids(module_payload, resolved_profile)

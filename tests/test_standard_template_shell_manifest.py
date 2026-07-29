@@ -64,7 +64,7 @@ def test_standard_template_shell_manifest_defines_visible_shell_contract() -> No
     assert manifest["visible_sheet_order"] == VISIBLE_SHEET_ORDER
     assert manifest["version"] == "0.3.0"
     assert manifest["semantic_contract_version"] == "1.8.0"
-    assert manifest["formula_contract_version"] == "2.3.0"
+    assert manifest["formula_contract_version"] == "2.5.1"
     assert manifest["union_sheet_order"] == _module_manifest()["union_sheet_order"]
     assert manifest["module_profile"]["profile_id"] == "full_union"
     assert manifest["ticker_sheet_token_rule"]["template"] == "{ticker}_Investment_Case"
@@ -88,8 +88,34 @@ def test_standard_template_shell_manifest_defines_visible_shell_contract() -> No
     investment_case = sheets_by_name["{ticker}_Investment_Case"]
     writable = {zone["zone_id"]: zone["target"] for zone in investment_case["writable_zones"]}
     assert writable["ic_snapshot_values"] == "B5:B11"
-    assert {writable[f"ic_scenario_user_input_{index}"] for index in range(1, 8)} == {
-        "B23:D42", "B160:D160", "A161:A163", "B171:D171", "A172:A174", "B177:D177", "A178:A180"
+    assert {writable[f"ic_scenario_user_input_{index}"] for index in range(1, 28)} == {
+        "B42:B42",
+        "C45:C45",
+        "C47:C48",
+        "C50:C52",
+        "D45:D45",
+        "D47:D48",
+        "D50:D52",
+        "E45:E45",
+        "E47:E48",
+        "E50:E52",
+        "B69:B69",
+        "C56:C60",
+        "C63:C68",
+        "D56:D60",
+        "D63:D68",
+        "E56:E60",
+        "E63:E68",
+        "C106:C114",
+        "B117:F117",
+        "I192:I192",
+        "I193:I193",
+        "I198:I198",
+        "I199:I199",
+        "I204:I204",
+        "I205:I205",
+        "I210:I210",
+        "I211:I211",
     }
     assert "ic_manual_input_values" not in writable
     assert "ic_scenario_bridge_values" not in writable

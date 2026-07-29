@@ -129,6 +129,9 @@ UNIVERSAL_HEADER_TEXT = {
     "binding_id",
     "target",
 }
+APPROVED_GENERIC_PRODUCT_LABELS = {
+    "latest-quarter adjusted eps ($/share)",
+}
 RED_GREEN_STATUS_TERMS = {"PASS", "WARN", "FAIL", "N/A"}
 SIGNAL_FILL_COLORS = {
     "002F80ED",
@@ -247,6 +250,8 @@ def _classify_cell(
         return "placeholder_slot", "Generic writable/template slot."
     if lowered in UNIVERSAL_HEADER_TEXT or lowered in (module_headers or set()):
         return "universal_template_label", "Universal QA/source/status header."
+    if lowered in APPROVED_GENERIC_PRODUCT_LABELS:
+        return "row_label_generic", "Approved ticker-neutral investor-facing product label."
     if _is_company_specific(text):
         return "company_specific_text", "Company/source-family term must not be standard template text."
     if _is_source_specific(text):

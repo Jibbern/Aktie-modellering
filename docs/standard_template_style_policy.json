@@ -2653,47 +2653,287 @@
     {
       "formula_id": "investment_case_scenario_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "B15:D22",
+      "target": "B15:E15",
       "owner_module_id": "investment_case_market_implied",
-      "economic_reason": "Investment-case source-input projections use scenario presentation, not historical heatmaps.",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"
     },
     {
       "formula_id": "investment_case_scenario_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "B50:D53",
+      "target": "A17:G19",
       "owner_module_id": "investment_case_market_implied",
-      "economic_reason": "Investment-case bridge outputs have explicit scenario semantics and no historical comparator axis.",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"
     },
     {
       "formula_id": "investment_case_scenario_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "B56:D58",
+      "target": "A21:G29",
       "owner_module_id": "investment_case_market_implied",
-      "economic_reason": "Investment-case scenario outputs have dedicated output styling and no historical comparator axis.",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"
     },
     {
       "formula_id": "investment_case_scenario_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "B62:B68",
+      "target": "A31:G35",
       "owner_module_id": "investment_case_market_implied",
-      "economic_reason": "Investment-case market-implied outputs have dedicated output styling and no historical comparator axis.",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"
     },
     {
       "formula_id": "investment_case_scenario_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "B85:J87",
+      "target": "B44:B45",
       "owner_module_id": "investment_case_market_implied",
-      "economic_reason": "Bear, base and bull outputs have explicit scenario semantics and no historical comparator axis.",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "F44:F45",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A46",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A47:B48",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "F47:F48",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A49",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A50:B52",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "F50:F52",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B56:B60",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "F56:F60",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B63:B68",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "F63:F68",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B73:E80",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B85:E92",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B94:E96",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B98:E101",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B106:B114",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "D106:E114",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B121:H125",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "E126:G126",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "G127:H127",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B131:C139",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B143:F150",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B156:F165",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "H156:I165",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B171:C179",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "C182:C188",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B186:B187",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A219:B225",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "G219:H225",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_scenario_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "L219:L225",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case product formulas use scenario presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"
     },
     {
       "formula_id": "investment_case_sensitivity_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "B161:D163",
+      "target": "H192:H193",
       "owner_module_id": "investment_case_market_implied",
       "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"
@@ -2701,7 +2941,7 @@
     {
       "formula_id": "investment_case_sensitivity_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "B172:D174",
+      "target": "B194:D194",
       "owner_module_id": "investment_case_market_implied",
       "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"
@@ -2709,7 +2949,79 @@
     {
       "formula_id": "investment_case_sensitivity_formulas",
       "sheet": "{ticker}_Investment_Case",
-      "target": "B178:D180",
+      "target": "A195:D197",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "H198:H199",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B200:D200",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A201:D203",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "H204:H205",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B206:D206",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A207:D209",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "H210:H211",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "B212:D212",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
+      "expected_empty_behavior": "no_style"
+    },
+    {
+      "formula_id": "investment_case_sensitivity_formulas",
+      "sheet": "{ticker}_Investment_Case",
+      "target": "A213:D215",
       "owner_module_id": "investment_case_market_implied",
       "economic_reason": "Investment-case sensitivity outputs use scenario-specific presentation, not historical heatmaps.",
       "expected_empty_behavior": "no_style"

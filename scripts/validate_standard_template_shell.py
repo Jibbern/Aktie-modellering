@@ -231,7 +231,11 @@ EXPECTED_STATIC_LABELS_BY_SHEET = {
         "Investment Snapshot",
         "Key Debate",
         "Typed Scenario Inputs",
-        "Scenario Driver Bridge",
+        "Model Data and Guidance",
+        "Scenario Assumptions",
+        "Selected Scenario Incremental Bridge",
+        "Scenario Output Comparison",
+        "Valuation and DCF Assumptions",
     ],
     "Quarter_Notes_UI": [
         "Quarter Notes",
@@ -897,17 +901,34 @@ def validate_shell(
     if DEFAULT_LAB_SOURCE.exists():
         lab_wb = load_workbook(DEFAULT_LAB_SOURCE, data_only=False, read_only=False)
         try:
+            merge_floor_ratios: dict[str, float] = {}
+            for sheet_contract in manifest.get("sheets") or []:
+                sheet_name = str(sheet_contract.get("sheet") or "")
+                raw_ratio = sheet_contract.get("rich_shell_lab_merge_floor_ratio", 0.55)
+                if isinstance(raw_ratio, bool) or not isinstance(raw_ratio, (int, float)) or not 0 < float(raw_ratio) <= 1:
+                    issues.append(
+                        _issue(
+                            "rich_shell_merge_floor_invalid",
+                            f"Declared lab merge floor ratio must be in (0, 1]. value={raw_ratio!r}",
+                            sheet=sheet_name,
+                        )
+                    )
+                    merge_floor_ratios[sheet_name] = 0.55
+                else:
+                    merge_floor_ratios[sheet_name] = float(raw_ratio)
             for sheet_name in RICH_VISIBLE_SHEETS:
                 workbook_sheet = _workbook_sheet_name(wb, sheet_name, allow_filled_values=allow_filled_values)
                 if workbook_sheet not in wb.sheetnames or _sheet_name(sheet_name) not in lab_wb.sheetnames:
                     continue
                 template_merges, template_nonempty, template_formulas = _sheet_counts(wb, workbook_sheet)
                 lab_merges, lab_nonempty, lab_formulas = _sheet_counts(lab_wb, _sheet_name(sheet_name))
-                if template_merges < max(1, int(lab_merges * 0.55)):
+                merge_floor_ratio = merge_floor_ratios.get(sheet_name, 0.55)
+                if template_merges < max(1, int(lab_merges * merge_floor_ratio)):
                     issues.append(
                         _issue(
                             "rich_shell_merge_family_sparse",
-                            f"Template merge family is too sparse versus ANF lab. template={template_merges} lab={lab_merges}",
+                            "Template merge family is too sparse versus ANF lab. "
+                            f"template={template_merges} lab={lab_merges} floor_ratio={merge_floor_ratio:.2f}",
                             sheet=sheet_name,
                         )
                     )

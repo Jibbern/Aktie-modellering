@@ -33,7 +33,7 @@ from pbi_xbrl.valuation_scenario_economics import (
 )
 
 
-FORMULA_CONTRACT_VERSION = "2.3.0"
+FORMULA_CONTRACT_VERSION = "2.5.1"
 ROOT = Path(__file__).resolve().parents[1]
 HIDDEN_VALUE_SIGNAL_CONTRACT = ROOT / "docs" / "hidden_value_signal_contract.json"
 HIDDEN_VALUE_DETAIL_FIRST_ROW = 2
@@ -41,7 +41,7 @@ HIDDEN_VALUE_CANDIDATE_FIRST_ROW = 2
 HIDDEN_VALUE_BASE_LAST_ROW = 5001
 
 INVESTMENT_CASE_SCENARIO_OWNED_RANGES = (
-    "A13:K180",
+    "A13:Q240",
 )
 FIRST_QUARTER_COLUMN = 2
 LAST_QUARTER_COLUMN = 13
@@ -97,6 +97,238 @@ class UserInputContract:
     operator: str | None = None
     formula1: str | None = None
     formula2: str | None = None
+    input_title: str | None = None
+    input_message: str | None = None
+
+
+def _investment_case_user_input_contracts() -> tuple[UserInputContract, ...]:
+    formula_ids = ("investment_case_scenario_formulas",)
+    result: list[UserInputContract] = []
+
+    def add(
+        input_id: str,
+        target: str,
+        surface_id: str,
+        surface_target: str,
+        validation_type: str,
+        operator: str | None = None,
+        formula1: str | None = None,
+        formula2: str | None = None,
+        input_title: str | None = None,
+        input_message: str | None = None,
+    ) -> None:
+        result.append(
+            UserInputContract(
+                input_id,
+                "{ticker}_Investment_Case",
+                target,
+                surface_id,
+                surface_target,
+                formula_ids,
+                validation_type,
+                operator,
+                formula1,
+                formula2,
+                input_title,
+                input_message,
+            )
+        )
+
+    add(
+        "investment_case_segment_dimension",
+        "B42",
+        "investment_case_segment_dimension",
+        "B42:B42",
+        "list",
+        formula1="=InvestmentCaseDimensionOptions",
+        input_title="Revenue scenario mode",
+        input_message="Choose Total Company, Brand or Geography. Blank uses Total Company.",
+    )
+    for scenario_column, scenario_id in (("C", "bear"), ("D", "base"), ("E", "bull")):
+        add(
+            f"investment_case_total_company_{scenario_id}_growth",
+            f"{scenario_column}45",
+            f"investment_case_{scenario_id}_drivers",
+            f"{scenario_column}45:{scenario_column}45",
+            "decimal",
+            "between",
+            "-1",
+            "1",
+        )
+        for row in (47, 48, 50, 51, 52):
+            add(
+                f"investment_case_segment_{scenario_id}_overlay_{row}",
+                f"{scenario_column}{row}",
+                f"investment_case_segment_{scenario_id}_overlays",
+                (
+                    f"{scenario_column}47:{scenario_column}48"
+                    if row <= 48
+                    else f"{scenario_column}50:{scenario_column}52"
+                ),
+                "decimal",
+                "between",
+                "-1",
+                "1",
+            )
+    add(
+        "investment_case_active_scenario",
+        "B69",
+        "investment_case_active_scenario",
+        "B69:B69",
+        "list",
+        formula1='"Bear,Base,Bull"',
+    )
+    driver_rows_by_kind = {
+        "rate": (56, 57, 58, 59),
+        "nonnegative": (63, 65, 67),
+        "positive": (66,),
+        "number": (64, 68),
+    }
+    for scenario_column, scenario_id in (("C", "bear"), ("D", "base"), ("E", "bull")):
+        surface_id = f"investment_case_{scenario_id}_drivers"
+
+        def surface_for(row: int) -> str:
+            if row <= 60:
+                return f"{scenario_column}56:{scenario_column}60"
+            return f"{scenario_column}63:{scenario_column}68"
+
+        for row in driver_rows_by_kind["rate"]:
+            add(
+                f"{surface_id}_rate_{row}",
+                f"{scenario_column}{row}",
+                surface_id,
+                surface_for(row),
+                "decimal",
+                "between",
+                "-1",
+                "1",
+            )
+        add(
+            f"{surface_id}_tax_rate_60",
+            f"{scenario_column}60",
+            surface_id,
+            surface_for(60),
+            "decimal",
+            "between",
+            "0",
+            "1",
+        )
+        for row in driver_rows_by_kind["nonnegative"]:
+            coordinate = f"{scenario_column}{row}"
+            add(
+                f"{surface_id}_nonnegative_{row}",
+                coordinate,
+                surface_id,
+                surface_for(row),
+                "custom",
+                formula1=f'=OR({coordinate}="",AND(ISNUMBER({coordinate}),{coordinate}>=0))',
+            )
+        for row in driver_rows_by_kind["positive"]:
+            coordinate = f"{scenario_column}{row}"
+            add(
+                f"{surface_id}_positive_{row}",
+                coordinate,
+                surface_id,
+                surface_for(row),
+                "custom",
+                formula1=f'=OR({coordinate}="",AND(ISNUMBER({coordinate}),{coordinate}>0))',
+            )
+        for row in driver_rows_by_kind["number"]:
+            coordinate = f"{scenario_column}{row}"
+            add(
+                f"{surface_id}_number_{row}",
+                coordinate,
+                surface_id,
+                surface_for(row),
+                "custom",
+                formula1=f'=OR({coordinate}="",ISNUMBER({coordinate}))',
+            )
+    valuation_surface = "C106:C114"
+    for row in (106, 107, 108, 109):
+        coordinate = f"C{row}"
+        add(
+            f"investment_case_valuation_positive_{row}",
+            coordinate,
+            "investment_case_valuation_assumptions",
+            valuation_surface,
+            "custom",
+            formula1=f'=OR({coordinate}="",AND(ISNUMBER({coordinate}),{coordinate}>0))',
+        )
+    add(
+        "investment_case_valuation_target_fcf_yield",
+        "C110",
+        "investment_case_valuation_assumptions",
+        valuation_surface,
+        "decimal",
+        "between",
+        "0.000001",
+        "1",
+    )
+    add(
+        "investment_case_dcf_revenue_growth",
+        "C111",
+        "investment_case_valuation_assumptions",
+        valuation_surface,
+        "decimal",
+        "between",
+        "-1",
+        "1",
+    )
+    add(
+        "investment_case_dcf_wacc",
+        "C112",
+        "investment_case_valuation_assumptions",
+        valuation_surface,
+        "decimal",
+        "between",
+        "0.000001",
+        "1",
+    )
+    add(
+        "investment_case_dcf_terminal_growth",
+        "C113",
+        "investment_case_valuation_assumptions",
+        valuation_surface,
+        "decimal",
+        "between",
+        "-1",
+        "1",
+    )
+    add(
+        "investment_case_dcf_forecast_years",
+        "C114",
+        "investment_case_valuation_assumptions",
+        valuation_surface,
+        "whole",
+        "between",
+        "1",
+        "5",
+    )
+    add(
+        "investment_case_valuation_weights",
+        "B117:F117",
+        "investment_case_valuation_weights",
+        "B117:F117",
+        "decimal",
+        "between",
+        "0",
+        "1",
+    )
+    for row in (192, 193, 198, 199, 204, 205, 210, 211):
+        is_percentage_step = row in {204, 210, 211}
+        add(
+            f"investment_case_sensitivity_step_{row}",
+            f"I{row}",
+            "investment_case_sensitivity_steps",
+            f"I{row}:I{row}",
+            "custom",
+            formula1=(
+                f'=OR(I{row}="",AND(ISNUMBER(I{row}),I{row}>0,I{row}<=1))'
+                if is_percentage_step
+                else f'=OR(I{row}="",AND(ISNUMBER(I{row}),I{row}>0))'
+            ),
+        )
+    return tuple(result)
 
 
 USER_INPUT_CONTRACTS = (
@@ -126,25 +358,7 @@ USER_INPUT_CONTRACTS = (
     UserInputContract("valuation_buyback_cash", "Valuation", "D253", "valuation_capital_allocation", "D253:D256", ("valuation_scenario_formulas",), "decimal", "greaterThanOrEqual", "0"),
     UserInputContract("valuation_buyback_price", "Valuation", "D254", "valuation_capital_allocation", "D253:D256", ("valuation_scenario_formulas",), "decimal", "greaterThan", "0"),
     UserInputContract("valuation_issuance_debt_paydown", "Valuation", "D255:D256", "valuation_capital_allocation", "D253:D256", ("valuation_scenario_formulas",), "decimal", "greaterThanOrEqual", "0"),
-    UserInputContract("investment_case_horizon", "{ticker}_Investment_Case", "B23:D23", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "custom", formula1='=OR(B23="",AND(LEFT(B23,2)="FY",LEN(B23)=6,ISNUMBER(VALUE(RIGHT(B23,4)))))'),
-    UserInputContract("investment_case_growth_margins", "{ticker}_Investment_Case", "B24:D26", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "between", "-1", "1"),
-    UserInputContract("investment_case_pretax_bridge", "{ticker}_Investment_Case", "B27:D27", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "custom", formula1='=OR(B27="",ISNUMBER(B27))'),
-    UserInputContract("investment_case_tax_rate", "{ticker}_Investment_Case", "B28:D28", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "between", "0", "1"),
-    UserInputContract("investment_case_bridge_tax", "{ticker}_Investment_Case", "B29:D29", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "list", formula1='"taxable,non_taxable,non_taxable_credit,cash_only,no_eps_impact"'),
-    UserInputContract("investment_case_interest_bridge", "{ticker}_Investment_Case", "B30:D30", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "custom", formula1='=OR(B30="",ISNUMBER(B30))'),
-    UserInputContract("investment_case_interest_tax", "{ticker}_Investment_Case", "B31:D31", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "list", formula1='"taxable,non_taxable"'),
-    UserInputContract("investment_case_cash_bridges", "{ticker}_Investment_Case", "B32:D33", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "custom", formula1='=OR(B32="",ISNUMBER(B32))'),
-    UserInputContract("investment_case_buyback_cash", "{ticker}_Investment_Case", "B34:D34", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "greaterThanOrEqual", "0"),
-    UserInputContract("investment_case_buyback_price", "{ticker}_Investment_Case", "B35:D35", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "greaterThan", "0"),
-    UserInputContract("investment_case_issuance_paydown", "{ticker}_Investment_Case", "B36:D37", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "greaterThanOrEqual", "0"),
-    UserInputContract("investment_case_target_multiples", "{ticker}_Investment_Case", "B38:D41", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "greaterThan", "0"),
-    UserInputContract("investment_case_target_yield", "{ticker}_Investment_Case", "B42:D42", "investment_case_scenarios", "B23:D42", ("investment_case_scenario_formulas",), "decimal", "between", "0.000001", "1"),
-    UserInputContract("investment_case_eps_axis", "{ticker}_Investment_Case", "B160:D160", "investment_case_eps_axis", "B160:D160", ("investment_case_sensitivity_formulas",), "decimal", "greaterThan", "0"),
-    UserInputContract("investment_case_pe_axis", "{ticker}_Investment_Case", "A161:A163", "investment_case_pe_axis", "A161:A163", ("investment_case_sensitivity_formulas",), "decimal", "greaterThan", "0"),
-    UserInputContract("investment_case_adjusted_ebitda_axis", "{ticker}_Investment_Case", "B171:D171", "investment_case_adjusted_ebitda_axis", "B171:D171", ("investment_case_sensitivity_formulas",), "decimal", "greaterThan", "0"),
-    UserInputContract("investment_case_ev_multiple_axis", "{ticker}_Investment_Case", "A172:A174", "investment_case_ev_multiple_axis", "A172:A174", ("investment_case_sensitivity_formulas",), "decimal", "greaterThan", "0"),
-    UserInputContract("investment_case_fcf_yield_axis", "{ticker}_Investment_Case", "B177:D177", "investment_case_fcf_yield_axis", "B177:D177", ("investment_case_sensitivity_formulas",), "decimal", "between", "0.000001", "1"),
-    UserInputContract("investment_case_fcf_axis", "{ticker}_Investment_Case", "A178:A180", "investment_case_fcf_axis", "A178:A180", ("investment_case_sensitivity_formulas",), "decimal", "greaterThan", "0"),
+    *_investment_case_user_input_contracts(),
 )
 
 
@@ -351,12 +565,61 @@ def formula_target_contracts() -> tuple[FormulaTargetContract, ...]:
             FormulaTargetContract(
                 "investment_case_scenario_formulas",
                 "{ticker}_Investment_Case",
-                ("B15:D22", "B50:D53", "B56:D58", "B62:B68", "B85:J87"),
+                (
+                    "B15:E15",
+                    "A17:G19",
+                    "A21:G29",
+                    "A31:G35",
+                    "B44:B45",
+                    "F44:F45",
+                    "A46",
+                    "A47:B48",
+                    "F47:F48",
+                    "A49",
+                    "A50:B52",
+                    "F50:F52",
+                    "B56:B60",
+                    "F56:F60",
+                    "B63:B68",
+                    "F63:F68",
+                    "B73:E80",
+                    "B85:E92",
+                    "B94:E96",
+                    "B98:E101",
+                    "B106:B114",
+                    "D106:E114",
+                    "B121:H125",
+                    "E126:G126",
+                    "G127:H127",
+                    "B131:C139",
+                    "B143:F150",
+                    "B156:F165",
+                    "H156:I165",
+                    "B171:C179",
+                    "C182:C188",
+                    "B186:B187",
+                    "A219:B225",
+                    "G219:H225",
+                    "L219:L225",
+                ),
             ),
             FormulaTargetContract(
                 "investment_case_sensitivity_formulas",
                 "{ticker}_Investment_Case",
-                ("B161:D163", "B172:D174", "B178:D180"),
+                (
+                    "H192:H193",
+                    "B194:D194",
+                    "A195:D197",
+                    "H198:H199",
+                    "B200:D200",
+                    "A201:D203",
+                    "H204:H205",
+                    "B206:D206",
+                    "A207:D209",
+                    "H210:H211",
+                    "B212:D212",
+                    "A213:D215",
+                ),
             ),
             FormulaTargetContract(
                 "valuation_summary_formulas",
@@ -476,6 +739,8 @@ def apply_workbook_protection_contract(workbook: Any, enabled_formula_ids: Colle
             operator=contract.operator,
             formula1=contract.formula1,
             formula2=contract.formula2,
+            input_title=contract.input_title,
+            input_message=contract.input_message,
         )
 
 
@@ -533,12 +798,14 @@ def canonical_data_validation_cells(worksheet: Any) -> list[dict[str, str]]:
         serialized_ranges = str(validation.sqref).split()
         if not serialized_ranges:
             continue
-        first_min_col, first_min_row, _first_max_col, _first_max_row = range_boundaries(serialized_ranges[0])
-        origin = f"{get_column_letter(first_min_col)}{first_min_row}"
+        range_bounds = [range_boundaries(target_range) for target_range in serialized_ranges]
+        origin = (
+            f"{get_column_letter(min(bounds[0] for bounds in range_bounds))}"
+            f"{min(bounds[1] for bounds in range_bounds)}"
+        )
         validation_type = str(validation.type or "")
         operator = _validation_operator(validation_type, validation.operator, validation.formula2)
-        for target_range in serialized_ranges:
-            min_col, min_row, max_col, max_row = range_boundaries(target_range)
+        for min_col, min_row, max_col, max_row in range_bounds:
             for row in range(min_row, max_row + 1):
                 for column in range(min_col, max_col + 1):
                     coordinate = f"{get_column_letter(column)}{row}"
@@ -819,9 +1086,11 @@ def _apply_scenario_revenue_route_formulas(workbook: Any, enabled_formula_ids: s
         return
     ws = workbook["Valuation_Summary"]
     targets = {
-        "H2": ("bear", "'{ticker}_Investment_Case'!$B$24", "'{ticker}_Investment_Case'!$B$23"),
-        "I2": ("base", "'{ticker}_Investment_Case'!$C$24", "'{ticker}_Investment_Case'!$C$23"),
-        "J2": ("bull", "'{ticker}_Investment_Case'!$D$24", "'{ticker}_Investment_Case'!$D$23"),
+        # B1 keeps the legacy Valuation presentation immutable. The visible
+        # Investment Case no longer supplies hidden user fallbacks to it.
+        "H2": ("bear", '""', '""'),
+        "I2": ("base", '""', '""'),
+        "J2": ("bull", '""', '""'),
         "K2": ("custom", "ScenarioGrowth", "ScenarioHorizon"),
     }
     if "scenario_revenue_route_formulas" not in enabled_formula_ids:
@@ -1563,162 +1832,204 @@ def _prepare_valuation_scenario_layout(ws: Any) -> None:
             ws.unmerge_cells(str(merged))
 
 
+def _ic_support_lookup(slot_key: str, column: str) -> str:
+    support = quote_sheetname("{ticker}_Investment_Case_Data")
+    return (
+        f'INDEX({support}!${column}$2:${column}$201,'
+        f'MATCH("{slot_key}",{support}!$W$2:$W$201,0))'
+    )
+
+
+def _ic_support_numeric_expression(slot_key: str, column: str) -> str:
+    lookup = _ic_support_lookup(slot_key, column)
+    return (
+        f'IFERROR(IF(ISBLANK({lookup}),"",'
+        f'IF(ISNUMBER({lookup}),{lookup},"")),"")'
+    )
+
+
+def _ic_support_text_expression(slot_key: str, column: str) -> str:
+    lookup = _ic_support_lookup(slot_key, column)
+    return (
+        f'IFERROR(IF(ISBLANK({lookup}),"",'
+        f'IF(ISTEXT({lookup}),{lookup},"")),"")'
+    )
+
+
+def _ic_scenario_driver_value(row: int, scenario_column: str) -> str:
+    if scenario_column == "B":
+        return f"$B${row}"
+    if scenario_column == "D":
+        return f"$B${row}"
+    if scenario_column not in {"C", "E", "F"}:
+        raise ValueError(f"Unsupported Investment Case scenario column {scenario_column!r}.")
+    return f'IF(ISNUMBER(${scenario_column}${row}),${scenario_column}${row},$B${row})'
+
+
+def _ic_selected_scenario_output(row: int, selector: str = "$B$71") -> tuple[str, str]:
+    selected = f'IF({selector}="","Base",{selector})'
+    valid = f"COUNTIF($C$88:$F$88,{selected})=1"
+    value = f"INDEX($C${row}:$F${row},1,MATCH({selected},$C$88:$F$88,0))"
+    return valid, value
+
+
+def _ic_selected_scenario_driver(row: int, selector: str = "$B$71") -> tuple[str, str]:
+    selected = f'IF({selector}="","Base",{selector})'
+    valid = f"COUNTIF($C$72:$F$72,{selected})=1"
+    value = (
+        f'INDEX($C${row}:$F${row},1,MATCH({selected},$C$72:$F$72,0))'
+    )
+    return valid, value
+
+
+def _ic_legacy_scenario_driver_value(row: int, selector: str = "$F$56") -> str:
+    return (
+        f'IF({selector}="Bear",$C${row},'
+        f'IF(OR({selector}="",{selector}="Base"),$D${row},'
+        f'IF({selector}="Bull",$E${row},'
+        f'IF({selector}="Custom",$F${row},""))))'
+    )
+
+
+def _ic_legacy_selected_output(row: int, selector: str = "$B$93") -> str:
+    return (
+        f'IFERROR(INDEX($B${row}:$E${row},1,'
+        f'MATCH(IF({selector}="","Base",{selector}),$B$73:$E$73,0)),"")'
+    )
+
+
+def _ic_legacy_selected_output_exact(row: int, selector: str = "$B$93") -> tuple[str, str]:
+    selected = f'IF({selector}="","Base",{selector})'
+    valid = f"COUNTIF($B$73:$E$73,{selected})=1"
+    value = f"INDEX($B${row}:$E${row},1,MATCH({selected},$B$73:$E$73,0))"
+    return valid, value
+
+
+def _ic_safe_share_delta_formula(
+    buyback: str,
+    execution_price: str,
+    *,
+    negative: bool,
+) -> str:
+    quotient = f"-{buyback}/{execution_price}" if negative else f"{buyback}/{execution_price}"
+    return (
+        f'IF({buyback}="",0,'
+        f'IF(NOT(ISNUMBER({buyback})),"",'
+        f'IF({buyback}<0,"",'
+        f'IF({buyback}=0,0,'
+        f'IF(NOT(ISNUMBER({execution_price})),"",'
+        f'IF({execution_price}<=0,"",{quotient}))))))'
+    )
+
+
+def _ic_safe_nonnegative_formula(value: str) -> str:
+    return f'IF(NOT(ISNUMBER({value})),"",IF({value}<0,"",{value}))'
+
+
+def _ic_safe_eps_share_impact_formula(
+    net_income: str,
+    starting_shares: str,
+    share_delta: str,
+) -> str:
+    return (
+        f'IF(NOT(ISNUMBER({share_delta})),"",'
+        f'IF(NOT(ISNUMBER({net_income})),"",'
+        f'IF(NOT(ISNUMBER({starting_shares})),"",'
+        f'IF({starting_shares}<=0,"",'
+        f'IF({starting_shares}+{share_delta}<=0,"",'
+        f'{net_income}/({starting_shares}+{share_delta})-{net_income}/{starting_shares})))))'
+    )
+
+
+def _ic_safe_scaled_impact_formula(impact: str, multiple: str) -> str:
+    return (
+        f'IF(NOT(ISNUMBER({impact})),"",'
+        f'IF(NOT(ISNUMBER({multiple})),"",'
+        f'IF({multiple}<=0,"",{impact}*{multiple})))'
+    )
+
+
+def _ic_safe_resulting_shares_formula(
+    starting_shares: str,
+    buyback: str,
+    execution_price: str,
+    issuance: str,
+) -> str:
+    no_buyback = (
+        f'IF({issuance}="",{starting_shares},'
+        f'IF(NOT(ISNUMBER({issuance})),"",'
+        f'IF({issuance}<0,"",'
+        f'IF({starting_shares}+{issuance}<=0,"",{starting_shares}+{issuance}))))'
+    )
+    with_buyback = (
+        f'IF(NOT(ISNUMBER({execution_price})),"",'
+        f'IF({execution_price}<=0,"",'
+        f'IF({issuance}="",'
+        f'IF({starting_shares}-{buyback}/{execution_price}<=0,"",'
+        f'{starting_shares}-{buyback}/{execution_price}),'
+        f'IF(NOT(ISNUMBER({issuance})),"",'
+        f'IF({issuance}<0,"",'
+        f'IF({starting_shares}-{buyback}/{execution_price}+{issuance}<=0,"",'
+        f'{starting_shares}-{buyback}/{execution_price}+{issuance}))))))'
+    )
+    return (
+        f'IF(NOT(ISNUMBER({starting_shares})),"",'
+        f'IF({starting_shares}<=0,"",'
+        f'IF({buyback}="",{no_buyback},'
+        f'IF(NOT(ISNUMBER({buyback})),"",'
+        f'IF({buyback}<0,"",'
+        f'IF({buyback}=0,{no_buyback},{with_buyback}))))))'
+    )
+
+
+def _ic_safe_adjusted_shares_formula(
+    starting_shares: str,
+    repurchased_shares: str,
+    issuance: str,
+) -> str:
+    return (
+        f'IF(NOT(ISNUMBER({starting_shares})),"",'
+        f'IF({starting_shares}<=0,"",'
+        f'IF(NOT(ISNUMBER({repurchased_shares})),"",'
+        f'IF({repurchased_shares}<0,"",'
+        f'IF(NOT(ISNUMBER({issuance})),"",'
+        f'IF({issuance}<0,"",'
+        f'IF({starting_shares}-{repurchased_shares}+{issuance}<=0,"",'
+        f'{starting_shares}-{repurchased_shares}+{issuance})))))))'
+    )
+
+
+def _ic_safe_eps_difference_formula(
+    selected_eps_valid: str,
+    selected_eps: str,
+    net_income: str,
+    starting_shares: str,
+) -> str:
+    return (
+        f'IF(NOT({selected_eps_valid}),"",'
+        f'IF(NOT(ISNUMBER({selected_eps})),"",'
+        f'IF(NOT(ISNUMBER({net_income})),"",'
+        f'IF(NOT(ISNUMBER({starting_shares})),"",'
+        f'IF({starting_shares}<=0,"",{selected_eps}-{net_income}/{starting_shares})))))'
+    )
+
+
+def _ic_number_format(unit: str) -> str:
+    return {
+        "%": "0.0%;-0.0%",
+        "$/share": "$0.00;-$0.00",
+        "x": "0.00x;-0.00x",
+        "m shares": "#,##0.000;-#,##0.000",
+        "years": "0",
+    }.get(unit, "#,##0.0;-#,##0.0")
+
+
 def _apply_investment_case_scenario_formulas(ws: Any, enabled_formula_ids: set[str]) -> None:
-    _prepare_investment_case_scenario_layout(ws)
-    labels = {
-        13: "Typed Scenario Inputs",
-        14: "Input / assumption",
-        15: "Current share price ($/share)",
-        16: "Base shares (m shares; selected denominator)",
-        17: "Net debt ($m)",
-        18: "Revenue TTM ($m)",
-        19: "Net income TTM ($m)",
-        20: "Base EBITDA TTM ($m)",
-        21: "Adjusted EBITDA TTM ($m)",
-        22: "FCF TTM ($m)",
-        23: "Fiscal horizon",
-        24: "Revenue growth (%)",
-        25: "Base EBITDA margin (%)",
-        26: "Adjusted EBITDA margin (%)",
-        27: "Pre-tax earnings bridge ($m)",
-        28: "Tax rate (%)",
-        29: "Earnings-bridge tax treatment",
-        30: "Cash-interest change ($m)",
-        31: "Cash-interest tax treatment",
-        32: "Capex change ($m, positive outflow)",
-        33: "Working-capital adjustment ($m, positive source)",
-        34: "Buyback cash ($m)",
-        35: "Buyback execution price ($/share)",
-        36: "Share issuance (m shares)",
-        37: "Debt paydown ($m)",
-        38: "Target EV/Adjusted EBITDA (x)",
-        39: "Target EV/EBITDA (base, x)",
-        40: "Target EV/Revenue (x)",
-        41: "Target P/E (x)",
-        42: "Target FCF yield (%)",
-        47: "Typed Scenario Driver Bridge",
-        48: "Only explicit typed assumptions affect scenario economics; source guidance remains separate until selected.",
-        49: "Bridge output",
-        50: "After-tax earnings bridge ($m)",
-        51: "After-tax cash-interest change ($m)",
-        52: "Net FCF bridge ($m)",
-        53: "Net share-count change (m)",
-        55: "Scenario output",
-        56: "Scenario EPS ($/share)",
-        57: "Scenario adjusted EBITDA ($m)",
-        58: "Scenario FCF ($m)",
-        60: "What Market Is Pricing",
-        61: "Metric",
-        62: "Market price",
-        63: "Market capitalization ($m)",
-        64: "Enterprise value ($m)",
-        65: "Required revenue @ target EV/Revenue ($m)",
-        66: "Required adjusted EBITDA @ target multiple ($m)",
-        67: "Required FCFF @ target yield ($m)",
-        68: "Implied terminal growth (perpetuity)",
-        83: "Bear / Base / Bull Scenario",
-        84: "Scenario",
-        85: "Bear",
-        86: "Base",
-        87: "Bull",
-        159: "P/E Sensitivity ($/share)",
-        160: "EPS / P-E multiple",
-        170: "EV/Adjusted EBITDA Sensitivity ($/share)",
-        171: "Adjusted EBITDA / multiple",
-        176: "FCF Yield Sensitivity ($/share)",
-        177: "FCF / yield",
-    }
-    for row, label in labels.items():
-        ws.cell(row, 1).value = label
-    for column, scenario in zip(range(2, 5), ("Bear", "Base", "Bull"), strict=True):
-        ws.cell(14, column).value = scenario
-        ws.cell(49, column).value = scenario
-        ws.cell(55, column).value = scenario
-    for column, label in enumerate(
-        ("Revenue", "Base EBITDA", "Adjusted EBITDA", "FCF", "EPS", "Shares", "Net debt", "Implied price", "Upside / downside"),
-        start=2,
-    ):
-        ws.cell(84, column).value = label
+    from pbi_xbrl.new_ticker_investment_case_formula_surface import (
+        apply_investment_case_formula_surface,
+    )
 
-    for range_ref in user_input_surface_targets("{ticker}_Investment_Case"):
-        _clear_range(ws, range_ref)
-
-    if "investment_case_scenario_formulas" in enabled_formula_ids:
-        actuals = {
-            15: ("Price", "$#,##0.00;[Red]-$#,##0.00"),
-            16: (_per_share_denominator_formula(), "#,##0.000;[Red]-#,##0.000"),
-            17: ("NetDebt", "#,##0.0;[Red]-#,##0.0"),
-            18: ("Revenue_TTM", "#,##0.0;[Red]-#,##0.0"),
-            19: ("NetIncome_TTM", "#,##0.0;[Red]-#,##0.0"),
-            20: ("Base_EBITDA", "#,##0.0;[Red]-#,##0.0"),
-            21: ("Adj_EBITDA", "#,##0.0;[Red]-#,##0.0"),
-            22: ("FCF_TTM", "#,##0.0;[Red]-#,##0.0"),
-        }
-        for row, (name_or_formula, number_format) in actuals.items():
-            for column in range(2, 5):
-                expression = name_or_formula
-                _set_formula(ws.cell(row, column), f'=IF({expression}="","",{expression})', number_format)
-
-        for input_column, output_row, resolved_growth_name in zip(
-            "BCD",
-            range(85, 88),
-            ("ResolvedRevenueGrowth_Bear", "ResolvedRevenueGrowth_Base", "ResolvedRevenueGrowth_Bull"),
-            strict=True,
-        ):
-            cash_bridge = _cell_scenario_bridge_formula(input_column, cash_view=True)
-            eps_bridge = _cell_scenario_bridge_formula(input_column, cash_view=False)
-            interest_bridge = _cell_interest_bridge_formula(input_column)
-            _set_formula(ws[f"{input_column}50"], f'=IF(OR({input_column}27="",{input_column}28="",{input_column}29=""),"",{eps_bridge})', "#,##0.0;[Red]-#,##0.0")
-            _set_formula(ws[f"{input_column}51"], f'=IF(OR({input_column}28="",{input_column}30="",{input_column}31=""),"",{interest_bridge})', "#,##0.0;[Red]-#,##0.0")
-            _set_formula(ws[f"{input_column}52"], f'=IF(OR({input_column}27="",{input_column}28="",{input_column}29="",{input_column}30="",{input_column}31="",{input_column}32="",{input_column}33=""),"",{cash_bridge}-{interest_bridge}-{input_column}32+{input_column}33)', "#,##0.0;[Red]-#,##0.0")
-            _set_formula(ws[f"{input_column}53"], f'=IF(OR({input_column}34="",{input_column}36="",AND({input_column}34<>0,OR({input_column}35="",{input_column}35<=0))),"",-IF({input_column}34=0,0,{input_column}34/{input_column}35)+{input_column}36)', "#,##0.000;[Red]-#,##0.000")
-
-            _set_formula(ws[f"B{output_row}"], f'=IF(OR({input_column}18="",{resolved_growth_name}=""),"",{input_column}18*(1+{resolved_growth_name}))', "#,##0.0;[Red]-#,##0.0")
-            _set_formula(ws[f"C{output_row}"], f'=IF(OR(B{output_row}="",{input_column}25=""),"",B{output_row}*{input_column}25)', "#,##0.0;[Red]-#,##0.0")
-            _set_formula(ws[f"D{output_row}"], f'=IF(OR(B{output_row}="",{input_column}26=""),"",B{output_row}*{input_column}26)', "#,##0.0;[Red]-#,##0.0")
-            _set_formula(ws[f"E{output_row}"], f'=IF(OR({input_column}22="",{input_column}52=""),"",{input_column}22+{input_column}52)', "#,##0.0;[Red]-#,##0.0")
-            _set_formula(ws[f"G{output_row}"], f'=IF(OR({input_column}16="",{input_column}53=""),"",IF({input_column}16+{input_column}53<=0,"",{input_column}16+{input_column}53))', "#,##0.000;[Red]-#,##0.000")
-            _set_formula(ws[f"H{output_row}"], f'=IF(OR({input_column}17="",{input_column}34="",{input_column}37=""),"",{input_column}17+{input_column}34-{input_column}37)', "#,##0.0;[Red]-#,##0.0")
-            _set_formula(ws[f"F{output_row}"], f'=IF(OR({input_column}19="",{input_column}50="",{input_column}51="",G{output_row}="",G{output_row}<=0),"",({input_column}19+{input_column}50-{input_column}51)/G{output_row})', "$0.00;[Red]-$0.00")
-            _set_formula(ws[f"I{output_row}"], f'=IF(OR(D{output_row}="",{input_column}38="",H{output_row}="",G{output_row}="",G{output_row}<=0),"",(D{output_row}*{input_column}38-H{output_row})/G{output_row})', "$#,##0.00;[Red]-$#,##0.00")
-            _set_formula(ws[f"J{output_row}"], f'=IF(OR(I{output_row}="",{input_column}15="",{input_column}15<=0),"",I{output_row}/{input_column}15-1)', "0.0%;[Red]-0.0%")
-
-        for column, output_row in zip("BCD", range(85, 88), strict=True):
-            _set_formula(ws[f"{column}56"], f'=IF(F{output_row}="","",F{output_row})', "$0.00;[Red]-$0.00")
-            _set_formula(ws[f"{column}57"], f'=IF(D{output_row}="","",D{output_row})', "#,##0.0;[Red]-#,##0.0")
-            _set_formula(ws[f"{column}58"], f'=IF(E{output_row}="","",E{output_row})', "#,##0.0;[Red]-#,##0.0")
-
-        market_links = {
-            62: ("Price", "$#,##0.00;[Red]-$#,##0.00"),
-            63: ("N236", "#,##0.0;[Red]-#,##0.0"),
-            64: ("N237", "#,##0.0;[Red]-#,##0.0"),
-            65: ("N238", "#,##0.0;[Red]-#,##0.0"),
-            66: ("N239", "#,##0.0;[Red]-#,##0.0"),
-            67: ("N242", "#,##0.0;[Red]-#,##0.0"),
-            68: ("N244", "0.0%;[Red]-0.0%"),
-        }
-        for row, (source, number_format) in market_links.items():
-            if row == 68:
-                formula = f'=IF(ISNUMBER(\'Valuation\'!{source}),\'Valuation\'!{source},"")'
-            else:
-                formula = f"=IF('Valuation'!{source}=\"\",\"\",'Valuation'!{source})" if source.startswith("N") else f'=IF({source}="","",{source})'
-            _set_formula(ws[f"B{row}"], formula, number_format)
-
-    if "investment_case_sensitivity_formulas" in enabled_formula_ids:
-        denominator = _per_share_denominator_formula()
-        for row in range(161, 164):
-            for column in range(2, 5):
-                col = get_column_letter(column)
-                _set_formula(ws.cell(row, column), f'=IF(OR($A{row}="",{col}$160=""),"",$A{row}*{col}$160)', "$#,##0.00;[Red]-$#,##0.00")
-        for row in range(172, 175):
-            for column in range(2, 5):
-                col = get_column_letter(column)
-                _set_formula(ws.cell(row, column), f'=IF(OR($A{row}="",{col}$171="",NetDebt="",{denominator}="",{denominator}<=0),"",($A{row}*{col}$171-NetDebt)/{denominator})', "$#,##0.00;[Red]-$#,##0.00")
-        for row in range(178, 181):
-            for column in range(2, 5):
-                col = get_column_letter(column)
-                _set_formula(ws.cell(row, column), f'=IF(OR($A{row}="",{col}$177="",{col}$177<=0,{denominator}="",{denominator}<=0),"",$A{row}/{col}$177/{denominator})', "$#,##0.00;[Red]-$#,##0.00")
-
+    apply_investment_case_formula_surface(ws, enabled_formula_ids)
 
 def _apply_valuation_summary_formulas(ws: Any, enabled_formula_ids: set[str]) -> None:
     if "valuation_summary_formulas" not in enabled_formula_ids:
@@ -1814,6 +2125,20 @@ def _apply_scenario_defined_names(workbook: Any, enabled_formula_ids: set[str]) 
     for name in route_names:
         if name in workbook.defined_names:
             del workbook.defined_names[name]
+    dimension_options_name = "InvestmentCaseDimensionOptions"
+    if dimension_options_name in workbook.defined_names:
+        del workbook.defined_names[dimension_options_name]
+    if (
+        "investment_case_scenario_formulas" in enabled_formula_ids
+        and "{ticker}_Investment_Case_Data" in workbook.sheetnames
+    ):
+        support_sheet = quote_sheetname("{ticker}_Investment_Case_Data")
+        workbook.defined_names.add(
+            DefinedName(
+                dimension_options_name,
+                attr_text=f"{support_sheet}!$AV$2:$AV$4",
+            )
+        )
     if "scenario_revenue_route_formulas" in enabled_formula_ids and "Valuation_Summary" in workbook.sheetnames:
         route_sheet = quote_sheetname("Valuation_Summary")
         for name, coordinate in route_names.items():
@@ -1879,6 +2204,8 @@ def _add_validation(
     operator: str | None = None,
     formula1: str | None = None,
     formula2: str | None = None,
+    input_title: str | None = None,
+    input_message: str | None = None,
 ) -> None:
     validation = DataValidation(
         type=validation_type,
@@ -1891,6 +2218,10 @@ def _add_validation(
     validation.error = "Enter a value compatible with the declared scenario contract."
     validation.errorStyle = "stop"
     validation.showErrorMessage = True
+    if input_message:
+        validation.promptTitle = input_title or "Input guidance"
+        validation.prompt = input_message
+        validation.showInputMessage = True
     ws.add_data_validation(validation)
     validation.add(target)
 
@@ -1923,22 +2254,7 @@ def _clear_range(ws: Any, range_ref: str) -> None:
 
 
 def _prepare_investment_case_scenario_layout(ws: Any) -> None:
-    from openpyxl.utils.cell import range_boundaries
-
-    exact_surfaces = (
-        "B15:D42",
-        "B50:D53",
-        "B55:D58",
-        "B62:B68",
-        "B84:J87",
-        "B160:D160",
-        "A161:D163",
-        "B171:D171",
-        "A172:D174",
-        "B177:D177",
-        "A178:D180",
-    )
-    owned = [range_boundaries(target) for target in exact_surfaces]
+    owned = [range_boundaries("A13:Q240")]
     for merged in tuple(ws.merged_cells.ranges):
         bounds = (merged.min_col, merged.min_row, merged.max_col, merged.max_row)
         if any(_bounds_overlap(bounds, target) for target in owned):

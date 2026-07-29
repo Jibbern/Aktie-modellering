@@ -19,12 +19,13 @@ from typing import Any, Iterable, Mapping
 from openpyxl.formula import Tokenizer
 
 
-FORMULA_SERIALIZATION_CONTRACT_VERSION = "1.0.0"
+FORMULA_SERIALIZATION_CONTRACT_VERSION = "1.1.0"
 
 ORDINARY_FUNCTIONS = frozenset(
     {
         "ABS",
         "AND",
+        "COUNT",
         "COUNTA",
         "COUNTIF",
         "COUNTIFS",
@@ -32,10 +33,13 @@ ORDINARY_FUNCTIONS = frozenset(
         "IFERROR",
         "INDEX",
         "INT",
+        "ISBLANK",
         "ISNUMBER",
+        "ISTEXT",
         "LEFT",
         "LEN",
         "LOOKUP",
+        "LOWER",
         "MATCH",
         "MAX",
         "MID",
@@ -45,6 +49,7 @@ ORDINARY_FUNCTIONS = frozenset(
         "OR",
         "RIGHT",
         "ROUND",
+        "SUM",
         "SUMIFS",
         "SUMPRODUCT",
         "TEXT",

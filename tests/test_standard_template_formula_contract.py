@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from openpyxl import load_workbook
-from openpyxl.utils import range_boundaries
+from openpyxl import Workbook, load_workbook
+from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.utils import get_column_letter, range_boundaries
 
 from pbi_xbrl.standard_template_formula_contract import (
     BS_RAW_ROWS,
@@ -13,6 +14,7 @@ from pbi_xbrl.standard_template_formula_contract import (
     USER_INPUT_CONTRACTS,
     VALUATION_HELPER_ROWS,
     VALUATION_RAW_ROWS,
+    canonical_data_validation_cells,
 )
 
 
@@ -139,7 +141,7 @@ def test_visible_metric_labels_are_concise_without_losing_definition() -> None:
 
 def test_formula_contract_contains_no_ticker_specific_content() -> None:
     source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
-    assert FORMULA_CONTRACT_VERSION == "2.3.0"
+    assert FORMULA_CONTRACT_VERSION == "2.5.1"
     for forbidden in ("Abercrombie", "Hollister", "ANF_model", "A&F"):
         assert forbidden not in source
 
@@ -194,12 +196,15 @@ def test_balance_sheet_ratio_formats_and_investment_case_units_are_explicit() ->
         assert all(bs.cell(row, column).number_format == "0.00x;-0.00x" for row in (38, 39) for column in range(2, 14))
 
         investment_case = wb["{ticker}_Investment_Case"]
-        assert investment_case["A15"].value == "Current share price ($/share)"
-        assert investment_case["A16"].value == "Base shares (m shares; selected denominator)"
-        assert investment_case["A17"].value == "Net debt ($m)"
-        assert investment_case["A18"].value == "Revenue TTM ($m)"
-        assert investment_case["A24"].value == "Revenue growth (%)"
-        assert investment_case["A42"].value == "Target FCF yield (%)"
+        assert 'MATCH("market_input|price"' in str(investment_case["A17"].value)
+        assert 'MATCH("market_input|revenue"' in str(investment_case["A21"].value)
+        assert 'MATCH("market_input|net_debt"' in str(investment_case["A19"].value)
+        assert 'MATCH("market_input|revenue_growth"' in str(investment_case["A22"].value)
+        assert 'MATCH("market_input|target_fcf_yield"' in str(investment_case["B110"].value)
+        assert investment_case["A45"].value == "Total Company revenue growth (%)"
+        assert investment_case["A67"].value == "Share issuance (m)"
+        assert investment_case["A85"].value == "Revenue ($m)"
+        assert investment_case["A98"].value == "GAAP diluted EPS ($/share)"
     finally:
         wb.close()
 
@@ -257,25 +262,431 @@ def test_typed_scenario_formulas_have_exact_ownership_and_no_unsafe_defaults() -
             "ScenarioImpliedPrice<=0",
             "ScenarioShares<=0",
         ))
-        assert str(investment_case["B68"].value) == '=IF(ISNUMBER(\'Valuation\'!N244),\'Valuation\'!N244,"")'
-
-        assert "ResolvedRevenueGrowth_Bear" in str(investment_case["B85"].value)
-        assert "ResolvedRevenueGrowth_Base" in str(investment_case["B86"].value)
-        assert "ResolvedRevenueGrowth_Bull" in str(investment_case["B87"].value)
+        assert "'Valuation'!" not in "\n".join(
+            str(cell.value)
+            for cell in investment_case._cells.values()
+            if isinstance(cell.value, str) and cell.value.startswith("=")
+        )
+        assert 'MATCH("market_input|price"' in str(investment_case["A17"].value)
+        assert str(investment_case["F17"].value).startswith("=IF(ISNUMBER(")
+        assert "Manual input required" in str(investment_case["G17"].value)
+        assert investment_case["B69"].value is None
+        assert investment_case["B69"].protection.locked is False
+        assert "$B$69" in str(investment_case["E121"].value)
+        assert investment_case.row_dimensions[127].height == pytest.approx(42.0)
+        selected_margin = str(investment_case["C74"].value)
+        assert 'INDEX($C$57:$E$57' in selected_margin
+        assert '="",$B$57,IF(ISNUMBER(INDEX(' in selected_margin
+        assert 'INDEX($C$57:$E$57' in selected_margin
+        assert ',"Unavailable")),"")' in selected_margin
+        selected_capex = str(investment_case["C75"].value)
+        assert 'INDEX($C$63:$E$63' in selected_capex
+        assert '="",$B$63,IF(ISNUMBER(INDEX(' in selected_capex
+        assert ',"Unavailable")),"")' in selected_capex
+        assert str(investment_case["B89"].value).startswith("=IF(NOT(ISNUMBER(")
+        assert str(investment_case["E101"].value).startswith("=IF(E$83=")
+        assert str(investment_case["G121"].value) == '=IF(ISNUMBER(E121),"Available","Unavailable")'
+        assert str(investment_case["D106"].value).startswith("=IF(ISNUMBER(C106),")
 
         source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
         assert "MAX(0.001" not in source
         assert "ScenarioBuyback_m" not in source
         assert "0.10,0.11,0.12" not in source
 
-        for coordinate in ("B23", "D42", "B160", "A161", "B171", "A172", "B177", "A178"):
+        for coordinate in (
+            "B42", "C45", "D45", "E45", "B69", "C56", "D63", "E68",
+            "C106", "C114", "B117", "F117", "I192", "I211",
+        ):
             assert investment_case[coordinate].value is None
             assert investment_case[coordinate].protection.locked is False
-        for coordinate in ("B15", "D22", "B50", "D53", "B56", "D58", "B85", "J87", "B161", "D180"):
+        for coordinate in (
+            "B15", "E15", "A17", "F17", "G17", "A46", "B44", "F44",
+            "B73", "E80", "B85", "E101", "B106", "D114", "B121", "G127",
+            "B131", "F150", "B156", "I165", "B171", "C188",
+            "A195", "D215", "A219", "L225",
+        ):
             assert isinstance(investment_case[coordinate].value, str) and investment_case[coordinate].value.startswith("=")
             assert investment_case[coordinate].protection.locked is True
     finally:
         wb.close()
+
+
+def test_investment_case_driver_chain_is_visible_and_valuation_isolated() -> None:
+    wb = load_workbook(SHELL, data_only=False, read_only=False)
+    try:
+        investment_case = wb["{ticker}_Investment_Case"]
+        expected_sections = {
+            4: "Investment Snapshot",
+            13: "Model Data and Guidance",
+            38: "Scenario Assumptions",
+            71: "Selected Scenario Incremental Bridge",
+            82: "Scenario Output Comparison",
+            103: "Valuation and DCF Assumptions",
+            119: "Valuation Summary",
+            129: "What the Market Is Pricing",
+            141: "Guidance-Implied Earnings",
+            152: "DCF and Equity Value",
+            167: "Calculation Details",
+            190: "Sensitivity Tables",
+            217: "Key Debates and Invalidators",
+        }
+        assert {row: investment_case.cell(row, 1).value for row in expected_sections} == expected_sections
+
+        assert "Model default (" in str(investment_case["B15"].value)
+        assert "FY default" not in str(investment_case["B15"].value)
+        assert investment_case["C15"].value == '="Model default (TTM)"'
+        assert "Guidance (" in str(investment_case["D15"].value)
+        assert "Full-year guidance" not in str(investment_case["D15"].value)
+        assert "Guidance (" in str(investment_case["E15"].value)
+        assert "$AN$2:$AN$201" in str(investment_case["E15"].value)
+        assert investment_case["F15"].value == "Active value"
+        assert investment_case["G15"].value == "Active source"
+        assert "Manual override" not in {
+            investment_case.cell(15, column).value
+            for column in range(1, 13)
+        }
+        assert [investment_case.cell(83, column).value for column in range(1, 6)] == [
+            "Output",
+            "Current baseline",
+            "Bear",
+            "Base",
+            "Bull",
+        ]
+        assert [investment_case.cell(170, column).value for column in range(1, 4)] == [
+            "Calculation",
+            "Basis",
+            "Result",
+        ]
+        assert all(
+            investment_case.cell(row, column).value != "Unit"
+            for row in range(1, 226)
+            for column in range(1, 14)
+        )
+        assert not any(
+            isinstance(investment_case.cell(row, column).value, str)
+            and "Custom" in investment_case.cell(row, column).value
+            for row in range(1, 226)
+            for column in range(1, 14)
+        )
+
+        assert str(investment_case["F21"].value).startswith("=IF(ISNUMBER(")
+        assert "Model default (TTM)" in str(investment_case["G21"].value)
+        assert "TTM through" not in str(investment_case["G21"].value)
+        assert "Manual input required" in str(investment_case["G17"].value)
+
+        total_company_revenue = str(investment_case["C85"].value)
+        assert 'LOWER(IF($B$42="","Total Company",$B$42))="total company"' in total_company_revenue
+        assert "LOWER($A$46)" in total_company_revenue
+        assert "LOWER($A$49)" in total_company_revenue
+        assert total_company_revenue.count('$B$47*$C$47') == 1
+        assert 'IF($C$45="",$B$45,IF(ISNUMBER($C$45),$C$45,"Unavailable"))' in total_company_revenue
+        assert 'IF($D$45="",$B$45,IF(ISNUMBER($D$45),$D$45,"Unavailable"))' in str(investment_case["D85"].value)
+        assert investment_case["B44"].protection.locked is True
+        assert investment_case["D45"].protection.locked is False
+
+        assert "INDEX($C$85:$E$85" in str(investment_case["E73"].value)
+        assert "INDEX($C$89:$E$89" in str(investment_case["E78"].value)
+        assert "INDEX($C$98:$E$98" in str(investment_case["E80"].value)
+        assert "Value/share ($/share)" not in {
+            investment_case.cell(row, 1).value
+            for row in range(73, 81)
+        }
+        assert "INDEX($C$98:$E$98" in str(investment_case["B121"].value)
+        assert all(token in str(investment_case["H165"].value) for token in ("H163", "H164"))
+        assert "MATCH(IF($B$69=\"\",\"Base\",$B$69)" in str(investment_case["E121"].value)
+        assert str(investment_case["G121"].value) == '=IF(ISNUMBER(E121),"Available","Unavailable")'
+        assert investment_case["H127"].value == '="Unavailable methods are excluded regardless of entered weight."'
+
+        assert investment_case["C41"].value == "Bear"
+        assert investment_case["D41"].value == "Base"
+        assert investment_case["E41"].value == "Bull"
+        assert investment_case["B69"].value is None
+        assert investment_case["C69"].value == "Blank selection uses Base"
+        assert investment_case["B69"].protection.locked is False
+        assert investment_case["D56"].protection.locked is False
+        assert investment_case["B56"].protection.locked is True
+        assert investment_case["C106"].protection.locked is False
+        assert investment_case["D106"].protection.locked is True
+
+        percentage_targets = {
+            "C45", "D45", "E45",
+            *(
+                f"{column}{row}"
+                for column in "CDE"
+                for row in (47, 48, 50, 51, 52, 56, 57, 58, 59, 60)
+            ),
+            "C110", "C111", "C112", "C113", "I204", "I210", "I211",
+        }
+        percentage_validations = [
+            validation
+            for validation in investment_case.data_validations.dataValidation
+            if any(
+                str(cell_range) in percentage_targets
+                for cell_range in validation.ranges.ranges
+            )
+        ]
+        assert percentage_validations
+        assert all(validation.prompt is None for validation in percentage_validations)
+        assert all(validation.promptTitle is None for validation in percentage_validations)
+        assert all(validation.showInputMessage is False for validation in percentage_validations)
+        assert "Enter percentages as 6% or 0.06." not in str(investment_case["A39"].value)
+        assert all(
+            "Enter 6% or 0.06, not 6." not in str(validation.prompt or "")
+            for validation in investment_case.data_validations.dataValidation
+        )
+
+        assert investment_case["A12"].value == "Typed Scenario Inputs"
+        assert investment_case.row_dimensions[12].hidden is True
+        assert investment_case["G219"].value.startswith('=IF(A219="","",')
+        assert "Manual review required" in str(investment_case["G219"].value)
+        assert {
+            "G15:L15",
+            "G17:L17",
+            "F41:L41",
+            "F55:L55",
+            "F105:L105",
+            "A115:F115",
+            "G115:J115",
+            "A154:F154",
+            "G154:M154",
+            "B219:F219",
+            "H219:K219",
+        } <= {str(merged) for merged in investment_case.merged_cells.ranges}
+        bridge_merges = {
+            str(merged)
+            for merged in investment_case.merged_cells.ranges
+            if merged.min_row <= 80
+            and merged.max_row >= 72
+            and merged.min_col <= 13
+            and merged.max_col >= 5
+        }
+        assert bridge_merges == set()
+        assert investment_case["E72"].value == "Resulting output"
+        assert investment_case["E72"].alignment.horizontal == "center"
+        assert all(investment_case[f"E{row}"].value is not None for row in range(73, 81))
+        assert all(investment_case[f"E{row}"].alignment.horizontal == "left" for row in range(73, 81))
+        assert all(
+            investment_case.cell(row, column).value is None
+            for row in range(72, 81)
+            for column in range(6, 14)
+        )
+        expected_weight_note = (
+            "Method weights (%) - Blended value/share, enter percentages that sum to 100% "
+            "across available methods; blank or 0 excludes a method."
+        )
+        assert investment_case["G115"].value == expected_weight_note
+        assert investment_case.row_dimensions[115].height == 36.0
+        assert not any(
+            isinstance(cell.value, str)
+            and "Method weights determine the blended value/share" in cell.value
+            for cell in investment_case._cells.values()
+        )
+        assert all(
+            investment_case.cell(row, column).protection.locked is True
+            for row in (115, 116)
+            for column in range(7, 11)
+        )
+        assert investment_case["A150"].value == "Latest-quarter adjusted EPS ($/share)"
+        assert investment_case.row_dimensions[5].height == 42.0
+        assert investment_case.row_dimensions[156].height == 24.0
+        assert all(
+            investment_case.column_dimensions[get_column_letter(column)].hidden is True
+            for column in range(14, 54)
+        )
+        assert len({
+            investment_case.column_dimensions[get_column_letter(column)].width
+            for column in range(2, 9)
+        }) == 1
+        assert investment_case.column_dimensions["B"].width == 25.0
+        assert investment_case.column_dimensions["M"].hidden is False
+        assert investment_case.column_dimensions["N"].hidden is True
+        assert all(
+            investment_case.row_dimensions[row].hidden is True
+            and investment_case.row_dimensions[row].outlineLevel == 0
+            and investment_case.row_dimensions[row].collapsed is False
+            for row in (*range(194, 198), *range(200, 204), *range(206, 210), *range(212, 216))
+        )
+        assert all(
+            investment_case.row_dimensions[row].outlineLevel == 0
+            and investment_case.row_dimensions[row].collapsed is False
+            for row in range(1, 241)
+        )
+        assert investment_case.sheet_view.showOutlineSymbols is False
+        assert investment_case.freeze_panes == "A2"
+        assert all(
+            ws.sheet_view.zoomScale == 110 and ws.sheet_view.zoomScaleNormal == 110
+            for ws in wb.worksheets
+        )
+        assert investment_case["C45"].alignment.horizontal == "left"
+        assert investment_case["F17"].alignment.horizontal == "left"
+        assert investment_case["C106"].alignment.horizontal == "left"
+        assert investment_case["B15"].alignment.horizontal == "center"
+        assert all(
+            investment_case.cell(row, column).alignment.vertical == "center"
+                for row in range(1, 226)
+                for column in range(1, 14)
+                if investment_case.row_dimensions[row].hidden is not True
+                if investment_case.cell(row, column).__class__.__name__ != "MergedCell"
+                and (
+                investment_case.cell(row, column).value is not None
+                or investment_case.cell(row, column).protection.locked is False
+            )
+        )
+        assert investment_case["A1"].font.name == "Aptos Display"
+        assert investment_case["A1"].font.color.rgb == "00FFFFFF"
+        assert investment_case["A1"].fill.fgColor.rgb == "004472C4"
+        assert investment_case["A13"].fill.fgColor.rgb == "005B9BD5"
+        assert investment_case["A15"].fill.fgColor.rgb == "00EAF3F8"
+        assert investment_case["A16"].fill.fgColor.rgb == "00DDEBF7"
+        assert investment_case["A43"].fill.fgColor.rgb == "00FFFFFF"
+        assert investment_case["A44"].fill.fgColor.rgb == "00FFFFFF"
+        assert investment_case["A46"].fill.fgColor.rgb == "00DDEBF7"
+        assert investment_case["A47"].font.color.rgb == "001F2933"
+        assert {
+            investment_case.cell(1, column).fill.fgColor.rgb
+            for column in range(1, 14)
+        } == {"004472C4"}
+
+        horizon_validation = next(
+            validation
+            for validation in investment_case.data_validations.dataValidation
+            if str(validation.sqref) == "C114"
+        )
+        assert horizon_validation.type == "whole"
+        assert horizon_validation.formula1 == "1"
+        assert horizon_validation.formula2 == "5"
+
+        visible_investment_case_ref = "'{ticker}_Investment_Case'!"
+        for sheet_name in ("Valuation", "Valuation_Summary"):
+            assert visible_investment_case_ref not in "\n".join(
+                str(cell.value)
+                for cell in wb[sheet_name]._cells.values()
+                if isinstance(cell.value, str) and cell.value.startswith("=")
+            )
+    finally:
+        wb.close()
+
+
+def test_investment_case_buyback_and_terminal_growth_formulas_fail_closed() -> None:
+    wb = load_workbook(SHELL, data_only=False, read_only=False)
+    try:
+        ws = wb["{ticker}_Investment_Case"]
+
+        active_price = str(ws["F17"].value)
+        active_price_state = str(ws["G17"].value)
+        buyback_repurchases = str(ws["C184"].value)
+        scenario_shares = str(ws["D95"].value)
+        scenario_eps = str(ws["D98"].value)
+        pe_value = str(ws["E121"].value)
+        pe_state = str(ws["G121"].value)
+        market_cap = str(ws["B133"].value)
+        market_ev = str(ws["B135"].value)
+        terminal_growth = str(ws["B139"].value)
+        terminal_growth_state = str(ws["C139"].value)
+        dcf_forecast_pv = str(ws["H159"].value)
+        dcf_terminal_pv = str(ws["H160"].value)
+        dcf_value = str(ws["H165"].value)
+        dcf_state = str(ws["I165"].value)
+        dcf_sensitivity = str(ws["B213"].value)
+
+        assert active_price.startswith("=IF(ISNUMBER(IFERROR(")
+        assert "ISBLANK(INDEX(" in active_price
+        assert active_price_state.startswith("=IF(ISNUMBER(F17),")
+        assert "Manual input required" in active_price_state
+
+        assert buyback_repurchases.startswith("=IF(IF(INDEX(")
+        assert "INDEX($C$65:$E$65" in buyback_repurchases
+        assert "INDEX($C$66:$E$66" in buyback_repurchases
+        assert '="",$B$65,IF(ISNUMBER(INDEX(' in buyback_repurchases
+        assert '="",$B$66,IF(ISNUMBER(INDEX(' in buyback_repurchases
+        assert "$B$65" in buyback_repurchases
+        assert "$B$66" in buyback_repurchases
+        assert "<=0" in buyback_repurchases
+        assert scenario_shares.startswith("=IF(NOT(ISNUMBER($F$18))")
+        assert "$D$65" in scenario_shares
+        assert "$D$66" in scenario_shares
+        assert "$D$67" in scenario_shares
+        assert '="",$F$18' in scenario_shares
+        assert scenario_eps.startswith("=IF(NOT(ISNUMBER(D92))")
+        assert "D95<=0" in scenario_eps
+
+        assert pe_value.startswith("=IF(NOT(ISNUMBER(")
+        assert "$D$107<=0" in pe_value
+        assert pe_state == '=IF(ISNUMBER(E121),"Available","Unavailable")'
+
+        assert market_cap.startswith("=IF(NOT(ISNUMBER($D$106))")
+        assert market_ev.startswith("=IF(NOT(ISNUMBER(B133))")
+        assert terminal_growth.startswith("=IF(NOT(ISNUMBER(B135))")
+        assert "B135<=0" in terminal_growth
+        assert "$D$112<=0" in terminal_growth
+        assert "B135+INDEX(" in terminal_growth
+        assert terminal_growth_state.startswith("=IF(ISNUMBER(B139),")
+        assert "Unavailable | " in terminal_growth_state
+
+        assert "COUNT(B165:F165)<>$D$114" in dcf_forecast_pv
+        assert "MOD($D$114,1)<>0" in dcf_forecast_pv
+        assert "INDEX($B$163:$F$163,1,$D$114)" in dcf_terminal_pv
+        assert "INDEX($B$164:$F$164,1,$D$114)" in dcf_terminal_pv
+        assert "COUNT(B163:F163)<>$D$114" in dcf_terminal_pv
+        assert dcf_value.startswith("=IF(NOT(ISNUMBER(H163))")
+        assert "H164<=0" in dcf_value
+        assert dcf_state == '=IF(ISNUMBER(H165),"Available","Unavailable")'
+        assert "COUNT($B$163:$F$163)<>$D$114" in dcf_sensitivity
+        assert "INDEX($B$163:$F$163,1,$D$114)" in dcf_sensitivity
+        assert "IF(ISNUMBER(B$163)" not in dcf_sensitivity
+
+        critical = "\n".join(
+            (
+                buyback_repurchases,
+                scenario_shares,
+                scenario_eps,
+                pe_value,
+                market_cap,
+                market_ev,
+                terminal_growth,
+                dcf_forecast_pv,
+                dcf_terminal_pv,
+                dcf_value,
+                dcf_sensitivity,
+            )
+        )
+        for forbidden in ("IFERROR(", "VALUE(", "N(", "--"):
+            assert forbidden not in critical
+        assert "FormulaLocal" not in critical
+        assert "Formula2Local" not in critical
+    finally:
+        wb.close()
+
+
+def test_excel_grouped_data_validations_keep_per_cell_relative_formula_identity() -> None:
+    separate_workbook = Workbook()
+    grouped_workbook = Workbook()
+    try:
+        separate = separate_workbook.active
+        grouped = grouped_workbook.active
+        for target in ("F15:F16", "C67", "E67"):
+            coordinate = target.split(":", 1)[0]
+            validation = DataValidation(
+                type="custom",
+                formula1=f'=OR({coordinate}="",AND(ISNUMBER({coordinate}),{coordinate}>0))',
+                allow_blank=True,
+            )
+            separate.add_data_validation(validation)
+            validation.add(target)
+
+        grouped_validation = DataValidation(
+            type="custom",
+            formula1='OR(C15="",AND(ISNUMBER(C15),C15>0))',
+            allow_blank=True,
+        )
+        grouped.add_data_validation(grouped_validation)
+        for target in ("F15:F16", "E67", "C67"):
+            grouped_validation.add(target)
+
+        assert canonical_data_validation_cells(grouped) == canonical_data_validation_cells(separate)
+    finally:
+        separate_workbook.close()
+        grouped_workbook.close()
 
 
 def test_scenario_defined_names_validations_and_support_projections_are_complete() -> None:
@@ -295,24 +706,45 @@ def test_scenario_defined_names_validations_and_support_projections_are_complete
             "ResolvedRevenueGrowth_Base": "'Valuation_Summary'!$I$2",
             "ResolvedRevenueGrowth_Bull": "'Valuation_Summary'!$J$2",
             "ResolvedRevenueGrowth_Custom": "'Valuation_Summary'!$K$2",
+            "InvestmentCaseDimensionOptions": "'{ticker}_Investment_Case_Data'!$AV$2:$AV$4",
         }
         for name, target in expected_names.items():
             assert wb.defined_names[name].attr_text == target
 
+        investment_case = wb["{ticker}_Investment_Case"]
+        dimension_validation = next(
+            validation
+            for validation in investment_case.data_validations.dataValidation
+            if str(validation.sqref) == "B42"
+        )
+        assert dimension_validation.formula1 == "=InvestmentCaseDimensionOptions"
+        assert dimension_validation.promptTitle == "Revenue scenario mode"
+        assert dimension_validation.prompt == (
+            "Choose Total Company, Brand or Geography. Blank uses Total Company."
+        )
+
         route_support = wb["Valuation_Summary"]
-        for coordinate in ("H2", "I2", "J2", "K2"):
+        for coordinate in ("H2", "I2", "J2"):
             formula = str(route_support[coordinate].value or "")
             assert formula.startswith("=_xlfn.LET(")
             assert "selected_growth_route" in formula
             assert "profile_driver_bridge" in formula
             assert '=\"revenue_growth\"' in formula
             assert formula.count('=\"total_company\"') == 4
+            assert "'{ticker}_Investment_Case'!" not in formula
+            assert '_xlpm.userGrowth,""' in formula
+            assert '_xlpm.scenarioHorizon,""' in formula
             assert "LOWER(" not in formula
             assert "SUBSTITUTE(" not in formula
             assert "TRIM(" not in formula
             assert "_xlpm.directCount+_xlpm.profileCount+_xlpm.userCount<>1" in formula
             assert "_xlpm.bridgeCount=1" in formula
             assert route_support[coordinate].protection.locked is True
+        custom_route = str(route_support["K2"].value or "")
+        assert custom_route.startswith("=_xlfn.LET(")
+        assert "_xlpm.userGrowth,ScenarioGrowth" in custom_route
+        assert "_xlpm.scenarioHorizon,ScenarioHorizon" in custom_route
+        assert route_support["K2"].protection.locked is True
         assert "retail_operating_pack" not in str(route_support["I2"].value)
 
         valuation = wb["Valuation"]
@@ -381,8 +813,8 @@ def test_user_input_contract_is_the_exact_visible_edit_surface() -> None:
             )
         assert editable == expected
         assert sum(sheet == "Valuation" for sheet, _cell in editable) == 44
-        assert sum(sheet == "{ticker}_Investment_Case" for sheet, _cell in editable) == 78
-        assert len(editable) == 122
+        assert sum(sheet == "{ticker}_Investment_Case" for sheet, _cell in editable) == 75
+        assert len(editable) == 119
         assert all(ws.protection.sheet for ws in wb.worksheets)
     finally:
         wb.close()

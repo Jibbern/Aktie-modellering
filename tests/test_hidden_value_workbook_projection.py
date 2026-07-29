@@ -264,17 +264,20 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
     accepted_writes = [
         row
         for row in plan["planned_writes"]
-        if row["binding_id"] not in hidden_bindings | debt_product_bindings
+        if row["binding_id"] not in hidden_bindings | debt_product_bindings | {"ic_product_projection_rows"}
     ]
     debt_product_writes = [
         row for row in plan["planned_writes"] if row["binding_id"] in debt_product_bindings
+    ]
+    investment_case_writes = [
+        row for row in plan["planned_writes"] if row["binding_id"] == "ic_product_projection_rows"
     ]
 
     assert package == original_package
     assert "_derived_workbook" not in package
     assert plan["status"] == "PASS"
-    assert plan["planned_write_count"] == 22_760
-    assert plan["structured_skip_count"] == 2_017
+    assert plan["planned_write_count"] == 23_521
+    assert plan["structured_skip_count"] == 2_012
     assert plan["overflow_count"] == 0
     assert Counter(row["binding_id"] for row in hidden_writes) == {
         "hidden_value_base_rows": 700,
@@ -287,6 +290,8 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
     assert _digest(accepted_writes) == "c9cde15b80db86d18193a81c73f50884bcde58819a185b2ba1ad00697b1c34a4"
     assert len(debt_product_writes) == 389
     assert _digest(debt_product_writes) == "774cc923de372f915599414a60dcd10d52832c746f6c6d73e3275caa7fcef57f"
+    assert len(investment_case_writes) == 761
+    assert _digest(investment_case_writes) == "24837ba4d3a5c297a053838ea5ed234a266b9682a5a5f299210864ee098d27b6"
     assert _digest(plan["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
 
     recompute_writes = [row for row in hidden_writes if row["binding_id"] == "hidden_value_recompute_rows"]
@@ -303,6 +308,7 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
     assert {row["plan_id"] for row in plan["derived_plans"]} == {
         "debt_workbook_projection",
         "valuation_guidance_projection",
+        "investment_case_workbook_projection",
         "valuation_thesis_projection",
         "hidden_value_evaluation",
     }

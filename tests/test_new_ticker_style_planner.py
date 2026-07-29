@@ -147,7 +147,7 @@ def test_style_contract_schema_palette_and_authoritative_ownership() -> None:
     assert {key: colors[key] for key in HIDDEN_VALUE_COLORS} == HIDDEN_VALUE_COLORS
     assert len(contract["policies"]) == 44
     assert len(contract["state_policies"]) == 10
-    assert len(contract["style_disabled"]) == 41
+    assert len(contract["style_disabled"]) == 80
 
 
 @pytest.mark.parametrize(
@@ -632,9 +632,14 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         write.binding_id in product_pass_3a2_binding_ids for write in value_plan.planned_writes
     )
     assert product_pass_3a2_business_additions == 389
+    focused_pass_b1_business_additions = sum(
+        write.binding_id == "ic_product_projection_rows" for write in value_plan.planned_writes
+    )
+    assert focused_pass_b1_business_additions == 761
     assert (
         len(value_plan.planned_writes)
         - product_pass_3a2_business_additions
+        - focused_pass_b1_business_additions
         - product_pass_2b_net_business_additions
         - hidden_value_additions
         - sum(additive_binding_counts.values())
@@ -647,9 +652,9 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         - product_pass_3a2_business_additions
         - product_pass_2b_net_business_additions
         - hidden_value_additions
-        == 20_231
+        == 20_992
     )
-    assert len(value_plan.planned_writes) == 22_760
+    assert len(value_plan.planned_writes) == 23_521
     assert len(style_plan.actions) == 770
     assert len(style_plan.decisions) == 1_298
     style_payload = style_plan.to_dict()

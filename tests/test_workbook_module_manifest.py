@@ -317,10 +317,21 @@ def test_user_input_zone_projection_is_idempotent() -> None:
         row for row in investment_case["non_writable_zones"]
         if str(row["zone_id"]).startswith("ic_static_label_column_")
     ]
-    assert len(scenario_zones) == 7
-    assert len({row["zone_id"] for row in scenario_zones}) == 7
-    assert len(label_zones) == 4
-    assert len({row["zone_id"] for row in label_zones}) == 4
+    assert len(scenario_zones) == 27
+    assert len({row["zone_id"] for row in scenario_zones}) == 27
+    assert label_zones == []
+    assert investment_case["rich_shell_lab_merge_floor_ratio"] == 0.10
+    module_manifest = _payload()
+    investment_case_block = next(
+        row
+        for row in module_manifest["modules"]
+        if row["module_id"] == "investment_case_market_implied"
+    )
+    assert next(
+        row["target"]
+        for row in investment_case_block["visible_blocks"]
+        if row["block_id"] == "investment_case"
+    ) == "A1:M225"
 
 
 def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path) -> None:

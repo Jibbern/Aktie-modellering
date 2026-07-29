@@ -10,6 +10,10 @@ from pathlib import Path
 from openpyxl import load_workbook
 from openpyxl.utils import coordinate_to_tuple, get_column_letter, range_boundaries
 
+from scripts.build_standard_template_shell_neutrality_audit import (
+    APPROVED_GENERIC_PRODUCT_LABELS,
+)
+
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE = ROOT / "templates" / "standard_stock_model_template.xlsx"
@@ -286,7 +290,9 @@ def test_standard_template_shell_is_rich_visual_shell_not_wireframe() -> None:
             lab_sheet = _sheet_name(sheet)
             template_merges, template_nonempty, template_formulas = _sheet_counts(template_wb, template_sheet)
             lab_merges, lab_nonempty, lab_formulas = _sheet_counts(lab_wb, lab_sheet)
-            if template_merges < max(1, int(lab_merges * 0.55)):
+            sheet_contract = next(row for row in _manifest_payload()["sheets"] if row["sheet"] == sheet)
+            merge_floor_ratio = float(sheet_contract.get("rich_shell_lab_merge_floor_ratio", 0.55))
+            if template_merges < max(1, int(lab_merges * merge_floor_ratio)):
                 too_sparse.append(f"{sheet} merges {template_merges} < {lab_merges}")
             if template_nonempty < max(5, int(lab_nonempty * 0.03)):
                 too_sparse.append(f"{sheet} nonempty {template_nonempty} < {lab_nonempty}")
@@ -358,7 +364,7 @@ def test_standard_template_shell_clears_representative_source_value_leaks() -> N
             "Valuation": ["B6", "B9", "M18", "S10", "AA14"],
             "BS_Segments": ["B7", "B47", "I49", "A62"],
             "Operating_Drivers": ["B6", "H6"],
-            "{ticker}_Investment_Case": ["A185", "B191", "B209", "F221", "H231"],
+            "{ticker}_Investment_Case": ["A226", "B230", "F231", "H235", "I240"],
             "Quarter_Notes_UI": ["B3", "B4", "B5", "B6"],
             "Promise_Progress_UI": ["B5", "C5", "G5", "C7"],
             "QA_Log": ["A2", "D1001", "J1001"],
@@ -440,7 +446,13 @@ def test_standard_template_shell_clears_history_evidence_and_fixed_period_labels
         assert quarter_notes["C42"].value is None
         assert wb["Operating_Drivers"]["A14"].value == "Current guidance period"
         assert wb["Promise_Progress_UI"]["A11"].value == "Guidance progression - period block 1"
-        assert wb["{ticker}_Investment_Case"]["A156"].value is None
+        assert wb["{ticker}_Investment_Case"]["A167"].value == "Calculation Details"
+        assert wb["{ticker}_Investment_Case"]["A170"].value == "Calculation"
+        assert wb["{ticker}_Investment_Case"]["A212"].value is None
+        assert all(
+            wb["{ticker}_Investment_Case"].row_dimensions[row].hidden
+            for row in range(226, 241)
+        )
     finally:
         wb.close()
 
@@ -761,7 +773,7 @@ def test_debt_product_shell_layout_matches_bounded_manifest_metadata() -> None:
             "header": 32,
             "body": 32,
             "wrap": {"B", "C", "H", "I", "J"},
-            "zoom": 95,
+                "zoom": 110,
             "last_row": 16,
         },
         "Revolver_History": {
@@ -769,7 +781,7 @@ def test_debt_product_shell_layout_matches_bounded_manifest_metadata() -> None:
             "header": 36,
             "body": 32,
             "wrap": {"N", "O", "P"},
-            "zoom": 90,
+                "zoom": 110,
             "last_row": 15,
         },
         "Leverage_Liquidity": {
@@ -777,7 +789,7 @@ def test_debt_product_shell_layout_matches_bounded_manifest_metadata() -> None:
             "header": 36,
             "body": 48,
             "wrap": {"L", "M", "N"},
-            "zoom": 90,
+                "zoom": 110,
             "last_row": 15,
         },
         "Debt_Credit_Notes": {
@@ -785,7 +797,7 @@ def test_debt_product_shell_layout_matches_bounded_manifest_metadata() -> None:
             "header": 34,
             "body": 48,
             "wrap": {"A", "E", "G", "H"},
-            "zoom": 95,
+                "zoom": 110,
             "last_row": 9,
         },
     }
@@ -890,6 +902,8 @@ def test_standard_template_shell_has_no_fixed_sector_or_dimension_rows() -> None
                     if not isinstance(cell.value, str) or cell.value.startswith("="):
                         continue
                     value = cell.value
+                    if value.strip().lower() in APPROVED_GENERIC_PRODUCT_LABELS:
+                        continue
                     for pattern in patterns:
                         if pattern.search(value):
                             offenders.append(f"{ws.title}!{cell.coordinate}={value!r}")
@@ -1052,6 +1066,13 @@ def test_standard_template_neutrality_audit_has_no_remaining_non_neutral_items()
     assert summary["visible_value_date_status_constant_count"] == 0
     assert summary["visible_company_source_text_count"] == 0
     assert summary["missing_required_support_shell_sheet_count"] == 0
+    revised_eps_label = next(
+        row
+        for row in payload["cell_classifications"]
+        if row["sheet"] == "{ticker}_Investment_Case" and row["cell"] == "A150"
+    )
+    assert revised_eps_label["value"] == "Latest-quarter adjusted EPS ($/share)"
+    assert revised_eps_label["classification"] == "row_label_generic"
 
 
 def test_standard_template_sheet_inventory_and_lifecycle_docs_exist() -> None:

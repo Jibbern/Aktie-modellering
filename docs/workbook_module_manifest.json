@@ -356,28 +356,28 @@
       "module_type": "core",
       "dependencies": ["core_financial_history", "segments_dimensions", "valuation_scenarios", "qa_lineage"],
       "sheets": [
-        {"sheet": "{ticker}_Investment_Case", "role": "visible_product", "legacy_class": "A", "default_state": "visible", "active_state": "visible", "inactive_state": "hidden", "capacity_rows": 240, "capacity_columns": 11, "headers": [], "empty_state": "Keep only evidence-backed facts and reviewed synthesis; unsupported sections stay blank.", "worksheet_protection": true, "style_owner": "frozen_shell", "formula_owner": "standard_template_formula_contract"},
-        {"sheet": "{ticker}_Investment_Case_Data", "role": "hidden_support", "legacy_class": "C", "default_state": "hidden", "active_state": "hidden", "inactive_state": "hidden", "capacity_rows": 5000, "capacity_columns": 18, "headers": ["scenario_id", "driver_id", "profile_pack_id", "driver_type", "metric", "impact_metric", "value", "unit", "horizon", "dimension_id", "member", "source_classification", "tax_treatment", "cash_classification", "propagation_rule", "status", "source_ref", "reason"], "empty_state": "Header-only typed investment-case driver projection.", "worksheet_protection": true, "style_owner": "frozen_shell", "formula_owner": "standard_template_formula_contract"}
+        {"sheet": "{ticker}_Investment_Case", "role": "visible_product", "legacy_class": "A", "default_state": "visible", "active_state": "visible", "inactive_state": "hidden", "capacity_rows": 240, "capacity_columns": 13, "headers": [], "empty_state": "Keep only evidence-backed facts and reviewed synthesis; unsupported sections stay blank.", "worksheet_protection": true, "style_owner": "frozen_shell", "formula_owner": "standard_template_formula_contract"},
+        {"sheet": "{ticker}_Investment_Case_Data", "role": "hidden_support", "legacy_class": "C", "default_state": "hidden", "active_state": "hidden", "inactive_state": "hidden", "capacity_rows": 5000, "capacity_columns": 53, "headers": ["scenario_id", "driver_id", "profile_pack_id", "driver_type", "metric", "impact_metric", "value", "unit", "horizon", "dimension_id", "member", "source_classification", "tax_treatment", "cash_classification", "propagation_rule", "status", "source_ref", "reason", "reserved", "product_row_type", "product_row_key", "product_priority", "product_slot_key", "product_metric_id", "product_metric_label", "product_unit", "product_fy_value", "product_ttm_value", "product_full_year_guidance_display", "product_full_year_guidance_low", "product_full_year_guidance_high", "product_quarter_guidance_display", "product_quarter_guidance_low", "product_quarter_guidance_high", "product_selected_value", "product_selected_source", "product_fy_period", "product_ttm_period", "product_full_year_guidance_period", "product_quarter_guidance_period", "product_notes", "product_source_ref", "product_status", "product_dimension_id", "product_member", "product_baseline_value", "product_publication_date", "product_dimension_option", "product_basis_kind", "product_basis_period", "product_full_year_guidance_numeric_state", "product_quarter_guidance_numeric_state", "product_source_alias"], "empty_state": "Header-only typed investment-case driver and product projection.", "worksheet_protection": true, "style_owner": "frozen_shell", "formula_owner": "standard_template_formula_contract", "binding_owned_ranges": ["A2:R201", "T2:BA201"], "reserved_ranges": ["S2:S5000", "A202:R5000", "T202:BA5000"]}
       ],
       "visible_blocks": [
         {"block_id": "summary_company_profile", "sheet": "SUMMARY", "target": "A3:L7", "empty_state": "No unsupported company narrative."},
         {"block_id": "summary_investment_case", "sheet": "SUMMARY", "target": "A16:L25", "empty_state": "No unsupported thesis or risk statement."},
-        {"block_id": "investment_case", "sheet": "{ticker}_Investment_Case", "target": "A1:K240", "empty_state": "No filler thesis text or implied output without complete inputs."},
+        {"block_id": "investment_case", "sheet": "{ticker}_Investment_Case", "target": "A1:M225", "empty_state": "No filler thesis text or implied output without complete inputs."},
         {"block_id": "valuation_thesis_debate", "sheet": "Valuation", "target": "O48:AA62", "empty_state": "Only typed thesis fields and exact invalidator business keys may appear; unused rows remain blank."}
       ],
-      "normalized_contracts": ["company_profile", "investment_case"],
-      "binding_ids": ["summary_company_description", "summary_key_advantage", "summary_strategic_context", "summary_key_risks", "summary_wrong_if", "ic_investment_summary", "ic_key_debate", "ic_why_it_can_work", "ic_upside_factors", "ic_downside_factors", "ic_watch_next", "ic_current_stance", "ic_scenario_bridge_rows", "ic_lower_comp_history_labels", "ic_lower_business_health_rows", "ic_lower_inventory_rows", "ic_lower_asset_productivity_rows", "ic_lower_guidance_setup_rows", "ic_investment_case_title", "valuation_thesis_debate_rows"],
+      "normalized_contracts": ["company_profile", "investment_case", "annual_financials", "quarterly_financials", "normalized_guidance", "segments"],
+      "binding_ids": ["summary_company_description", "summary_key_advantage", "summary_strategic_context", "summary_key_risks", "summary_wrong_if", "ic_investment_summary", "ic_key_debate", "ic_why_it_can_work", "ic_upside_factors", "ic_downside_factors", "ic_watch_next", "ic_current_stance", "ic_scenario_bridge_rows", "ic_product_projection_rows", "ic_investment_case_title", "valuation_thesis_debate_rows"],
       "formula_ids": ["investment_case_scenario_formulas", "investment_case_sensitivity_formulas"],
-      "defined_name_ids": ["summary_company_overview_anchor", "investment_snapshot_anchor", "investment_key_debate_anchor"],
+      "defined_name_ids": ["summary_company_overview_anchor", "investment_snapshot_anchor", "investment_key_debate_anchor", "InvestmentCaseDimensionOptions"],
       "style_ownership": [
         {"style_id": "summary_company_profile_style", "sheet": "SUMMARY", "target": "A3:L7"},
         {"style_id": "summary_investment_case_style", "sheet": "SUMMARY", "target": "A16:L25"},
-        {"style_id": "investment_case_style", "sheet": "{ticker}_Investment_Case", "target": "A1:K240"},
+        {"style_id": "investment_case_style", "sheet": "{ticker}_Investment_Case", "target": "A1:M225"},
         {"style_id": "valuation_thesis_debate_style", "sheet": "Valuation", "target": "O48:AA62"}
       ],
       "activation_criteria": {"mode": "required_for_every_profile"},
       "empty_state_behavior": "Blank space is preferred to unsupported analyst conclusions.",
-      "tests_required": ["ticker_title_resolution", "source_vs_synthesis_classification", "scenario_input_lineage"]
+      "tests_required": ["ticker_title_resolution", "source_vs_synthesis_classification", "scenario_input_lineage", "investment_case_fy_ttm_guidance_selection", "investment_case_driver_reconciliation"]
     },
     {
       "module_id": "hidden_value_signals",

@@ -5,11 +5,14 @@ from pathlib import Path
 import sys
 
 import pytest
+from openpyxl import Workbook, load_workbook
 
+from pbi_xbrl.new_engine_excel import run_excel_native_roundtrip
 from pbi_xbrl.new_engine_orchestration import render_shadow, run_plan
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SHELL = ROOT / "templates" / "standard_stock_model_template.xlsx"
 
 
 def _package_path() -> Path:
@@ -64,7 +67,7 @@ def test_real_swedish_excel_roundtrip_uses_owned_process_and_leaves_no_workbook(
         assert receipt["validations"]["post_fill"]["status"] == "PASS"
         assert receipt["validations"]["saved_workbook"]["status"] == "PASS"
         formula = receipt["formula_inventory"]
-        assert formula["cell_formula_count"] == 2_213
+        assert formula["cell_formula_count"] == 2_690
         assert formula["function_counts"]["MAXIFS"] == 324
         assert formula["function_counts"]["MINIFS"] == 324
         assert formula["function_counts"]["LET"] == 4
@@ -76,3 +79,143 @@ def test_real_swedish_excel_roundtrip_uses_owned_process_and_leaves_no_workbook(
             Path(rendered["output_path"]).unlink(missing_ok=True)
             Path(rendered["receipt_path"]).unlink(missing_ok=True)
     assert not list(tmp_path.rglob("*.xlsx"))
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Desktop Excel formula validation is Windows-only")
+def test_real_swedish_excel_investment_case_guards_unavailable_and_zero_domains(
+    tmp_path: Path,
+) -> None:
+    source = load_workbook(SHELL, data_only=False, read_only=False)
+    try:
+        source_sheet = source["{ticker}_Investment_Case"]
+        formulas = {
+            coordinate: str(source_sheet[coordinate].value)
+            for coordinate in (
+                "D95",
+                "D98",
+                "B133",
+                "B134",
+                "B135",
+                "B139",
+                "C139",
+                "E121",
+                "G121",
+                "E126",
+            )
+        }
+    finally:
+        source.close()
+
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    cases: dict[str, dict[str, object]] = {
+        "valid_numeric": {},
+        "no_adjustment": {"D65": None, "D66": None, "D67": None},
+        "unavailable_buyback": {"D65": "Unavailable"},
+        "zero_execution_price": {"D66": 0},
+        "zero_buyback": {"D65": 0, "D66": "Unavailable"},
+        "negative_buyback": {"D65": -1},
+        "unavailable_shares": {"F18": "Unavailable"},
+        "unavailable_price": {"D106": "Unavailable"},
+        "unavailable_wacc": {"D112": "Unavailable"},
+        "unavailable_fcf": {"D94": "Unavailable"},
+        "unavailable_target_pe": {"D107": "Unavailable"},
+    }
+    common: dict[str, object] = {
+        "B69": "Base",
+        "C83": "Bear",
+        "D83": "Base",
+        "E83": "Bull",
+        "F18": 100,
+        "D65": 100,
+        "D66": 50,
+        "D67": 0,
+        "D92": 900,
+        "C94": 100,
+        "D94": 100,
+        "E94": 100,
+        "C95": 100,
+        "E95": 100,
+        "C96": 0,
+        "D96": 0,
+        "E96": 0,
+        "D106": 10,
+        "D107": 10,
+        "D112": 0.10,
+        "H121": 1,
+        "H122": 0,
+        "H123": 0,
+        "H124": 0,
+        "H125": 0,
+    }
+    for title, overrides in cases.items():
+        sheet = workbook.create_sheet(title)
+        for coordinate, value in (common | overrides).items():
+            sheet[coordinate] = value
+        for coordinate, formula in formulas.items():
+            sheet[coordinate] = formula
+
+    path = tmp_path / "investment_case_formula_guards.xlsx"
+    workbook.save(path)
+    workbook.close()
+
+    result = run_excel_native_roundtrip(
+        path,
+        ticker="ANF",
+        required_locale_id=1053,
+    )
+
+    assert result["status"] == "PASS"
+    assert result["locale_id"] == 1053
+    assert result["recalculation_count"] == 2
+    assert result["formula_error_count"] == 0
+    assert result["macro_part_count"] == 0
+    assert result["external_link_part_count"] == 0
+    assert result["recovery_part_count"] == 0
+    assert result["owned_process_cleanup"] == "PASS"
+
+    calculated = load_workbook(path, data_only=True, read_only=False)
+    try:
+        valid = calculated["valid_numeric"]
+        assert valid["D95"].value == pytest.approx(98)
+        assert valid["D98"].value == pytest.approx(900 / 98)
+        assert valid["B133"].value == pytest.approx(980)
+        assert valid["B135"].value == pytest.approx(980)
+        assert valid["B139"].value == pytest.approx((980 * 0.10 - 100) / 1080)
+        assert valid["C139"].value == "Market EV, selected FCF and WACC"
+        assert valid["E121"].value == pytest.approx((900 / 98) * 10)
+        assert valid["G121"].value == "Available"
+        assert valid["E126"].value == pytest.approx((900 / 98) * 10)
+
+        no_adjustment = calculated["no_adjustment"]
+        assert no_adjustment["D95"].value == pytest.approx(100)
+        assert no_adjustment["D98"].value == pytest.approx(9)
+
+        zero_buyback = calculated["zero_buyback"]
+        assert zero_buyback["D95"].value == pytest.approx(100)
+        assert zero_buyback["D98"].value == pytest.approx(9)
+
+        for title in (
+            "unavailable_buyback",
+            "zero_execution_price",
+            "negative_buyback",
+            "unavailable_shares",
+        ):
+            sheet = calculated[title]
+            assert sheet["D95"].value in (None, "")
+            assert sheet["D98"].value in (None, "")
+        assert calculated["unavailable_price"]["B133"].value in (None, "")
+
+        for title in (
+            "unavailable_wacc",
+            "unavailable_fcf",
+        ):
+            sheet = calculated[title]
+            assert sheet["B139"].value in (None, "")
+            assert sheet["C139"].value == "Unavailable | Market EV, selected FCF and WACC"
+        unavailable_target = calculated["unavailable_target_pe"]
+        assert unavailable_target["E121"].value in (None, "")
+        assert unavailable_target["G121"].value == "Unavailable"
+        assert unavailable_target["E126"].value in (None, "")
+    finally:
+        calculated.close()

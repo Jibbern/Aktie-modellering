@@ -4,14 +4,14 @@
   "reason": "",
   "artifact": {
     "path": "docs/standard_template_shell_visual_gap_audit.md",
-    "sha256": "f79d47dbcabbd6562bc106273a4f692393b92c0d74b156c1963d6c3dbb82684a",
+    "sha256": "6fe33757138e674196158d64e8cac58d2435e6c64f6aa4e1de2c25d781db86a0",
     "output_schema": "text/markdown",
     "output_version": "markdown-v1"
   },
   "authoritative_inputs": [
     {
       "path": "templates/standard_stock_model_template.xlsx",
-      "sha256": "8cc97f138cf1c4e9cf1331d611cbdb4a2f89cf5ca6f9876840031e5b54776d49"
+      "sha256": "48b3c4eb7d5e297801256d0e2c798faa7d98ea2369b81fa231cde9ceaa02fa67"
     },
     {
       "path": "templates/lab/ANF_template_lab.xlsx",
@@ -19,7 +19,7 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "29b521170e14c3996f1aace9cc9d2bcb152ab3711b4785a438360d9413c0230b"
+      "sha256": "71d3db661ac4161ce4a647667e6d50a7286a04efd559af1232bd80cc76d549c9"
     }
   ],
   "generator": {
@@ -27,7 +27,7 @@
     "dependencies": [
       {
         "path": "scripts/validate_standard_template_shell.py",
-        "sha256": "7dbd0090aedecbd4c5659a9e6516f13f9457af6ea8dfbefcadb27379bdfd4946"
+        "sha256": "cbcc83594d4a5533ddbbc0ec213eabfb77bb1a41f70fcfe01c59cc78074a6813"
       }
     ],
     "execution_contract_sha256": "594167b5a91a4a2ecc056f5436b85053482b0a09e6cb6e222662fcedede12a4f",
@@ -40,24 +40,24 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "24f7269c46401f551e2b02b2016bba47781e951babf718f610d7c8bf9db4765d",
+    "run_generation_id": "fda55693550860c916186f0a01b15ee61a5e4770c455ccb0bc33a3c54024dbd1",
     "generated_outputs": [
       {
-        "canonical_content_sha256": "f555b7823ceb705fb0043740302fb2448a38bb78ed11a2e48724fa26a4608824",
+        "canonical_content_sha256": "480413cf3622f52db3fb5f70e51600b0ca1b916c44a78a928efcea625d335603",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/standard_template_shell_visual_gap_audit.json",
-        "sha256": "6733c4d41a655acf407e6a54a2226a28260f42c749ec76657678bd3c9f249693"
+        "sha256": "40498e28af2e8c9cbc450e016dbf1b1a9f7026beb78cef57651ac35161730e53"
       },
       {
-        "canonical_content_sha256": "02d640f343f233ad025dd56b4df77169b465b5ff51131e89c18a9934d861ed33",
+        "canonical_content_sha256": "270ea082a2a4f9adc15cfeb5a1c25d815d50a1e10bba320d59435175a7dc9e25",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/standard_template_shell_visual_gap_audit.md",
-        "sha256": "f79d47dbcabbd6562bc106273a4f692393b92c0d74b156c1963d6c3dbb82684a"
+        "sha256": "6fe33757138e674196158d64e8cac58d2435e6c64f6aa4e1de2c25d781db86a0"
       }
     ]
   },
-  "generated_at_utc": "2026-07-26T13:38:09+00:00",
-  "generation_id": "9089cc3a8479d45f3f57729096c35dd219778e22fa72a2fe0fb678051f092af7"
+  "generated_at_utc": "2026-07-29T08:49:04+00:00",
+  "generation_id": "b07e64e44bc19522279285f3835e8dd34c80565b087581358149986481d2158b"
 }

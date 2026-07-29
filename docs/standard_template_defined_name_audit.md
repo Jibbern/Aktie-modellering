@@ -1,6 +1,6 @@
 # Standard Template Defined-Name Audit
 
-- Retained names: `279`
+- Retained names: `281`
 - Target mismatches: `0`
 - Company-specific names/constants: `0`
 - Removed constant: `ThesisBaseAdjEBITDA_FY=815.59`
@@ -50,6 +50,7 @@
 | `Implied_EV_EBITDA` | `formula_dependency` | `'Valuation'!$N$197` | True |
 | `Implied_FCFF_Yield` | `generic_named_range` | `'Valuation'!$N$199` | True |
 | `InterestPaid_TTM` | `formula_dependency` | `'Valuation'!$D$212` | True |
+| `InvestmentCaseDimensionOptions` | `generic_named_range` | `'{ticker}_Investment_Case_Data'!$AV$2:$AV$4` | True |
 | `MaintCapexRatio` | `formula_dependency` | `'Valuation'!$D$213` | True |
 | `MarketCap` | `formula_dependency` | `'Valuation'!$N$194` | True |
 | `NetDebt` | `formula_dependency` | `'Valuation'!$D$198` | True |
@@ -60,9 +61,9 @@
 | `PerShareMode` | `formula_dependency` | `'Valuation'!$D$216` | True |
 | `Price` | `formula_dependency` | `'Valuation'!$D$194` | True |
 | `RecurringCashCosts` | `formula_dependency` | `'Valuation'!$D$214` | True |
-| `ResolvedRevenueGrowth_Base` | `formula_dependency` | `'Valuation_Summary'!$I$2` | True |
-| `ResolvedRevenueGrowth_Bear` | `formula_dependency` | `'Valuation_Summary'!$H$2` | True |
-| `ResolvedRevenueGrowth_Bull` | `formula_dependency` | `'Valuation_Summary'!$J$2` | True |
+| `ResolvedRevenueGrowth_Base` | `generic_named_range` | `'Valuation_Summary'!$I$2` | True |
+| `ResolvedRevenueGrowth_Bear` | `generic_named_range` | `'Valuation_Summary'!$H$2` | True |
+| `ResolvedRevenueGrowth_Bull` | `generic_named_range` | `'Valuation_Summary'!$J$2` | True |
 | `ResolvedRevenueGrowth_Custom` | `formula_dependency` | `'Valuation_Summary'!$K$2` | True |
 | `Revenue_TTM` | `formula_dependency` | `'Valuation'!$D$203` | True |
 | `ScenarioAdjustedEBITDA` | `formula_dependency` | `'Valuation'!$E$243` | True |
@@ -152,6 +153,7 @@
 | `ic_investment_case_title` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$A$1` | True |
 | `ic_investment_summary` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$5` | True |
 | `ic_key_debate` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$7` | True |
+| `ic_product_projection_rows` | `active_binding_anchor` | `'{ticker}_Investment_Case_Data'!$T$2` | True |
 | `ic_scenario_bridge_rows` | `active_binding_anchor` | `'{ticker}_Investment_Case_Data'!$A$2` | True |
 | `ic_upside_factors` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$8` | True |
 | `ic_watch_next` | `active_binding_anchor` | `'{ticker}_Investment_Case'!$B$10` | True |

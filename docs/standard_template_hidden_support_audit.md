@@ -1,6 +1,6 @@
 # Standard Template Hidden Support Audit
 
-Generated at: 2026-07-26T13:35:23+00:00
+Generated at: 2026-07-29T08:48:09+00:00
 Template: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\standard_stock_model_template.xlsx`
 ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\lab\ANF_template_lab.xlsx`
 
@@ -64,4 +64,4 @@ ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-templ
 | Valuation_Grid | yes | keep_optional_runtime_output_shell | 252 | 205 | 0 | 0 | Formula-owned grid outputs remain blank until explicit axes and inputs are complete. |
 | Valuation_Summary | yes | keep_formula_dependency | 148 | 61 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | operating_drivers_raw | yes | keep_neutral_helper_shell | 7 | 0 | 0 | 0 | Header-only normalized driver projection. |
-| {ticker}_Investment_Case_Data | yes | keep_formula_dependency | 18 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
+| {ticker}_Investment_Case_Data | yes | keep_formula_dependency | 53 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
