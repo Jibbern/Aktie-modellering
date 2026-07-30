@@ -467,12 +467,16 @@ class _MetricResolver:
         if isinstance(disposition, Mapping):
             status = str(disposition.get("status") or "").strip().lower()
             source_refs = _source_refs_from_mapping(disposition)
-            if status == "not_applicable":
+            unavailable_statuses = {
+                "not_applicable",
+                *map(str, resolver.get("unavailable_disposition_statuses") or []),
+            }
+            if status in unavailable_statuses:
                 return self._missing(
                     contract,
                     period,
                     "unavailable",
-                    "source_not_applicable",
+                    f"source_{status}",
                     source_refs=source_refs,
                 )
             if status and status not in set(map(str, self.contract.get("trusted_statuses") or [])):

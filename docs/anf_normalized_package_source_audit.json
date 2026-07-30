@@ -1,8 +1,8 @@
 {
   "version": "0.2.0",
   "generator_version": "anf_legacy_adapter_audits/0.2.0",
-  "source_package_content_sha256": "f4b1987108d2dc599088a2ee821669b3d8d70b4fb48a7dce1b9b4e2d290bd4fb",
-  "generated_at_utc": "2026-07-21T17:05:22+00:00",
+  "source_package_content_sha256": "ef026e8012db5123c5a58e493cb78fa07b227c94a8b0b8a9bf4e7b0d78109404",
+  "generated_at_utc": "2026-07-29T14:01:22+00:00",
   "ticker": "ANF",
   "data_root": "C:\\Users\\Jibbe\\Aktier\\StockModelData",
   "legacy_workbook": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -143,20 +143,22 @@
     {
       "section": "capital_returns",
       "available_source_candidates": [
-        "ANF_model.xlsx!History_Q",
-        "earnings release capital allocation text"
+        "StockModelData/sec_cache/ANF local 10-Q/10-K Inline XBRL and issuer-purchases tables",
+        "StockModelData/sec_cache/ANF local earnings-release guidance tables"
       ],
       "source_backed_available": true,
       "profile_backed_available": false,
-      "legacy_workbook_derived_available": true,
-      "missing_source": false,
+      "legacy_workbook_derived_available": false,
+      "missing_source": true,
       "missing_mapping": false,
       "parser_conflict": false,
       "manual_review_required": false,
-      "populated_field_count": 1,
+      "populated_field_count": 359,
       "field_status_counts": {
-        "not_applicable": 2,
-        "populated": 1
+        "accepted": 25,
+        "missing_source": 180,
+        "populated": 361,
+        "superseded": 2
       },
       "manual_review_record_count": 0
     },

@@ -98,6 +98,11 @@
         "path": {"type": "string"},
         "period_path": {"type": "string"},
         "disposition_path": {"type": "string"},
+        "unavailable_disposition_statuses": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
         "input_metric_id": {"type": "string"},
         "current_metric_id": {"type": "string"},
         "prior_metric_id": {"type": "string"},

@@ -122,6 +122,32 @@
     "capital_returns.buybacks",
     "capital_returns.dividends",
     "capital_returns.share_issuance",
+    "capital_returns.collection_version",
+    "capital_returns.records",
+    "capital_returns.records.metric_id",
+    "capital_returns.records.semantic_role",
+    "capital_returns.records.fiscal_period",
+    "capital_returns.records.period_type",
+    "capital_returns.records.period_start",
+    "capital_returns.records.period_end",
+    "capital_returns.records.duration_or_instant",
+    "capital_returns.records.publication_date",
+    "capital_returns.records.source_document",
+    "capital_returns.records.source_section",
+    "capital_returns.records.unit",
+    "capital_returns.records.currency",
+    "capital_returns.records.scale",
+    "capital_returns.records.source_classification",
+    "capital_returns.records.derivation_identity",
+    "capital_returns.records.evidence_ref",
+    "capital_returns.records.supersedes_record_ids",
+    "capital_returns.guidance",
+    "capital_returns.period_reconciliations",
+    "_derived_workbook.capital_return.latest_quarter_label",
+    "_derived_workbook.capital_return.ttm_label",
+    "_derived_workbook.capital_return.annual_label",
+    "_derived_workbook.capital_return.product_rows",
+    "_derived_workbook.capital_return.support_rows",
     "normalized_guidance.items.metric",
     "normalized_guidance.items.value",
     "normalized_guidance.items.horizon",
@@ -487,7 +513,7 @@
       }
     },
     "capital_returns": {
-      "$ref": "#/$defs/section"
+      "$ref": "#/$defs/capitalReturnSection"
     },
     "normalized_guidance": {
       "type": "object",
@@ -789,6 +815,230 @@
         "business_key": {"type": "string", "minLength": 1},
         "resolution_status": {"enum": ["populated", "manual_review_required"]},
         "reason": {"type": "string"}
+      }
+    },
+    "capitalReturnRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_id",
+        "metric_id",
+        "semantic_role",
+        "fiscal_period",
+        "period_type",
+        "period_start",
+        "period_end",
+        "duration_or_instant",
+        "publication_date",
+        "source_document",
+        "source_document_sha256",
+        "source_section",
+        "unit",
+        "currency",
+        "scale",
+        "value",
+        "text_value",
+        "status",
+        "source_classification",
+        "aggregation_role",
+        "derivation_identity",
+        "component_record_ids",
+        "evidence_ref",
+        "supersedes_record_ids",
+        "reason",
+        "source_alias"
+      ],
+      "properties": {
+        "record_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "metric_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "semantic_role": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "fiscal_period": {"type": "string", "minLength": 1},
+        "period_type": {
+          "enum": ["quarter", "year_to_date", "annual", "ttm", "point_in_time", "guidance"]
+        },
+        "period_start": {"type": "string", "pattern": "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+        "period_end": {"type": "string", "format": "date"},
+        "duration_or_instant": {"enum": ["duration", "instant", "not_applicable"]},
+        "publication_date": {"type": "string", "format": "date"},
+        "source_document": {"type": "string", "minLength": 1},
+        "source_document_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_section": {"type": "string", "minLength": 1},
+        "unit": {"enum": ["$m", "$/share", "%", "m shares", "date", "text"]},
+        "currency": {"enum": ["USD", "not_applicable"]},
+        "scale": {"enum": ["millions", "per_share", "ratio", "not_applicable"]},
+        "value": {"type": ["number", "null"]},
+        "text_value": {"type": "string"},
+        "status": {
+          "enum": [
+            "populated",
+            "missing_source",
+            "manual_review_required",
+            "parser_conflict",
+            "not_applicable"
+          ]
+        },
+        "source_classification": {
+          "enum": [
+            "source_native_numeric",
+            "source_native_text",
+            "derived_exact",
+            "derived_model_output",
+            "derived_estimate",
+            "period_incompatible",
+            "unavailable"
+          ]
+        },
+        "aggregation_role": {
+          "enum": [
+            "additive_flow",
+            "point_in_time",
+            "weighted_average",
+            "non_additive_ratio",
+            "derived_relationship",
+            "text_state"
+          ]
+        },
+        "derivation_identity": {"type": "string"},
+        "component_record_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+        },
+        "evidence_ref": {"type": "string", "minLength": 1},
+        "supersedes_record_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+        },
+        "reason": {"type": "string"},
+        "source_alias": {"type": "string", "minLength": 1}
+      }
+    },
+    "capitalReturnGuidance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "guidance_id",
+        "metric_id",
+        "applicable_period",
+        "period_type",
+        "publication_date",
+        "source_document",
+        "source_document_sha256",
+        "source_section",
+        "unit",
+        "currency",
+        "scale",
+        "low",
+        "high",
+        "point",
+        "numeric_state",
+        "numeric_usable",
+        "company_wording",
+        "status",
+        "supersedes_guidance_ids",
+        "superseded_by_guidance_id",
+        "evidence_ref",
+        "source_alias"
+      ],
+      "properties": {
+        "guidance_id": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"},
+        "metric_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "applicable_period": {"type": "string", "minLength": 1},
+        "period_type": {"const": "guidance"},
+        "publication_date": {"type": "string", "format": "date"},
+        "source_document": {"type": "string", "minLength": 1},
+        "source_document_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "source_section": {"type": "string", "minLength": 1},
+        "unit": {"enum": ["$m", "$/share", "%", "m shares"]},
+        "currency": {"enum": ["USD", "not_applicable"]},
+        "scale": {"enum": ["millions", "per_share", "ratio", "not_applicable"]},
+        "low": {"type": ["number", "null"]},
+        "high": {"type": ["number", "null"]},
+        "point": {"type": ["number", "null"]},
+        "numeric_state": {
+          "enum": [
+            "point",
+            "approximate_point",
+            "range",
+            "minimum",
+            "maximum",
+            "qualitative",
+            "unavailable"
+          ]
+        },
+        "numeric_usable": {"type": "boolean"},
+        "company_wording": {"type": "string", "minLength": 1},
+        "status": {
+          "enum": ["accepted", "superseded", "manual_review_required", "rejected"]
+        },
+        "supersedes_guidance_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "superseded_by_guidance_id": {"type": "string"},
+        "evidence_ref": {"type": "string", "minLength": 1},
+        "source_alias": {"type": "string", "minLength": 1}
+      }
+    },
+    "capitalReturnPeriodReconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fiscal_period",
+        "period_type",
+        "period_start",
+        "period_end",
+        "method",
+        "component_periods",
+        "record_count",
+        "record_ids",
+        "source_document_sha256",
+        "status"
+      ],
+      "properties": {
+        "fiscal_period": {"type": "string", "minLength": 1},
+        "period_type": {"enum": ["quarter", "year_to_date", "annual", "ttm"]},
+        "period_start": {"type": "string", "format": "date"},
+        "period_end": {"type": "string", "format": "date"},
+        "method": {"type": "string", "minLength": 1},
+        "component_periods": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "record_count": {"type": "integer", "minimum": 1},
+        "record_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}
+        },
+        "source_document_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "status": {"enum": ["accepted", "manual_review_required", "rejected"]}
+      }
+    },
+    "capitalReturnSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "collection_version": {"type": "string", "minLength": 1},
+        "records": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/capitalReturnRecord"}
+        },
+        "guidance": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/capitalReturnGuidance"}
+        },
+        "period_reconciliations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/capitalReturnPeriodReconciliation"}
+        },
+        "buybacks": {"$ref": "#/$defs/normalizedField"},
+        "dividends": {"$ref": "#/$defs/normalizedField"},
+        "share_issuance": {"$ref": "#/$defs/normalizedField"}
       }
     },
     "fieldStatus": {

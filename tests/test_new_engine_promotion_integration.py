@@ -78,7 +78,7 @@ def _integration_context(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dic
     style_counts = plan["receipt"]["plans"]["style"]
     formula_counts = plan["receipt"]["formula_inventory"]
     assert binding_counts["status"] == "PASS"
-    assert binding_counts["planned_write_count"] == 23_521
+    assert binding_counts["planned_write_count"] == 23_761
     assert binding_counts["structured_skip_count"] == 2_012
     assert binding_counts["issue_count"] == 761
     assert binding_counts["occurrence_count"] == 2_323

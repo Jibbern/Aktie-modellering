@@ -5798,6 +5798,266 @@
       "allowed_target_types": [
         "text"
       ]
+    },
+    {
+      "contract_id": "valuation_capital_return_latest_quarter_header",
+      "sheet": "Valuation",
+      "target": "B153",
+      "writable": true,
+      "target_role": "valuation_capital_return_latest_quarter_header.value",
+      "allowed_binding_ids": [
+        "valuation_capital_return_latest_quarter_header"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_ttm_header",
+      "sheet": "Valuation",
+      "target": "C153",
+      "writable": true,
+      "target_role": "valuation_capital_return_ttm_header.value",
+      "allowed_binding_ids": [
+        "valuation_capital_return_ttm_header"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_annual_header",
+      "sheet": "Valuation",
+      "target": "D153",
+      "writable": true,
+      "target_role": "valuation_capital_return_annual_header.value",
+      "allowed_binding_ids": [
+        "valuation_capital_return_annual_header"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_product_rows_metric",
+      "sheet": "Valuation",
+      "target": "A154:A168",
+      "writable": true,
+      "target_role": "valuation_capital_return_product_rows.metric",
+      "allowed_binding_ids": [
+        "valuation_capital_return_product_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_product_rows_latest_quarter",
+      "sheet": "Valuation",
+      "target": "B154:B168",
+      "writable": true,
+      "target_role": "valuation_capital_return_product_rows.latest_quarter",
+      "allowed_binding_ids": [
+        "valuation_capital_return_product_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_product_rows_ttm",
+      "sheet": "Valuation",
+      "target": "C154:C168",
+      "writable": true,
+      "target_role": "valuation_capital_return_product_rows.ttm",
+      "allowed_binding_ids": [
+        "valuation_capital_return_product_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_product_rows_latest_completed_year",
+      "sheet": "Valuation",
+      "target": "D154:D168",
+      "writable": true,
+      "target_role": "valuation_capital_return_product_rows.latest_completed_year",
+      "allowed_binding_ids": [
+        "valuation_capital_return_product_rows"
+      ],
+      "allowed_target_types": [
+        "number"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_product_rows_state_context",
+      "sheet": "Valuation",
+      "target": "E154:E168",
+      "writable": true,
+      "target_role": "valuation_capital_return_product_rows.state_context",
+      "allowed_binding_ids": [
+        "valuation_capital_return_product_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_row_key",
+      "sheet": "Valuation",
+      "target": "AD172:AD186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.row_key",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_metric_id",
+      "sheet": "Valuation",
+      "target": "AE172:AE186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.metric_id",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_semantic_role",
+      "sheet": "Valuation",
+      "target": "AF172:AF186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.semantic_role",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_latest_record_id",
+      "sheet": "Valuation",
+      "target": "AG172:AG186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.latest_record_id",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_ttm_record_id",
+      "sheet": "Valuation",
+      "target": "AH172:AH186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.ttm_record_id",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_annual_record_id",
+      "sheet": "Valuation",
+      "target": "AI172:AI186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.annual_record_id",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_latest_evidence_ref",
+      "sheet": "Valuation",
+      "target": "AJ172:AJ186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.latest_evidence_ref",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_ttm_evidence_ref",
+      "sheet": "Valuation",
+      "target": "AK172:AK186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.ttm_evidence_ref",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_annual_evidence_ref",
+      "sheet": "Valuation",
+      "target": "AL172:AL186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.annual_evidence_ref",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_latest_classification",
+      "sheet": "Valuation",
+      "target": "AM172:AM186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.latest_classification",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_ttm_classification",
+      "sheet": "Valuation",
+      "target": "AN172:AN186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.ttm_classification",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
+    },
+    {
+      "contract_id": "valuation_capital_return_support_rows_annual_classification",
+      "sheet": "Valuation",
+      "target": "AO172:AO186",
+      "writable": true,
+      "target_role": "valuation_capital_return_support_rows.annual_classification",
+      "allowed_binding_ids": [
+        "valuation_capital_return_support_rows"
+      ],
+      "allowed_target_types": [
+        "text"
+      ]
     }
   ],
   "planner_merge_families": [
@@ -5931,6 +6191,15 @@
       "anchor_column": "Z",
       "allowed_binding_ids": [
         "valuation_thesis_debate_rows"
+      ]
+    },
+    {
+      "merge_id": "valuation_capital_return_context_merges",
+      "sheet": "Valuation",
+      "target": "E154:M168",
+      "anchor_column": "E",
+      "allowed_binding_ids": [
+        "valuation_capital_return_product_rows"
       ]
     },
     {
@@ -6475,6 +6744,30 @@
           "zone_id": "module_hidden_value_signals_valuation_rows",
           "target": "A139:M143",
           "anchor_label": "Hidden value flags",
+          "value_shapes": [
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "valuation_capital_return_headers",
+          "target": "B153:D153",
+          "anchor_label": "Metric",
+          "value_shapes": [
+            "scalar"
+          ]
+        },
+        {
+          "zone_id": "valuation_capital_return_product_rows",
+          "target": "A154:E168",
+          "anchor_label": "Capital Return",
+          "value_shapes": [
+            "table_rows"
+          ]
+        },
+        {
+          "zone_id": "valuation_capital_return_support_rows",
+          "target": "AD172:AO186",
+          "anchor_label": "row_key",
           "value_shapes": [
             "table_rows"
           ]
@@ -10193,26 +10486,26 @@
   "semantic_contract_version": "1.8.0",
   "shell_identity": {
     "semantic_contract_version": "1.8.0",
-    "workbook_sha256": "48b3c4eb7d5e297801256d0e2c798faa7d98ea2369b81fa231cde9ceaa02fa67",
-    "manifest_contract_signature": "8390ebc56db2142003448c954c7642f7eddeea4936102709cb614641245da57a",
+    "workbook_sha256": "ca1360451643b030096c8e7046f8e142fdd0589a7aa1a1236bff0342dffa1a3c",
+    "manifest_contract_signature": "a9a27fa4885c5d5a55730da5d73255dbce682057df2cd3d9e971c75f6fc20e6b",
     "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
     "sheet_view_signature": "5ae4c17c9e6e533360466d0ae893a8f0e3f93605fda2cfd63bce85721c1c10b2",
-    "merge_signature": "749efb334802c7a9e0ea6e5bcaf32e1f59713b67ea52273ae6f05618e64a7504",
-    "defined_name_signature": "60a7cb609d8fae5aa025d5d18383edb36bf8b911be48de4d43149ad9565d683e",
-    "writable_target_signature": "b538d79a040ef43260026043547997df21a76b80d03b3a53e4a44947acd9cd14",
-    "binding_contract_signature": "9b27c358603aff9a4fafaffcbfe42d48f08b234b49ce2eb34667f3e89f7a29aa",
-    "formula_static_zone_signature": "61aaf9b483cb0e5333acface8d23199583e133d45e74b2bcebb6c9fdbe172fe0",
+    "merge_signature": "13510b022f6dad792b2035a9cdbc72369e8bc7f2ae61111475aa9c2f24ba0d7f",
+    "defined_name_signature": "4a7a6db588c438043f1b0917e3a0474daaf08266cf80c95ea0efd21cfe8f9e9b",
+    "writable_target_signature": "904ca8572ab2c46469603137b77694cfc9562af4c8a1f25ab519f4017487b1bd",
+    "binding_contract_signature": "a23612a6196f76e923233e09a624adc08feb1fa376eb1dd3b1da83792b6e2f9c",
+    "formula_static_zone_signature": "428a1957d52216faa6fa67aef40180ba6c0046f63da48a0e56a2fdc4b3138a86",
     "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
     "editable_surface_signature": "5d52735aea648ce8a47eea6c04a682440ef9916596c431f18da734851c36c805",
     "counts": {
       "sheets": 46,
       "sheet_views": 46,
-      "merges": 1613,
-      "defined_names": 281,
-      "writable_targets": 605,
-      "binding_contracts": 184,
+      "merges": 1630,
+      "defined_names": 286,
+      "writable_targets": 630,
+      "binding_contracts": 189,
       "formula_cells": 2690,
-      "static_cells": 1799,
+      "static_cells": 1814,
       "protected_worksheets": 46,
       "editable_cells": 119
     }
@@ -10270,7 +10563,7 @@
     "path": "docs/workbook_module_manifest.json",
     "version": "1.0.0",
     "module_contract_version": "1.2.0",
-    "signature": "fb85f1b1d1d27732552c2b94df759bc7ec69fb8cc21d68d4b1ee6c46c8b0397b"
+    "signature": "86d55d6d89497748eae18d355a7378f1295917956be54e6c268091f2b6f3021c"
   },
   "module_profile": {
     "profile_id": "full_union",

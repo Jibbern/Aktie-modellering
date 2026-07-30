@@ -210,13 +210,30 @@ SUMMARY with an actionable review issue.
 
 ### capital_returns
 
-Capital return fields:
+Capital Return is a typed, period-aware collection. Every record keeps its metric
+and semantic role, fiscal period, duration or instant identity, publication date,
+unit, currency, scale, source document and section, evidence reference,
+classification, derivation identity and supersession state. Supported periods are
+quarter, year-to-date, annual, exact four-quarter TTM, point-in-time and guidance.
 
-- buybacks
-- dividends
-- share issuance
-- debt repayment/refinancing
-- capital allocation notes
+Repurchase cash, treasury-stock accounting cost, employee tax-withholding cash,
+program shares, total issuer purchases and tax-withholding shares are distinct
+identities. Period-end shares and weighted-average shares are also distinct.
+Authorization balances are point-in-time snapshots and are never summed.
+
+Exact derivations require compatible period, role, unit, currency and source
+identity. These include cash per program share, net share reduction, total capital
+return and FCF coverage. Missing dividends remain unavailable rather than becoming
+zero. Historical EPS attribution to buybacks is unavailable unless separately
+reported; model-derived forecast effects remain owned by the Investment Case.
+
+Guidance is stored separately from actuals with applicable period, publication
+date, point/range/approximate state, numeric usability, original wording and
+supersession. Guidance never enters actual quarterly, annual or TTM collections.
+
+The legacy scalar aliases `buybacks`, `dividends` and `share_issuance` remain
+temporarily available for existing bindings. New Capital Return products consume
+the typed `records`, `guidance` and `period_reconciliations` collections.
 
 ### normalized_guidance
 

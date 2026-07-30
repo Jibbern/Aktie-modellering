@@ -83,7 +83,7 @@ def test_plan_writes_reproducible_plans_and_non_authoritative_receipt(anf_plan: 
     assert receipt["command"] == "plan"
     assert receipt["contract_profile"]["profile_id"] == "full_union"
     assert receipt["plans"]["binding"]["digest"]
-    assert receipt["plans"]["binding"]["planned_write_count"] == 23_521
+    assert receipt["plans"]["binding"]["planned_write_count"] == 23_761
     assert receipt["plans"]["binding"]["structured_skip_count"] == 2_012
     assert receipt["plans"]["binding"]["issue_count"] == 761
     assert receipt["plans"]["binding"]["occurrence_count"] == 2_323

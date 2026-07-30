@@ -2,7 +2,7 @@
 
 Read-only audit for the ANF shadow normalized-data package. This document does not define workbook rendering behavior.
 
-- Generated: `2026-07-21T17:05:22+00:00`
+- Generated: `2026-07-29T14:01:22+00:00`
 - Legacy workbook: `C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models\ANF_model.xlsx`
 
 | Section | Classification | Source candidates | Populated fields |
@@ -13,7 +13,7 @@ Read-only audit for the ANF shadow normalized-data package. This document does n
 | `calculation_history` | source-backed available, legacy-workbook-derived available | ANF_model.xlsx!History_Q projected as a period-keyed formula input ledger | 635 |
 | `annual_financials` | source-backed available, legacy-workbook-derived available, missing source, manual review required | ANF_model.xlsx!History_Q aggregated by fiscal_year; annual reports; earnings release annual schedules | 305 |
 | `debt_liquidity` | source-backed available, legacy-workbook-derived available, missing source, manual review required | StockModelData/sec_cache/ANF local 10-Q/10-K Borrowings notes and Inline XBRL; ANF_model.xlsx!Leverage_Liquidity; ANF_model.xlsx!History_Q; ANF_model.xlsx!Slides_Debt_Profile | 179 |
-| `capital_returns` | source-backed available, legacy-workbook-derived available | ANF_model.xlsx!History_Q; earnings release capital allocation text | 1 |
+| `capital_returns` | source-backed available, missing source | StockModelData/sec_cache/ANF local 10-Q/10-K Inline XBRL and issuer-purchases tables; StockModelData/sec_cache/ANF local earnings-release guidance tables | 359 |
 | `normalized_guidance` | source-backed available, legacy-workbook-derived available, missing source, manual review required | ANF_model.xlsx!Guidance_Normalized; ANF_model.xlsx!Promise_Progress; earnings releases; transcripts | 787 |
 | `promise_progress` | source-backed available, legacy-workbook-derived available, missing source, manual review required | ANF_model.xlsx!Guidance_Normalized; ANF_model.xlsx!Promise_Progress; annual reports; earnings releases; transcripts | 146 |
 | `segments` | source-backed available, legacy-workbook-derived available, missing source, manual review required | ANF_model.xlsx!Slides_Segments; earnings release segment tables; presentation tables | 1121 |

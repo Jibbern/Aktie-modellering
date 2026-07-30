@@ -269,6 +269,21 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
     debt_product_writes = [
         row for row in plan["planned_writes"] if row["binding_id"] in debt_product_bindings
     ]
+    capital_return_bindings = {
+        "valuation_capital_return_latest_quarter_header",
+        "valuation_capital_return_ttm_header",
+        "valuation_capital_return_annual_header",
+        "valuation_capital_return_product_rows",
+        "valuation_capital_return_support_rows",
+    }
+    accepted_writes = [
+        row
+        for row in accepted_writes
+        if row["binding_id"] not in capital_return_bindings
+    ]
+    capital_return_writes = [
+        row for row in plan["planned_writes"] if row["binding_id"] in capital_return_bindings
+    ]
     investment_case_writes = [
         row for row in plan["planned_writes"] if row["binding_id"] == "ic_product_projection_rows"
     ]
@@ -276,7 +291,7 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
     assert package == original_package
     assert "_derived_workbook" not in package
     assert plan["status"] == "PASS"
-    assert plan["planned_write_count"] == 23_521
+    assert plan["planned_write_count"] == 23_761
     assert plan["structured_skip_count"] == 2_012
     assert plan["overflow_count"] == 0
     assert Counter(row["binding_id"] for row in hidden_writes) == {
@@ -285,11 +300,13 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
         "hidden_value_recompute_rows": 1_176,
     }
     assert len(hidden_writes) == 1_983
-    assert _digest(hidden_writes) == "67d7f2ed7ca085859e0ba56f2e13cf9df2bb3b05918720bc63927ec46d5ded5d"
+    assert _digest(hidden_writes) == "4aba88a2839defcc7f1c58867ae7b80ca7198132592e57f89d7a16cc3383a6c6"
     assert len(accepted_writes) == 20_388
     assert _digest(accepted_writes) == "c9cde15b80db86d18193a81c73f50884bcde58819a185b2ba1ad00697b1c34a4"
     assert len(debt_product_writes) == 389
     assert _digest(debt_product_writes) == "774cc923de372f915599414a60dcd10d52832c746f6c6d73e3275caa7fcef57f"
+    assert len(capital_return_writes) == 240
+    assert _digest(capital_return_writes) == "9247ed248bcbeb2bcd88aeac8a0626e6a25cfae0205b7c37e2aa31da50837080"
     assert len(investment_case_writes) == 761
     assert _digest(investment_case_writes) == "24837ba4d3a5c297a053838ea5ed234a266b9682a5a5f299210864ee098d27b6"
     assert _digest(plan["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
@@ -307,6 +324,7 @@ def test_anf_planner_adds_only_exact_hidden_value_support_writes() -> None:
 
     assert {row["plan_id"] for row in plan["derived_plans"]} == {
         "debt_workbook_projection",
+        "capital_return_workbook_projection",
         "valuation_guidance_projection",
         "investment_case_workbook_projection",
         "valuation_thesis_projection",

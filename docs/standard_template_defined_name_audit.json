@@ -2,9 +2,9 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 281,
+    "retained_count": 286,
     "classification_counts": {
-      "active_binding_anchor": 167,
+      "active_binding_anchor": 172,
       "formula_dependency": 73,
       "generic_named_range": 25,
       "required_shell_anchor": 16
@@ -1674,6 +1674,46 @@
       "attr_text": "'Valuation'!$B$44",
       "classification": "active_binding_anchor",
       "expected_target": "'Valuation'!$B$44",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_capital_return_annual_header",
+      "attr_text": "'Valuation'!$D$153",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$D$153",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_capital_return_latest_quarter_header",
+      "attr_text": "'Valuation'!$B$153",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$B$153",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_capital_return_product_rows",
+      "attr_text": "'Valuation'!$A$154",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$A$154",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_capital_return_support_rows",
+      "attr_text": "'Valuation'!$AD$172",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$AD$172",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "valuation_capital_return_ttm_header",
+      "attr_text": "'Valuation'!$C$153",
+      "classification": "active_binding_anchor",
+      "expected_target": "'Valuation'!$C$153",
       "target_matches": true,
       "company_specific": false
     },

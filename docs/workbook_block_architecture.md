@@ -51,6 +51,9 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | valuation_debt_snapshot_statuses | Valuation | E124:E130 | debt_liquidity.cash.status, debt_liquidity.lease_liabilities.status, debt_liquidity.net_debt.status, debt_liquidity.net_leverage.status, +3 more | source-backed | standard |
 | valuation_debt_snapshot_evidence | Valuation | F124:M130 | debt_liquidity.cash.source_ref, debt_liquidity.lease_liabilities.source_ref, debt_liquidity.net_debt.source_ref, debt_liquidity.net_leverage.source_ref, +3 more | source-backed | standard |
 | module_hidden_value_signals_valuation_rows | Valuation | A139:M143 | _derived_workbook.hidden_value.flags_rows | derived | standard |
+| valuation_capital_return_headers | Valuation | B153:D153 | _derived_workbook.capital_return.annual_label, _derived_workbook.capital_return.latest_quarter_label, _derived_workbook.capital_return.ttm_label | derived | standard |
+| valuation_capital_return_product_rows | Valuation | A154:E168 | _derived_workbook.capital_return.product_rows | derived | standard |
+| valuation_capital_return_support_rows | Valuation | AD172:AO186 | _derived_workbook.capital_return.support_rows | derived | standard |
 | valuation_input_values | Valuation | D194:D217 | valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, +12 more | source-backed | standard |
 | valuation_period_headers | Valuation | B6:M6 | quarterly_financials.rows.period | source-backed | standard |
 | valuation_raw_revenue | Valuation | B9:M9 | quarterly_financials.rows.revenue | source-backed | standard |
@@ -340,6 +343,30 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
   - Missing data: retain the neutral no-trigger empty state
   - Validation: hidden_value_triggered_only_visible_projection
+
+- `valuation_capital_return_headers` `B153:D153`
+  - Normalized fields: _derived_workbook.capital_return.annual_label, _derived_workbook.capital_return.latest_quarter_label, _derived_workbook.capital_return.ttm_label
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: block planning; the exact four-quarter Capital Return identity must be resolved | block planning; the latest completed-year Capital Return identity must be resolved | block planning; the latest-quarter Capital Return identity must be resolved
+  - Validation: resolved_capital_return_product_contract
+
+- `valuation_capital_return_product_rows` `A154:E168`
+  - Normalized fields: _derived_workbook.capital_return.product_rows
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: retain typed unavailable values and their concise state; never coerce missing Capital Return evidence to zero
+  - Validation: resolved_capital_return_product_contract
+
+- `valuation_capital_return_support_rows` `AD172:AO186`
+  - Normalized fields: _derived_workbook.capital_return.support_rows
+  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
+  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
+  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
+  - Missing data: block planning; every visible Capital Return row requires compact typed lineage
+  - Validation: resolved_capital_return_product_contract
 
 - `valuation_input_values` `D194:D217`
   - Normalized fields: valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, valuation_inputs.book_value_per_share, valuation_inputs.capex_ttm, valuation_inputs.diluted_shares, valuation_inputs.eps_ttm, +8 more

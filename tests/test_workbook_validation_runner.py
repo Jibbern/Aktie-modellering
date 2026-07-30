@@ -210,6 +210,22 @@ def test_validation_runner_passes_clean_workbook_and_writes_reports(tmp_path: Pa
     assert "Elapsed seconds" in row
 
 
+def test_full_calc_on_load_passes_without_persistent_force_full_calc(tmp_path: Path) -> None:
+    workbook_path = _make_clean_validation_workbook(tmp_path / "PBI_model.xlsx", "PBI")
+    wb = load_workbook(workbook_path)
+    wb.calculation.calcMode = "auto"
+    wb.calculation.fullCalcOnLoad = True
+    wb.calculation.forceFullCalc = False
+    wb.save(workbook_path)
+    wb.close()
+
+    result = validate_workbook(workbook_path, "PBI")
+
+    assert result.overall == "PASS"
+    assert result.calc_settings_ok
+    assert not any(issue.category == "calc_settings" for issue in result.issues)
+
+
 def test_validation_runner_flags_ooxml_table_with_blank_post_quarter_header_cells(tmp_path: Path) -> None:
     workbook_path = _make_post_quarter_table_workbook(tmp_path / "PBI_model.xlsx")
 

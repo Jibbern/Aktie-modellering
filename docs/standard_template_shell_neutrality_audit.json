@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-29T08:47:12+00:00",
+  "generated_at": "2026-07-29T19:29:01+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
   "visible_sheets": [
@@ -55,9 +55,9 @@
   ],
   "classification_counts": {
     "formula_static": 2690,
-    "generic_block_label": 664,
-    "row_label_generic": 586,
-    "universal_template_label": 549
+    "generic_block_label": 665,
+    "row_label_generic": 597,
+    "universal_template_label": 552
   },
   "post_neutrality_summary": {
     "company_specific_value_count": 0,
@@ -7677,6 +7677,126 @@
       "value": "=IF(COUNTA('Hidden_Value_Audit'!$A$2:$A$8)=0,\"\",COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"unavailable\")+COUNTIF('Hidden_Value_Audit'!$R$2:$R$8,\"invalid_input\"))",
       "classification": "formula_static",
       "reason": "Excel formula retained in protected/static shell structure.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "A152",
+      "value": "Capital Return",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "A153",
+      "value": "Metric",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "E153",
+      "value": "State / context",
+      "classification": "generic_block_label",
+      "reason": "Reusable block label or neutral UI text.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AD171",
+      "value": "row_key",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AE171",
+      "value": "metric_id",
+      "classification": "universal_template_label",
+      "reason": "Universal QA/source/status header.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AF171",
+      "value": "semantic_role",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AG171",
+      "value": "latest_record_id",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AH171",
+      "value": "ttm_record_id",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AI171",
+      "value": "annual_record_id",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AJ171",
+      "value": "latest_evidence_ref",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AK171",
+      "value": "ttm_evidence_ref",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AL171",
+      "value": "annual_evidence_ref",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AM171",
+      "value": "latest_classification",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AN171",
+      "value": "ttm_classification",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
+      "hidden_state": "visible"
+    },
+    {
+      "sheet": "Valuation",
+      "cell": "AO171",
+      "value": "annual_classification",
+      "classification": "row_label_generic",
+      "reason": "Generic row or section label.",
       "hidden_state": "visible"
     },
     {

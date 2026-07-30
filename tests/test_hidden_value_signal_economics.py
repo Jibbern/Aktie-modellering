@@ -432,6 +432,25 @@ def test_missing_status_unit_period_and_formula_inputs_fail_closed() -> None:
     assert _candidate(evaluate_hidden_value_signals(missing_adjusted, profile_id="anf"), "B").state == "insufficient_evidence"
 
 
+def test_explicit_missing_source_disposition_is_unavailable() -> None:
+    package = _economic_package()
+    package["calculation_history"]["quarterly_items"] = [
+        row for row in package["calculation_history"]["quarterly_items"] if row["metric"] != "dividend_per_share"
+    ]
+    package["capital_returns"] = {
+        "dividends": {
+            "value": None,
+            "status": "missing_source",
+            "source_ref": "fixture:dividends:missing",
+        }
+    }
+
+    candidate = _candidate(evaluate_hidden_value_signals(package, profile_id="anf"), "G")
+
+    assert candidate.state == "unavailable"
+    assert candidate.reasons == ("dividend_per_share:source_missing_source",)
+
+
 def test_dimension_period_and_lineage_mismatches_fail_closed() -> None:
     wrong_dimension = _economic_package()
     shares = next(row for row in _rows(wrong_dimension, "shares_outstanding") if row["period"] == "2025-Q4")
@@ -626,7 +645,10 @@ def test_anf_current_package_has_no_unsupported_trigger() -> None:
     assert _candidate(plan, "D").state == "insufficient_evidence"
     assert _candidate(plan, "F").state == "insufficient_evidence"
     assert _candidate(plan, "G").state == "unavailable"
-    assert "ANF_model.xlsx!History_Q!latest_4_quarters" in _candidate(plan, "G").source_refs
+    assert any(
+        "capital-return-unavailable:dividends_paid:TTM through 2026-Q1" in source_ref
+        for source_ref in _candidate(plan, "G").source_refs
+    )
 
 
 def test_legacy_cross_ticker_oracles_are_locked_independently() -> None:

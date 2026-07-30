@@ -151,7 +151,7 @@ def test_public_filler_applies_exact_reproduced_style_plan_after_values(
 ) -> None:
     artifacts = filled_anf_style_workbook
     result = artifacts["result"]
-    assert result.written_cell_count == 23_521
+    assert result.written_cell_count == 23_761
     assert result.styled_cell_count == 770
 
     shell = load_workbook(SHELL, data_only=False, read_only=False)

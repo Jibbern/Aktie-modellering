@@ -49,6 +49,7 @@ from pbi_xbrl.excel_formula_serialization import (
 )
 from pbi_xbrl.json_schema_validation import load_json_strict
 from pbi_xbrl.standard_template_audit_freshness import write_audit_freshness
+from pbi_xbrl.new_ticker_capital_return import CAPITAL_RETURN_PRODUCT_ROWS
 from pbi_xbrl.workbook_number_formats import neutralize_workbook_negative_number_formats
 from pbi_xbrl.workbook_modules import (
     DEFAULT_MODULE_MANIFEST,
@@ -1270,6 +1271,95 @@ def _retire_product_pass2b_valuation_capacity(wb: Workbook) -> None:
         ws.row_dimensions[row_idx].hidden = True
 
 
+def _configure_valuation_capital_return_product(wb: Workbook) -> None:
+    if "Valuation" not in wb.sheetnames:
+        return
+    ws = wb["Valuation"]
+    title_fill = PatternFill("solid", fgColor="6FA8DC")
+    header_fill = PatternFill("solid", fgColor="EAF3FB")
+    title_font = Font(name="Aptos", bold=True, color="FFFFFF", size=14)
+    header_font = Font(name="Aptos", bold=True, color="1F1F1F", size=11)
+    body_font = Font(name="Aptos", color="1F1F1F", size=11)
+    muted_font = Font(name="Aptos", color="595959", size=10)
+    left_center = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    center_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    body_border = Border(bottom=Side(style="thin", color="D9E2F3"))
+
+    _unmerge_intersecting_ranges(ws, "A152:M168")
+    _clear_locked_inactive_range(ws, "A152:M168")
+    _ensure_merged_range(ws, "A152:M152")
+    _ensure_merged_range(ws, "E153:M153")
+    for row_idx in range(154, 169):
+        _ensure_merged_range(ws, f"E{row_idx}:M{row_idx}")
+
+    ws["A152"] = "Capital Return"
+    _style_cells(
+        ws,
+        "A152:M152",
+        fill=title_fill,
+        font=title_font,
+        alignment=left_center,
+    )
+    for coord, value in {
+        "A153": "Metric",
+        "E153": "State / context",
+    }.items():
+        ws[coord] = value
+    _style_cells(
+        ws,
+        "A153:M153",
+        fill=header_fill,
+        font=header_font,
+        alignment=center_center,
+    )
+    ws["A153"].alignment = left_center
+    ws["E153"].alignment = left_center
+
+    for row_idx, (_metric_id, label, number_format) in enumerate(
+        CAPITAL_RETURN_PRODUCT_ROWS,
+        start=154,
+    ):
+        for column in ("A", "B", "C", "D"):
+            cell = ws[f"{column}{row_idx}"]
+            cell.font = body_font
+            cell.alignment = left_center
+            cell.border = body_border
+            cell.protection = Protection(locked=True)
+        for column in ("B", "C", "D"):
+            ws[f"{column}{row_idx}"].number_format = number_format
+        context_cell = ws[f"E{row_idx}"]
+        context_cell.font = muted_font
+        context_cell.alignment = left_center
+        context_cell.border = body_border
+        context_cell.protection = Protection(locked=True)
+        ws.row_dimensions[row_idx].height = 24
+        ws.row_dimensions[row_idx].hidden = False
+
+    ws.row_dimensions[152].height = 24
+    ws.row_dimensions[153].height = 42
+    ws.row_dimensions[152].hidden = False
+    ws.row_dimensions[153].hidden = False
+
+    support_headers = (
+        "row_key",
+        "metric_id",
+        "semantic_role",
+        "latest_record_id",
+        "ttm_record_id",
+        "annual_record_id",
+        "latest_evidence_ref",
+        "ttm_evidence_ref",
+        "annual_evidence_ref",
+        "latest_classification",
+        "ttm_classification",
+        "annual_classification",
+    )
+    for offset, header in enumerate(support_headers, start=30):
+        column = get_column_letter(offset)
+        ws[f"{column}171"] = header
+        ws.column_dimensions[column].hidden = True
+
+
 def _style_cells(
     ws: Any,
     range_ref: str,
@@ -1955,7 +2045,7 @@ def _configure_calculation(wb: Workbook) -> None:
     try:
         wb.calculation.calcMode = "auto"
         wb.calculation.fullCalcOnLoad = True
-        wb.calculation.forceFullCalc = True
+        wb.calculation.forceFullCalc = False
     except Exception:
         pass
 
@@ -2028,6 +2118,7 @@ def _materialize_rich_shell(
     _configure_investment_case_product_layout(wb)
     neutralize_workbook_negative_number_formats(wb)
     _retire_product_pass2b_valuation_capacity(wb)
+    _configure_valuation_capital_return_product(wb)
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _ensure_qa_headers(wb)
     _remove_qa_excel_tables(wb)
@@ -2083,6 +2174,7 @@ def materialize_shell(
     _configure_investment_case_ownership_zones(manifest)
     binding_payload = build_profile_binding_payload(base_binding_payload, module_payload, resolved_profile)
     _ensure_hidden_support_planner_contracts(manifest, binding_payload)
+    _ensure_capital_return_planner_contracts(manifest, binding_payload)
     manifest["version"] = "0.3.0"
     manifest["semantic_contract_version"] = SHELL_SEMANTIC_CONTRACT_VERSION
     manifest["formula_contract_version"] = FORMULA_CONTRACT_VERSION
@@ -2181,6 +2273,7 @@ def materialize_shell(
     _configure_investment_case_product_layout(wb)
     neutralize_workbook_negative_number_formats(wb)
     _retire_product_pass2b_valuation_capacity(wb)
+    _configure_valuation_capital_return_product(wb)
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _ensure_freeze_panes(wb, manifest)
     _apply_shared_sheet_view_policy(wb)
@@ -2310,6 +2403,76 @@ def _ensure_hidden_support_planner_contracts(
                     "target_role": role,
                     "allowed_binding_ids": [binding_id],
                     "allowed_target_types": [target_type],
+                }
+            )
+    manifest["planner_cell_contracts"] = contracts
+
+
+def _ensure_capital_return_planner_contracts(
+    manifest: dict[str, Any],
+    binding_payload: dict[str, Any],
+) -> None:
+    """Declare exact planner cells for the visible Capital Return product."""
+
+    binding_ids = {
+        "valuation_capital_return_latest_quarter_header",
+        "valuation_capital_return_ttm_header",
+        "valuation_capital_return_annual_header",
+        "valuation_capital_return_product_rows",
+        "valuation_capital_return_support_rows",
+    }
+    bindings = [
+        row
+        for row in binding_payload.get("bindings") or []
+        if str(row.get("binding_id") or "") in binding_ids
+    ]
+    if not bindings:
+        return
+    actual_ids = {str(row.get("binding_id") or "") for row in bindings}
+    if actual_ids != binding_ids:
+        missing = sorted(binding_ids - actual_ids)
+        raise ValueError(f"Capital Return planner bindings are incomplete: {missing!r}.")
+
+    contracts = [
+        row
+        for row in manifest.get("planner_cell_contracts") or []
+        if not str(row.get("contract_id") or "").startswith("valuation_capital_return_")
+    ]
+    for binding in bindings:
+        binding_id = str(binding["binding_id"])
+        planner_target = str(binding.get("planner_target") or binding.get("target") or "")
+        left, top, right, bottom = range_boundaries(planner_target)
+        if str(binding.get("planning_mode") or "") == "scalar":
+            contracts.append(
+                {
+                    "contract_id": binding_id,
+                    "sheet": str(binding["sheet"]),
+                    "target": planner_target,
+                    "writable": True,
+                    "target_role": str(binding["target_role"]),
+                    "allowed_binding_ids": [binding_id],
+                    "allowed_target_types": [str(binding["target_type"])],
+                }
+            )
+            continue
+
+        for column in binding.get("target_columns") or []:
+            target_column = str(column.get("target_column") or "").upper()
+            target_index = range_boundaries(f"{target_column}1")[0]
+            if not target_column or target_index < left or target_index > right:
+                raise ValueError(
+                    f"{binding_id}: target column {target_column!r} is outside {planner_target}."
+                )
+            column_id = str(column.get("column_id") or target_column)
+            contracts.append(
+                {
+                    "contract_id": f"{binding_id}_{column_id}",
+                    "sheet": str(binding["sheet"]),
+                    "target": f"{target_column}{top}:{target_column}{bottom}",
+                    "writable": True,
+                    "target_role": str(column["target_role"]),
+                    "allowed_binding_ids": [binding_id],
+                    "allowed_target_types": [str(column["target_type"])],
                 }
             )
     manifest["planner_cell_contracts"] = contracts

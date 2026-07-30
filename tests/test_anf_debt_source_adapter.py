@@ -501,7 +501,7 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
     plan = value_plan.to_dict()
     styles = style_plan.to_dict()
     assert plan["status"] == "PASS"
-    assert plan["planned_write_count"] == 23_521
+    assert plan["planned_write_count"] == 23_761
     assert plan["structured_skip_count"] == 2_012
     assert plan["overflow_count"] == 0
     assert plan["issue_ledger"]["summary"]["canonical_unique_issue_count"] == 761
@@ -526,15 +526,40 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
         "Debt_Buckets",
         "Debt_Recon",
     }
+    capital_return_binding_ids = {
+        "valuation_capital_return_latest_quarter_header",
+        "valuation_capital_return_ttm_header",
+        "valuation_capital_return_annual_header",
+        "valuation_capital_return_product_rows",
+        "valuation_capital_return_support_rows",
+    }
+    capital_return_writes = [
+        row for row in plan["planned_writes"] if row["binding_id"] in capital_return_binding_ids
+    ]
+    hidden_value_binding_ids = {
+        "hidden_value_base_rows",
+        "hidden_value_audit_rows",
+        "hidden_value_recompute_rows",
+        "hidden_value_flags_rows",
+        "hidden_value_valuation_rows",
+    }
+    hidden_value_writes = [
+        row for row in plan["planned_writes"] if row["binding_id"] in hidden_value_binding_ids
+    ]
     unaffected = [
         row
         for row in plan["planned_writes"]
         if row["target_sheet"] not in debt_product_sheets
         and row["binding_id"] != "ic_product_projection_rows"
+        and row["binding_id"] not in capital_return_binding_ids
+        and row["binding_id"] not in hidden_value_binding_ids
         and not (row["target_sheet"] == "Valuation" and row["target_cell"] == "M95")
     ]
-    assert len(unaffected) == 22_370
-    assert _digest(unaffected) == "3e7797ae2aab0b7bbfb09108f921f796df6586fd500c83fb57a5878a7300006b"
+    assert len(unaffected) == 20_387
+    assert len(capital_return_writes) == 240
+    assert len(hidden_value_writes) == 1_983
+    assert _digest(unaffected) == "ec31d622453cb58a5a61d43b6d71aa9ab4adce6824ed5a19a7b119c4e692795c"
+    assert _digest(hidden_value_writes) == "4aba88a2839defcc7f1c58867ae7b80ca7198132592e57f89d7a16cc3383a6c6"
     debt_product_writes = [
         row for row in plan["planned_writes"] if row["target_sheet"] in debt_product_sheets
     ]
@@ -544,7 +569,7 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
         row for row in plan["planned_writes"] if row["binding_id"] == "ic_product_projection_rows"
     ]
     assert len(investment_case_writes) == 761
-    assert _digest(investment_case_writes) == "116b42305807cd301b7bbf1b79d3f25f62dae054cbca75dcd8887de98def79cd"
+    assert _digest(investment_case_writes) == "24837ba4d3a5c297a053838ea5ed234a266b9682a5a5f299210864ee098d27b6"
     assert _digest(plan["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
     assert styles["action_count"] == 770
     assert styles["decision_count"] == 1_298
@@ -555,11 +580,30 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
         "debt_credit_notes_product_state",
         "debt_maturity_product_state",
     }
-    prior_actions = [row for row in styles["actions"] if row["policy_id"] not in debt_policy_ids]
-    prior_decisions = [row for row in styles["decisions"] if row["policy_id"] not in debt_policy_ids]
+    hidden_value_policy_ids = {"hidden_value_audit_candidate_state"}
+    prior_actions = [
+        row
+        for row in styles["actions"]
+        if row["policy_id"] not in debt_policy_ids | hidden_value_policy_ids
+    ]
+    prior_decisions = [
+        row
+        for row in styles["decisions"]
+        if row["policy_id"] not in debt_policy_ids | hidden_value_policy_ids
+    ]
     assert _digest({"actions": prior_actions, "decisions": prior_decisions}) == (
-        "919d1b8abcdc1cc1aef9a84835d2b3a0f0a8c79446947472297453ddf2329687"
+        "e79336c75c282544b8cd8e210c1d6b9e5a351c18c8d04d06f1ca49517a719161"
     )
+    hidden_value_actions = [
+        row for row in styles["actions"] if row["policy_id"] in hidden_value_policy_ids
+    ]
+    hidden_value_decisions = [
+        row for row in styles["decisions"] if row["policy_id"] in hidden_value_policy_ids
+    ]
+    assert (len(hidden_value_actions), len(hidden_value_decisions)) == (6, 7)
+    assert _digest(
+        {"actions": hidden_value_actions, "decisions": hidden_value_decisions}
+    ) == "e4d555e505a2fc16406f5392e8538ee6645179b9f159a152a676f5ddfa4415e4"
     debt_actions = [row for row in styles["actions"] if row["policy_id"] in debt_policy_ids]
     debt_decisions = [row for row in styles["decisions"] if row["policy_id"] in debt_policy_ids]
     assert len(debt_actions) == 17

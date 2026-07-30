@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-29T08:48:30+00:00",
+  "generated_at": "2026-07-29T14:37:16+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -3913,6 +3913,460 @@
           "source_policy": "derived",
           "missing_source_behavior": "retain the neutral no-trigger empty state",
           "validation_rule": "hidden_value_triggered_only_visible_projection"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "valuation_capital_return_headers",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "B153:D153",
+      "title_header_cells": [
+        {
+          "cell": "A151",
+          "value": "Capital return"
+        },
+        {
+          "cell": "A152",
+          "value": "Buybacks (shares)"
+        },
+        {
+          "cell": "B152",
+          "value": "Latest quarter +1.200m at $87.50/share for $105.0m"
+        },
+        {
+          "cell": "A153",
+          "value": "Buybacks note"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A151",
+          "value": "Capital return"
+        },
+        {
+          "cell": "A152",
+          "value": "Buybacks (shares)"
+        },
+        {
+          "cell": "B152",
+          "value": "Latest quarter +1.200m at $87.50/share for $105.0m"
+        },
+        {
+          "cell": "A153",
+          "value": "Buybacks note"
+        }
+      ],
+      "row_label_cells": [
+        {
+          "cell": "A153",
+          "value": "Buybacks note"
+        }
+      ],
+      "static_label_cells": [
+        {
+          "cell": "A151",
+          "value": "Capital return"
+        },
+        {
+          "cell": "A152",
+          "value": "Buybacks (shares)"
+        },
+        {
+          "cell": "B152",
+          "value": "Latest quarter +1.200m at $87.50/share for $105.0m"
+        },
+        {
+          "cell": "A153",
+          "value": "Buybacks note"
+        },
+        {
+          "cell": "A153",
+          "value": "Buybacks note"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "valuation_capital_return_latest_quarter_header",
+          "target": "B153",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_capital_return_ttm_header",
+          "target": "C153",
+          "value_shape": "scalar"
+        },
+        {
+          "binding_id": "valuation_capital_return_annual_header",
+          "target": "D153",
+          "value_shape": "scalar"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "valuation_capital_return_latest_quarter_header",
+          "target": "B153",
+          "value_shape": "scalar",
+          "nonempty_count": 1,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 1,
+          "sample_cells": [
+            {
+              "cell": "B153",
+              "value": "Remaining capacity $745.0m"
+            }
+          ]
+        },
+        {
+          "binding_id": "valuation_capital_return_ttm_header",
+          "target": "C153",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        },
+        {
+          "binding_id": "valuation_capital_return_annual_header",
+          "target": "D153",
+          "value_shape": "scalar",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "_derived_workbook.capital_return.annual_label",
+        "_derived_workbook.capital_return.latest_quarter_label",
+        "_derived_workbook.capital_return.ttm_label"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "_derived_workbook.capital_return.annual_label",
+        "_derived_workbook.capital_return.latest_quarter_label",
+        "_derived_workbook.capital_return.ttm_label"
+      ],
+      "source_policy": "derived",
+      "missing_data_behavior": "block planning; the exact four-quarter Capital Return identity must be resolved | block planning; the latest completed-year Capital Return identity must be resolved | block planning; the latest-quarter Capital Return identity must be resolved",
+      "validation_rules": [
+        "resolved_capital_return_product_contract"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "valuation_capital_return_latest_quarter_header",
+          "target": "B153",
+          "normalized_field": "_derived_workbook.capital_return.latest_quarter_label",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "derived",
+          "missing_source_behavior": "block planning; the latest-quarter Capital Return identity must be resolved",
+          "validation_rule": "resolved_capital_return_product_contract"
+        },
+        {
+          "binding_id": "valuation_capital_return_ttm_header",
+          "target": "C153",
+          "normalized_field": "_derived_workbook.capital_return.ttm_label",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "derived",
+          "missing_source_behavior": "block planning; the exact four-quarter Capital Return identity must be resolved",
+          "validation_rule": "resolved_capital_return_product_contract"
+        },
+        {
+          "binding_id": "valuation_capital_return_annual_header",
+          "target": "D153",
+          "normalized_field": "_derived_workbook.capital_return.annual_label",
+          "required": false,
+          "value_shape": "scalar",
+          "source_policy": "derived",
+          "missing_source_behavior": "block planning; the latest completed-year Capital Return identity must be resolved",
+          "validation_rule": "resolved_capital_return_product_contract"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "valuation_capital_return_product_rows",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "A154:E168",
+      "title_header_cells": [
+        {
+          "cell": "A152",
+          "value": "Buybacks (shares)"
+        },
+        {
+          "cell": "B152",
+          "value": "Latest quarter +1.200m at $87.50/share for $105.0m"
+        },
+        {
+          "cell": "A153",
+          "value": "Buybacks note"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A152",
+          "value": "Buybacks (shares)"
+        },
+        {
+          "cell": "B152",
+          "value": "Latest quarter +1.200m at $87.50/share for $105.0m"
+        },
+        {
+          "cell": "A153",
+          "value": "Buybacks note"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "A152",
+          "value": "Buybacks (shares)"
+        },
+        {
+          "cell": "B152",
+          "value": "Latest quarter +1.200m at $87.50/share for $105.0m"
+        },
+        {
+          "cell": "A153",
+          "value": "Buybacks note"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "valuation_capital_return_product_rows",
+          "target": "A154:E168",
+          "value_shape": "table_rows"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "valuation_capital_return_product_rows",
+          "target": "A154:E168",
+          "value_shape": "table_rows",
+          "nonempty_count": 38,
+          "formula_count": 0,
+          "numeric_count": 3,
+          "text_count": 35,
+          "sample_cells": [
+            {
+              "cell": "A155",
+              "value": "Dividends ($/share)"
+            },
+            {
+              "cell": "B155",
+              "value": "No current common dividend/share signal."
+            },
+            {
+              "cell": "A156",
+              "value": "Dividends note"
+            },
+            {
+              "cell": "B156",
+              "value": "No current common dividend/share signal."
+            },
+            {
+              "cell": "A158",
+              "value": "Trend/Δ (last 4Q)"
+            },
+            {
+              "cell": "A159",
+              "value": "Metric"
+            },
+            {
+              "cell": "B159",
+              "value": "Δ"
+            },
+            {
+              "cell": "C159",
+              "value": "Direction"
+            }
+          ]
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [],
+      "normalized_fields": [
+        "_derived_workbook.capital_return.product_rows"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "_derived_workbook.capital_return.product_rows"
+      ],
+      "source_policy": "derived",
+      "missing_data_behavior": "retain typed unavailable values and their concise state; never coerce missing Capital Return evidence to zero",
+      "validation_rules": [
+        "resolved_capital_return_product_contract"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "valuation_capital_return_product_rows",
+          "target": "A154:E168",
+          "normalized_field": "_derived_workbook.capital_return.product_rows",
+          "required": false,
+          "value_shape": "table_rows",
+          "source_policy": "derived",
+          "missing_source_behavior": "retain typed unavailable values and their concise state; never coerce missing Capital Return evidence to zero",
+          "validation_rule": "resolved_capital_return_product_contract"
+        }
+      ],
+      "notes": [
+        "Block is derived from manifest writable zone and current binding map.",
+        "ANF/PBI/GPRE workbook content is read-only evidence; future shell must clear writable company-specific values."
+      ]
+    },
+    {
+      "block_id": "valuation_capital_return_support_rows",
+      "sheet": "Valuation",
+      "resolved_lab_sheet": "Valuation",
+      "range": "AD172:AO186",
+      "title_header_cells": [
+        {
+          "cell": "A172",
+          "value": "row_key"
+        }
+      ],
+      "template_label_cells": [
+        {
+          "cell": "A172",
+          "value": "row_key"
+        }
+      ],
+      "row_label_cells": [],
+      "static_label_cells": [
+        {
+          "cell": "A172",
+          "value": "row_key"
+        }
+      ],
+      "writable_value_cells": [
+        {
+          "binding_id": "valuation_capital_return_support_rows",
+          "target": "AD172:AO186",
+          "value_shape": "table_rows"
+        }
+      ],
+      "writable_example_cells": [
+        {
+          "binding_id": "valuation_capital_return_support_rows",
+          "target": "AD172:AO186",
+          "value_shape": "table_rows",
+          "nonempty_count": 0,
+          "formula_count": 0,
+          "numeric_count": 0,
+          "text_count": 0,
+          "sample_cells": []
+        }
+      ],
+      "company_specific_example_cells": [],
+      "source_specific_example_cells": [],
+      "formula_cells": [],
+      "hidden_helper_cells": [
+        {
+          "type": "hidden_column",
+          "target": "AI"
+        }
+      ],
+      "normalized_fields": [
+        "_derived_workbook.capital_return.support_rows"
+      ],
+      "support_sheets_used": [
+        "Debt_Profile",
+        "Debt_Tranches_Q",
+        "Guidance_Normalized",
+        "Hidden_Value_Base",
+        "Hidden_Value_Flags",
+        "History_Q",
+        "Slides_Guidance"
+      ],
+      "current_code_owner": [
+        "pbi_xbrl/excel_writer_valuation_orchestrator.py",
+        "pbi_xbrl/excel_writer_valuation_*",
+        "pbi_xbrl/valuation.py"
+      ],
+      "future_intended_owner": [
+        "frozen template shell",
+        "docs/workbook_binding_map.json",
+        "future value-only filler"
+      ],
+      "required_fields": [],
+      "optional_fields": [
+        "_derived_workbook.capital_return.support_rows"
+      ],
+      "source_policy": "derived",
+      "missing_data_behavior": "block planning; every visible Capital Return row requires compact typed lineage",
+      "validation_rules": [
+        "resolved_capital_return_product_contract"
+      ],
+      "standardization_status": "standard",
+      "bindings": [
+        {
+          "binding_id": "valuation_capital_return_support_rows",
+          "target": "AD172:AO186",
+          "normalized_field": "_derived_workbook.capital_return.support_rows",
+          "required": false,
+          "value_shape": "table_rows",
+          "source_policy": "derived",
+          "missing_source_behavior": "block planning; every visible Capital Return row requires compact typed lineage",
+          "validation_rule": "resolved_capital_return_product_contract"
         }
       ],
       "notes": [

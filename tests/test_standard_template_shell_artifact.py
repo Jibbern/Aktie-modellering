@@ -170,6 +170,7 @@ VALUATION_BLUE_SECTION_HEADERS = {
 }
 VALUATION_BLUE_SECTION_HEADER_RANGES = (
     "A122:N122",
+    "A152:M152",
     "B192:S192",
 )
 STATUS_OUTPUT_FILL_COLORS = {
@@ -249,6 +250,16 @@ def _sheet_counts(wb, sheet: str) -> tuple[int, int, int]:
 def test_standard_template_shell_artifact_exists() -> None:
     assert TEMPLATE.exists()
     assert TEMPLATE.suffix == ".xlsx"
+
+
+def test_standard_template_uses_one_shot_full_calculation_metadata() -> None:
+    wb = load_workbook(TEMPLATE, data_only=False, read_only=True)
+    try:
+        assert wb.calculation.calcMode == "auto"
+        assert wb.calculation.fullCalcOnLoad is True
+        assert wb.calculation.forceFullCalc is False
+    finally:
+        wb.close()
 
 
 def test_standard_template_shell_validation_passes() -> None:

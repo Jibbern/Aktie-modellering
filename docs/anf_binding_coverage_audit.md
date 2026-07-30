@@ -2,9 +2,9 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-21T17:05:22+00:00`
-- Bindings with populated data: `76` / `188`
-- Bindings that would write useful output: `130`
+- Generated: `2026-07-29T14:01:27+00:00`
+- Bindings with populated data: `71` / `189`
+- Bindings that would write useful output: `136`
 
 | Binding | Sheet | Field | Values | Rows | Would write | Reason if blank |
 | --- | --- | --- | ---: | ---: | --- | --- |
@@ -46,11 +46,7 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `ic_current_stance` | `{ticker}_Investment_Case` | `investment_case.current_stance` | 1 | 1/1 | True |  |
 | `ic_bull_base_bear_rows` | `Scenario_Driver_Assumptions` | `investment_case.scenario_items` | 16 | 16/200 | True |  |
 | `ic_scenario_bridge_rows` | `{ticker}_Investment_Case_Data` | `investment_case.scenario_driver_bridge` | 6 | 6/200 | True |  |
-| `ic_lower_comp_history_labels` | `{ticker}_Investment_Case` | `operating_drivers.items.0.driver` | 34 | 34/7 | False | binding planning_state is inactive_legacy_contract |
-| `ic_lower_business_health_rows` | `{ticker}_Investment_Case` | `operating_drivers.items.0.current_read` | 34 | 34/6 | False | binding planning_state is inactive_legacy_contract |
-| `ic_lower_inventory_rows` | `{ticker}_Investment_Case` | `operating_drivers.items.0.metric_value` | 19 | 19/8 | False | binding planning_state is inactive_legacy_contract |
-| `ic_lower_asset_productivity_rows` | `{ticker}_Investment_Case` | `operating_drivers.items.0.metric_value` | 19 | 19/14 | False | binding planning_state is inactive_legacy_contract |
-| `ic_lower_guidance_setup_rows` | `{ticker}_Investment_Case` | `normalized_guidance.items.0.value` | 196 | 196/6 | False | binding planning_state is inactive_legacy_contract |
+| `ic_product_projection_rows` | `{ticker}_Investment_Case_Data` | `_derived_workbook.investment_case.workbook_rows` | 0 | 0/200 | True |  |
 | `qn_quarter_note_rows` | `Quarter_Notes_UI` | `quarter_notes.items.commentary` | 42 | 6/6 | True |  |
 | `qn_quarter_summary_rows` | `Quarter_Notes_UI` | `quarter_notes.summary.model_read` | 1 | 1/1 | True |  |
 | `qn_quarter_summary_what_changed` | `Quarter_Notes_UI` | `quarter_notes.summary.what_changed` | 1 | 1/1 | True |  |
@@ -196,6 +192,11 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `debt_credit_notes_resolved_rows` | `Debt_Credit_Notes` | `_derived_workbook.debt.debt_credit_note_rows.text` | 0 | 0/6 | True |  |
 | `debt_maturity_ladder_resolved_rows` | `Debt_Maturity_Ladder` | `_derived_workbook.debt.debt_maturity_rows.amount` | 0 | 0/17 | False | normalized field is absent or not populated |
 | `valuation_input_net_income_ttm` | `Valuation` | `valuation_inputs.net_income_ttm` | 1 | 1/1 | True |  |
+| `valuation_capital_return_latest_quarter_header` | `Valuation` | `_derived_workbook.capital_return.latest_quarter_label` | 0 | 0/1 | True |  |
+| `valuation_capital_return_ttm_header` | `Valuation` | `_derived_workbook.capital_return.ttm_label` | 0 | 0/1 | True |  |
+| `valuation_capital_return_annual_header` | `Valuation` | `_derived_workbook.capital_return.annual_label` | 0 | 0/1 | True |  |
+| `valuation_capital_return_product_rows` | `Valuation` | `_derived_workbook.capital_return.product_rows` | 0 | 0/15 | True |  |
+| `valuation_capital_return_support_rows` | `Valuation` | `_derived_workbook.capital_return.support_rows` | 0 | 0/15 | True |  |
 
 ## Row Schema Observation
 

@@ -605,6 +605,13 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         "debt_maturity_ladder_resolved_rows",
     }
     focused_pass_b1_binding_ids = {"ic_product_projection_rows"}
+    capital_return_binding_ids = {
+        "valuation_capital_return_latest_quarter_header",
+        "valuation_capital_return_ttm_header",
+        "valuation_capital_return_annual_header",
+        "valuation_capital_return_product_rows",
+        "valuation_capital_return_support_rows",
+    }
     accepted_business_writes = [
         write for write in business_writes if write.binding_id not in hidden_value_binding_ids
     ]
@@ -674,8 +681,9 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         | product_pass_2b_binding_ids
         | product_pass_3a2_binding_ids
         | focused_pass_b1_binding_ids
+        | capital_return_binding_ids
     )
-    assert len(payload["planned_writes"]) == 23_521
+    assert len(payload["planned_writes"]) == 23_761
     # Two old raw guidance filters contributed 189 exclusions each, while four
     # deferred scalar-as-table bindings contributed one apiece. Resolved 2B
     # rowsets replace those 382 non-economic skips.
@@ -717,9 +725,18 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     ]
     assert len(focused_pass_b1_writes) == 761
     assert _canonical_digest(focused_pass_b1_writes) == (
-        "116b42305807cd301b7bbf1b79d3f25f62dae054cbca75dcd8887de98def79cd"
+        "24837ba4d3a5c297a053838ea5ed234a266b9682a5a5f299210864ee098d27b6"
     )
-    assert len(payload["planned_writes"]) - 157 - 389 - 761 == 22_214
+    capital_return_writes = [
+        write
+        for write in payload["planned_writes"]
+        if write.get("binding_id") in capital_return_binding_ids
+    ]
+    assert len(capital_return_writes) == 240
+    assert _canonical_digest(capital_return_writes) == (
+        "9247ed248bcbeb2bcd88aeac8a0626e6a25cfae0205b7c37e2aa31da50837080"
+    )
+    assert len(payload["planned_writes"]) - 157 - 389 - 761 - 240 == 22_214
     non_scenario_writes = [
         write
         for write in payload["planned_writes"]
@@ -770,9 +787,11 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         and write.get("binding_id") not in product_pass_2b_binding_ids
         and write.get("binding_id") not in product_pass_3a2_binding_ids
         and write.get("binding_id") not in focused_pass_b1_binding_ids
+        and write.get("binding_id") not in capital_return_binding_ids
+        and write.get("binding_id") not in hidden_value_binding_ids
     ]
-    assert len(stable_business_writes) == 7_414
-    assert _canonical_digest(stable_business_writes) == "65a916f4ddcd0e21a6d29466efb0a86d758557f098bebeed2fe909408ce3093f"
+    assert len(stable_business_writes) == 5_431
+    assert _canonical_digest(stable_business_writes) == "80cdc083017b796c47d8b23a8044c29508a5f6d2018612c07af03f6dbcf992cc"
     all_stable_business_writes = [
         write
         for write in payload["planned_writes"]
@@ -780,9 +799,11 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         and write.get("binding_id") not in product_pass_2b_binding_ids
         and write.get("binding_id") not in product_pass_3a2_binding_ids
         and write.get("binding_id") not in focused_pass_b1_binding_ids
+        and write.get("binding_id") not in capital_return_binding_ids
+        and write.get("binding_id") not in hidden_value_binding_ids
     ]
-    assert len(all_stable_business_writes) == 7_438
-    assert _canonical_digest(all_stable_business_writes) == "f64cb562c4b3974274785dc99269e2af12ec19326801e133f112f4dc07bac74f"
+    assert len(all_stable_business_writes) == 5_455
+    assert _canonical_digest(all_stable_business_writes) == "f2d0d9bed09c7001fa0542fe3584a9a2ba0532bb7e3b2e427d7b94fa0de0d9a4"
     assert _canonical_digest(payload["period_axes"]) == "88b9f00e07414ea100180a8f574e4ca3ab14088885107d888f75e1b143ec8818"
     assert _canonical_digest(payload["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
     assert _canonical_digest(payload["issue_ledger"]["issues"]) == "ce17b225eee5b78725b568fd0b147b14bc797d96a995900b619fa3459a3d2d7c"

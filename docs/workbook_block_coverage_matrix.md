@@ -31,6 +31,9 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | valuation_debt_snapshot_statuses | Valuation | yes | same | same | same | same | - |
 | valuation_debt_snapshot_evidence | Valuation | yes | same | similar | same | same | - |
 | module_hidden_value_signals_valuation_rows | Valuation | yes | same | similar | same | same | - |
+| valuation_capital_return_headers | Valuation | yes | same | same | same | same | - |
+| valuation_capital_return_product_rows | Valuation | yes | same | similar | same | same | - |
+| valuation_capital_return_support_rows | Valuation | yes | same | same | same | same | - |
 | valuation_input_values | Valuation | yes | same | similar | same | same | - |
 | valuation_period_headers | Valuation | yes | same | similar | same | same | - |
 | valuation_raw_revenue | Valuation | yes | same | similar | same | same | - |

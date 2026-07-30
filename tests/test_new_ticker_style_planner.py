@@ -636,10 +636,22 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         write.binding_id == "ic_product_projection_rows" for write in value_plan.planned_writes
     )
     assert focused_pass_b1_business_additions == 761
+    capital_return_binding_ids = {
+        "valuation_capital_return_latest_quarter_header",
+        "valuation_capital_return_ttm_header",
+        "valuation_capital_return_annual_header",
+        "valuation_capital_return_product_rows",
+        "valuation_capital_return_support_rows",
+    }
+    capital_return_business_additions = sum(
+        write.binding_id in capital_return_binding_ids for write in value_plan.planned_writes
+    )
+    assert capital_return_business_additions == 240
     assert (
         len(value_plan.planned_writes)
         - product_pass_3a2_business_additions
         - focused_pass_b1_business_additions
+        - capital_return_business_additions
         - product_pass_2b_net_business_additions
         - hidden_value_additions
         - sum(additive_binding_counts.values())
@@ -650,11 +662,12 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
     assert (
         len(value_plan.planned_writes)
         - product_pass_3a2_business_additions
+        - capital_return_business_additions
         - product_pass_2b_net_business_additions
         - hidden_value_additions
         == 20_992
     )
-    assert len(value_plan.planned_writes) == 23_521
+    assert len(value_plan.planned_writes) == 23_761
     assert len(style_plan.actions) == 770
     assert len(style_plan.decisions) == 1_298
     style_payload = style_plan.to_dict()
@@ -697,7 +710,7 @@ def test_anf_style_plan_is_deterministic_and_value_plan_extension_is_additive(
         and outside_product_pass_3a2_status_surface(row)
     ]
     assert len(stable_actions) == 683
-    assert _canonical_digest(stable_actions) == "5fde8a884c74244e25356c758a871a29cf89f3109d32e7cc58fffc544b6b7240"
+    assert _canonical_digest(stable_actions) == "4010f4af27cc7ae42cdd6048e6a38d9a0c3089399ee5edd6ad2d1ccc0504db00"
     assert len(stable_decisions) == 1_145
     assert _canonical_digest(stable_decisions) == "1a68dc09d335c061c936200954b0eee94e91c8e27d92655dab4aff512977b6b0"
     assert validate_json_schema(style_plan.to_dict(), load_json_strict(STYLE_PLAN_SCHEMA)) == []

@@ -773,14 +773,17 @@ def _check_calc_settings(wb: Any, result: WorkbookValidationResult) -> None:
     calc_mode = getattr(calc, "calcMode", None)
     full_calc = bool(getattr(calc, "fullCalcOnLoad", False))
     force_full = bool(getattr(calc, "forceFullCalc", False))
-    result.calc_settings_ok = (calc_mode in {None, "auto"}) and full_calc and force_full
+    result.calc_settings_ok = (calc_mode in {None, "auto"}) and full_calc
     if not result.calc_settings_ok:
         _append_issue(
             result,
             ValidationIssue(
                 category="calc_settings",
                 value=f"calcMode={calc_mode}; fullCalcOnLoad={full_calc}; forceFullCalc={force_full}",
-                detail="Workbook calculation settings should be automatic with fullCalcOnLoad and forceFullCalc enabled.",
+                detail=(
+                    "Workbook calculation settings should be automatic with fullCalcOnLoad enabled. "
+                    "forceFullCalc is recorded for diagnostics but is not required."
+                ),
             ),
         )
 

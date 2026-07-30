@@ -10038,6 +10038,287 @@
       "planning_state": "active",
       "named_range": "valuation_input_net_income_ttm",
       "module_id": "valuation_scenarios"
+    },
+    {
+      "binding_id": "valuation_capital_return_latest_quarter_header",
+      "sheet": "Valuation",
+      "section": "Capital Return",
+      "target": "B153",
+      "shell_zone": "valuation_capital_return_headers",
+      "block_id": "valuation_capital_return_product",
+      "anchor_label": "Metric",
+      "row_family": "capital_return_period_headers",
+      "normalized_field": "_derived_workbook.capital_return.latest_quarter_label",
+      "value_shape": "scalar",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "block planning; the latest-quarter Capital Return identity must be resolved",
+      "promotion_requirement": "required",
+      "validation_rule": "resolved_capital_return_product_contract",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "B153",
+      "source_path": "_derived_workbook.capital_return.latest_quarter_label",
+      "target_type": "text",
+      "target_role": "valuation_capital_return_latest_quarter_header.value",
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
+    },
+    {
+      "binding_id": "valuation_capital_return_ttm_header",
+      "sheet": "Valuation",
+      "section": "Capital Return",
+      "target": "C153",
+      "shell_zone": "valuation_capital_return_headers",
+      "block_id": "valuation_capital_return_product",
+      "anchor_label": "Metric",
+      "row_family": "capital_return_period_headers",
+      "normalized_field": "_derived_workbook.capital_return.ttm_label",
+      "value_shape": "scalar",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "block planning; the exact four-quarter Capital Return identity must be resolved",
+      "promotion_requirement": "required",
+      "validation_rule": "resolved_capital_return_product_contract",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "C153",
+      "source_path": "_derived_workbook.capital_return.ttm_label",
+      "target_type": "text",
+      "target_role": "valuation_capital_return_ttm_header.value",
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
+    },
+    {
+      "binding_id": "valuation_capital_return_annual_header",
+      "sheet": "Valuation",
+      "section": "Capital Return",
+      "target": "D153",
+      "shell_zone": "valuation_capital_return_headers",
+      "block_id": "valuation_capital_return_product",
+      "anchor_label": "Metric",
+      "row_family": "capital_return_period_headers",
+      "normalized_field": "_derived_workbook.capital_return.annual_label",
+      "value_shape": "scalar",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "block planning; the latest completed-year Capital Return identity must be resolved",
+      "promotion_requirement": "required",
+      "validation_rule": "resolved_capital_return_product_contract",
+      "writable": true,
+      "planning_mode": "scalar",
+      "planner_target": "D153",
+      "source_path": "_derived_workbook.capital_return.annual_label",
+      "target_type": "text",
+      "target_role": "valuation_capital_return_annual_header.value",
+      "planning_state": "active",
+      "module_id": "balance_cash_flow"
+    },
+    {
+      "binding_id": "valuation_capital_return_product_rows",
+      "sheet": "Valuation",
+      "section": "Capital Return",
+      "target": "A154:E168",
+      "shell_zone": "valuation_capital_return_product_rows",
+      "block_id": "valuation_capital_return_product",
+      "anchor_label": "Capital Return",
+      "row_family": "capital_return_product_rows",
+      "normalized_field": "_derived_workbook.capital_return.product_rows",
+      "value_shape": "table_rows",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "retain typed unavailable values and their concise state; never coerce missing Capital Return evidence to zero",
+      "promotion_requirement": "required",
+      "validation_rule": "resolved_capital_return_product_contract",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "A154:E168",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "_derived_workbook.capital_return.product_rows",
+        "pick": "all"
+      },
+      "row_key": [
+        "row_key"
+      ],
+      "sort_order": [
+        "priority:asc"
+      ],
+      "capacity": 15,
+      "overflow_behavior": "fail",
+      "required_columns": [
+        "metric",
+        "state_context"
+      ],
+      "target_columns": [
+        {
+          "column_id": "metric",
+          "source_field": "metric",
+          "target_column": "A",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_product_rows.metric"
+        },
+        {
+          "column_id": "latest_quarter",
+          "source_field": "latest_quarter",
+          "target_column": "B",
+          "target_type": "number",
+          "target_role": "valuation_capital_return_product_rows.latest_quarter"
+        },
+        {
+          "column_id": "ttm",
+          "source_field": "ttm",
+          "target_column": "C",
+          "target_type": "number",
+          "target_role": "valuation_capital_return_product_rows.ttm"
+        },
+        {
+          "column_id": "latest_completed_year",
+          "source_field": "latest_completed_year",
+          "target_column": "D",
+          "target_type": "number",
+          "target_role": "valuation_capital_return_product_rows.latest_completed_year"
+        },
+        {
+          "column_id": "state_context",
+          "source_field": "state_context",
+          "target_column": "E",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_product_rows.state_context"
+        }
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "source_ref",
+      "planning_state": "active",
+      "rowset_id": "capital_return_product",
+      "module_id": "balance_cash_flow"
+    },
+    {
+      "binding_id": "valuation_capital_return_support_rows",
+      "sheet": "Valuation",
+      "section": "Capital Return hidden lineage",
+      "target": "AD172:AO186",
+      "shell_zone": "valuation_capital_return_support_rows",
+      "anchor_label": "row_key",
+      "row_family": "capital_return_support_rows",
+      "normalized_field": "_derived_workbook.capital_return.support_rows",
+      "value_shape": "table_rows",
+      "required": false,
+      "source_policy": "derived",
+      "missing_source_behavior": "block planning; every visible Capital Return row requires compact typed lineage",
+      "promotion_requirement": "required",
+      "validation_rule": "resolved_capital_return_product_contract",
+      "writable": true,
+      "planning_mode": "table_rows",
+      "planner_target": "AD172:AO186",
+      "target_type": "table_row",
+      "row_selector": {
+        "source_path": "_derived_workbook.capital_return.support_rows",
+        "pick": "all"
+      },
+      "row_key": [
+        "row_key"
+      ],
+      "sort_order": [
+        "row_key:asc"
+      ],
+      "capacity": 15,
+      "overflow_behavior": "fail",
+      "required_columns": [
+        "row_key",
+        "metric_id"
+      ],
+      "target_columns": [
+        {
+          "column_id": "row_key",
+          "source_field": "row_key",
+          "target_column": "AD",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.row_key"
+        },
+        {
+          "column_id": "metric_id",
+          "source_field": "metric_id",
+          "target_column": "AE",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.metric_id"
+        },
+        {
+          "column_id": "semantic_role",
+          "source_field": "semantic_role",
+          "target_column": "AF",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.semantic_role"
+        },
+        {
+          "column_id": "latest_record_id",
+          "source_field": "latest_record_id",
+          "target_column": "AG",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.latest_record_id"
+        },
+        {
+          "column_id": "ttm_record_id",
+          "source_field": "ttm_record_id",
+          "target_column": "AH",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.ttm_record_id"
+        },
+        {
+          "column_id": "annual_record_id",
+          "source_field": "annual_record_id",
+          "target_column": "AI",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.annual_record_id"
+        },
+        {
+          "column_id": "latest_evidence_ref",
+          "source_field": "latest_evidence_ref",
+          "target_column": "AJ",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.latest_evidence_ref"
+        },
+        {
+          "column_id": "ttm_evidence_ref",
+          "source_field": "ttm_evidence_ref",
+          "target_column": "AK",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.ttm_evidence_ref"
+        },
+        {
+          "column_id": "annual_evidence_ref",
+          "source_field": "annual_evidence_ref",
+          "target_column": "AL",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.annual_evidence_ref"
+        },
+        {
+          "column_id": "latest_classification",
+          "source_field": "latest_classification",
+          "target_column": "AM",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.latest_classification"
+        },
+        {
+          "column_id": "ttm_classification",
+          "source_field": "ttm_classification",
+          "target_column": "AN",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.ttm_classification"
+        },
+        {
+          "column_id": "annual_classification",
+          "source_field": "annual_classification",
+          "target_column": "AO",
+          "target_type": "text",
+          "target_role": "valuation_capital_return_support_rows.annual_classification"
+        }
+      ],
+      "source_ref_required": true,
+      "source_ref_field": "source_ref",
+      "planning_state": "active",
+      "rowset_id": "capital_return_support",
+      "module_id": "balance_cash_flow"
     }
   ],
   "financial_field_dispositions": [
@@ -10430,6 +10711,6 @@
       ]
     }
   ],
-  "module_manifest_signature": "fb85f1b1d1d27732552c2b94df759bc7ec69fb8cc21d68d4b1ee6c46c8b0397b",
+  "module_manifest_signature": "86d55d6d89497748eae18d355a7378f1295917956be54e6c268091f2b6f3021c",
   "module_profile_signature": "e792faf8030f6035e44d1ba547cb5e44a7f269f5b4beb088814196bf01567f8b"
 }

@@ -399,6 +399,40 @@ def plan_standard_template_writes(
             _add_blocking_reports(plan, bindings)
             return plan
 
+    if "balance_cash_flow" in enabled_modules:
+        try:
+            from pbi_xbrl.new_ticker_capital_return import (
+                build_capital_return_workbook_projection,
+            )
+
+            capital_return_projection = build_capital_return_workbook_projection(package)
+            derived_workbook["capital_return"] = capital_return_projection.to_dict()
+            plan.derived_plan_reports.append(
+                {
+                    "plan_id": "capital_return_workbook_projection",
+                    "status": "PASS",
+                    "collection_state": capital_return_projection.collection_state,
+                    "projection_digest": capital_return_projection.projection_digest,
+                    "product_row_count": len(capital_return_projection.product_rows),
+                    "support_row_count": len(capital_return_projection.support_rows),
+                    "latest_quarter_label": capital_return_projection.latest_quarter_label,
+                    "ttm_label": capital_return_projection.ttm_label,
+                    "annual_label": capital_return_projection.annual_label,
+                }
+            )
+        except Exception as exc:
+            plan.planner_issues.append(
+                _planner_issue(
+                    "P1",
+                    "capital_return_workbook_projection_failed",
+                    "capital_returns",
+                    str(exc),
+                )
+            )
+            _refresh_issue_ledger(plan)
+            _add_blocking_reports(plan, bindings)
+            return plan
+
     if "guidance_promises" in enabled_modules:
         try:
             from pbi_xbrl.new_ticker_guidance_scope import build_valuation_guidance_projection

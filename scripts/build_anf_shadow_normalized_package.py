@@ -35,6 +35,10 @@ from pbi_xbrl.anf_debt_source_adapter import (  # noqa: E402
     ANFDebtSourceExtraction,
     build_anf_debt_collections,
 )
+from pbi_xbrl.anf_capital_return_source_adapter import (  # noqa: E402
+    ANFCapitalReturnSourceExtraction,
+    build_anf_capital_return_collection,
+)
 from pbi_xbrl.json_schema_validation import load_json_strict  # noqa: E402
 from pbi_xbrl.new_ticker_guidance_scope import (  # noqa: E402
     guidance_scope_key,
@@ -2099,22 +2103,68 @@ def _build_debt_liquidity(
     }
 
 
-def _build_capital_returns(history_rows: Sequence[Mapping[str, Any]], workbook_path: Path) -> dict[str, Any]:
-    latest_rows: list[Mapping[str, Any]] = []
-    for row in sorted([item for item in history_rows if _is_present(item.get("quarter"))], key=lambda item: _to_iso(item.get("quarter"))):
-        latest_rows.append(row)
-        if len(latest_rows) > 4:
-            latest_rows.pop(0)
-    source_ref = f"{workbook_path.name}!History_Q!latest_4_quarters"
-    buybacks = sum(float(row.get("buybacks_cash") or 0) for row in latest_rows)
-    dividends = sum(float(row.get("dividends_cash") or 0) for row in latest_rows)
-    return {
-        "buybacks": _field(round(buybacks / 1_000_000, 3), source_ref=source_ref, core=True, unit="$m", period="latest_4_quarters"),
-        "dividends": _field(round(dividends / 1_000_000, 3), source_ref=source_ref, unit="$m", period="latest_4_quarters")
-        if dividends
-        else _not_applicable("ANF has no common dividend signal in the legacy artifact.", source_ref=source_ref),
-        "share_issuance": _not_applicable("No equity issuance program is represented in the legacy ANF artifact.", source_ref=source_ref),
+def _build_capital_returns(
+    extraction: ANFCapitalReturnSourceExtraction,
+) -> dict[str, Any]:
+    section = extraction.package_section()
+    ttm_records = [
+        record
+        for record in extraction.records
+        if str(record.get("period_type") or "") == "ttm"
+    ]
+    by_metric = {
+        str(record.get("metric_id") or ""): record
+        for record in ttm_records
     }
+
+    def alias(metric_id: str, *, core: bool = False) -> dict[str, Any]:
+        record = by_metric.get(metric_id)
+        if (
+            not isinstance(record, Mapping)
+            or str(record.get("status") or "") != "populated"
+            or not isinstance(record.get("value"), (int, float))
+            or isinstance(record.get("value"), bool)
+        ):
+            reason = (
+                str(record.get("reason") or "")
+                if isinstance(record, Mapping)
+                else f"No exact TTM {metric_id} record is available."
+            )
+            return _missing(
+                reason or f"No exact TTM {metric_id} record is available.",
+                source_ref=str(record.get("evidence_ref") or "")
+                if isinstance(record, Mapping)
+                else "capital_returns.records",
+                core=core,
+            )
+        source_classification = str(record.get("source_classification") or "")
+        legacy_evidence_classification = {
+            "source_native_numeric": "source_backed_fact",
+            "source_native_text": "source_backed_fact",
+            "derived_exact": "source_backed_calculation",
+            "derived_model_output": "evidence_backed_synthesis",
+            "derived_estimate": "evidence_backed_synthesis",
+        }.get(source_classification, "unavailable")
+        return _field(
+            record["value"],
+            source_ref=str(record.get("evidence_ref") or ""),
+            core=core,
+            unit=str(record.get("unit") or ""),
+            period=str(record.get("fiscal_period") or ""),
+            confidence=source_classification,
+            definition=str(record.get("semantic_role") or ""),
+            evidence_refs=(str(record.get("evidence_ref") or ""),),
+            evidence_classification=legacy_evidence_classification,
+        )
+
+    section.update(
+        {
+            "buybacks": alias("repurchase_cash_program", core=True),
+            "dividends": alias("dividends_paid"),
+            "share_issuance": alias("share_issuance_sbc"),
+        }
+    )
+    return section
 
 
 def _build_valuation_inputs(
@@ -4108,6 +4158,12 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
     source_coverage = _source_coverage(data_root, workbook_path)
     source_native_debt = build_anf_debt_collections(data_root / "sec_cache" / "ANF")
     source_coverage["source_native_debt"] = source_native_debt.coverage()
+    source_native_capital_return = build_anf_capital_return_collection(
+        data_root / "sec_cache" / "ANF"
+    )
+    source_coverage["source_native_capital_return"] = (
+        source_native_capital_return.coverage()
+    )
     unsupported_zero_placeholders = _read_legacy_unsupported_zero_placeholders(workbook_path)
 
     full_quarterly_financials = _build_quarterly_financial_rows(
@@ -4236,7 +4292,7 @@ def build_anf_normalized_package(*, data_root: Path, workbook_path: Path) -> dic
             "incomplete_candidates": incomplete_annual_candidates,
         },
         "debt_liquidity": debt_liquidity,
-        "capital_returns": _build_capital_returns(history_rows, workbook_path),
+        "capital_returns": _build_capital_returns(source_native_capital_return),
         "normalized_guidance": {"items": guidance_items},
         "promise_progress": _build_promise_progress(
             guidance_items,
@@ -4539,7 +4595,10 @@ def build_source_audit(package: Mapping[str, Any], *, data_root: Path, workbook_
             "ANF_model.xlsx!History_Q",
             "ANF_model.xlsx!Slides_Debt_Profile",
         ],
-        "capital_returns": ["ANF_model.xlsx!History_Q", "earnings release capital allocation text"],
+        "capital_returns": [
+            "StockModelData/sec_cache/ANF local 10-Q/10-K Inline XBRL and issuer-purchases tables",
+            "StockModelData/sec_cache/ANF local earnings-release guidance tables",
+        ],
         "normalized_guidance": ["ANF_model.xlsx!Guidance_Normalized", "ANF_model.xlsx!Promise_Progress", "earnings releases", "transcripts"],
         "promise_progress": ["ANF_model.xlsx!Guidance_Normalized", "ANF_model.xlsx!Promise_Progress", "annual reports", "earnings releases", "transcripts"],
         "segments": ["ANF_model.xlsx!Slides_Segments", "earnings release segment tables", "presentation tables"],

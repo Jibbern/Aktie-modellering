@@ -363,10 +363,13 @@ def test_product_pass2b_checked_in_shell_retires_inactive_capacity() -> None:
 
         _assert_blank_locked_range(worksheet, "O22:AC25")
         _assert_blank_locked_range(worksheet, "O37:AC47")
-        _assert_blank_locked_range(worksheet, "A145:M188")
-        assert all(worksheet.row_dimensions[row_idx].hidden for row_idx in range(145, 189))
+        _assert_blank_locked_range(worksheet, "A145:M151")
+        _assert_blank_locked_range(worksheet, "A169:M188")
+        assert all(worksheet.row_dimensions[row_idx].hidden for row_idx in range(145, 152))
+        assert all(not worksheet.row_dimensions[row_idx].hidden for row_idx in range(152, 169))
+        assert all(worksheet.row_dimensions[row_idx].hidden for row_idx in range(169, 189))
 
-        retired_ranges = ("O22:AC25", "O37:AC47", "A145:M188")
+        retired_ranges = ("O22:AC25", "O37:AC47", "A145:M151", "A169:M188")
         for merged_range in worksheet.merged_cells.ranges:
             merged = str(merged_range)
             assert not any(

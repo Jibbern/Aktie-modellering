@@ -1,6 +1,6 @@
 # Standard Template Defined-Name Audit
 
-- Retained names: `281`
+- Retained names: `286`
 - Target mismatches: `0`
 - Company-specific names/constants: `0`
 - Removed constant: `ThesisBaseAdjEBITDA_FY=815.59`
@@ -216,6 +216,11 @@
 | `valuation_adjusted_eps_series` | `active_binding_anchor` | `'Valuation'!$B$110` | True |
 | `valuation_buybacks_cash_series` | `active_binding_anchor` | `'Valuation'!$B$62` | True |
 | `valuation_capital_expenditures_series` | `active_binding_anchor` | `'Valuation'!$B$44` | True |
+| `valuation_capital_return_annual_header` | `active_binding_anchor` | `'Valuation'!$D$153` | True |
+| `valuation_capital_return_latest_quarter_header` | `active_binding_anchor` | `'Valuation'!$B$153` | True |
+| `valuation_capital_return_product_rows` | `active_binding_anchor` | `'Valuation'!$A$154` | True |
+| `valuation_capital_return_support_rows` | `active_binding_anchor` | `'Valuation'!$AD$172` | True |
+| `valuation_capital_return_ttm_header` | `active_binding_anchor` | `'Valuation'!$C$153` | True |
 | `valuation_cash_series` | `active_binding_anchor` | `'Valuation'!$B$70` | True |
 | `valuation_debt_anchor` | `required_shell_anchor` | `'Valuation'!$A$124` | True |
 | `valuation_debt_core_series` | `active_binding_anchor` | `'Valuation'!$B$72` | True |
