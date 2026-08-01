@@ -1,0 +1,96 @@
+{
+  "fixture_id": "anf-first-pass-v1",
+  "company_id": "ANF",
+  "knowledge_cutoff": "2026-03-04",
+  "source_root": "C:/Users/Jibbe/Aktier/StockModelData/tickers/ANF",
+  "normalized_snapshot": {
+    "schema_version": "1.0.0",
+    "company_id": "ANF",
+    "accepted_interpretation": "Treat the quarter as a strong actual baseline, while separating reported profitability from the lower 2026 margin guide.",
+    "generated_at_utc": "excluded-from-semantic-identity"
+  },
+  "periods": [
+    {"key": "fy2024-q4", "fiscal_year": 2024, "fiscal_quarter": 4, "period_type": "quarter", "start_date": "2024-11-03", "end_date": "2025-02-01", "day_count": 91, "week_count": 13, "fiscal_ordinal": 100, "is_53_week_year": false},
+    {"key": "fy2025-q3", "fiscal_year": 2025, "fiscal_quarter": 3, "period_type": "quarter", "start_date": "2025-08-03", "end_date": "2025-11-01", "day_count": 91, "week_count": 13, "fiscal_ordinal": 103, "is_53_week_year": false},
+    {"key": "fy2025-q4", "fiscal_year": 2025, "fiscal_quarter": 4, "period_type": "quarter", "start_date": "2025-11-02", "end_date": "2026-01-31", "day_count": 91, "week_count": 13, "fiscal_ordinal": 104, "is_53_week_year": false},
+    {"key": "fy2025", "fiscal_year": 2025, "fiscal_quarter": null, "period_type": "annual", "start_date": "2025-02-02", "end_date": "2026-01-31", "day_count": 364, "week_count": 52, "fiscal_ordinal": 104, "is_53_week_year": false},
+    {"key": "fy2026", "fiscal_year": 2026, "fiscal_quarter": null, "period_type": "annual", "start_date": "2026-02-01", "end_date": "2027-01-30", "day_count": 364, "week_count": 52, "fiscal_ordinal": 108, "is_53_week_year": false},
+    {"key": "2026-mar", "fiscal_year": 2026, "fiscal_quarter": 1, "period_type": "month", "start_date": "2026-03-01", "end_date": "2026-03-31", "day_count": 31, "week_count": null, "fiscal_ordinal": null, "is_53_week_year": false}
+  ],
+  "sources": [
+    {"key": "q4-2025-history", "document_type": "earnings-presentation-workbook", "publication_date": "2026-03-04", "path": "earnings_presentation/ANF_Q4_2025_earnings_presentation_quarterly_history.xlsx", "authority_class": "company-presentation", "title": "Q4 2025 earnings presentation quarterly history"},
+    {"key": "release-2025-03-06", "document_type": "earnings-release", "publication_date": "2025-03-06", "path": "earnings_release/8-K_2025-03-06_earnings_release.htm", "authority_class": "filed-exhibit", "title": "FY2024 earnings release"},
+    {"key": "release-2025-05-29", "document_type": "earnings-release", "publication_date": "2025-05-29", "path": "earnings_release/8-K_2025-05-29_earnings_release.htm", "authority_class": "filed-exhibit", "title": "Q1 FY2025 earnings release"},
+    {"key": "release-2025-08-28", "document_type": "earnings-release", "publication_date": "2025-08-28", "path": "earnings_release/8-K_2025-08-28_earnings_release.htm", "authority_class": "filed-exhibit", "title": "Q2 FY2025 earnings release"},
+    {"key": "release-2025-11-26", "document_type": "earnings-release", "publication_date": "2025-11-26", "path": "earnings_release/8-K_2025-11-26_earnings_release.htm", "authority_class": "filed-exhibit", "title": "Q3 FY2025 earnings release"},
+    {"key": "business-update-2026-01-12", "document_type": "business-update", "publication_date": "2026-01-12", "path": "press_release/ANF_2026-01-12_press_release_business_update.pdf", "authority_class": "company-release", "title": "Holiday business update"},
+    {"key": "release-2026-03-04", "document_type": "earnings-release", "publication_date": "2026-03-04", "path": "earnings_release/8-K_2026-03-04_earnings_release.htm", "authority_class": "filed-exhibit", "title": "Q4 FY2025 earnings release"},
+    {"key": "transcript-2026-03-04", "document_type": "earnings-transcript", "publication_date": "2026-03-04", "path": "earnings_transcripts/ANF_Q4_2025_transcript.txt", "authority_class": "company-transcript", "title": "Q4 FY2025 earnings call transcript"},
+    {"key": "accepted-normalized-interpretation", "document_type": "normalized-package", "publication_date": "2026-03-04", "path": "docs/anf_normalized_text_quality_audit.json#text_excerpt@253", "authority_class": "accepted-normalized", "title": "Accepted normalized ANF interpretation"}
+  ],
+  "evidence": [
+    {"key": "comp-total-fy2024-q4", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Quarterly History!total-comparable-sales!FY2024-Q4", "excerpt": "Total comparable sales FY2024 Q4: 14%"},
+    {"key": "comp-total-fy2025-q3", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Quarterly History!total-comparable-sales!FY2025-Q3", "excerpt": "Total comparable sales FY2025 Q3: 3%"},
+    {"key": "comp-total-fy2025-q4", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Quarterly History!total-comparable-sales!FY2025-Q4", "excerpt": "Total comparable sales FY2025 Q4: 1%"},
+    {"key": "comp-total-geography-repeat", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Geography table!Total Company!FY2025-Q4", "excerpt": "Geography table repeats Total Company comparable sales FY2025 Q4: 1%"},
+    {"key": "comp-total-brand-repeat", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Brand table!Total Company!FY2025-Q4", "excerpt": "Brand table repeats Total Company comparable sales FY2025 Q4: 1%"},
+    {"key": "comp-apac-fy2025-q4-zero", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Geography table!APAC!FY2025-Q4", "excerpt": "APAC comparable sales FY2025 Q4: 0%"},
+    {"key": "comp-abercrombie-fy2025-q4", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Brand table!Abercrombie!FY2025-Q4", "excerpt": "Abercrombie comparable sales FY2025 Q4: -1%"},
+    {"key": "comp-hollister-fy2025-q4", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Brand table!Hollister!FY2025-Q4", "excerpt": "Hollister comparable sales FY2025 Q4: 3%"},
+    {"key": "store-count-openings", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Store Count!Openings!FY2025", "excerpt": "Opened: 62"},
+    {"key": "store-count-closures", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Store Count!Permanently Closed!FY2025", "excerpt": "Permanently closed: -22"},
+    {"key": "store-count-ending", "source": "q4-2025-history", "locator_kind": "cell", "locator_key": "Store Count!Ending Stores!FY2025", "excerpt": "Ending stores: 829"},
+    {"key": "fy2025-origin-guidance", "source": "release-2025-03-06", "locator_kind": "table-row", "locator_key": "outlook!FY2025", "excerpt": "FY2025 net sales growth 3% to 5%; operating margin 14% to 15%."},
+    {"key": "store-plan-origin", "source": "release-2025-03-06", "locator_kind": "paragraph", "locator_key": "store-plan", "excerpt": "Approximately 40 net openings: 60 openings, 20 closures, and 40 remodels/right-sizes."},
+    {"key": "fy2025-update-2025-05-29", "source": "release-2025-05-29", "locator_kind": "table-row", "locator_key": "outlook!FY2025", "excerpt": "FY2025 net sales growth 3% to 6%; operating margin 12.5% to 13.5%."},
+    {"key": "fy2025-update-2025-08-28", "source": "release-2025-08-28", "locator_kind": "table-row", "locator_key": "outlook!FY2025", "excerpt": "FY2025 net sales growth 5% to 7%; operating margin 13.0% to 13.5%."},
+    {"key": "fy2025-update-2025-11-26", "source": "release-2025-11-26", "locator_kind": "table-row", "locator_key": "outlook!FY2025", "excerpt": "FY2025 net sales growth 6% to 7%; operating margin 13.0% to 13.5%."},
+    {"key": "fy2025-business-update", "source": "business-update-2026-01-12", "locator_kind": "table-row", "locator_key": "updated-outlook!FY2025", "excerpt": "FY2025 net sales growth at least 6%; operating margin around 13%."},
+    {"key": "store-plan-reaffirmation", "source": "business-update-2026-01-12", "locator_kind": "paragraph", "locator_key": "real-estate-activity", "excerpt": "Approximately 40 net store openings reaffirmed."},
+    {"key": "fy2026-release-guidance", "source": "release-2026-03-04", "locator_kind": "table-row", "locator_key": "outlook!FY2026", "excerpt": "FY2026 net sales growth 3% to 5%; operating margin 12.0% to 12.5%."},
+    {"key": "fy2026-transcript-guidance", "source": "transcript-2026-03-04", "locator_kind": "line", "locator_key": "54", "excerpt": "Full year operating margin 12% to 12.5% and net sales growth 3% to 5%."},
+    {"key": "q4-margin-explanation", "source": "transcript-2026-03-04", "locator_kind": "line", "locator_key": "40", "excerpt": "The 210 basis point operating-margin decline was driven primarily by 360 basis points of tariff expense, partially offset by 140 basis points of freight favorability."},
+    {"key": "erp-go-live-event", "source": "transcript-2026-03-04", "locator_kind": "line", "locator_key": "30", "excerpt": "Go-live of our new merchandising ERP system this month."},
+    {"key": "accepted-interpretation", "source": "accepted-normalized-interpretation", "locator_kind": "normalized-path", "locator_key": "text_excerpt@253", "excerpt": "Treat the quarter as a strong actual baseline, while separating reported profitability from the lower 2026 margin guide."}
+  ],
+  "comparable_sales": [
+    {"period": "fy2024-q4", "scope": "total-company", "value": "14", "evidence": "comp-total-fy2024-q4"},
+    {"period": "fy2025-q3", "scope": "total-company", "value": "3", "evidence": "comp-total-fy2025-q3"},
+    {"period": "fy2025-q4", "scope": "total-company", "value": "1", "evidence": "comp-total-fy2025-q4"},
+    {"period": "fy2025-q4", "scope": "total-company", "value": "1", "evidence": "comp-total-geography-repeat"},
+    {"period": "fy2025-q4", "scope": "total-company", "value": "1", "evidence": "comp-total-brand-repeat"},
+    {"period": "fy2025-q4", "scope": "apac", "value": "0", "evidence": "comp-apac-fy2025-q4-zero"},
+    {"period": "fy2025-q4", "scope": "abercrombie", "value": "-1", "evidence": "comp-abercrombie-fy2025-q4"},
+    {"period": "fy2025-q4", "scope": "hollister", "value": "3", "evidence": "comp-hollister-fy2025-q4"}
+  ],
+  "store_count": [
+    {"metric": "store-openings", "value": "62", "evidence": "store-count-openings"},
+    {"metric": "store-closures", "value": "-22", "evidence": "store-count-closures"},
+    {"metric": "ending-stores", "value": "829", "evidence": "store-count-ending"}
+  ],
+  "fy2025_guidance": [
+    {"date": "2025-03-06", "evidence": "fy2025-origin-guidance", "revenue": {"kind": "range", "low": "3", "high": "5"}, "margin": {"kind": "range", "low": "14", "high": "15"}},
+    {"date": "2025-05-29", "evidence": "fy2025-update-2025-05-29", "revenue": {"kind": "range", "low": "3", "high": "6"}, "margin": {"kind": "range", "low": "12.5", "high": "13.5"}},
+    {"date": "2025-08-28", "evidence": "fy2025-update-2025-08-28", "revenue": {"kind": "range", "low": "5", "high": "7"}, "margin": {"kind": "range", "low": "13", "high": "13.5"}},
+    {"date": "2025-11-26", "evidence": "fy2025-update-2025-11-26", "revenue": {"kind": "range", "low": "6", "high": "7"}, "margin": {"kind": "range", "low": "13", "high": "13.5"}},
+    {"date": "2026-01-12", "evidence": "fy2025-business-update", "revenue": {"kind": "bound", "operator": "gte", "value": "6"}, "margin": {"kind": "approximate", "value": "13", "qualifier": "around", "tolerance": null}}
+  ],
+  "fy2026_guidance": [
+    {"source": "release", "evidence": "fy2026-release-guidance", "revenue": {"kind": "range", "low": "3", "high": "5"}, "margin": {"kind": "range", "low": "12", "high": "12.5"}},
+    {"source": "transcript", "evidence": "fy2026-transcript-guidance", "revenue": {"kind": "range", "low": "3", "high": "5"}, "margin": {"kind": "range", "low": "12", "high": "12.5"}}
+  ],
+  "promise": {
+    "subject": "net-store-openings",
+    "program": "fy2025-real-estate-plan",
+    "origin_evidence": "store-plan-origin",
+    "reaffirmation_evidence": "store-plan-reaffirmation",
+    "wording": "Approximately 40 net openings",
+    "target": {"kind": "approximate", "value": "40", "qualifier": "approximately", "tolerance": null},
+    "baseline": null,
+    "deadline": {"kind": "period", "value": "period:anf:fy2025@1", "precision": "fiscal-period"}
+  },
+  "management_explanation": {"evidence": "q4-margin-explanation", "topic": "q4-operating-margin-bridge"},
+  "company_event": {"evidence": "erp-go-live-event", "event_type": "system-go-live", "subject": "merchandising-erp", "stage": "planned", "effective_month": "2026-03"},
+  "interpretation": {"evidence": "accepted-interpretation", "key": "q4-baseline-vs-fy2026-guide", "method": "method:core:reviewed-investment-case@1", "producer": "accepted-normalized-package", "revision": 1},
+  "missing_probe": {"metric": "comparable-sales", "scope": "emea", "period": "fy2025-q4", "expected": "missing-by-absence"}
+}

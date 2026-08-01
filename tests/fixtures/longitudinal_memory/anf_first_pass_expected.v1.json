@@ -1,0 +1,19 @@
+{
+  "fixture_id": "anf-first-pass-v1",
+  "artifact_state": "accepted",
+  "qoq_percentage_point_change": "-2",
+  "yoy_percentage_point_change": "-13",
+  "apac_fy2025_q4": {"kind": "exact", "value": "0"},
+  "emea_fy2025_q4": "missing-by-absence",
+  "derived_net_store_openings": "40",
+  "promise_achievement": "needs-review-no-source-tolerance",
+  "fy2025_latest_revenue_guidance": {"kind": "bound", "operator": "gte", "value": "6"},
+  "fy2025_latest_margin_guidance": {"kind": "approximate", "value": "13", "qualifier": "around", "tolerance": null},
+  "fy2026_revenue_guidance": {"kind": "range", "low": "3", "high": "5", "low_inclusive": true, "high_inclusive": true},
+  "fy2026_margin_guidance": {"kind": "range", "low": "12", "high": "12.5", "low_inclusive": true, "high_inclusive": true},
+  "q4_management_explanation_topic": "q4-operating-margin-bridge",
+  "erp_event_effective_month": "2026-03",
+  "accepted_interpretation": "Treat the quarter as a strong actual baseline, while separating reported profitability from the lower 2026 margin guide.",
+  "accepted_conflict_count": 0,
+  "serialization_sha256": "d0e434c250a86d5278b69f516291590bef9f5eb4fece4acb68c1cc87aadc2367"
+}

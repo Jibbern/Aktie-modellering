@@ -44,6 +44,16 @@ This map explains which modules own each major stage of the runtime so the hando
 - [`pbi_xbrl/summary_overview.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/summary_overview.py)
   - Topic-aware `SUMMARY` source ranking and visible summary text selection.
 
+### 4a. Longitudinal company-memory contract (sidecar foundation)
+- [`docs/longitudinal_company_memory_contract.md`](/c:/Users/Jibbe/Aktier/Code/docs/longitudinal_company_memory_contract.md)
+  - Owns the v1 identity, catalog, fiscal-period, reconciliation, promise-history, sidecar, and product-consumer boundaries.
+- [`docs/longitudinal_company_memory.schema.json`](/c:/Users/Jibbe/Aktier/Code/docs/longitudinal_company_memory.schema.json)
+  - Closed Draft 2020-12 authority for one lossless company-scoped memory sidecar.
+- [`pbi_xbrl/longitudinal_memory/`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/longitudinal_memory)
+  - Workbook-independent pure domain types, deterministic readable identities, semantic validation, assertion-specific reconciliation, safe QoQ/YoY change derivation, and deterministic JSON serialization.
+  - Reuses the strict JSON loader and existing Needs Review issue-ledger projection; it does not reuse lossy latest-row selection.
+  - Remains a validated sidecar linked non-authoritatively to the normalized package. No workbook binding, formula, writer, template, ticker profile, or current product consumer reads it in this pass.
+
 ### 5. Workbook rendering
 - [`pbi_xbrl/excel_writer_context.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_context.py)
   - Main workbook renderer and the largest concentration of visible product logic.

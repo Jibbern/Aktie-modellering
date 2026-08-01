@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stock-model-engine.local/contracts/longitudinal-company-memory/v1",
+  "title": "Longitudinal Company Memory v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id",
+    "schema_version",
+    "identity_contract_version",
+    "artifact_state",
+    "company_id",
+    "knowledge_cutoff",
+    "normalized_package_ref",
+    "catalog",
+    "fiscal_calendars",
+    "periods",
+    "source_documents",
+    "evidence_occurrences",
+    "entities",
+    "observations",
+    "relations",
+    "resolutions",
+    "review_issues"
+  ],
+  "properties": {
+    "schema_id": {"const": "longitudinal-company-memory"},
+    "schema_version": {"const": "1.0.0"},
+    "identity_contract_version": {"const": "1"},
+    "artifact_state": {"enum": ["accepted", "needs_review", "draft"]},
+    "company_id": {"$ref": "#/$defs/companyId"},
+    "knowledge_cutoff": {"$ref": "#/$defs/date"},
+    "normalized_package_ref": {"$ref": "#/$defs/normalizedPackageRef"},
+    "catalog": {"$ref": "#/$defs/catalog"},
+    "fiscal_calendars": {"type": "array", "items": {"$ref": "#/$defs/fiscalCalendar"}},
+    "periods": {"type": "array", "items": {"$ref": "#/$defs/period"}},
+    "source_documents": {"type": "array", "items": {"$ref": "#/$defs/sourceDocument"}},
+    "evidence_occurrences": {"type": "array", "items": {"$ref": "#/$defs/evidenceOccurrence"}},
+    "entities": {"type": "array", "items": {"$ref": "#/$defs/entity"}},
+    "observations": {"type": "array", "items": {"$ref": "#/$defs/observation"}},
+    "relations": {"type": "array", "items": {"$ref": "#/$defs/relation"}},
+    "resolutions": {"type": "array", "items": {"$ref": "#/$defs/canonicalResolution"}},
+    "review_issues": {"type": "array", "items": {"$ref": "#/$defs/reviewIssue"}}
+  },
+  "$defs": {
+    "nonEmpty": {"type": "string", "minLength": 1},
+    "date": {"type": "string", "format": "date"},
+    "nullableDate": {"type": ["string", "null"], "format": "date"},
+    "companyId": {"type": "string", "pattern": "^[A-Z][A-Z0-9.-]{0,31}$"},
+    "readableId": {"type": "string", "pattern": "^[a-z][a-z0-9-]*:v1\\|[a-z][a-z0-9-]*=.+$"},
+    "identityDigest": {"type": "string", "pattern": "^sha256-160:[a-z2-7]{32}$"},
+    "semanticId": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+@[1-9][0-9]*$"},
+    "decimal": {"type": "string", "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"},
+    "stringArray": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "identityArray": {"type": "array", "items": {"$ref": "#/$defs/readableId"}, "uniqueItems": true},
+    "normalizedPackageRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["semantic_snapshot_id", "source_package_schema_version", "source_package_company_id", "source_package_ref"],
+      "properties": {
+        "semantic_snapshot_id": {"$ref": "#/$defs/readableId"},
+        "source_package_schema_version": {"$ref": "#/$defs/nonEmpty"},
+        "source_package_company_id": {"$ref": "#/$defs/companyId"},
+        "source_package_ref": {"$ref": "#/$defs/nonEmpty"}
+      }
+    },
+    "catalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metrics", "definitions", "bases", "units", "dimensions", "dimension_members", "dimension_sets", "policies", "change_rules", "methods"],
+      "properties": {
+        "metrics": {"type": "array", "items": {"$ref": "#/$defs/metric"}},
+        "definitions": {"type": "array", "items": {"$ref": "#/$defs/definition"}},
+        "bases": {"type": "array", "items": {"$ref": "#/$defs/basis"}},
+        "units": {"type": "array", "items": {"$ref": "#/$defs/unit"}},
+        "dimensions": {"type": "array", "items": {"$ref": "#/$defs/dimension"}},
+        "dimension_members": {"type": "array", "items": {"$ref": "#/$defs/dimensionMember"}},
+        "dimension_sets": {"type": "array", "items": {"$ref": "#/$defs/dimensionSet"}},
+        "policies": {"type": "array", "items": {"$ref": "#/$defs/policy"}},
+        "change_rules": {"type": "array", "items": {"$ref": "#/$defs/changeRule"}},
+        "methods": {"type": "array", "items": {"$ref": "#/$defs/method"}}
+      }
+    },
+    "metric": {
+      "type": "object", "additionalProperties": false,
+      "required": ["metric_id", "display_name", "description", "aliases", "status", "supersedes_id"],
+      "properties": {
+        "metric_id": {"$ref": "#/$defs/semanticId"}, "display_name": {"$ref": "#/$defs/nonEmpty"},
+        "description": {"$ref": "#/$defs/nonEmpty"}, "aliases": {"$ref": "#/$defs/stringArray"},
+        "status": {"enum": ["active", "retired"]}, "supersedes_id": {"type": ["string", "null"]}
+      }
+    },
+    "definition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["definition_id", "display_name", "description", "gaap_status", "aliases", "status", "supersedes_id"],
+      "properties": {
+        "definition_id": {"$ref": "#/$defs/semanticId"}, "display_name": {"$ref": "#/$defs/nonEmpty"},
+        "description": {"$ref": "#/$defs/nonEmpty"}, "gaap_status": {"enum": ["gaap", "adjusted", "operational", "not-applicable"]},
+        "aliases": {"$ref": "#/$defs/stringArray"}, "status": {"enum": ["active", "retired"]}, "supersedes_id": {"type": ["string", "null"]}
+      }
+    },
+    "basis": {
+      "type": "object", "additionalProperties": false,
+      "required": ["basis_id", "display_name", "description", "realization_state", "aliases", "status", "supersedes_id"],
+      "properties": {
+        "basis_id": {"$ref": "#/$defs/semanticId"}, "display_name": {"$ref": "#/$defs/nonEmpty"},
+        "description": {"$ref": "#/$defs/nonEmpty"}, "realization_state": {"enum": ["reported", "ex-policy-credit", "run-rate", "realized", "guided", "derived", "estimated", "interpreted"]},
+        "aliases": {"$ref": "#/$defs/stringArray"}, "status": {"enum": ["active", "retired"]}, "supersedes_id": {"type": ["string", "null"]}
+      }
+    },
+    "unit": {
+      "type": "object", "additionalProperties": false,
+      "required": ["unit_id", "display_name", "unit_kind", "scale", "currency_behavior", "aliases", "status", "supersedes_id"],
+      "properties": {
+        "unit_id": {"$ref": "#/$defs/semanticId"}, "display_name": {"$ref": "#/$defs/nonEmpty"},
+        "unit_kind": {"enum": ["currency", "percent", "percentage-point", "count", "ratio", "days", "weeks", "text"]},
+        "scale": {"$ref": "#/$defs/decimal"}, "currency_behavior": {"enum": ["required", "forbidden", "optional"]},
+        "aliases": {"$ref": "#/$defs/stringArray"}, "status": {"enum": ["active", "retired"]}, "supersedes_id": {"type": ["string", "null"]}
+      }
+    },
+    "dimension": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dimension_id", "display_name", "description", "aliases", "status", "supersedes_id"],
+      "properties": {
+        "dimension_id": {"$ref": "#/$defs/semanticId"}, "display_name": {"$ref": "#/$defs/nonEmpty"},
+        "description": {"$ref": "#/$defs/nonEmpty"}, "aliases": {"$ref": "#/$defs/stringArray"},
+        "status": {"enum": ["active", "retired"]}, "supersedes_id": {"type": ["string", "null"]}
+      }
+    },
+    "dimensionMember": {
+      "type": "object", "additionalProperties": false,
+      "required": ["member_id", "dimension_id", "scope", "display_name", "aliases", "status", "supersedes_id"],
+      "properties": {
+        "member_id": {"$ref": "#/$defs/semanticId"}, "dimension_id": {"$ref": "#/$defs/semanticId"},
+        "scope": {"enum": ["company", "segment", "geography", "product", "brand", "channel", "other"]},
+        "display_name": {"$ref": "#/$defs/nonEmpty"}, "aliases": {"$ref": "#/$defs/stringArray"},
+        "status": {"enum": ["active", "retired"]}, "supersedes_id": {"type": ["string", "null"]}
+      }
+    },
+    "dimensionSetMember": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dimension_id", "member_id"],
+      "properties": {"dimension_id": {"$ref": "#/$defs/semanticId"}, "member_id": {"$ref": "#/$defs/semanticId"}}
+    },
+    "dimensionSet": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dimension_set_id", "members"],
+      "properties": {
+        "dimension_set_id": {"$ref": "#/$defs/readableId"},
+        "members": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/dimensionSetMember"}}
+      }
+    },
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["policy_id", "assertion_type", "description"],
+      "properties": {"policy_id": {"$ref": "#/$defs/semanticId"}, "assertion_type": {"enum": ["reported-numerical", "guidance", "management-explanation", "company-event", "model-interpretation"]}, "description": {"$ref": "#/$defs/nonEmpty"}}
+    },
+    "changeRule": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rule_id", "change_kind", "input_unit_kind", "output_unit_id", "description"],
+      "properties": {"rule_id": {"$ref": "#/$defs/semanticId"}, "change_kind": {"enum": ["qoq-percentage-point", "yoy-percentage-point"]}, "input_unit_kind": {"const": "percent"}, "output_unit_id": {"$ref": "#/$defs/semanticId"}, "description": {"$ref": "#/$defs/nonEmpty"}}
+    },
+    "method": {
+      "type": "object", "additionalProperties": false,
+      "required": ["method_id", "producer_id", "description"],
+      "properties": {"method_id": {"$ref": "#/$defs/semanticId"}, "producer_id": {"$ref": "#/$defs/nonEmpty"}, "description": {"$ref": "#/$defs/nonEmpty"}}
+    },
+    "fiscalCalendar": {
+      "type": "object", "additionalProperties": false,
+      "required": ["calendar_id", "company_id", "profile_hint", "week_pattern", "coverage_state", "evidence_occurrence_ids", "reconciliation_state"],
+      "properties": {
+        "calendar_id": {"$ref": "#/$defs/semanticId"}, "company_id": {"$ref": "#/$defs/companyId"},
+        "profile_hint": {"type": ["string", "null"]}, "week_pattern": {"enum": ["calendar", "4-4-5", "4-5-4", "5-4-4", "source-declared"]},
+        "coverage_state": {"enum": ["partial", "complete"]}, "evidence_occurrence_ids": {"$ref": "#/$defs/identityArray"},
+        "reconciliation_state": {"enum": ["reconciled", "needs_review"]}
+      }
+    },
+    "period": {
+      "type": "object", "additionalProperties": false,
+      "required": ["period_id", "calendar_id", "company_id", "fiscal_year", "fiscal_quarter", "period_type", "start_date", "end_date", "day_count", "week_count", "fiscal_ordinal", "is_53_week_year", "evidence_occurrence_ids", "reconciliation_state"],
+      "properties": {
+        "period_id": {"$ref": "#/$defs/semanticId"}, "calendar_id": {"$ref": "#/$defs/semanticId"}, "company_id": {"$ref": "#/$defs/companyId"},
+        "fiscal_year": {"type": "integer", "minimum": 1900}, "fiscal_quarter": {"type": ["integer", "null"], "minimum": 1, "maximum": 4},
+        "period_type": {"enum": ["instant", "quarter", "ytd", "annual", "ttm", "month", "event-window"]},
+        "start_date": {"$ref": "#/$defs/date"}, "end_date": {"$ref": "#/$defs/date"}, "day_count": {"type": "integer", "minimum": 1},
+        "week_count": {"type": ["integer", "null"], "minimum": 1}, "fiscal_ordinal": {"type": ["integer", "null"]},
+        "is_53_week_year": {"type": "boolean"}, "evidence_occurrence_ids": {"$ref": "#/$defs/identityArray"},
+        "reconciliation_state": {"enum": ["reconciled", "needs_review"]}
+      }
+    },
+    "sourceDocument": {
+      "type": "object", "additionalProperties": false,
+      "required": ["source_document_id", "identity_digest", "schema_version", "company_id", "publisher_id", "document_type", "publication_date", "document_key", "revision", "origin_document_id", "title", "source_path_hint", "canonical_url", "content_sha256", "authority_class", "review_state"],
+      "properties": {
+        "source_document_id": {"$ref": "#/$defs/readableId"}, "identity_digest": {"$ref": "#/$defs/identityDigest"}, "schema_version": {"const": "1.0.0"},
+        "company_id": {"$ref": "#/$defs/companyId"}, "publisher_id": {"$ref": "#/$defs/nonEmpty"}, "document_type": {"$ref": "#/$defs/nonEmpty"},
+        "publication_date": {"$ref": "#/$defs/date"}, "document_key": {"$ref": "#/$defs/nonEmpty"}, "revision": {"type": "integer", "minimum": 1},
+        "origin_document_id": {"type": ["string", "null"]}, "title": {"$ref": "#/$defs/nonEmpty"}, "source_path_hint": {"$ref": "#/$defs/nonEmpty"},
+        "canonical_url": {"type": ["string", "null"]}, "content_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "authority_class": {"enum": ["audited-filing", "filed-exhibit", "company-release", "company-presentation", "company-transcript", "accepted-normalized", "reviewed-model", "model-generated"]},
+        "review_state": {"enum": ["accepted", "reviewed", "needs_review", "rejected"]}
+      }
+    },
+    "evidenceOccurrence": {
+      "type": "object", "additionalProperties": false,
+      "required": ["evidence_occurrence_id", "identity_digest", "schema_version", "company_id", "source_document_id", "occurrence_key", "locator_kind", "locator_key", "ordinal", "excerpt", "review_state"],
+      "properties": {
+        "evidence_occurrence_id": {"$ref": "#/$defs/readableId"}, "identity_digest": {"$ref": "#/$defs/identityDigest"}, "schema_version": {"const": "1.0.0"},
+        "company_id": {"$ref": "#/$defs/companyId"}, "source_document_id": {"$ref": "#/$defs/readableId"}, "occurrence_key": {"$ref": "#/$defs/nonEmpty"},
+        "locator_kind": {"enum": ["cell", "range", "page", "paragraph", "line", "table-row", "normalized-path"]}, "locator_key": {"$ref": "#/$defs/nonEmpty"},
+        "ordinal": {"type": "integer", "minimum": 1}, "excerpt": {"$ref": "#/$defs/nonEmpty"},
+        "review_state": {"enum": ["accepted", "reviewed", "needs_review", "rejected"]}
+      }
+    },
+    "entityHeader": {
+      "type": "object", "additionalProperties": false,
+      "required": ["entity_id", "identity_digest", "entity_type", "schema_version", "company_id", "evidence_occurrence_ids"],
+      "properties": {
+        "entity_id": {"$ref": "#/$defs/readableId"}, "identity_digest": {"$ref": "#/$defs/identityDigest"},
+        "entity_type": {"enum": ["GuidanceSeries", "Promise"]}, "schema_version": {"const": "1.0.0"},
+        "company_id": {"$ref": "#/$defs/companyId"}, "evidence_occurrence_ids": {"$ref": "#/$defs/identityArray"}
+      }
+    },
+    "entity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["header", "payload"],
+      "properties": {"header": {"$ref": "#/$defs/entityHeader"}, "payload": {"oneOf": [{"$ref": "#/$defs/guidanceSeries"}, {"$ref": "#/$defs/promise"}]}}
+    },
+    "guidanceSeries": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "metric_id", "definition_id", "basis_id", "horizon_period_id", "dimension_set_id", "unit_id", "currency"],
+      "properties": {
+        "kind": {"const": "GuidanceSeries"}, "metric_id": {"$ref": "#/$defs/semanticId"}, "definition_id": {"$ref": "#/$defs/semanticId"},
+        "basis_id": {"$ref": "#/$defs/semanticId"}, "horizon_period_id": {"$ref": "#/$defs/semanticId"}, "dimension_set_id": {"$ref": "#/$defs/readableId"},
+        "unit_id": {"$ref": "#/$defs/semanticId"}, "currency": {"type": ["string", "null"], "pattern": "^[A-Z]{3}$"}
+      }
+    },
+    "promise": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "promise_subject_id", "program_id", "origin_occurrence_id", "origin_version_id", "original_wording", "original_target", "original_baseline", "original_deadline"],
+      "properties": {
+        "kind": {"const": "Promise"}, "promise_subject_id": {"$ref": "#/$defs/nonEmpty"}, "program_id": {"type": ["string", "null"]},
+        "origin_occurrence_id": {"$ref": "#/$defs/readableId"}, "origin_version_id": {"$ref": "#/$defs/readableId"}, "original_wording": {"$ref": "#/$defs/nonEmpty"},
+        "original_target": {"oneOf": [{"$ref": "#/$defs/valueSpec"}, {"type": "null"}]},
+        "original_baseline": {"oneOf": [{"$ref": "#/$defs/valueSpec"}, {"type": "null"}]},
+        "original_deadline": {"oneOf": [{"$ref": "#/$defs/deadline"}, {"type": "null"}]}
+      }
+    },
+    "observationHeader": {
+      "type": "object", "additionalProperties": false,
+      "required": ["record_id", "identity_digest", "record_type", "schema_version", "company_id", "subject_id", "publication_date", "knowledge_date", "effective_period_id", "fiscal_period_id", "period_type", "dimension_set_id", "assertion_mode", "evidence_occurrence_ids", "review_state", "confidence"],
+      "properties": {
+        "record_id": {"$ref": "#/$defs/readableId"}, "identity_digest": {"$ref": "#/$defs/identityDigest"},
+        "record_type": {"enum": ["NumericalFact", "GuidanceVersion", "PromiseVersion", "ManagementStatement", "CompanyEvent", "ModelInterpretation", "AvailabilityObservation", "ChangeObservation"]},
+        "schema_version": {"const": "1.0.0"}, "company_id": {"$ref": "#/$defs/companyId"}, "subject_id": {"$ref": "#/$defs/nonEmpty"},
+        "publication_date": {"$ref": "#/$defs/nullableDate"}, "knowledge_date": {"$ref": "#/$defs/date"}, "effective_period_id": {"$ref": "#/$defs/semanticId"},
+        "fiscal_period_id": {"type": ["string", "null"]}, "period_type": {"enum": ["instant", "quarter", "ytd", "annual", "ttm", "month", "event-window"]},
+        "dimension_set_id": {"$ref": "#/$defs/readableId"}, "assertion_mode": {"enum": ["reported", "guided", "derived", "estimated", "interpreted", "stated"]},
+        "evidence_occurrence_ids": {"$ref": "#/$defs/identityArray"}, "review_state": {"enum": ["accepted", "reviewed", "needs_review", "rejected"]},
+        "confidence": {"type": ["string", "null"], "enum": ["high", "medium", "low", null]}
+      }
+    },
+    "observation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["header", "payload"],
+      "properties": {
+        "header": {"$ref": "#/$defs/observationHeader"},
+        "payload": {"oneOf": [
+          {"$ref": "#/$defs/numericalFact"}, {"$ref": "#/$defs/guidanceVersion"}, {"$ref": "#/$defs/promiseVersion"},
+          {"$ref": "#/$defs/managementStatement"}, {"$ref": "#/$defs/companyEvent"}, {"$ref": "#/$defs/modelInterpretation"},
+          {"$ref": "#/$defs/availabilityObservation"}, {"$ref": "#/$defs/changeObservation"}
+        ]}
+      }
+    },
+    "exactValue": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "value"],
+      "properties": {"kind": {"const": "exact"}, "value": {"$ref": "#/$defs/decimal"}}
+    },
+    "approximateValue": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "value", "qualifier", "tolerance"],
+      "properties": {"kind": {"const": "approximate"}, "value": {"$ref": "#/$defs/decimal"}, "qualifier": {"enum": ["around", "about", "approximately", "tilde"]}, "tolerance": {"type": ["string", "null"], "pattern": "^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"}}
+    },
+    "rangeValue": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "low", "high", "low_inclusive", "high_inclusive"],
+      "properties": {"kind": {"const": "range"}, "low": {"$ref": "#/$defs/decimal"}, "high": {"$ref": "#/$defs/decimal"}, "low_inclusive": {"type": "boolean"}, "high_inclusive": {"type": "boolean"}}
+    },
+    "boundValue": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "operator", "value"],
+      "properties": {"kind": {"const": "bound"}, "operator": {"enum": ["gt", "gte", "lt", "lte"]}, "value": {"$ref": "#/$defs/decimal"}}
+    },
+    "qualitativeValue": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "text", "normalized_band"],
+      "properties": {"kind": {"const": "qualitative"}, "text": {"$ref": "#/$defs/nonEmpty"}, "normalized_band": {"type": ["string", "null"]}}
+    },
+    "numericValue": {"oneOf": [{"$ref": "#/$defs/exactValue"}, {"$ref": "#/$defs/approximateValue"}, {"$ref": "#/$defs/rangeValue"}, {"$ref": "#/$defs/boundValue"}]},
+    "valueSpec": {"oneOf": [{"$ref": "#/$defs/exactValue"}, {"$ref": "#/$defs/approximateValue"}, {"$ref": "#/$defs/rangeValue"}, {"$ref": "#/$defs/boundValue"}, {"$ref": "#/$defs/qualitativeValue"}]},
+    "numericalFact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "business_key", "metric_id", "definition_id", "basis_id", "unit_id", "currency", "value"],
+      "properties": {"kind": {"const": "NumericalFact"}, "business_key": {"$ref": "#/$defs/readableId"}, "metric_id": {"$ref": "#/$defs/semanticId"}, "definition_id": {"$ref": "#/$defs/semanticId"}, "basis_id": {"$ref": "#/$defs/semanticId"}, "unit_id": {"$ref": "#/$defs/semanticId"}, "currency": {"type": ["string", "null"], "pattern": "^[A-Z]{3}$"}, "value": {"$ref": "#/$defs/numericValue"}}
+    },
+    "guidanceVersion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "guidance_series_id", "version_kind", "value", "wording"],
+      "properties": {"kind": {"const": "GuidanceVersion"}, "guidance_series_id": {"$ref": "#/$defs/readableId"}, "version_kind": {"enum": ["origin", "reaffirmation", "target_update", "replacement", "withdrawal"]}, "value": {"$ref": "#/$defs/valueSpec"}, "wording": {"$ref": "#/$defs/nonEmpty"}}
+    },
+    "deadline": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "value", "precision"],
+      "properties": {"kind": {"enum": ["date", "period"]}, "value": {"$ref": "#/$defs/nonEmpty"}, "precision": {"enum": ["day", "month", "quarter", "year", "fiscal-period"]}}
+    },
+    "promiseVersion": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "promise_id", "previous_version_id", "change_kind", "version_state", "wording", "target", "baseline", "deadline"],
+      "properties": {"kind": {"const": "PromiseVersion"}, "promise_id": {"$ref": "#/$defs/readableId"}, "previous_version_id": {"type": ["string", "null"]}, "change_kind": {"enum": ["origin", "reaffirmation", "target_update", "deadline_update", "reformulation", "withdrawal"]}, "version_state": {"enum": ["active", "reaffirmed", "superseded", "withdrawn"]}, "wording": {"$ref": "#/$defs/nonEmpty"}, "target": {"oneOf": [{"$ref": "#/$defs/valueSpec"}, {"type": "null"}]}, "baseline": {"oneOf": [{"$ref": "#/$defs/valueSpec"}, {"type": "null"}]}, "deadline": {"oneOf": [{"$ref": "#/$defs/deadline"}, {"type": "null"}]}}
+    },
+    "managementStatement": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "statement_kind", "topic_id", "statement_period_id", "speaker_id", "statement"],
+      "properties": {"kind": {"const": "ManagementStatement"}, "statement_kind": {"enum": ["explanation", "commitment", "outlook", "commentary"]}, "topic_id": {"$ref": "#/$defs/nonEmpty"}, "statement_period_id": {"$ref": "#/$defs/semanticId"}, "speaker_id": {"$ref": "#/$defs/nonEmpty"}, "statement": {"$ref": "#/$defs/nonEmpty"}}
+    },
+    "companyEvent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "event_type", "event_subject_id", "event_stage", "description", "effective_date", "effective_month", "effective_precision"],
+      "properties": {"kind": {"const": "CompanyEvent"}, "event_type": {"$ref": "#/$defs/nonEmpty"}, "event_subject_id": {"$ref": "#/$defs/nonEmpty"}, "event_stage": {"enum": ["announced", "planned", "started", "completed", "cancelled"]}, "description": {"$ref": "#/$defs/nonEmpty"}, "effective_date": {"$ref": "#/$defs/nullableDate"}, "effective_month": {"type": ["string", "null"], "pattern": "^[0-9]{4}-[0-9]{2}$"}, "effective_precision": {"enum": ["day", "month", "quarter", "year", "fiscal-period"]}}
+    },
+    "modelInterpretation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "interpretation_key", "as_of_period_id", "method_id", "producer_id", "input_record_ids", "revision", "interpretation", "authority_class"],
+      "properties": {"kind": {"const": "ModelInterpretation"}, "interpretation_key": {"$ref": "#/$defs/nonEmpty"}, "as_of_period_id": {"$ref": "#/$defs/semanticId"}, "method_id": {"$ref": "#/$defs/semanticId"}, "producer_id": {"$ref": "#/$defs/nonEmpty"}, "input_record_ids": {"$ref": "#/$defs/identityArray"}, "revision": {"type": "integer", "minimum": 1}, "interpretation": {"$ref": "#/$defs/nonEmpty"}, "authority_class": {"enum": ["reviewed-model", "accepted-normalized", "model-generated"]}}
+    },
+    "availabilityObservation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "business_key", "availability_state", "reason"],
+      "properties": {"kind": {"const": "AvailabilityObservation"}, "business_key": {"$ref": "#/$defs/readableId"}, "availability_state": {"enum": ["unavailable", "not-disclosed", "not-applicable"]}, "reason": {"$ref": "#/$defs/nonEmpty"}}
+    },
+    "comparabilityChecks": {
+      "type": "object", "additionalProperties": false,
+      "required": ["same_calendar", "quarter_periods", "same_duration"],
+      "properties": {"same_calendar": {"type": "boolean"}, "quarter_periods": {"type": "boolean"}, "same_duration": {"type": "boolean"}, "adjacent_ordinal": {"type": "boolean"}, "adjacent_dates": {"type": "boolean"}, "same_fiscal_quarter": {"type": "boolean"}, "next_fiscal_year": {"type": "boolean"}}
+    },
+    "comparability": {
+      "type": "object", "additionalProperties": false,
+      "required": ["comparable", "reason", "checks"],
+      "properties": {"comparable": {"const": true}, "reason": {"$ref": "#/$defs/nonEmpty"}, "checks": {"$ref": "#/$defs/comparabilityChecks"}}
+    },
+    "changeObservation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "change_kind", "from_record_id", "to_record_id", "input_record_ids", "rule_id", "comparability", "value", "unit_id"],
+      "properties": {"kind": {"const": "ChangeObservation"}, "change_kind": {"enum": ["qoq-percentage-point", "yoy-percentage-point"]}, "from_record_id": {"$ref": "#/$defs/readableId"}, "to_record_id": {"$ref": "#/$defs/readableId"}, "input_record_ids": {"$ref": "#/$defs/identityArray"}, "rule_id": {"$ref": "#/$defs/semanticId"}, "comparability": {"$ref": "#/$defs/comparability"}, "value": {"$ref": "#/$defs/exactValue"}, "unit_id": {"$ref": "#/$defs/semanticId"}}
+    },
+    "relation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["relation_id", "identity_digest", "schema_version", "relation_type", "from_record_id", "to_record_id", "rule_id", "evidence_occurrence_ids"],
+      "properties": {"relation_id": {"$ref": "#/$defs/readableId"}, "identity_digest": {"$ref": "#/$defs/identityDigest"}, "schema_version": {"const": "1.0.0"}, "relation_type": {"enum": ["duplicate", "corroborates", "contradicts", "corrects", "supersedes", "reaffirms", "evidences", "explains", "interprets"]}, "from_record_id": {"$ref": "#/$defs/readableId"}, "to_record_id": {"$ref": "#/$defs/readableId"}, "rule_id": {"$ref": "#/$defs/semanticId"}, "evidence_occurrence_ids": {"$ref": "#/$defs/identityArray"}}
+    },
+    "canonicalResolution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["resolution_id", "identity_digest", "schema_version", "policy_id", "record_type", "business_key", "as_of_date", "candidate_record_ids", "eligible_candidate_ids", "maximal_candidate_ids", "selected_record_id", "selection_cardinality", "status", "reason_codes", "rationale", "review_issue_ids"],
+      "properties": {"resolution_id": {"$ref": "#/$defs/readableId"}, "identity_digest": {"$ref": "#/$defs/identityDigest"}, "schema_version": {"const": "1.0.0"}, "policy_id": {"$ref": "#/$defs/semanticId"}, "record_type": {"enum": ["NumericalFact", "GuidanceVersion", "ManagementStatement", "CompanyEvent", "ModelInterpretation"]}, "business_key": {"$ref": "#/$defs/nonEmpty"}, "as_of_date": {"$ref": "#/$defs/date"}, "candidate_record_ids": {"$ref": "#/$defs/identityArray"}, "eligible_candidate_ids": {"$ref": "#/$defs/identityArray"}, "maximal_candidate_ids": {"$ref": "#/$defs/identityArray"}, "selected_record_id": {"type": ["string", "null"]}, "selection_cardinality": {"enum": [0, 1]}, "status": {"enum": ["selected", "unresolved"]}, "reason_codes": {"$ref": "#/$defs/stringArray"}, "rationale": {"$ref": "#/$defs/nonEmpty"}, "review_issue_ids": {"$ref": "#/$defs/identityArray"}}
+    },
+    "reviewIssue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["issue_id", "severity", "rule_id", "entity_ids", "business_key", "message", "evidence_occurrence_ids", "candidate_record_ids", "suggested_action", "promotion_blocking", "review_state"],
+      "properties": {"issue_id": {"$ref": "#/$defs/readableId"}, "severity": {"enum": ["P0", "P1", "P2"]}, "rule_id": {"$ref": "#/$defs/nonEmpty"}, "entity_ids": {"$ref": "#/$defs/identityArray"}, "business_key": {"$ref": "#/$defs/nonEmpty"}, "message": {"$ref": "#/$defs/nonEmpty"}, "evidence_occurrence_ids": {"$ref": "#/$defs/identityArray"}, "candidate_record_ids": {"$ref": "#/$defs/identityArray"}, "suggested_action": {"$ref": "#/$defs/nonEmpty"}, "promotion_blocking": {"type": "boolean"}, "review_state": {"const": "needs_review"}}
+    }
+  }
+}
