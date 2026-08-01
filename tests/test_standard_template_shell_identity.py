@@ -482,18 +482,18 @@ def test_post_fill_rejects_formula_and_protection_contract_mutations(
         elif mutation == "fabricated_unlock":
             wb["Valuation"]["B9"].protection = Protection(locked=False)
         elif mutation == "locked_declared_input":
-            wb["Valuation"]["D194"].protection = Protection(locked=True)
+            wb["{ticker}_Investment_Case"]["C45"].protection = Protection(locked=True)
         elif mutation == "missing_validation":
-            ws = wb["Valuation"]
+            ws = wb["{ticker}_Investment_Case"]
             ws.data_validations.dataValidation = [
                 validation
                 for validation in ws.data_validations.dataValidation
-                if str(validation.sqref) != "D194"
+                if str(validation.sqref) != "C45"
             ]
         elif mutation == "unprefixed_future_function":
             wb["Valuation"]["B10"] = str(wb["Valuation"]["B10"].value).replace("_xlfn.MAXIFS", "MAXIFS", 1)
         elif mutation == "malformed_let_local":
-            wb["Valuation_Summary"]["H2"] = str(wb["Valuation_Summary"]["H2"].value).replace("_xlpm.scenarioKey", "scenarioKey", 1)
+            wb["Valuation"]["B10"] = "=_xlfn.LET(x,1,x)"
         elif mutation == "unsupported_function":
             wb["Valuation"]["B10"] = "=XLOOKUP(1,A1:A2,B1:B2)"
         report = verify_post_fill_structural_identity(

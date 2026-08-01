@@ -149,11 +149,11 @@ The planner contracts encode business meaning, not merely writable space:
   resolve their columns from explicit shared `period_axis_id` contracts. Header
   bindings own the period-to-column map; dependent values cannot derive a
   separate alignment and fail if a selected period has no visible column;
-- Valuation input cells `D195:D211` receive typed price/date, shares, net debt,
-  TTM financials, and explicit assumptions according to their individual
-  bindings;
-- Valuation output rows remain formula-owned or require explicit typed
-  `valuation_outputs`; QA and `mapping_gaps` are restricted to QA sheets.
+- `valuation_inputs` remain normalized source inputs consumed by the canonical
+  Investment Case projection; Valuation contains no duplicate input surface;
+- the compact Valuation forward summary is formula-owned and contains only
+  direct references to canonical Investment Case outputs. QA and `mapping_gaps`
+  remain restricted to QA sheets.
 
 Bindings marked `inactive_legacy_contract` document historical broad regions
 but are outside the executable planner surface and are not counted as coverage.

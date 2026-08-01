@@ -867,9 +867,6 @@
     "book_value_per_share": {"value": 12.0, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": false, "unit": "$/share"},
     "tangible_book_value_per_share": {"value": 9.5, "status": "populated", "source_ref": "synthetic_fixture:valuation_inputs", "core": false, "unit": "$/share"}
   },
-  "valuation_outputs": {
-    "items": []
-  },
   "source_coverage": {
     "sources": [
       {

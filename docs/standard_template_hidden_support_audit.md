@@ -1,14 +1,14 @@
 # Standard Template Hidden Support Audit
 
-Generated at: 2026-07-29T08:48:09+00:00
+Generated at: 2026-08-01T08:53:32+00:00
 Template: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\standard_stock_model_template.xlsx`
 ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\lab\ANF_template_lab.xlsx`
 
 ## Summary
 
-- Candidate hidden/support sheets from lab or shell: `48`
+- Candidate hidden/support sheets from lab or shell: `46`
 - Company/source leakage cells before neutralization: `9015`
-- Hidden sheets retained in shell: `36`
+- Hidden sheets retained in shell: `34`
 - Company/source leakage cells after neutralization: `0`
 - Missing visible formula sheet refs: `0`
 - Missing defined-name sheet refs: `0`
@@ -61,7 +61,5 @@ ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-templ
 | Slides_Debt_Profile | no | delete_from_shell | 92 | 0 | 1 | 9 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
 | Slides_Guidance | no | delete_from_shell | 3239 | 0 | 1 | 196 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
 | Slides_Segments | no | delete_from_shell | 8951 | 0 | 1 | 2213 | Source/raw/audit/runtime-output sheet from the ANF lab is not part of the frozen neutral shell. |
-| Valuation_Grid | yes | keep_optional_runtime_output_shell | 252 | 205 | 0 | 0 | Formula-owned grid outputs remain blank until explicit axes and inputs are complete. |
-| Valuation_Summary | yes | keep_formula_dependency | 148 | 61 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
 | operating_drivers_raw | yes | keep_neutral_helper_shell | 7 | 0 | 0 | 0 | Header-only normalized driver projection. |
-| {ticker}_Investment_Case_Data | yes | keep_formula_dependency | 53 | 0 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |
+| {ticker}_Investment_Case_Data | yes | keep_formula_dependency | 453 | 264 | 0 | 0 | Neutral module sheet is retained because the visible shell, a defined name, or a validation contract references it. |

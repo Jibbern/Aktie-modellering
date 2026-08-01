@@ -440,7 +440,7 @@ def test_p0_period_value_and_qa_contracts_are_explicit() -> None:
     revenue = entries["summary_latest_revenue"]
     net_income = entries["summary_latest_net_income"]
     valuation_headers = entries["valuation_period_headers"]
-    valuation_outputs = entries["valuation_output_rows"]
+    assert "valuation_output_rows" not in entries
 
     assert as_of["planner_target"] == "B26"
     assert as_of["source_field"] == "period"
@@ -462,8 +462,6 @@ def test_p0_period_value_and_qa_contracts_are_explicit() -> None:
     ):
         assert entries[binding_id]["period_axis_id"] == "valuation_quarterly_periods"
         assert entries[binding_id]["period_axis_role"] == "dependent"
-    assert valuation_outputs["normalized_field"].startswith("valuation_outputs")
-
     for entry in entries.values():
         if entry["normalized_field"].startswith(("mapping_gaps", "manual_review_flags")):
             assert entry["sheet"] in {"QA_Log", "Needs_Review", "QA_Checks"}

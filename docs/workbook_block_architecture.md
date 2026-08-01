@@ -54,7 +54,6 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | valuation_capital_return_headers | Valuation | B153:D153 | _derived_workbook.capital_return.annual_label, _derived_workbook.capital_return.latest_quarter_label, _derived_workbook.capital_return.ttm_label | derived | standard |
 | valuation_capital_return_product_rows | Valuation | A154:E168 | _derived_workbook.capital_return.product_rows | derived | standard |
 | valuation_capital_return_support_rows | Valuation | AD172:AO186 | _derived_workbook.capital_return.support_rows | derived | standard |
-| valuation_input_values | Valuation | D194:D217 | valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, +12 more | source-backed | standard |
 | valuation_period_headers | Valuation | B6:M6 | quarterly_financials.rows.period | source-backed | standard |
 | valuation_raw_revenue | Valuation | B9:M9 | quarterly_financials.rows.revenue | source-backed | standard |
 | valuation_raw_base_ebitda | Valuation | B18:M18 | quarterly_financials.rows.base_ebitda | source-backed | standard |
@@ -119,7 +118,7 @@ The standard shell keeps generic block slots only. Sector/company member names f
 | od_current_outlook_values | Operating_Drivers | B31:N55 | operating_drivers.items.0.driver | source-backed | standard |
 | od_driver_actuals_values | Operating_Drivers | B56:N125 | operating_drivers.items.0.metric_value | source-backed | standard |
 | ic_snapshot_values | {ticker}_Investment_Case | B5:B11 | investment_case.current_stance, investment_case.downside_factors, investment_case.key_debate, investment_case.summary, +3 more | mixed | standard |
-| ic_title_value | {ticker}_Investment_Case | A1:J1 | ticker_metadata.investment_case_title | derived | standard |
+| ic_title_value | {ticker}_Investment_Case | A1:M1 | ticker_metadata.investment_case_title | derived | standard |
 | qn_quarter_summary_values | Quarter_Notes_UI | B3:O6 | quarter_notes.summary.key_caveat, quarter_notes.summary.model_read, quarter_notes.summary.watch_next, quarter_notes.summary.what_changed | source-backed | standard |
 | qn_quarter_block_values | Quarter_Notes_UI | A10:O15 | quarter_notes.items.commentary | source-backed | standard |
 | pp_scorecard_values | Promise_Progress_UI | B5:O11 | normalized_guidance.items.0.metric | source-backed | standard |
@@ -367,14 +366,6 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
   - Missing data: block planning; every visible Capital Return row requires compact typed lineage
   - Validation: resolved_capital_return_product_contract
-
-- `valuation_input_values` `D194:D217`
-  - Normalized fields: valuation_inputs.adjusted_ebitda_ttm, valuation_inputs.adjusted_eps_ttm, valuation_inputs.as_of_date, valuation_inputs.base_ebitda_ttm, valuation_inputs.book_value_per_share, valuation_inputs.capex_ttm, valuation_inputs.diluted_shares, valuation_inputs.eps_ttm, +8 more
-  - Support sheets: Debt_Profile, Debt_Tranches_Q, Guidance_Normalized, Hidden_Value_Base, Hidden_Value_Flags, History_Q, Slides_Guidance
-  - Current owner: pbi_xbrl/excel_writer_valuation_orchestrator.py, pbi_xbrl/excel_writer_valuation_*, pbi_xbrl/valuation.py
-  - Future owner: frozen template shell, docs/workbook_binding_map.json, future value-only filler
-  - Missing data: leave blank and emit a structured mapping gap | leave blank and emit a structured mapping gap; point-in-time shares outstanding must not be replaced by diluted weighted-average shares | leave blank and emit a structured mapping gap; scenario EPS must not be reconstructed from a mismatched share denominator
-  - Validation: optional_source_backed_scenario_input, unexplained_empty_core_field
 
 - `valuation_period_headers` `B6:M6`
   - Normalized fields: quarterly_financials.rows.period
@@ -894,7 +885,7 @@ The standard shell keeps generic block slots only. Sector/company member names f
   - Missing data: block promotion; emit manual review flag | leave blank and retain a structured review disposition
   - Validation: placeholder_investment_case, visible_narrative_missing_evidence_refs
 
-- `ic_title_value` `A1:J1`
+- `ic_title_value` `A1:M1`
   - Normalized fields: ticker_metadata.investment_case_title
   - Support sheets: Guidance_Normalized, History_Q, Promise_Progress, Quarter_Notes, Scenario_Bridge_Tax_Treatment, Scenario_Driver_Assumptions, Slides_Guidance, Slides_Segments, +1 more
   - Current owner: pbi_xbrl/excel_writer_sector_investment_case.py, pbi_xbrl/excel_writer_investment_case_support.py, pbi_xbrl/excel_writer_anf_investment_case.py

@@ -20,7 +20,6 @@ Read-only comparison of the frozen shell against saved PBI/GPRE/ANF workbooks. R
 | `Quarter_Notes` | `required_support_shell_sheet` | hidden | visible | visible | visible | True | Required neutral hidden support sheet owned by a reusable module. |
 | `Quarter_Notes_Evidence` | `required_support_shell_sheet` | hidden | visible | visible | visible | True | Required neutral hidden support sheet owned by a reusable module. |
 | `Quarter_Narrative_Data` | `required_support_shell_sheet` | hidden | visible | visible | visible | True | Required neutral hidden support sheet owned by a reusable module. |
-| `Valuation_Summary` | `required_support_shell_sheet` | hidden | visible | visible | visible | True | Required neutral hidden support sheet owned by a reusable module. |
 | `Promise_Evidence` | `required_support_shell_sheet` | hidden | visible | visible | visible | True | Required neutral hidden support sheet owned by a reusable module. |
 | `Promise_Progress` | `required_support_shell_sheet` | hidden | visible | visible | visible | True | Required neutral hidden support sheet owned by a reusable module. |
 | `Guidance_Normalized` | `required_support_shell_sheet` | hidden | visible | visible | visible | True | Required neutral hidden support sheet owned by a reusable module. |
@@ -46,7 +45,6 @@ Read-only comparison of the frozen shell against saved PBI/GPRE/ANF workbooks. R
 | `Debt_Buckets` | `fixture_capacity_shell_sheet` | hidden | visible | visible | visible | True | Neutral fixture-capacity sheet reserved by an explicit module contract. |
 | `Debt_Recon` | `fixture_capacity_shell_sheet` | hidden | visible | visible | visible | True | Neutral fixture-capacity sheet reserved by an explicit module contract. |
 | `Debt_Tranches_Q` | `fixture_capacity_shell_sheet` | hidden | visible | visible | visible | True | Neutral fixture-capacity sheet reserved by an explicit module contract. |
-| `Valuation_Grid` | `fixture_capacity_shell_sheet` | hidden | visible | visible | visible | True | Neutral fixture-capacity sheet reserved by an explicit module contract. |
 | `Promise_Tracker` | `fixture_capacity_shell_sheet` | hidden | visible | visible | visible | True | Neutral fixture-capacity sheet reserved by an explicit module contract. |
 | `Adjustments_Breakdown` | `fixture_capacity_shell_sheet` | hidden | visible | visible | visible | True | Neutral fixture-capacity sheet reserved by an explicit module contract. |
 | `OCR_Text_Log` | `fixture_capacity_shell_sheet` | hidden | visible | visible | visible | True | Neutral fixture-capacity sheet reserved by an explicit module contract. |
@@ -67,7 +65,7 @@ Read-only comparison of the frozen shell against saved PBI/GPRE/ANF workbooks. R
 | `NonGAAP_Files` | `external_detail_sheet` | missing | visible | visible | visible | False | Raw file detail remains external JSON. |
 | `PBI_Investment_Case` | `ticker_specific_sheet` | missing | visible | missing | missing | False | Ticker-specific investment-case sheet name/data projection; runtime resolves from tokenized shell or normalized package. |
 | `PBI_Investment_Case_Data` | `ticker_specific_sheet` | missing | visible | missing | missing | False | Ticker-specific investment-case sheet name/data projection; runtime resolves from tokenized shell or normalized package. |
-| `PostQuarter_Capital_Events` | `exclude_from_standard_shell` | missing | missing | visible | missing | False | Not part of the standard neutral shell unless a future explicit contract promotes it. |
+| `PostQuarter_Capital_Events` | `exclude_from_standard_shell` | missing | visible | visible | missing | False | Not part of the standard neutral shell unless a future explicit contract promotes it. |
 | `Quarter_Notes_Audit` | `external_detail_sheet` | missing | visible | visible | visible | False | Workbook keeps accepted evidence index; complete candidate detail remains external. |
 | `SEC_Audit_Log` | `external_detail_sheet` | missing | visible | visible | visible | False | Raw machine log remains external. |
 | `Slides_Debt_Profile` | `external_detail_sheet` | missing | visible | visible | visible | False | Workbook keeps normalized debt projections; raw slide detail remains external. |

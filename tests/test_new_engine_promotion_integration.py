@@ -78,16 +78,16 @@ def _integration_context(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dic
     style_counts = plan["receipt"]["plans"]["style"]
     formula_counts = plan["receipt"]["formula_inventory"]
     assert binding_counts["status"] == "PASS"
-    assert binding_counts["planned_write_count"] == 23_761
-    assert binding_counts["structured_skip_count"] == 2_012
-    assert binding_counts["issue_count"] == 761
-    assert binding_counts["occurrence_count"] == 2_323
+    assert binding_counts["planned_write_count"] == 23_613
+    assert binding_counts["structured_skip_count"] == 2_006
+    assert binding_counts["issue_count"] == 755
+    assert binding_counts["occurrence_count"] == 2_311
     assert binding_counts["overflow_count"] == 0
     assert binding_counts["blocking_issue_count"] == 0
     assert style_counts["status"] == "PASS"
     assert style_counts["action_count"] == 770
     assert style_counts["decision_count"] == 1_298
-    assert formula_counts["cell_formula_count"] == 2_690
+    assert formula_counts["cell_formula_count"] == 2_609
     assert len(captured_plan_contexts) == 1
     plan_context = captured_plan_contexts[0]
 

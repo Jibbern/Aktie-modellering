@@ -30,7 +30,7 @@
     "dimension_contract_ids": {"$ref": "#/$defs/stringList"},
     "modules": {
       "type": "array",
-      "minItems": 13,
+      "minItems": 12,
       "uniqueItems": true,
       "items": {"$ref": "#/$defs/module"}
     },
@@ -53,7 +53,7 @@
     },
     "legacy_sheet_inventory": {
       "type": "array",
-      "minItems": 57,
+      "minItems": 55,
       "maxItems": 57,
       "uniqueItems": true,
       "items": {"$ref": "#/$defs/legacySheet"}
@@ -63,6 +63,10 @@
     "stringList": {
       "type": "array",
       "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "headerList": {
+      "type": "array",
       "items": {"type": "string", "minLength": 1}
     },
     "sheet": {
@@ -89,7 +93,7 @@
         "inactive_state": {"enum": ["hidden", "veryHidden"]},
         "capacity_rows": {"type": "integer", "minimum": 1},
         "capacity_columns": {"type": "integer", "minimum": 1, "maximum": 16384},
-        "headers": {"$ref": "#/$defs/stringList"},
+        "headers": {"$ref": "#/$defs/headerList"},
         "title": {"type": "string", "minLength": 1},
         "header_row": {"type": "integer", "minimum": 1},
         "freeze_panes": {"type": "string", "pattern": "^[A-Z]+[1-9][0-9]*$"},

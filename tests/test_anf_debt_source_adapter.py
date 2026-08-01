@@ -501,11 +501,11 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
     plan = value_plan.to_dict()
     styles = style_plan.to_dict()
     assert plan["status"] == "PASS"
-    assert plan["planned_write_count"] == 23_761
-    assert plan["structured_skip_count"] == 2_012
+    assert plan["planned_write_count"] == 23_613
+    assert plan["structured_skip_count"] == 2_006
     assert plan["overflow_count"] == 0
-    assert plan["issue_ledger"]["summary"]["canonical_unique_issue_count"] == 761
-    assert plan["issue_ledger"]["summary"]["detailed_occurrence_count"] == 2_323
+    assert plan["issue_ledger"]["summary"]["canonical_unique_issue_count"] == 755
+    assert plan["issue_ledger"]["summary"]["detailed_occurrence_count"] == 2_311
     assert plan["issue_ledger"]["summary"]["blocking_issue_count"] == 0
     m95 = [
         row
@@ -555,10 +555,10 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
         and row["binding_id"] not in hidden_value_binding_ids
         and not (row["target_sheet"] == "Valuation" and row["target_cell"] == "M95")
     ]
-    assert len(unaffected) == 20_387
+    assert len(unaffected) == 20_239
     assert len(capital_return_writes) == 240
     assert len(hidden_value_writes) == 1_983
-    assert _digest(unaffected) == "ec31d622453cb58a5a61d43b6d71aa9ab4adce6824ed5a19a7b119c4e692795c"
+    assert _digest(unaffected) == "1c81bac2ac94ed0c44fbf8d19ef9761d362889b99753acab9754754975c37ab2"
     assert _digest(hidden_value_writes) == "4aba88a2839defcc7f1c58867ae7b80ca7198132592e57f89d7a16cc3383a6c6"
     debt_product_writes = [
         row for row in plan["planned_writes"] if row["target_sheet"] in debt_product_sheets
@@ -570,7 +570,7 @@ def test_exact_plan_and_style_regression_reconciles_3a2_additions(package) -> No
     ]
     assert len(investment_case_writes) == 761
     assert _digest(investment_case_writes) == "24837ba4d3a5c297a053838ea5ed234a266b9682a5a5f299210864ee098d27b6"
-    assert _digest(plan["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
+    assert _digest(plan["issue_ledger"]) == "6371c550feb51c5aea91f32bec18d393a65316788cf304351e500ad89799e8d6"
     assert styles["action_count"] == 770
     assert styles["decision_count"] == 1_298
     debt_policy_ids = {

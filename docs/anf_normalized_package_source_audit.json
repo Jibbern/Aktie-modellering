@@ -1,8 +1,8 @@
 {
   "version": "0.2.0",
   "generator_version": "anf_legacy_adapter_audits/0.2.0",
-  "source_package_content_sha256": "ef026e8012db5123c5a58e493cb78fa07b227c94a8b0b8a9bf4e7b0d78109404",
-  "generated_at_utc": "2026-07-29T14:01:22+00:00",
+  "source_package_content_sha256": "653be67a6034646fb5b1f6bc1a246b7cf4b92fd26937757e26a66d48511879a3",
+  "generated_at_utc": "2026-07-29T14:01:21+00:00",
   "ticker": "ANF",
   "data_root": "C:\\Users\\Jibbe\\Aktier\\StockModelData",
   "legacy_workbook": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -291,20 +291,26 @@
       "manual_review_record_count": 0
     },
     {
-      "section": "valuation_outputs",
+      "section": "valuation_inputs",
       "available_source_candidates": [
-        "explicit normalized valuation output builder (not available in the ANF legacy adapter fixture)"
+        "ANF_model.xlsx!History_Q",
+        "SEC/XBRL cache",
+        "typed Investment Case input projection"
       ],
-      "source_backed_available": false,
+      "source_backed_available": true,
       "profile_backed_available": false,
-      "legacy_workbook_derived_available": false,
+      "legacy_workbook_derived_available": true,
       "missing_source": true,
       "missing_mapping": false,
       "parser_conflict": false,
-      "manual_review_required": false,
-      "populated_field_count": 0,
-      "field_status_counts": {},
-      "manual_review_record_count": 0
+      "manual_review_required": true,
+      "populated_field_count": 10,
+      "field_status_counts": {
+        "manual_review_required": 2,
+        "missing_source": 13,
+        "populated": 10
+      },
+      "manual_review_record_count": 2
     },
     {
       "section": "source_coverage",

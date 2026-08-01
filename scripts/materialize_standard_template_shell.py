@@ -127,13 +127,6 @@ SIGNAL_FILL_COLORS = {
 GRAY_BLANK_FILLS = {"00DDDDDD", "00D9D9D9", "FFD9D9D9", "FFDDDDDD"}
 STATUS_OUTPUT_FILL_COLORS = {"00D9EAF7", "00F2F2F2", "00F4CCCC", "00FFF2CC"}
 NEUTRAL_HEADER_FILL_COLORS = SIGNAL_FILL_COLORS
-VALUATION_RUNTIME_VALUE_CONSTANT_RANGES = (
-    "D194:D216",
-    "E236:E240",
-    "D247:D250",
-    "E253:E256",
-    "L248:S250",
-)
 QA_SHEET_HEADERS = {
     "QA_Log": [
         "issue_id",
@@ -204,9 +197,6 @@ VALUATION_GUIDANCE_SIDECAR_HEADERS = {
     "Q50": "Evidence",
     "X50": "Review state",
     "Z50": "Source key",
-    "O63": "Output",
-    "U63": "Value",
-    "X63": "Interpretation",
 }
 VALUATION_STRUCTURAL_HEADERS = {
     "B138": "Summary",
@@ -221,7 +211,6 @@ VALUATION_BLUE_SECTION_HEADERS = {
     "A122": "Debt & liquidity snapshot",
     "A137": "Hidden value flags",
     "N137": "Hidden Value Panel",
-    "B192": "Valuation",
 }
 OPERATING_DRIVER_SHEET_HEADERS = {
     "A12": "Topic",
@@ -501,6 +490,15 @@ def _configure_investment_case_ownership_zones(manifest: dict[str, Any]) -> None
         "Sensitivity Tables",
         "Key Debates and Invalidators",
     ]
+
+    support = next(
+        (row for row in manifest.get("sheets") or [] if row.get("sheet") == "Scenario_Driver_Assumptions"),
+        None,
+    )
+    if isinstance(support, dict):
+        for zone in support.get("non_writable_zones") or []:
+            if str(zone.get("target") or "") == "A1:Q1":
+                zone["zone_id"] = "module_investment_case_market_implied_scenario_driver_assumptions_headers"
     retained = [
         zone
         for zone in sheet.get("writable_zones") or []
@@ -565,6 +563,38 @@ def _retire_bs_segments_manifest_surface(manifest: dict[str, Any]) -> None:
         if min_row <= 78:
             retained_contracts.append(contract)
     manifest["planner_cell_contracts"] = retained_contracts
+
+
+def _configure_forward_valuation_summary_manifest(manifest: dict[str, Any]) -> None:
+    """Declare only the compact Investment Case-referenced Valuation summary."""
+
+    sheet = next(
+        (row for row in manifest.get("sheets") or [] if row.get("sheet") == "Valuation"),
+        None,
+    )
+    if not isinstance(sheet, dict):
+        return
+
+    # The physically deleted lower Valuation engine contained most of the lab
+    # sheet's merge families. Keep a bounded floor for the retained products.
+    sheet["rich_shell_lab_merge_floor_ratio"] = 0.38
+
+    retained_zones = [
+        zone
+        for zone in sheet.get("non_writable_zones") or []
+        if str(zone.get("zone_id") or "") != "valuation_forward_summary_formulas"
+    ]
+    for zone in retained_zones:
+        if str(zone.get("zone_id") or "") == "valuation_formula_helper_cfo_ttm":
+            zone["target"] = "A271:M271"
+    retained_zones.append(
+        {
+            "zone_id": "valuation_forward_summary_formulas",
+            "target": "A192:F198",
+            "reason": "Read-only references to canonical Investment Case outputs.",
+        }
+    )
+    sheet["non_writable_zones"] = retained_zones
 
 
 def _ranges_for(sheet_def: dict[str, Any], zone_type: str) -> list[str]:
@@ -956,23 +986,6 @@ def _clear_valuation_numeric_constants(wb: Workbook) -> None:
                 cell.value = None
 
 
-def _clear_valuation_runtime_value_constants(wb: Workbook) -> None:
-    if "Valuation" not in wb.sheetnames:
-        return
-    ws = wb["Valuation"]
-    for range_ref in VALUATION_RUNTIME_VALUE_CONSTANT_RANGES:
-        min_col, min_row, max_col, max_row = range_boundaries(range_ref)
-        for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
-            for cell in row:
-                if isinstance(cell, MergedCell):
-                    continue
-                if cell.value in (None, ""):
-                    continue
-                if isinstance(cell.value, str) and cell.value.startswith("="):
-                    continue
-                cell.value = None
-
-
 def _neutralize_writable_data_like_fills(wb: Workbook, manifest: dict[str, Any]) -> None:
     neutral_fill = PatternFill(fill_type=None)
     for sheet_def in manifest["sheets"]:
@@ -1248,9 +1261,67 @@ def _remove_validations_intersecting_range(ws: Any, target: str) -> None:
             ws.data_validations.dataValidation.remove(validation)
 
 
+def _remove_conditional_formatting_intersecting_range(ws: Any, target: str) -> None:
+    for conditional_range in tuple(ws.conditional_formatting._cf_rules):
+        if any(
+            _ranges_intersect(str(cell_range), target)
+            for cell_range in conditional_range.sqref.ranges
+        ):
+            del ws.conditional_formatting._cf_rules[conditional_range]
+
+
+def _prune_unused_differential_styles(wb: Workbook) -> dict[str, int]:
+    """Retain only differential styles referenced by live conditional-format rules."""
+
+    registry = wb._differential_styles  # type: ignore[attr-defined]
+    existing_styles = list(registry.styles)
+    retained_styles: list[Any] = []
+    live_rule_count = 0
+
+    for ws in wb.worksheets:
+        for rules in ws.conditional_formatting._cf_rules.values():
+            for rule in rules:
+                dxf_id = getattr(rule, "dxfId", None)
+                dxf = getattr(rule, "dxf", None)
+                if dxf_id is None and dxf is None:
+                    continue
+                if dxf_id is not None:
+                    if not 0 <= int(dxf_id) < len(existing_styles):
+                        raise ValueError(
+                            f"Conditional-format rule on {ws.title!r} references missing dxf {dxf_id}."
+                        )
+                    registered = existing_styles[int(dxf_id)]
+                    if dxf is not None and dxf != registered:
+                        raise ValueError(
+                            f"Conditional-format rule on {ws.title!r} has inconsistent dxf ownership."
+                        )
+                    dxf = registered
+                if dxf is None:
+                    raise ValueError(f"Conditional-format rule on {ws.title!r} has no differential style.")
+
+                new_id = next(
+                    (index for index, candidate in enumerate(retained_styles) if candidate == dxf),
+                    None,
+                )
+                if new_id is None:
+                    retained_styles.append(dxf)
+                    new_id = len(retained_styles) - 1
+                rule.dxf = retained_styles[new_id]
+                rule.dxfId = new_id
+                live_rule_count += 1
+
+    registry.dxf = retained_styles
+    return {
+        "before_count": len(existing_styles),
+        "after_count": len(retained_styles),
+        "live_rule_count": live_rule_count,
+    }
+
+
 def _clear_locked_inactive_range(ws: Any, target: str) -> None:
     _unmerge_intersecting_ranges(ws, target)
     _remove_validations_intersecting_range(ws, target)
+    _remove_conditional_formatting_intersecting_range(ws, target)
     min_col, min_row, max_col, max_row = range_boundaries(target)
     for row in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
         for cell in row:
@@ -1259,6 +1330,69 @@ def _clear_locked_inactive_range(ws: Any, target: str) -> None:
             cell.comment = None
             cell.style = "Normal"
             cell.protection = Protection(locked=True)
+
+
+def _retire_duplicate_valuation_engine(wb: Workbook) -> None:
+    for sheet_name in ("Valuation_Summary", "Valuation_Grid"):
+        if sheet_name in wb.sheetnames:
+            wb.remove(wb[sheet_name])
+
+    if "Valuation" not in wb.sheetnames:
+        return
+    ws = wb["Valuation"]
+    for target in ("O63:X75", "A192:AA261", "N262:S271"):
+        _clear_locked_inactive_range(ws, target)
+
+
+def _configure_forward_valuation_summary_product(wb: Workbook) -> None:
+    if "Valuation" not in wb.sheetnames:
+        return
+    ws = wb["Valuation"]
+    _ensure_merged_range(ws, "A192:F192")
+    title_fill = PatternFill("solid", fgColor="6FA8DC")
+    header_fill = PatternFill("solid", fgColor="EAF3FB")
+    title_font = Font(name="Aptos", bold=True, color="FFFFFF", size=14)
+    header_font = Font(name="Aptos", bold=True, color="1F1F1F", size=11)
+    body_font = Font(name="Aptos", color="1F1F1F", size=11)
+    context_font = Font(name="Aptos", color="595959", size=10)
+    left_center = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    center_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    right_center = Alignment(horizontal="right", vertical="center")
+
+    ws["A192"] = "Forward Valuation Summary"
+    _style_cells(ws, "A192:F192", fill=title_fill, font=title_font, alignment=left_center)
+    headers = ("Metric", "Current baseline", "Bear", "Base", "Bull", "State / context")
+    for column, value in enumerate(headers, start=1):
+        cell = ws.cell(193, column)
+        cell.value = value
+        cell.fill = copy(header_fill)
+        cell.font = copy(header_font)
+        cell.alignment = copy(center_center)
+    labels = {
+        194: ("GAAP diluted EPS ($/share)", "Canonical scenario output"),
+        195: ("Adjusted EBITDA ($m)", "Canonical scenario output"),
+        196: ("FCF/share ($/share)", "Canonical scenario output"),
+        197: ("Selected/blended value/share ($/share)", "Available-method blend"),
+        198: ("Upside/downside (%)", "Versus current share price"),
+    }
+    for row, (label, context) in labels.items():
+        ws.cell(row, 1).value = label
+        ws.cell(row, 1).font = copy(body_font)
+        ws.cell(row, 1).alignment = copy(left_center)
+        for column in range(2, 6):
+            ws.cell(row, column).font = copy(body_font)
+            ws.cell(row, column).alignment = copy(right_center)
+        ws.cell(row, 6).value = context
+        ws.cell(row, 6).font = copy(context_font)
+        ws.cell(row, 6).alignment = copy(left_center)
+
+    ws.row_dimensions[192].height = 24
+    ws.row_dimensions[193].height = 30
+    for row in range(194, 199):
+        ws.row_dimensions[row].height = 36
+        ws.row_dimensions[row].hidden = False
+    for row in range(199, 262):
+        ws.row_dimensions[row].hidden = False
 
 
 def _retire_product_pass2b_valuation_capacity(wb: Workbook) -> None:
@@ -1389,9 +1523,7 @@ def _ensure_valuation_guidance_sidecar_headers(wb: Workbook) -> None:
     column_header_fill = PatternFill("solid", fgColor="EAF3FB")
     section_font = Font(bold=True, color="FFFFFF", size=12)
     header_font = Font(bold=True, color="000000", size=12)
-    title_font = Font(bold=True, color="FFFFFF", size=18)
     left_center = Alignment(horizontal="left", vertical="center", wrap_text=True)
-    center_center = Alignment(horizontal="center", vertical="center")
 
     _clear_locked_inactive_range(ws, "O22:AC26")
     for target in ("O7:AC35", "O48:AA62"):
@@ -1428,12 +1560,9 @@ def _ensure_valuation_guidance_sidecar_headers(wb: Workbook) -> None:
     _style_cells(ws, "O28:AC28", fill=column_header_fill, font=header_font, alignment=left_center)
     _style_cells(ws, "O50:AA50", fill=column_header_fill, font=header_font, alignment=left_center)
     _style_cells(ws, "B138:I138", fill=column_header_fill, font=header_font, alignment=left_center)
-    _style_cells(ws, "B192:S192", fill=section_fill, font=title_font)
 
     for coord in ("A122",):
         ws[coord].font = section_font
-    ws["B192"].value = "Valuation"
-    ws["B192"].font = title_font
 
 
 def _ensure_operating_driver_sheet_headers(wb: Workbook) -> None:
@@ -2072,6 +2201,7 @@ def _materialize_rich_shell(
     shutil.copyfile(source_path, output_path)
     wb = load_workbook(output_path, data_only=False, read_only=False)
     _rename_investment_case_sheet(wb)
+    _retire_duplicate_valuation_engine(wb)
     _hide_nonstandard_sheets(wb, manifest)
     _clear_source_specific_visible_text(wb, manifest)
     _genericize_sector_specific_visible_text(wb, manifest)
@@ -2080,7 +2210,6 @@ def _materialize_rich_shell(
     _neutralize_quarter_notes_history(wb)
     _clear_visible_source_values_and_notes(wb, manifest)
     _clear_valuation_numeric_constants(wb)
-    _clear_valuation_runtime_value_constants(wb)
     _neutralize_writable_data_like_fills(wb, manifest)
     _neutralize_visible_blank_gray_fills(wb)
     _neutralize_valuation_signal_fills(wb)
@@ -2119,6 +2248,7 @@ def _materialize_rich_shell(
     neutralize_workbook_negative_number_formats(wb)
     _retire_product_pass2b_valuation_capacity(wb)
     _configure_valuation_capital_return_product(wb)
+    _configure_forward_valuation_summary_product(wb)
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _ensure_qa_headers(wb)
     _remove_qa_excel_tables(wb)
@@ -2132,6 +2262,7 @@ def _materialize_rich_shell(
     protection_issues = validate_workbook_protection_contract(wb, active_formula_ids)
     if protection_issues:
         raise ValueError("Invalid materialized workbook protection: " + "; ".join(row["message"] for row in protection_issues[:20]))
+    _prune_unused_differential_styles(wb)
     try:
         serialize_workbook_formulas_for_ooxml(wb)
     except FormulaSerializationError as exc:
@@ -2171,6 +2302,7 @@ def materialize_shell(
     resolved_profile = resolve_module_profile(module_payload, module_profile_id)
     manifest = build_profile_shell_manifest(base_manifest, module_payload, resolved_profile)
     _retire_bs_segments_manifest_surface(manifest)
+    _configure_forward_valuation_summary_manifest(manifest)
     _configure_investment_case_ownership_zones(manifest)
     binding_payload = build_profile_binding_payload(base_binding_payload, module_payload, resolved_profile)
     _ensure_hidden_support_planner_contracts(manifest, binding_payload)
@@ -2253,6 +2385,7 @@ def materialize_shell(
         _write_static_structure(wb, ws, sheet_def, sheet_bindings, contracts.get(sheet_name, SourceSheetContract(None, {}, {})))
         ws.sheet_state = str(sheet_def["state"])
 
+    _retire_duplicate_valuation_engine(wb)
     _configure_summary_liquidity_layout(wb)
     _configure_scalar_debt_liquidity_snapshot(wb)
     _configure_narrative_text_layout(wb)
@@ -2274,6 +2407,7 @@ def materialize_shell(
     neutralize_workbook_negative_number_formats(wb)
     _retire_product_pass2b_valuation_capacity(wb)
     _configure_valuation_capital_return_product(wb)
+    _configure_forward_valuation_summary_product(wb)
     _prune_defined_names_for_profile(wb, module_payload, binding_payload, resolved_profile)
     _ensure_freeze_panes(wb, manifest)
     _apply_shared_sheet_view_policy(wb)
@@ -2284,6 +2418,7 @@ def materialize_shell(
     protection_issues = validate_workbook_protection_contract(wb, active_formula_ids)
     if protection_issues:
         raise ValueError("Invalid materialized workbook protection: " + "; ".join(row["message"] for row in protection_issues[:20]))
+    _prune_unused_differential_styles(wb)
     try:
         serialize_workbook_formulas_for_ooxml(wb)
     except FormulaSerializationError as exc:

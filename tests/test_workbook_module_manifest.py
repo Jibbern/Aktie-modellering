@@ -52,8 +52,8 @@ def test_module_manifest_schema_and_semantics_pass() -> None:
 
     assert validate_json_schema(payload, load_json_strict(MODULE_SCHEMA)) == []
     assert validate_workbook_module_manifest(payload) == []
-    assert len(payload["modules"]) == 13
-    assert len(payload["union_sheet_order"]) == 46
+    assert len(payload["modules"]) == 12
+    assert len(payload["union_sheet_order"]) == 44
 
 
 def test_debt_product_layout_is_bounded_in_the_module_manifest() -> None:
@@ -74,21 +74,23 @@ def test_debt_product_layout_is_bounded_in_the_module_manifest() -> None:
         assert sheets[sheet_name]["zoom_scale"] == zoom
 
 
-def test_all_57_legacy_sheets_have_one_explicit_disposition() -> None:
+def test_active_legacy_inventory_excludes_physically_retired_valuation_sheets() -> None:
     payload = _payload()
     rows = payload["legacy_sheet_inventory"]
     wb = load_workbook(_legacy_anf_path(), read_only=True, data_only=False)
     try:
-        assert set(wb.sheetnames) == {row["legacy_sheet"] for row in rows}
+        assert set(wb.sheetnames) - {"Valuation_Summary", "Valuation_Grid"} == {
+            row["legacy_sheet"] for row in rows
+        }
     finally:
         wb.close()
 
     assert Counter(row["legacy_class"] for row in rows) == {
         "A": 10,
-        "B": 13,
+        "B": 12,
         "C": 15,
         "D": 10,
-        "E": 8,
+        "E": 7,
         "F": 1,
     }
     slides_guidance = next(row for row in rows if row["legacy_sheet"] == "Slides_Guidance")
@@ -288,16 +290,26 @@ def test_formula_output_support_surfaces_are_never_binding_writable() -> None:
     derived = build_profile_shell_manifest(manifest, payload, resolve_module_profile(payload, "full_union"))
     sheets = {row["sheet"]: row for row in derived["sheets"]}
 
-    for sheet_name in ("Valuation_Summary", "Valuation_Grid"):
-        assert sheets[sheet_name]["writable_zones"] == []
-        assert sheets[sheet_name]["non_writable_zones"][0]["target"].startswith("A1:")
+    assert "Valuation_Summary" not in sheets
+    assert "Valuation_Grid" not in sheets
+    support = sheets["{ticker}_Investment_Case_Data"]
+    assert all(
+        not zone["target"].startswith("BB")
+        for zone in support["writable_zones"]
+    )
+    assert any(zone["target"] == "BB2:BQ25" for zone in support["non_writable_zones"])
 
     invalid = deepcopy(payload)
-    valuation_module = next(row for row in invalid["modules"] if row["module_id"] == "valuation_scenarios")
-    formula_sheet = next(row for row in valuation_module["sheets"] if row["sheet"] == "Valuation_Summary")
+    investment_case_module = next(
+        row for row in invalid["modules"] if row["module_id"] == "investment_case_market_implied"
+    )
+    formula_sheet = next(
+        row for row in investment_case_module["sheets"]
+        if row["sheet"] == "{ticker}_Investment_Case_Data"
+    )
     formula_sheet.pop("formula_owner")
     assert any(
-        "Valuation_Summary" in issue and "requires a formula_owner" in issue
+        "{ticker}_Investment_Case_Data" in issue and "requires a formula_owner" in issue
         for issue in validate_workbook_module_manifest(invalid)
     )
 
@@ -371,7 +383,7 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
         assert history_contract["writable_zones"][0]["zone_id"] == "calculation_history_quarterly_rows"
         assert wb.sheetnames == manifest["union_sheet_order"]
         assert [ws.title for ws in wb.worksheets if ws.sheet_state == "visible"] == manifest["visible_sheet_order"]
-        assert len(wb.sheetnames) == 46
+        assert len(wb.sheetnames) == 44
         for name, contract in sheet_contracts(_payload()).items():
             if contract["role"] != "visible_product":
                 assert wb[name].sheet_state != "visible"
@@ -392,7 +404,6 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
             ("Valuation", "A116"),
             ("Valuation", "A122"),
             ("Valuation", "A137"),
-            ("Valuation", "A192"),
             ("Valuation", "O7"),
             ("Valuation", "O39"),
             ("Valuation", "O51"),
@@ -401,8 +412,9 @@ def test_controlled_materializer_creates_isolated_profile_variant(tmp_path: Path
             cell = wb[sheet_name][coordinate]
             assert cell.value is None, f"{sheet_name}!{coordinate} retained {cell.value!r}"
             assert cell.style_id == 0, f"{sheet_name}!{coordinate} retained style {cell.style_id}"
-        assert wb["Valuation_Summary"]["B2"].value is None
-        assert wb["Valuation_Grid"]["E2"].value is None
+        assert wb["Valuation"]["A192"].value == "Forward Valuation Summary"
+        assert "Valuation_Summary" not in wb.sheetnames
+        assert "Valuation_Grid" not in wb.sheetnames
         for name in ("ScenarioProfile", "ScenarioImpliedPrice", "DCF_Horizon"):
             assert name not in wb.defined_names
         for name in (

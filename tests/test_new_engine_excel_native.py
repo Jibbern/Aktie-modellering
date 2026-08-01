@@ -67,11 +67,11 @@ def test_real_swedish_excel_roundtrip_uses_owned_process_and_leaves_no_workbook(
         assert receipt["validations"]["post_fill"]["status"] == "PASS"
         assert receipt["validations"]["saved_workbook"]["status"] == "PASS"
         formula = receipt["formula_inventory"]
-        assert formula["cell_formula_count"] == 2_690
+        assert formula["cell_formula_count"] == 2_609
         assert formula["function_counts"]["MAXIFS"] == 324
         assert formula["function_counts"]["MINIFS"] == 324
-        assert formula["function_counts"]["LET"] == 4
-        assert formula["let_local_occurrences"] == 204
+        assert formula["function_counts"].get("LET", 0) == 0
+        assert formula["let_local_occurrences"] == 0
         assert formula["unprefixed_future_functions"] == {}
         assert formula["unsupported_functions"] == {}
     finally:
@@ -98,9 +98,6 @@ def test_real_swedish_excel_investment_case_guards_unavailable_and_zero_domains(
                 "B135",
                 "B139",
                 "C139",
-                "E121",
-                "G121",
-                "E126",
             )
         }
     finally:
@@ -119,7 +116,6 @@ def test_real_swedish_excel_investment_case_guards_unavailable_and_zero_domains(
         "unavailable_price": {"D106": "Unavailable"},
         "unavailable_wacc": {"D112": "Unavailable"},
         "unavailable_fcf": {"D94": "Unavailable"},
-        "unavailable_target_pe": {"D107": "Unavailable"},
     }
     common: dict[str, object] = {
         "B69": "Base",
@@ -142,11 +138,6 @@ def test_real_swedish_excel_investment_case_guards_unavailable_and_zero_domains(
         "D106": 10,
         "D107": 10,
         "D112": 0.10,
-        "H121": 1,
-        "H122": 0,
-        "H123": 0,
-        "H124": 0,
-        "H125": 0,
     }
     for title, overrides in cases.items():
         sheet = workbook.create_sheet(title)
@@ -183,9 +174,6 @@ def test_real_swedish_excel_investment_case_guards_unavailable_and_zero_domains(
         assert valid["B135"].value == pytest.approx(980)
         assert valid["B139"].value == pytest.approx((980 * 0.10 - 100) / 1080)
         assert valid["C139"].value == "Market EV, selected FCF and WACC"
-        assert valid["E121"].value == pytest.approx((900 / 98) * 10)
-        assert valid["G121"].value == "Available"
-        assert valid["E126"].value == pytest.approx((900 / 98) * 10)
 
         no_adjustment = calculated["no_adjustment"]
         assert no_adjustment["D95"].value == pytest.approx(100)
@@ -213,9 +201,5 @@ def test_real_swedish_excel_investment_case_guards_unavailable_and_zero_domains(
             sheet = calculated[title]
             assert sheet["B139"].value in (None, "")
             assert sheet["C139"].value == "Unavailable | Market EV, selected FCF and WACC"
-        unavailable_target = calculated["unavailable_target_pe"]
-        assert unavailable_target["E121"].value in (None, "")
-        assert unavailable_target["G121"].value == "Unavailable"
-        assert unavailable_target["E126"].value in (None, "")
     finally:
         calculated.close()

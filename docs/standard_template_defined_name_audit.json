@@ -2,11 +2,11 @@
   "version": "1.0.0",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "summary": {
-    "retained_count": 286,
+    "retained_count": 225,
     "classification_counts": {
-      "active_binding_anchor": 172,
-      "formula_dependency": 73,
-      "generic_named_range": 25,
+      "active_binding_anchor": 156,
+      "formula_dependency": 23,
+      "generic_named_range": 30,
       "required_shell_anchor": 16
     },
     "target_mismatch_count": 0,
@@ -22,70 +22,6 @@
   },
   "defined_names": [
     {
-      "name": "Adj_EBITDA",
-      "attr_text": "'Valuation'!$D$200",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Adj_EPS_TTM",
-      "attr_text": "'Valuation'!$D$205",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Adj_FCF_TTM",
-      "attr_text": "'Valuation'!$D$202",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "AsOfQuarter",
-      "attr_text": "'Valuation'!$D$195",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "AutoImpliedGT",
-      "attr_text": "'Valuation'!$R$234",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "BV_PerShare",
-      "attr_text": "'Valuation'!$D$206",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Base_EBITDA",
-      "attr_text": "'Valuation'!$D$199",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Capex_TTM",
-      "attr_text": "'Valuation'!$D$211",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
       "name": "CompanyOperatingMargin_Latest",
       "attr_text": "'Valuation'!$M$14",
       "classification": "generic_named_range",
@@ -97,126 +33,6 @@
       "name": "CompanyOperatingMargin_TTM",
       "attr_text": "'Valuation'!$M$15",
       "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "DCF_EV",
-      "attr_text": "'Valuation'!$J$222",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "DCF_FCFF",
-      "attr_text": "'Valuation'!$J$218",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "DCF_Growth",
-      "attr_text": "'Valuation'!$J$219",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "DCF_Horizon",
-      "attr_text": "'Valuation'!$D$220",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "DCF_ImpliedPrice",
-      "attr_text": "'Valuation'!$J$223",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "DCF_TerminalGrowth",
-      "attr_text": "'Valuation'!$J$220",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "DCF_WACC",
-      "attr_text": "'Valuation'!$J$221",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "EPS_TTM",
-      "attr_text": "'Valuation'!$D$204",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "EV",
-      "attr_text": "'Valuation'!$N$195",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "EqShare_Target_Adj",
-      "attr_text": "'Valuation'!$N$203",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "EqShare_Target_EV",
-      "attr_text": "'Valuation'!$N$204",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "EqShare_Target_Yield",
-      "attr_text": "'Valuation'!$N$205",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Equity_FCF_Yield",
-      "attr_text": "'Valuation'!$N$200",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "FCFF_Proxy_TTM",
-      "attr_text": "'Valuation'!$N$198",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "FCF_TTM",
-      "attr_text": "'Valuation'!$D$201",
-      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -294,56 +110,320 @@
       "company_specific": false
     },
     {
-      "name": "ImpliedGT_Output",
-      "attr_text": "'Valuation'!$Q$223:$Q$230",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ImpliedGT_Status",
-      "attr_text": "'Valuation'!$S$223:$S$230",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ImpliedGT_WACC",
-      "attr_text": "'Valuation'!$P$223:$P$230",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Implied_EV_AdjEBITDA",
-      "attr_text": "'Valuation'!$N$196",
+      "name": "IC_Base_Adjusted_EBITDA",
+      "attr_text": "'{ticker}_Investment_Case'!$D$91",
       "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
     },
     {
-      "name": "Implied_EV_EBITDA",
-      "attr_text": "'Valuation'!$N$197",
+      "name": "IC_Base_Blended_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$19",
       "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
     },
     {
-      "name": "Implied_FCFF_Yield",
-      "attr_text": "'Valuation'!$N$199",
+      "name": "IC_Base_DCF_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$18",
       "classification": "generic_named_range",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
     },
     {
-      "name": "InterestPaid_TTM",
-      "attr_text": "'Valuation'!$D$212",
+      "name": "IC_Base_EV_Adjusted_EBITDA_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$15",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Base_EV_Revenue_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$16",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Base_FCF_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case'!$D$99",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Base_FCF_Yield_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$17",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Base_GAAP_EPS",
+      "attr_text": "'{ticker}_Investment_Case'!$D$98",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Base_PE_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$14",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Base_Upside_Downside",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BJ$19",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bear_Adjusted_EBITDA",
+      "attr_text": "'{ticker}_Investment_Case'!$C$91",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bear_Blended_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$13",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bear_DCF_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$12",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bear_EV_Adjusted_EBITDA_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$9",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bear_EV_Revenue_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$10",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bear_FCF_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case'!$C$99",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bear_FCF_Yield_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$11",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bear_GAAP_EPS",
+      "attr_text": "'{ticker}_Investment_Case'!$C$98",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bear_PE_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$8",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bear_Upside_Downside",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BJ$13",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bull_Adjusted_EBITDA",
+      "attr_text": "'{ticker}_Investment_Case'!$E$91",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bull_Blended_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$25",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bull_DCF_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$24",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bull_EV_Adjusted_EBITDA_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$21",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bull_EV_Revenue_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$22",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bull_FCF_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case'!$E$99",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bull_FCF_Yield_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$23",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bull_GAAP_EPS",
+      "attr_text": "'{ticker}_Investment_Case'!$E$98",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bull_PE_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$20",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Bull_Upside_Downside",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BJ$25",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Current_Adjusted_EBITDA",
+      "attr_text": "'{ticker}_Investment_Case'!$B$91",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Current_Blended_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$7",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Current_DCF_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$6",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Current_EV_Adjusted_EBITDA_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$3",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Current_EV_Revenue_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$4",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Current_FCF_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case'!$B$99",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Current_FCF_Yield_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$5",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Current_GAAP_EPS",
+      "attr_text": "'{ticker}_Investment_Case'!$B$98",
+      "classification": "formula_dependency",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Current_PE_Value_Per_Share",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BI$2",
+      "classification": "generic_named_range",
+      "expected_target": "",
+      "target_matches": true,
+      "company_specific": false
+    },
+    {
+      "name": "IC_Current_Upside_Downside",
+      "attr_text": "'{ticker}_Investment_Case_Data'!$BJ$7",
       "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
@@ -358,449 +438,9 @@
       "company_specific": false
     },
     {
-      "name": "MaintCapexRatio",
-      "attr_text": "'Valuation'!$D$213",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "MarketCap",
-      "attr_text": "'Valuation'!$N$194",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "NetDebt",
-      "attr_text": "'Valuation'!$D$198",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "NetIncome_TTM",
-      "attr_text": "'Valuation'!$D$217",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
       "name": "OperatingMargin_Latest",
       "attr_text": "'Valuation'!$M$14",
       "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "OwnerEarnings_TTM",
-      "attr_text": "'Valuation'!$N$201",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "OwnerEarnings_Yield",
-      "attr_text": "'Valuation'!$N$202",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "PerShareMode",
-      "attr_text": "'Valuation'!$D$216",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Price",
-      "attr_text": "'Valuation'!$D$194",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "RecurringCashCosts",
-      "attr_text": "'Valuation'!$D$214",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ResolvedRevenueGrowth_Base",
-      "attr_text": "'Valuation_Summary'!$I$2",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ResolvedRevenueGrowth_Bear",
-      "attr_text": "'Valuation_Summary'!$H$2",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ResolvedRevenueGrowth_Bull",
-      "attr_text": "'Valuation_Summary'!$J$2",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ResolvedRevenueGrowth_Custom",
-      "attr_text": "'Valuation_Summary'!$K$2",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Revenue_TTM",
-      "attr_text": "'Valuation'!$D$203",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioAdjustedEBITDA",
-      "attr_text": "'Valuation'!$E$243",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioAdjustedMargin",
-      "attr_text": "'Valuation'!$E$239",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioBaseEBITDA",
-      "attr_text": "'Valuation'!$E$242",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioBaseMargin",
-      "attr_text": "'Valuation'!$E$238",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioBuybackCash",
-      "attr_text": "'Valuation'!$D$253",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioBuybackPrice",
-      "attr_text": "'Valuation'!$D$254",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioCapexChange",
-      "attr_text": "'Valuation'!$D$249",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioCashInterestChange",
-      "attr_text": "'Valuation'!$D$248",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioDebtPaydown",
-      "attr_text": "'Valuation'!$D$256",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioEPS",
-      "attr_text": "'Valuation'!$E$261",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioEV",
-      "attr_text": "'Valuation'!$J$259",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioEVAdjustedEBITDA",
-      "attr_text": "'Valuation'!$R$261",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioEVBaseEBITDA",
-      "attr_text": "'Valuation'!$R$260",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioEVRevenue",
-      "attr_text": "'Valuation'!$R$259",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioEquityValue",
-      "attr_text": "'Valuation'!$J$260",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioFCF",
-      "attr_text": "'Valuation'!$E$244",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioFCFYield",
-      "attr_text": "'Valuation'!$N$261",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioGrowth",
-      "attr_text": "'Valuation'!$E$237",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioHorizon",
-      "attr_text": "'Valuation'!$J$236",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioImpliedPrice",
-      "attr_text": "'Valuation'!$J$261",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioInterestTaxTreatment",
-      "attr_text": "'Valuation'!$E$248",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioNetDebt",
-      "attr_text": "'Valuation'!$E$260",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioPE",
-      "attr_text": "'Valuation'!$N$260",
-      "classification": "generic_named_range",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioPreTaxBridge",
-      "attr_text": "'Valuation'!$D$247",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioProfile",
-      "attr_text": "'Valuation'!$E$236",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioRevenue",
-      "attr_text": "'Valuation'!$E$241",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioShareIssuance",
-      "attr_text": "'Valuation'!$D$255",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioShares",
-      "attr_text": "'Valuation'!$E$259",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioTaxRate",
-      "attr_text": "'Valuation'!$E$240",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioTaxTreatment",
-      "attr_text": "'Valuation'!$E$247",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioUpside",
-      "attr_text": "'Valuation'!$N$259",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "ScenarioWCAdjustment",
-      "attr_text": "'Valuation'!$D$250",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Shares",
-      "attr_text": "'Valuation'!$D$196",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "SharesDiluted",
-      "attr_text": "'Valuation'!$D$197",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "TBV_PerShare",
-      "attr_text": "'Valuation'!$D$207",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Target_EV_AdjEBITDA",
-      "attr_text": "'Valuation'!$D$208",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Target_EV_EBITDA",
-      "attr_text": "'Valuation'!$D$209",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Target_EV_Revenue",
-      "attr_text": "'Valuation'!$D$218",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Target_EV_Yield",
-      "attr_text": "'Valuation'!$D$210",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "Target_PE",
-      "attr_text": "'Valuation'!$D$219",
-      "classification": "formula_dependency",
-      "expected_target": "",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "WCNormalization",
-      "attr_text": "'Valuation'!$D$215",
-      "classification": "formula_dependency",
       "expected_target": "",
       "target_matches": true,
       "company_specific": false
@@ -2050,134 +1690,6 @@
       "attr_text": "'Valuation'!$O$29",
       "classification": "active_binding_anchor",
       "expected_target": "'Valuation'!$O$29",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_adjusted_ebitda_ttm",
-      "attr_text": "'Valuation'!$D$200",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$200",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_adjusted_eps_ttm",
-      "attr_text": "'Valuation'!$D$205",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$205",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_as_of",
-      "attr_text": "'Valuation'!$D$195",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$195",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_base_ebitda_ttm",
-      "attr_text": "'Valuation'!$D$199",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$199",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_book_value_per_share",
-      "attr_text": "'Valuation'!$D$206",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$206",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_capex_ttm",
-      "attr_text": "'Valuation'!$D$211",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$211",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_diluted_shares",
-      "attr_text": "'Valuation'!$D$197",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$197",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_eps_ttm",
-      "attr_text": "'Valuation'!$D$204",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$204",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_fcf_ttm",
-      "attr_text": "'Valuation'!$D$201",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$201",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_interest_paid_ttm",
-      "attr_text": "'Valuation'!$D$212",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$212",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_net_debt",
-      "attr_text": "'Valuation'!$D$198",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$198",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_net_income_ttm",
-      "attr_text": "'Valuation'!$D$217",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$217",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_operating_cash_flow_ttm",
-      "attr_text": "'Valuation'!$D$202",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$202",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_revenue_ttm",
-      "attr_text": "'Valuation'!$D$203",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$203",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_shares_outstanding",
-      "attr_text": "'Valuation'!$D$196",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$196",
-      "target_matches": true,
-      "company_specific": false
-    },
-    {
-      "name": "valuation_input_tangible_book_value_per_share",
-      "attr_text": "'Valuation'!$D$207",
-      "classification": "active_binding_anchor",
-      "expected_target": "'Valuation'!$D$207",
       "target_matches": true,
       "company_specific": false
     },

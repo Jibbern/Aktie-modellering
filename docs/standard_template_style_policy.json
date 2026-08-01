@@ -2547,107 +2547,11 @@
       "expected_empty_behavior": "no_style"
     },
     {
-      "formula_id": "valuation_output_formulas",
+      "formula_id": "valuation_forward_summary_formulas",
       "sheet": "Valuation",
-      "target": "N194:N210",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Valuation outputs are scenario results with dedicated output styling rather than period-comparison heatmaps.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_sidecar_formulas",
-      "sheet": "Valuation",
-      "target": "U64:U70",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Sidecar outputs use dedicated scenario semantics and are not period-comparison heatmap cells.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_sidecar_formulas",
-      "sheet": "Valuation",
-      "target": "U72:U75",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Sidecar outputs use dedicated scenario semantics and are not period-comparison heatmap cells.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
-      "target": "Q219:Q221",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Scenario setup cells use dedicated input and output styling, not historical comparison heatmaps.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
-      "target": "J222:J223",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Scenario setup cells use dedicated input and output styling, not historical comparison heatmaps.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
-      "target": "H227:L234",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Scenario grids own their own comparison presentation and are not historical period heatmaps.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
-      "target": "F236",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Scenario summary output has dedicated output styling and no historical comparator axis.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
-      "target": "E241:E244",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Scenario summary outputs have dedicated output styling and no historical comparator axis.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
-      "target": "E259:E261",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Scenario summary outputs have dedicated output styling and no historical comparator axis.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
-      "target": "J259:J261",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Scenario valuation outputs use dedicated output styling and no historical comparator axis.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
-      "target": "N236:N244",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Market-implied outputs use dedicated output styling and no historical comparator axis.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
-      "target": "N259:N261",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Scenario valuation ratios use dedicated output styling and no historical comparator axis.",
-      "expected_empty_behavior": "no_style"
-    },
-    {
-      "formula_id": "valuation_scenario_formulas",
-      "sheet": "Valuation",
-      "target": "R259:R261",
-      "owner_module_id": "valuation_scenarios",
-      "economic_reason": "Scenario valuation multiples use dedicated output styling and no historical comparator axis.",
+      "target": "B194:E198",
+      "owner_module_id": "investment_case_market_implied",
+      "economic_reason": "The compact Valuation summary directly projects canonical Investment Case outputs and owns no economic calculation.",
       "expected_empty_behavior": "no_style"
     },
     {

@@ -25,11 +25,14 @@ if str(ROOT) not in sys.path:
 
 from pbi_xbrl.json_schema_validation import load_json_strict
 from pbi_xbrl.new_ticker_guidance_scope import guidance_scope_key, normalize_guidance_scope
+from pbi_xbrl.new_ticker_investment_case_formula_surface import (
+    CANONICAL_SCENARIOS,
+    CANONICAL_VALUATION_METHODS,
+    canonical_valuation_matrix_row,
+)
 from pbi_xbrl.standard_template_formula_contract import (
     FORMULA_CONTRACT_VERSION,
     FORMULA_ROWS,
-    VALUATION_OUTPUT_FORMULA_CELLS,
-    VALUATION_SIDECAR_FORMULA_CELLS,
 )
 from scripts.build_anf_shadow_normalized_package import (
     _anf_history_source_evidence,
@@ -823,51 +826,6 @@ def _quarter_formula_calculability(
     else:
         return False, f"No economic dependency contract is defined for formula {formula_id}."
     return ok, "All source-backed formula dependencies are available." if ok else "One or more source-backed formula dependencies are unavailable."
-
-
-VALUATION_OUTPUT_DEPENDENCIES: dict[str, tuple[str, ...]] = {
-    "N194": ("price", "shares_outstanding"),
-    "N195": ("price", "shares_outstanding", "net_debt"),
-    "N196": ("price", "shares_outstanding", "net_debt", "adjusted_ebitda_ttm"),
-    "N197": ("price", "shares_outstanding", "net_debt", "base_ebitda_ttm"),
-    "N198": ("free_cash_flow_ttm", "interest_paid_ttm"),
-    "N199": ("free_cash_flow_ttm", "interest_paid_ttm", "price", "shares_outstanding", "net_debt"),
-    "N200": ("free_cash_flow_ttm", "price", "shares_outstanding"),
-    "N201": ("free_cash_flow_ttm", "capex_ttm", "maintenance_capex_ratio", "recurring_cash_costs", "working_capital_normalization"),
-    "N202": ("free_cash_flow_ttm", "capex_ttm", "maintenance_capex_ratio", "recurring_cash_costs", "working_capital_normalization", "price", "shares_outstanding", "net_debt"),
-    "N203": ("target_ev_adjusted_ebitda", "adjusted_ebitda_ttm", "net_debt", "per_share_denominator"),
-    "N204": ("target_ev_ebitda", "base_ebitda_ttm", "net_debt", "per_share_denominator"),
-    "N205": ("target_ev_yield", "free_cash_flow_ttm", "interest_paid_ttm", "net_debt", "per_share_denominator"),
-    "N206": ("price", "eps_ttm"),
-    "N207": ("price", "adjusted_eps_ttm"),
-    "N208": ("price", "shares_outstanding", "net_debt", "revenue_ttm"),
-    "N209": ("price", "book_value_per_share"),
-    "N210": ("price", "tangible_book_value_per_share"),
-    "U64": ("adjusted_ebitda_ttm",),
-    "U65": ("free_cash_flow_ttm",),
-    "U66": ("eps_ttm",),
-    "U67": ("adjusted_ebitda_ttm", "target_ev_adjusted_ebitda"),
-    "U68": ("adjusted_ebitda_ttm", "target_ev_adjusted_ebitda", "net_debt"),
-    "U69": ("base_ebitda_ttm", "target_ev_ebitda"),
-    "U70": ("base_ebitda_ttm", "target_ev_ebitda", "net_debt"),
-    "U73": ("target_ev_adjusted_ebitda", "adjusted_ebitda_ttm", "net_debt", "per_share_denominator"),
-    "U74": ("target_ev_ebitda", "base_ebitda_ttm", "net_debt", "per_share_denominator"),
-    "U75": ("target_ev_yield", "free_cash_flow_ttm", "interest_paid_ttm", "net_debt", "per_share_denominator"),
-}
-
-
-def _valuation_output_calculability(coordinate: str, package: Mapping[str, Any]) -> tuple[bool, str]:
-    required = VALUATION_OUTPUT_DEPENDENCIES.get(coordinate)
-    if required is None:
-        return False, f"No valuation-output dependency contract is defined for {coordinate}."
-    missing: list[str] = []
-    for field_name in required:
-        value, status, source_ref = _field_state(_path_get(package, f"valuation_inputs.{field_name}"))
-        if status != "populated" or value in (None, "") or not source_ref:
-            missing.append(field_name)
-    if missing:
-        return False, "Missing normalized valuation inputs: " + ", ".join(missing)
-    return True, "All normalized valuation-output dependencies are available."
 
 
 def _source_fact_status(
@@ -2017,41 +1975,85 @@ def build_parity_matrix(
                             ),
                         )
                     )
-        for coordinate in (*VALUATION_OUTPUT_FORMULA_CELLS, *VALUATION_SIDECAR_FORMULA_CELLS):
-            cell = wb["Valuation"][coordinate]
-            formula = cell.value
-            formula_present = isinstance(formula, str) and formula.startswith("=")
-            formula_protected = bool(cell.protection.locked)
-            calculable, calculation_reason = _valuation_output_calculability(coordinate, package)
-            entries.append(
-                _entry(
-                    parity_id=f"valuation_output:{coordinate}",
-                    domain="valuation_outputs",
-                    metric=str(wb["Valuation"].cell(wb["Valuation"][coordinate].row, 11 if coordinate.startswith("N") else 15).value or coordinate),
-                    period="latest",
-                    dimensions={},
-                    legacy_range=f"Valuation!{coordinate}",
-                    source_kind="derived",
-                    normalized_path="",
-                    requirement="may_improve_semantically",
-                    minimum=1,
-                    writes=[],
-                    formula_cell=f"Valuation!{coordinate}",
-                    formula_present=formula_present,
-                    formula_protected=formula_protected,
-                    economically_calculable=calculable,
-                    calculation_reason=calculation_reason,
-                    inventory_class="formula_improvement",
-                    inventory_origin="generic_formula_contract",
-                    comparison_result=(
-                        "formula_present_protected"
-                        if formula_present and formula_protected
-                        else "formula_present_unprotected"
-                        if formula_present
-                        else "formula_missing"
-                    ),
+        support = wb["{ticker}_Investment_Case_Data"]
+        for _scenario_label, scenario_token, _scenario_column in CANONICAL_SCENARIOS:
+            for method_id, _name_token, metric_id, _offset in CANONICAL_VALUATION_METHODS:
+                row = canonical_valuation_matrix_row(scenario_token, method_id)
+                formula_cells = tuple(support.cell(row, column) for column in range(57, 68))
+                formula_present = all(
+                    isinstance(cell.value, str) and cell.value.startswith("=")
+                    for cell in formula_cells
                 )
-            )
+                formula_protected = all(bool(cell.protection.locked) for cell in formula_cells)
+                entries.append(
+                    _entry(
+                        parity_id=f"investment_case_valuation:{scenario_token}:{method_id}",
+                        domain="investment_case_valuation_outputs",
+                        metric=metric_id,
+                        period="scenario",
+                        dimensions={"scenario": scenario_token, "method": method_id},
+                        legacy_range="",
+                        source_kind="derived",
+                        normalized_path="valuation_inputs",
+                        requirement="may_improve_semantically",
+                        minimum=1,
+                        writes=[],
+                        formula_cell=f"{{ticker}}_Investment_Case_Data!BE{row}:BO{row}",
+                        formula_present=formula_present,
+                        formula_protected=formula_protected,
+                        economically_calculable=formula_present,
+                        calculation_reason=(
+                            "Canonical Investment Case method formulas own all numeric and domain gates; "
+                            "the row remains blank when typed inputs are unavailable."
+                        ),
+                        inventory_class="formula_improvement",
+                        inventory_origin="investment_case_canonical_formula_contract",
+                        comparison_result=(
+                            "formula_present_protected"
+                            if formula_present and formula_protected
+                            else "formula_present_unprotected"
+                            if formula_present
+                            else "formula_missing"
+                        ),
+                    )
+                )
+
+        summary = wb["Valuation"]
+        for row in range(194, 199):
+            for column in range(2, 6):
+                cell = summary.cell(row, column)
+                coordinate = cell.coordinate
+                formula_present = isinstance(cell.value, str) and cell.value.startswith("=IC_")
+                formula_protected = bool(cell.protection.locked)
+                entries.append(
+                    _entry(
+                        parity_id=f"valuation_forward_summary:{coordinate}",
+                        domain="valuation_forward_summary",
+                        metric=str(summary.cell(row, 1).value or coordinate),
+                        period="scenario",
+                        dimensions={"scenario": str(summary.cell(193, column).value or "")},
+                        legacy_range="",
+                        source_kind="derived_reference",
+                        normalized_path="",
+                        requirement="may_improve_semantically",
+                        minimum=1,
+                        writes=[],
+                        formula_cell=f"Valuation!{coordinate}",
+                        formula_present=formula_present,
+                        formula_protected=formula_protected,
+                        economically_calculable=formula_present,
+                        calculation_reason="Direct named reference to the canonical Investment Case output.",
+                        inventory_class="formula_improvement",
+                        inventory_origin="canonical_summary_reference",
+                        comparison_result=(
+                            "formula_present_protected"
+                            if formula_present and formula_protected
+                            else "formula_present_unprotected"
+                            if formula_present
+                            else "formula_missing"
+                        ),
+                    )
+                )
     finally:
         wb.close()
         legacy.close()

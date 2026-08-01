@@ -4,6 +4,133 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 
+INVESTMENT_CASE_SHEET = "{ticker}_Investment_Case"
+INVESTMENT_CASE_DATA_SHEET = "{ticker}_Investment_Case_Data"
+CANONICAL_VALUATION_MATRIX_RANGE = "BB1:BQ25"
+CANONICAL_VALUATION_MATRIX_HEADERS = (
+    "scenario_id",
+    "method_id",
+    "metric_id",
+    "metric_value",
+    "target_value",
+    "enterprise_value",
+    "equity_value",
+    "value_per_share",
+    "upside_downside",
+    "method_state",
+    "entered_weight",
+    "effective_weight",
+    "weighted_value_per_share",
+    "period_id",
+    "formula_owner",
+    "lineage_state",
+)
+CANONICAL_SCENARIOS = (
+    ("Current baseline", "Current", "B"),
+    ("Bear", "Bear", "C"),
+    ("Base", "Base", "D"),
+    ("Bull", "Bull", "E"),
+)
+CANONICAL_VALUATION_METHODS = (
+    ("pe", "PE", "gaap_diluted_eps", 0),
+    ("ev_adjusted_ebitda", "EV_Adjusted_EBITDA", "adjusted_ebitda", 1),
+    ("ev_revenue", "EV_Revenue", "revenue", 2),
+    ("fcf_yield", "FCF_Yield", "free_cash_flow", 3),
+    ("dcf", "DCF", "fcff", 4),
+    ("blended", "Blended", "blended_value_per_share", 5),
+)
+CANONICAL_VALUATION_MATRIX_COLUMNS = (
+    "BB",
+    "BC",
+    "BD",
+    "BE",
+    "BF",
+    "BG",
+    "BH",
+    "BI",
+    "BJ",
+    "BK",
+    "BL",
+    "BM",
+    "BN",
+    "BO",
+    "BP",
+    "BQ",
+)
+
+
+def canonical_valuation_matrix_row(scenario_token: str, method_id: str) -> int:
+    scenario_index = next(
+        index for index, (_label, token, _column) in enumerate(CANONICAL_SCENARIOS) if token == scenario_token
+    )
+    method_index = next(
+        index for index, (candidate, _name_token, _metric_id, _offset) in enumerate(CANONICAL_VALUATION_METHODS)
+        if candidate == method_id
+    )
+    return 2 + scenario_index * len(CANONICAL_VALUATION_METHODS) + method_index
+
+
+def canonical_valuation_matrix_lookup_expression(
+    *,
+    support_sheet_reference: str,
+    output_column: str,
+    scenario_expression: str,
+    method_id: str,
+) -> str:
+    """Resolve exactly one canonical valuation row by scenario and method identity."""
+
+    if output_column not in CANONICAL_VALUATION_MATRIX_COLUMNS:
+        raise ValueError(f"Unknown canonical valuation matrix column {output_column!r}.")
+    valid_method_ids = {row[0] for row in CANONICAL_VALUATION_METHODS}
+    if method_id not in valid_method_ids:
+        raise ValueError(f"Unknown canonical valuation method {method_id!r}.")
+    method_literal = method_id.replace('"', '""')
+    scenario_range = f"{support_sheet_reference}!$BB$2:$BB$25"
+    method_range = f"{support_sheet_reference}!$BC$2:$BC$25"
+    output_range = f"{support_sheet_reference}!${output_column}$2:${output_column}$25"
+    match_expression = (
+        f'MATCH(1,INDEX(({scenario_range}={scenario_expression})*'
+        f'({method_range}="{method_literal}"),0),0)'
+    )
+    return (
+        f'IF(COUNTIFS({scenario_range},{scenario_expression},'
+        f'{method_range},"{method_literal}")<>1,"",'
+        f'INDEX({output_range},{match_expression}))'
+    )
+
+
+def canonical_investment_case_defined_names() -> dict[str, tuple[str, str]]:
+    """Return stable Investment Case output names and their owned destinations."""
+
+    result: dict[str, tuple[str, str]] = {}
+    operating_rows = {
+        "GAAP_EPS": 98,
+        "Adjusted_EBITDA": 91,
+        "FCF_Per_Share": 99,
+    }
+    for _label, scenario_token, scenario_column in CANONICAL_SCENARIOS:
+        for output_token, row in operating_rows.items():
+            result[f"IC_{scenario_token}_{output_token}"] = (
+                INVESTMENT_CASE_SHEET,
+                f"{scenario_column}{row}",
+            )
+        for method_id, name_token, _metric_id, _offset in CANONICAL_VALUATION_METHODS[:-1]:
+            result[f"IC_{scenario_token}_{name_token}_Value_Per_Share"] = (
+                INVESTMENT_CASE_DATA_SHEET,
+                f"BI{canonical_valuation_matrix_row(scenario_token, method_id)}",
+            )
+        blended_row = canonical_valuation_matrix_row(scenario_token, "blended")
+        result[f"IC_{scenario_token}_Blended_Value_Per_Share"] = (
+            INVESTMENT_CASE_DATA_SHEET,
+            f"BI{blended_row}",
+        )
+        result[f"IC_{scenario_token}_Upside_Downside"] = (
+            INVESTMENT_CASE_DATA_SHEET,
+            f"BJ{blended_row}",
+        )
+    return result
+
+
 def _safe_expression(
     operands: Iterable[str],
     expression: str,
@@ -34,12 +161,16 @@ def _text_literal(value: str) -> str:
 
 
 def apply_investment_case_formula_surface(
-    ws: Any,
+    workbook: Any,
     enabled_formula_ids: set[str],
 ) -> None:
     """Build the final read-through Investment Case workflow."""
 
     from pbi_xbrl import standard_template_formula_contract as contract
+
+    if INVESTMENT_CASE_SHEET not in workbook.sheetnames:
+        return
+    ws = workbook[INVESTMENT_CASE_SHEET]
 
     contract._prepare_investment_case_scenario_layout(ws)
     contract._clear_range(ws, "A13:Q240")
@@ -711,6 +842,269 @@ def apply_investment_case_formula_surface(
         ws[f"F{row}"] = explanation
         ws[f"C{row}"].number_format = fmt
 
+    support_sheet = workbook[INVESTMENT_CASE_DATA_SHEET]
+    support_name = contract.quote_sheetname(INVESTMENT_CASE_DATA_SHEET)
+    visible_name = contract.quote_sheetname(INVESTMENT_CASE_SHEET)
+
+    def visible_ref(coordinate: str) -> str:
+        column = "".join(character for character in coordinate if character.isalpha())
+        row = "".join(character for character in coordinate if character.isdigit())
+        return f"{visible_name}!${column}${row}"
+
+    def matrix_ref(column: str, scenario_token: str, method_id: str) -> str:
+        return f"{support_name}!${column}${canonical_valuation_matrix_row(scenario_token, method_id)}"
+
+    def selected_matrix(column: str, method_id: str) -> str:
+        return canonical_valuation_matrix_lookup_expression(
+            support_sheet_reference=support_name,
+            output_column=column,
+            scenario_expression=selected_scenario,
+            method_id=method_id,
+        )
+
+    def dcf_fcff_expression(scenario_column: str, year_index: int) -> str:
+        revenue = visible_ref(f"{scenario_column}85")
+        margin = visible_ref(f"{scenario_column}88")
+        tax_rate = visible_ref(f"{scenario_column}60")
+        capex = visible_ref(f"{scenario_column}63")
+        working_capital = visible_ref(f"{scenario_column}64")
+        growth = visible_ref(f"D{assumption_rows['dcf_revenue_growth']}")
+        base_revenue_ref = visible_ref(f"F{model_rows['revenue']}")
+        dna = visible_ref(f"F{model_rows['depreciation_amortization']}")
+        forecast_revenue = f"{revenue}*(1+{growth})^{year_index}"
+        return (
+            f"({forecast_revenue}*{margin}*(1-{tax_rate})+"
+            f"{dna}/{base_revenue_ref}*{forecast_revenue}-"
+            f"{capex}/{base_revenue_ref}*{forecast_revenue}-{working_capital})"
+        )
+
+    def dcf_enterprise_value_formula(scenario_column: str) -> str:
+        revenue = visible_ref(f"{scenario_column}85")
+        margin = visible_ref(f"{scenario_column}88")
+        tax_rate = visible_ref(f"{scenario_column}60")
+        capex = visible_ref(f"{scenario_column}63")
+        working_capital = visible_ref(f"{scenario_column}64")
+        growth = visible_ref(f"D{assumption_rows['dcf_revenue_growth']}")
+        wacc = visible_ref(f"D{assumption_rows['dcf_wacc']}")
+        terminal_growth = visible_ref(f"D{assumption_rows['dcf_terminal_growth']}")
+        years = visible_ref(f"D{assumption_rows['dcf_forecast_years']}")
+        base_revenue_ref = visible_ref(f"F{model_rows['revenue']}")
+        dna = visible_ref(f"F{model_rows['depreciation_amortization']}")
+        fcff = {year: dcf_fcff_expression(scenario_column, year) for year in range(1, 6)}
+        present_values = "+".join(
+            f"IF({years}>={year},{fcff[year]}/(1+{wacc})^{year},0)"
+            for year in range(1, 6)
+        )
+        terminal_fcff = fcff[5]
+        for year in range(4, 0, -1):
+            terminal_fcff = f"IF({years}={year},{fcff[year]},{terminal_fcff})"
+        expression = (
+            f"({present_values})+({terminal_fcff})*(1+{terminal_growth})/"
+            f"({wacc}-{terminal_growth})/(1+{wacc})^{years}"
+        )
+        return _safe_formula(
+            (
+                years,
+                revenue,
+                growth,
+                margin,
+                tax_rate,
+                dna,
+                base_revenue_ref,
+                capex,
+                working_capital,
+                wacc,
+                terminal_growth,
+            ),
+            expression,
+            invalid_conditions=(
+                f"{years}<1",
+                f"{years}>5",
+                f"MOD({years},1)<>0",
+                f"{base_revenue_ref}=0",
+                f"{tax_rate}<0",
+                f"{tax_rate}>1",
+                f"{wacc}<={terminal_growth}",
+                f"{wacc}<=-1",
+            ),
+        )
+
+    if "investment_case_valuation_matrix_formulas" in enabled_formula_ids:
+        contract._clear_range(support_sheet, CANONICAL_VALUATION_MATRIX_RANGE)
+        contract._remove_data_validations_overlapping(support_sheet, (CANONICAL_VALUATION_MATRIX_RANGE,))
+        for column_index, header in enumerate(CANONICAL_VALUATION_MATRIX_HEADERS, start=54):
+            support_sheet.cell(1, column_index).value = header
+
+        period_formula = (
+            '=IFERROR(INDEX($AL$2:$AL$201,MATCH("market_input|revenue",$W$2:$W$201,0)),"")'
+        )
+        target_rows = {
+            "pe": assumption_rows["target_pe"],
+            "ev_adjusted_ebitda": assumption_rows["target_ev_adjusted_ebitda"],
+            "ev_revenue": assumption_rows["target_ev_revenue"],
+            "fcf_yield": assumption_rows["target_fcf_yield"],
+            "dcf": assumption_rows["dcf_wacc"],
+        }
+        metric_rows = {
+            "pe": output_rows["eps"],
+            "ev_adjusted_ebitda": output_rows["adjusted_ebitda"],
+            "ev_revenue": output_rows["revenue"],
+            "fcf_yield": output_rows["free_cash_flow"],
+        }
+        weight_columns = {
+            "pe": "B",
+            "ev_adjusted_ebitda": "C",
+            "ev_revenue": "D",
+            "fcf_yield": "E",
+            "dcf": "F",
+        }
+        method_weight_range = f"{visible_name}!$B$117:$F$117"
+        invalid_method_weights = (
+            f"OR(COUNT({method_weight_range})<>COUNTA({method_weight_range}),"
+            f'COUNTIF({method_weight_range},"<0")>0,'
+            f'COUNTIF({method_weight_range},">1")>0)'
+        )
+        for scenario_label, scenario_token, scenario_column in CANONICAL_SCENARIOS:
+            first_method_row = canonical_valuation_matrix_row(scenario_token, "pe")
+            last_method_row = canonical_valuation_matrix_row(scenario_token, "dcf")
+            net_debt = visible_ref(f"{scenario_column}{output_rows['net_debt']}")
+            shares = visible_ref(f"{scenario_column}{output_rows['diluted_shares']}")
+            price = visible_ref(f"D{assumption_rows['price']}")
+            for method_id, _name_token, metric_id, _offset in CANONICAL_VALUATION_METHODS:
+                row = canonical_valuation_matrix_row(scenario_token, method_id)
+                support_sheet[f"BB{row}"] = scenario_label
+                support_sheet[f"BC{row}"] = method_id
+                support_sheet[f"BD{row}"] = metric_id
+                support_sheet[f"BP{row}"] = "investment_case_scenario_valuation"
+                support_sheet[f"BQ{row}"] = "canonical_formula"
+                set_formula(support_sheet[f"BO{row}"], period_formula, "General")
+                if method_id == "blended":
+                    for column in ("BE", "BF", "BG", "BH"):
+                        set_formula(support_sheet[f"{column}{row}"], '=""', "General")
+                    denominator = f"SUM(BM{first_method_row}:BM{last_method_row})"
+                    numerator = f"SUM(BN{first_method_row}:BN{last_method_row})"
+                    set_formula(
+                        support_sheet[f"BI{row}"],
+                        (
+                            f'=IF({invalid_method_weights},"",'
+                            f'IF({denominator}<=0,"",'
+                            f'IF(ABS({denominator}-1)>0.0000001,"",{numerator})))'
+                        ),
+                        "$0.00;-$0.00",
+                    )
+                    set_formula(
+                        support_sheet[f"BJ{row}"],
+                        _safe_formula((f"BI{row}", price), f"BI{row}/{price}-1", invalid_conditions=(f"{price}<=0",)),
+                        "0.0%;-0.0%",
+                    )
+                    set_formula(
+                        support_sheet[f"BK{row}"],
+                        (
+                            f'=IF({invalid_method_weights},"Invalid method weight",'
+                            f'IF(ISNUMBER(BI{row}),"Available methods weighted to 100%",'
+                            f'IF({denominator}<=0,"Unavailable",'
+                            f'"Available-method weights must sum to 100%")))'
+                        ),
+                        "General",
+                    )
+                    set_formula(support_sheet[f"BL{row}"], '=""', "0.0%;-0.0%")
+                    set_formula(
+                        support_sheet[f"BM{row}"],
+                        f'=IF({invalid_method_weights},"",{denominator})',
+                        "0.0%;-0.0%",
+                    )
+                    set_formula(
+                        support_sheet[f"BN{row}"],
+                        f'=IF({invalid_method_weights},"",IF(ISNUMBER(BI{row}),BI{row},""))',
+                        "$0.00;-$0.00",
+                    )
+                    continue
+
+                if method_id == "dcf":
+                    metric = dcf_fcff_expression(scenario_column, 1)
+                    target = visible_ref(f"D{target_rows[method_id]}")
+                    dcf_base_revenue = visible_ref(f"F{model_rows['revenue']}")
+                    dcf_tax_rate = visible_ref(f"{scenario_column}60")
+                    set_formula(
+                        support_sheet[f"BE{row}"],
+                        _safe_formula(
+                            (
+                                visible_ref(f"{scenario_column}85"),
+                                visible_ref(f"{scenario_column}88"),
+                                visible_ref(f"{scenario_column}60"),
+                                visible_ref(f"{scenario_column}63"),
+                                visible_ref(f"{scenario_column}64"),
+                                visible_ref(f"D{assumption_rows['dcf_revenue_growth']}"),
+                                visible_ref(f"F{model_rows['revenue']}"),
+                                visible_ref(f"F{model_rows['depreciation_amortization']}"),
+                            ),
+                            metric,
+                            invalid_conditions=(
+                                f"{dcf_base_revenue}=0",
+                                f"{dcf_tax_rate}<0",
+                                f"{dcf_tax_rate}>1",
+                            ),
+                        ),
+                        "#,##0.0;-#,##0.0",
+                    )
+                    set_formula(support_sheet[f"BF{row}"], f'=IF(ISNUMBER({target}),{target},"")', "0.0%;-0.0%")
+                    set_formula(support_sheet[f"BG{row}"], dcf_enterprise_value_formula(scenario_column), "#,##0.0;-#,##0.0")
+                    set_formula(
+                        support_sheet[f"BH{row}"],
+                        _safe_formula((f"BG{row}", net_debt), f"BG{row}-{net_debt}"),
+                        "#,##0.0;-#,##0.0",
+                    )
+                    set_formula(
+                        support_sheet[f"BI{row}"],
+                        _safe_formula((f"BH{row}", shares), f"BH{row}/{shares}", invalid_conditions=(f"{shares}<=0",)),
+                        "$0.00;-$0.00",
+                    )
+                else:
+                    metric = visible_ref(f"{scenario_column}{metric_rows[method_id]}")
+                    target = visible_ref(f"D{target_rows[method_id]}")
+                    set_formula(support_sheet[f"BE{row}"], f'=IF(ISNUMBER({metric}),{metric},"")', contract._ic_number_format({"pe": "$/share", "ev_adjusted_ebitda": "$m", "ev_revenue": "$m", "fcf_yield": "$m"}[method_id]))
+                    set_formula(support_sheet[f"BF{row}"], f'=IF(ISNUMBER({target}),{target},"")', "0.0%;-0.0%" if method_id == "fcf_yield" else "0.00x;-0.00x")
+                    if method_id == "pe":
+                        equity_formula = _safe_formula((metric, target, shares), f"{metric}*{target}*{shares}", invalid_conditions=(f"{target}<=0", f"{shares}<=0"))
+                        value_formula = _safe_formula((metric, target), f"{metric}*{target}", invalid_conditions=(f"{target}<=0",))
+                        set_formula(support_sheet[f"BH{row}"], equity_formula, "#,##0.0;-#,##0.0")
+                        set_formula(support_sheet[f"BG{row}"], _safe_formula((f"BH{row}", net_debt), f"BH{row}+{net_debt}"), "#,##0.0;-#,##0.0")
+                        set_formula(support_sheet[f"BI{row}"], value_formula, "$0.00;-$0.00")
+                    elif method_id in {"ev_adjusted_ebitda", "ev_revenue"}:
+                        set_formula(support_sheet[f"BG{row}"], _safe_formula((metric, target), f"{metric}*{target}", invalid_conditions=(f"{target}<=0",)), "#,##0.0;-#,##0.0")
+                        set_formula(support_sheet[f"BH{row}"], _safe_formula((f"BG{row}", net_debt), f"BG{row}-{net_debt}"), "#,##0.0;-#,##0.0")
+                        set_formula(support_sheet[f"BI{row}"], _safe_formula((f"BH{row}", shares), f"BH{row}/{shares}", invalid_conditions=(f"{shares}<=0",)), "$0.00;-$0.00")
+                    else:
+                        set_formula(support_sheet[f"BH{row}"], _safe_formula((metric, target), f"{metric}/{target}", invalid_conditions=(f"{target}<=0",)), "#,##0.0;-#,##0.0")
+                        set_formula(support_sheet[f"BG{row}"], _safe_formula((f"BH{row}", net_debt), f"BH{row}+{net_debt}"), "#,##0.0;-#,##0.0")
+                        set_formula(support_sheet[f"BI{row}"], _safe_formula((f"BH{row}", shares), f"BH{row}/{shares}", invalid_conditions=(f"{shares}<=0",)), "$0.00;-$0.00")
+
+                set_formula(
+                    support_sheet[f"BJ{row}"],
+                    _safe_formula((f"BI{row}", price), f"BI{row}/{price}-1", invalid_conditions=(f"{price}<=0",)),
+                    "0.0%;-0.0%",
+                )
+                set_formula(support_sheet[f"BK{row}"], f'=IF(ISNUMBER(BI{row}),"Available","Unavailable")', "General")
+                weight = visible_ref(f"{weight_columns[method_id]}117")
+                set_formula(support_sheet[f"BL{row}"], f'=IF({weight}="","",{weight})', "0.0%;-0.0%")
+                set_formula(
+                    support_sheet[f"BM{row}"],
+                    (
+                        f'=IF({invalid_method_weights},"",'
+                        f'IF(NOT(ISNUMBER(BI{row})),0,IF(BL{row}="",0,BL{row})))'
+                    ),
+                    "0.0%;-0.0%",
+                )
+                set_formula(
+                    support_sheet[f"BN{row}"],
+                    (
+                        f'=IF({invalid_method_weights},"",'
+                        f'IF(NOT(ISNUMBER(BM{row})),"",'
+                        f'IF(BM{row}=0,0,IF(NOT(ISNUMBER(BI{row})),"",BI{row}*BM{row}))))'
+                    ),
+                    "$0.00;-$0.00",
+                )
+
     ws["G115"] = (
         "Method weights (%) - Blended value/share, enter percentages that sum to 100% "
         "across available methods; blank or 0 excludes a method."
@@ -722,137 +1116,26 @@ def apply_investment_case_formula_surface(
     selected_shares = selected_output(output_rows["diluted_shares"])
     selected_net_debt = selected_output(output_rows["net_debt"])
     valuation_methods = (
-        (121, "P/E", selected_output(output_rows["eps"]), f"$D${assumption_rows['target_pe']}", "$/share", "B117"),
-        (
-            122,
-            "EV / adjusted EBITDA",
-            selected_output(output_rows["adjusted_ebitda"]),
-            f"$D${assumption_rows['target_ev_adjusted_ebitda']}",
-            "$m",
-            "C117",
-        ),
-        (
-            123,
-            "EV / revenue",
-            selected_output(output_rows["revenue"]),
-            f"$D${assumption_rows['target_ev_revenue']}",
-            "$m",
-            "D117",
-        ),
-        (
-            124,
-            "FCF yield",
-            selected_output(output_rows["free_cash_flow"]),
-            f"$D${assumption_rows['target_fcf_yield']}",
-            "$m",
-            "E117",
-        ),
-        (125, "DCF", "$H$165", "", "$/share", "F117"),
+        (121, "P/E", "pe", "$/share", "0.00x;-0.00x"),
+        (122, "EV / adjusted EBITDA", "ev_adjusted_ebitda", "$m", "0.00x;-0.00x"),
+        (123, "EV / revenue", "ev_revenue", "$m", "0.00x;-0.00x"),
+        (124, "FCF yield", "fcf_yield", "$m", "0.0%;-0.0%"),
+        (125, "DCF", "dcf", "$m", "0.0%;-0.0%"),
     )
-    for row, method, metric, target, metric_unit, weight in valuation_methods:
+    for row, method, method_id, metric_unit, target_format in valuation_methods:
         ws[f"A{row}"] = method
-        set_formula(ws[f"B{row}"], f'=IF(ISNUMBER({metric}),{metric},"")', number_format(metric_unit))
-        if method == "DCF":
-            set_formula(ws[f"C{row}"], '=""', "General")
-            set_formula(ws[f"D{row}"], '=IF(ISNUMBER($H$163),$H$163,"")', "#,##0.0;-#,##0.0")
-            set_formula(ws[f"E{row}"], '=IF(ISNUMBER($H$165),$H$165,"")', "$0.00;-$0.00")
-        elif method == "P/E":
-            set_formula(ws[f"C{row}"], f'=IF(ISNUMBER({target}),{target},"")', "0.00x;-0.00x")
-            set_formula(
-                ws[f"D{row}"],
-                _safe_formula(
-                    (metric, target, selected_shares),
-                    f"{metric}*{target}*{selected_shares}",
-                    invalid_conditions=(f"{target}<=0", f"{selected_shares}<=0"),
-                ),
-                "#,##0.0;-#,##0.0",
-            )
-            set_formula(
-                ws[f"E{row}"],
-                _safe_formula((metric, target), f"{metric}*{target}", invalid_conditions=(f"{target}<=0",)),
-                "$0.00;-$0.00",
-            )
-        elif method in {"EV / adjusted EBITDA", "EV / revenue"}:
-            set_formula(ws[f"C{row}"], f'=IF(ISNUMBER({target}),{target},"")', "0.00x;-0.00x")
-            set_formula(
-                ws[f"D{row}"],
-                _safe_formula(
-                    (metric, target, selected_net_debt),
-                    f"{metric}*{target}-{selected_net_debt}",
-                    invalid_conditions=(f"{target}<=0",),
-                ),
-                "#,##0.0;-#,##0.0",
-            )
-            set_formula(
-                ws[f"E{row}"],
-                _safe_formula(
-                    (f"D{row}", selected_shares),
-                    f"D{row}/{selected_shares}",
-                    invalid_conditions=(f"{selected_shares}<=0",),
-                ),
-                "$0.00;-$0.00",
-            )
-        else:
-            set_formula(ws[f"C{row}"], f'=IF(ISNUMBER({target}),{target},"")', "0.0%;-0.0%")
-            set_formula(
-                ws[f"D{row}"],
-                _safe_formula((metric, target), f"{metric}/{target}", invalid_conditions=(f"{target}<=0",)),
-                "#,##0.0;-#,##0.0",
-            )
-            set_formula(
-                ws[f"E{row}"],
-                _safe_formula(
-                    (f"D{row}", selected_shares),
-                    f"D{row}/{selected_shares}",
-                    invalid_conditions=(f"{selected_shares}<=0",),
-                ),
-                "$0.00;-$0.00",
-            )
-        set_formula(
-            ws[f"F{row}"],
-            _safe_formula(
-                (f"E{row}", selected_price),
-                f"E{row}/{selected_price}-1",
-                invalid_conditions=(f"{selected_price}<=0",),
-            ),
-            "0.0%;-0.0%",
-        )
-        set_formula(ws[f"G{row}"], f'=IF(ISNUMBER(E{row}),"Available","Unavailable")', "General")
-        set_formula(ws[f"H{row}"], f'=IF(ISNUMBER({weight}),{weight},"")', "0.0%;-0.0%")
+        set_formula(ws[f"B{row}"], f'={selected_matrix("BE", method_id)}', number_format(metric_unit))
+        set_formula(ws[f"C{row}"], f'={selected_matrix("BF", method_id)}', target_format)
+        set_formula(ws[f"D{row}"], f'={selected_matrix("BH", method_id)}', "#,##0.0;-#,##0.0")
+        set_formula(ws[f"E{row}"], f'={selected_matrix("BI", method_id)}', "$0.00;-$0.00")
+        set_formula(ws[f"F{row}"], f'={selected_matrix("BJ", method_id)}', "0.0%;-0.0%")
+        set_formula(ws[f"G{row}"], f'={selected_matrix("BK", method_id)}', "General")
+        set_formula(ws[f"H{row}"], f'={selected_matrix("BL", method_id)}', "0.0%;-0.0%")
 
     ws["A126"] = "Weighted value/share ($/share)"
-    numerator_terms = [
-        f"IF(ISNUMBER(E{row}),IF(ISNUMBER(H{row}),IF(H{row}>0,E{row}*H{row},0),0),0)"
-        for row in range(121, 126)
-    ]
-    denominator_terms = [
-        f"IF(ISNUMBER(E{row}),IF(ISNUMBER(H{row}),IF(H{row}>0,H{row},0),0),0)"
-        for row in range(121, 126)
-    ]
-    denominator = "+".join(denominator_terms)
-    set_formula(
-        ws["E126"],
-        (
-            f'=IF(({denominator})<=0,"",'
-            f'IF(ABS(({denominator})-1)>0.0000001,"",'
-            f'({"+".join(numerator_terms)})))'
-        ),
-        "$0.00;-$0.00",
-    )
-    set_formula(
-        ws["F126"],
-        _safe_formula(("E126", selected_price), f"E126/{selected_price}-1", invalid_conditions=(f"{selected_price}<=0",)),
-        "0.0%;-0.0%",
-    )
-    set_formula(
-        ws["G126"],
-        (
-            f'=IF(ISNUMBER(E126),"Available methods weighted to 100%",'
-            f'IF(({denominator})<=0,"Unavailable",'
-            f'"Available-method weights must sum to 100%"))'
-        ),
-        "General",
-    )
+    set_formula(ws["E126"], f'={selected_matrix("BI", "blended")}', "$0.00;-$0.00")
+    set_formula(ws["F126"], f'={selected_matrix("BJ", "blended")}', "0.0%;-0.0%")
+    set_formula(ws["G126"], f'={selected_matrix("BK", "blended")}', "General")
     ws["A127"] = "Valuation method discipline"
     set_formula(
         ws["G127"],
@@ -866,22 +1149,17 @@ def apply_investment_case_formula_surface(
         "General",
     )
 
-    for output_column in scenario_columns:
-        header = f"{output_column}$83"
-        if output_column == "B":
-            set_formula(ws["B100"], f'=IF(ISNUMBER({selected_price}),{selected_price},"")', "$0.00;-$0.00")
-            set_formula(ws["B101"], f'=IF(ISNUMBER({selected_price}),0,"")', "0.0%;-0.0%")
-        else:
-            set_formula(
-                ws[f"{output_column}100"],
-                f'=IF({header}={selected_scenario},IF(ISNUMBER($E$126),$E$126,""),"")',
-                "$0.00;-$0.00",
-            )
-            set_formula(
-                ws[f"{output_column}101"],
-                f'=IF({header}={selected_scenario},IF(ISNUMBER($F$126),$F$126,""),"")',
-                "0.0%;-0.0%",
-            )
+    for (_scenario_label, scenario_token, output_column) in CANONICAL_SCENARIOS:
+        set_formula(
+            ws[f"{output_column}100"],
+            f'={matrix_ref("BI", scenario_token, "blended")}',
+            "$0.00;-$0.00",
+        )
+        set_formula(
+            ws[f"{output_column}101"],
+            f'={matrix_ref("BJ", scenario_token, "blended")}',
+            "0.0%;-0.0%",
+        )
 
     bridge_specs = (
         (73, "Revenue growth (%)", "$B$86", selected_output(86), selected_output(85), "%", "$m"),
@@ -1044,11 +1322,11 @@ def apply_investment_case_formula_surface(
         (158, "Terminal growth", f'=IF(ISNUMBER({dcf_terminal}),{dcf_terminal},"")', "0.0%;-0.0%"),
         (159, "Present value of forecast FCFF", _safe_formula((dcf_years,), "SUM(B165:F165)", invalid_conditions=(*valid_horizon_conditions, f"COUNT(B165:F165)<>{dcf_years}")), "#,##0.0;-#,##0.0"),
         (160, "Present value of terminal value", _safe_formula((dcf_years, terminal_fcff, dcf_wacc, dcf_terminal, terminal_discount), f"{terminal_fcff}*(1+{dcf_terminal})/({dcf_wacc}-{dcf_terminal})*{terminal_discount}", invalid_conditions=(*valid_horizon_conditions, f"COUNT(B163:F163)<>{dcf_years}", f"{dcf_wacc}<={dcf_terminal}")), "#,##0.0;-#,##0.0"),
-        (161, "Enterprise value", _safe_formula(("H159", "H160"), "H159+H160"), "#,##0.0;-#,##0.0"),
+        (161, "Enterprise value", f'={selected_matrix("BG", "dcf")}', "#,##0.0;-#,##0.0"),
         (162, "Net cash / debt", f'=IF(ISNUMBER({selected_net_debt}),{selected_net_debt},"")', "#,##0.0;-#,##0.0"),
-        (163, "Equity value", _safe_formula(("H161", "H162"), "H161-H162"), "#,##0.0;-#,##0.0"),
+        (163, "Equity value", f'={selected_matrix("BH", "dcf")}', "#,##0.0;-#,##0.0"),
         (164, "Diluted shares", f'=IF(ISNUMBER({selected_shares}),{selected_shares},"")', "#,##0.000;-#,##0.000"),
-        (165, "Value/share", _safe_formula(("H163", "H164"), "H163/H164", invalid_conditions=("H164<=0",)), "$0.00;-$0.00"),
+        (165, "Value/share", f'={selected_matrix("BI", "dcf")}', "$0.00;-$0.00"),
     )
     for row, label, formula, fmt in dcf_summary:
         ws[f"G{row}"] = label
@@ -1104,6 +1382,7 @@ def apply_investment_case_formula_surface(
             contract,
             assumption_rows,
             selected_output,
+            selected_matrix,
         )
 
     for slot_index, row in enumerate(range(219, 226), start=1):
@@ -1130,6 +1409,7 @@ def _apply_sensitivities(
     contract: Any,
     assumption_rows: dict[str, int],
     selected_output: Any,
+    selected_matrix: Any,
 ) -> None:
     set_formula = contract._set_formula
 
@@ -1140,7 +1420,7 @@ def _apply_sensitivities(
             "P/E step (x)",
             "EPS step ($/share)",
             f"$D${assumption_rows['target_pe']}",
-            selected_output(98),
+            selected_matrix("BE", "pe"),
         ),
         (
             198,
@@ -1148,7 +1428,7 @@ def _apply_sensitivities(
             "Multiple step (x)",
             "EBITDA step ($m)",
             f"$D${assumption_rows['target_ev_adjusted_ebitda']}",
-            selected_output(91),
+            selected_matrix("BE", "ev_adjusted_ebitda"),
         ),
         (
             204,
@@ -1156,7 +1436,7 @@ def _apply_sensitivities(
             "Yield step (%)",
             "FCF step ($m)",
             f"$D${assumption_rows['target_fcf_yield']}",
-            selected_output(94),
+            selected_matrix("BE", "fcf_yield"),
         ),
         (
             210,
@@ -1204,6 +1484,8 @@ def _apply_sensitivities(
 
     shares = selected_output(95)
     net_debt = selected_output(96)
+    adjusted_ebitda = selected_matrix("BE", "ev_adjusted_ebitda")
+    free_cash_flow = selected_matrix("BE", "fcf_yield")
     dcf_years = f"$D${assumption_rows['dcf_forecast_years']}"
 
     for column_index, column in enumerate("BCD", start=-1):
@@ -1240,7 +1522,7 @@ def _apply_sensitivities(
     for row_index, row in enumerate(range(201, 204), start=-1):
         set_formula(
             ws[f"A{row}"],
-            _safe_formula((selected_output(95), "$I$199"), f"{selected_output(95)}+({row_index})*$I$199"),
+            _safe_formula((adjusted_ebitda, "$I$199"), f"{adjusted_ebitda}+({row_index})*$I$199"),
             "#,##0.0;-#,##0.0",
         )
         for column in "BCD":
@@ -1267,7 +1549,7 @@ def _apply_sensitivities(
     for row_index, row in enumerate(range(207, 210), start=-1):
         set_formula(
             ws[f"A{row}"],
-            _safe_formula((selected_output(99), "$I$205"), f"{selected_output(99)}+({row_index})*$I$205"),
+            _safe_formula((free_cash_flow, "$I$205"), f"{free_cash_flow}+({row_index})*$I$205"),
             "#,##0.0;-#,##0.0",
         )
         for column in "BCD":

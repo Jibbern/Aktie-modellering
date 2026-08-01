@@ -2719,8 +2719,6 @@ def _validate_manifest_and_binding_contracts(
         if period_axis_role == "dependent" and not str(binding.get("period_field") or ""):
             issues.append(_planner_issue("P1", "binding_period_axis_period_field_missing", binding_id, "A period-axis dependent binding requires period_field."))
         normalized_field = str(binding.get("normalized_field") or "")
-        if str(binding.get("sheet") or "") == "Valuation" and "output" in str(binding.get("section") or "").lower() and normalized_field.startswith("mapping_gaps"):
-            issues.append(_planner_issue("P1", "valuation_output_mapping_gap_forbidden", binding_id, "Valuation output rows must consume explicit valuation_outputs or be formula-owned; they must never consume mapping_gaps."))
         if normalized_field.startswith(("mapping_gaps", "manual_review_flags")) and str(binding.get("sheet") or "") not in _QA_SHEETS:
             issues.append(_planner_issue("P1", "qa_output_outside_qa_sheet", binding_id, "Mapping gaps and manual-review flags may only bind to QA_Log, Needs_Review, or QA_Checks."))
     return issues

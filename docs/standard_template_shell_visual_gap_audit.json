@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-29T08:49:03.767205+00:00",
+  "generated_at": "2026-08-01T08:54:01.653500+00:00",
   "preview_mode": "openpyxl_static_not_excel_com",
   "standard_shell": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "anf_template_lab": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\lab\\ANF_template_lab.xlsx",
@@ -15,63 +15,63 @@
       "issues": [],
       "expected": {
         "semantic_contract_version": "1.8.0",
-        "workbook_sha256": "48b3c4eb7d5e297801256d0e2c798faa7d98ea2369b81fa231cde9ceaa02fa67",
-        "manifest_contract_signature": "8390ebc56db2142003448c954c7642f7eddeea4936102709cb614641245da57a",
-        "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
-        "sheet_view_signature": "5ae4c17c9e6e533360466d0ae893a8f0e3f93605fda2cfd63bce85721c1c10b2",
-        "merge_signature": "749efb334802c7a9e0ea6e5bcaf32e1f59713b67ea52273ae6f05618e64a7504",
-        "defined_name_signature": "60a7cb609d8fae5aa025d5d18383edb36bf8b911be48de4d43149ad9565d683e",
-        "writable_target_signature": "b538d79a040ef43260026043547997df21a76b80d03b3a53e4a44947acd9cd14",
-        "binding_contract_signature": "9b27c358603aff9a4fafaffcbfe42d48f08b234b49ce2eb34667f3e89f7a29aa",
-        "formula_static_zone_signature": "61aaf9b483cb0e5333acface8d23199583e133d45e74b2bcebb6c9fdbe172fe0",
-        "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
-        "editable_surface_signature": "5d52735aea648ce8a47eea6c04a682440ef9916596c431f18da734851c36c805",
+        "workbook_sha256": "b47064e42f61666147835be1a75508ec8926a94a9911da27697236e1f3cf1e6f",
+        "manifest_contract_signature": "8d370d6dbe7883b1df23f5e5a301b5ee99fc129bd4231d29c191566af0d83c97",
+        "sheet_order_visibility_signature": "e6935c63c7976ff2c337dce141e35dad61763719f765246a468499c15d376159",
+        "sheet_view_signature": "7739c24e505b2fc50af59725414bd128460c19233e17181b282b00685485b6a5",
+        "merge_signature": "53a1120b25a06407d85840a45f52c643ba2b05a7733fd6a97fea5e0e868dcf7e",
+        "defined_name_signature": "29990531bd1f310bc27068e4827f66342d0d3c47d02095a0f780e7f39a2e2614",
+        "writable_target_signature": "3b23ba583eaba052e6a5391cc60698515b5168462389fc6d00b5eaf680ae8a87",
+        "binding_contract_signature": "460c019af7d4b78b2189ca74a6c5e5b94ff5befd8f0eb0a1b1ccd1197889beb8",
+        "formula_static_zone_signature": "708e39dd560c3418176589f0353af550d8a13cc9e93e1dd3f121f54d4c21cd88",
+        "worksheet_protection_signature": "66f4953849b53ff410928b51204a8689ab44ed4ba5833dcb8497522563798019",
+        "editable_surface_signature": "9be323479b498413fd1c8a1c3a1dfff4be5c800e3b58826b59ae3fc4faf80078",
         "counts": {
-          "sheets": 46,
-          "sheet_views": 46,
-          "merges": 1613,
-          "defined_names": 281,
-          "writable_targets": 605,
-          "binding_contracts": 184,
-          "formula_cells": 2690,
-          "static_cells": 1799,
-          "protected_worksheets": 46,
-          "editable_cells": 119
+          "sheets": 44,
+          "sheet_views": 44,
+          "merges": 1459,
+          "defined_names": 225,
+          "writable_targets": 592,
+          "binding_contracts": 172,
+          "formula_cells": 2609,
+          "static_cells": 1597,
+          "protected_worksheets": 44,
+          "editable_cells": 75
         }
       },
       "actual": {
         "semantic_contract_version": "1.8.0",
-        "workbook_sha256": "48b3c4eb7d5e297801256d0e2c798faa7d98ea2369b81fa231cde9ceaa02fa67",
-        "manifest_contract_signature": "8390ebc56db2142003448c954c7642f7eddeea4936102709cb614641245da57a",
-        "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
-        "sheet_view_signature": "5ae4c17c9e6e533360466d0ae893a8f0e3f93605fda2cfd63bce85721c1c10b2",
-        "merge_signature": "749efb334802c7a9e0ea6e5bcaf32e1f59713b67ea52273ae6f05618e64a7504",
-        "defined_name_signature": "60a7cb609d8fae5aa025d5d18383edb36bf8b911be48de4d43149ad9565d683e",
-        "writable_target_signature": "b538d79a040ef43260026043547997df21a76b80d03b3a53e4a44947acd9cd14",
-        "binding_contract_signature": "9b27c358603aff9a4fafaffcbfe42d48f08b234b49ce2eb34667f3e89f7a29aa",
-        "formula_static_zone_signature": "61aaf9b483cb0e5333acface8d23199583e133d45e74b2bcebb6c9fdbe172fe0",
-        "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
-        "editable_surface_signature": "5d52735aea648ce8a47eea6c04a682440ef9916596c431f18da734851c36c805",
+        "workbook_sha256": "b47064e42f61666147835be1a75508ec8926a94a9911da27697236e1f3cf1e6f",
+        "manifest_contract_signature": "8d370d6dbe7883b1df23f5e5a301b5ee99fc129bd4231d29c191566af0d83c97",
+        "sheet_order_visibility_signature": "e6935c63c7976ff2c337dce141e35dad61763719f765246a468499c15d376159",
+        "sheet_view_signature": "7739c24e505b2fc50af59725414bd128460c19233e17181b282b00685485b6a5",
+        "merge_signature": "53a1120b25a06407d85840a45f52c643ba2b05a7733fd6a97fea5e0e868dcf7e",
+        "defined_name_signature": "29990531bd1f310bc27068e4827f66342d0d3c47d02095a0f780e7f39a2e2614",
+        "writable_target_signature": "3b23ba583eaba052e6a5391cc60698515b5168462389fc6d00b5eaf680ae8a87",
+        "binding_contract_signature": "460c019af7d4b78b2189ca74a6c5e5b94ff5befd8f0eb0a1b1ccd1197889beb8",
+        "formula_static_zone_signature": "708e39dd560c3418176589f0353af550d8a13cc9e93e1dd3f121f54d4c21cd88",
+        "worksheet_protection_signature": "66f4953849b53ff410928b51204a8689ab44ed4ba5833dcb8497522563798019",
+        "editable_surface_signature": "9be323479b498413fd1c8a1c3a1dfff4be5c800e3b58826b59ae3fc4faf80078",
         "counts": {
-          "sheets": 46,
-          "sheet_views": 46,
-          "merges": 1613,
-          "defined_names": 281,
-          "writable_targets": 605,
-          "binding_contracts": 184,
-          "formula_cells": 2690,
-          "static_cells": 1799,
-          "protected_worksheets": 46,
-          "editable_cells": 119
+          "sheets": 44,
+          "sheet_views": 44,
+          "merges": 1459,
+          "defined_names": 225,
+          "writable_targets": 592,
+          "binding_contracts": 172,
+          "formula_cells": 2609,
+          "static_cells": 1597,
+          "protected_worksheets": 44,
+          "editable_cells": 75
         }
       }
     }
   },
   "previews": {
     "preview_mode": "openpyxl_static_not_excel_com",
-    "standard_shell_contact_sheet": "C:\\Users\\Jibbe\\AppData\\Local\\Temp\\standard-template-audit-iwfj5isa\\previews\\standard_shell_contact_sheet.png",
-    "anf_template_lab_contact_sheet": "C:\\Users\\Jibbe\\AppData\\Local\\Temp\\standard-template-audit-iwfj5isa\\previews\\anf_template_lab_contact_sheet.png",
-    "shell_vs_anf_contact_sheet": "C:\\Users\\Jibbe\\AppData\\Local\\Temp\\standard-template-audit-iwfj5isa\\previews\\shell_vs_anf_contact_sheet.png"
+    "standard_shell_contact_sheet": "C:\\Users\\Jibbe\\AppData\\Local\\Temp\\standard-template-audit-pi9g8l9k\\previews\\standard_shell_contact_sheet.png",
+    "anf_template_lab_contact_sheet": "C:\\Users\\Jibbe\\AppData\\Local\\Temp\\standard-template-audit-pi9g8l9k\\previews\\anf_template_lab_contact_sheet.png",
+    "shell_vs_anf_contact_sheet": "C:\\Users\\Jibbe\\AppData\\Local\\Temp\\standard-template-audit-pi9g8l9k\\previews\\shell_vs_anf_contact_sheet.png"
   },
   "sheet_reports": [
     {
@@ -147,12 +147,12 @@
       "preview_mode": "openpyxl_static_not_excel_com",
       "used_range": {
         "source_lab": "A1:AI261",
-        "standard_shell": "A1:AI271"
+        "standard_shell": "A1:AO271"
       },
       "source_lab": {
         "non_empty_cells": 1748,
-        "static_template_label_count": 592,
-        "row_label_count": 163,
+        "static_template_label_count": 554,
+        "row_label_count": 151,
         "formula_count": 75,
         "formula_count_inside_writable": 0,
         "formula_count_outside_writable": 75,
@@ -166,27 +166,38 @@
         "source_specific_text_count": 7
       },
       "standard_shell": {
-        "non_empty_cells": 1230,
-        "static_template_label_count": 442,
-        "row_label_count": 142,
-        "formula_count": 788,
+        "non_empty_cells": 947,
+        "static_template_label_count": 238,
+        "row_label_count": 151,
+        "formula_count": 709,
         "formula_count_inside_writable": 0,
-        "formula_count_outside_writable": 788,
-        "merge_count": 319,
+        "formula_count_outside_writable": 709,
+        "merge_count": 165,
         "numeric_value_count": 0,
-        "text_value_count": 442,
+        "text_value_count": 238,
         "hidden_columns": [
-          "AI"
+          "AD",
+          "AE",
+          "AF",
+          "AG",
+          "AH",
+          "AI",
+          "AJ",
+          "AK",
+          "AL",
+          "AM",
+          "AN",
+          "AO"
         ],
         "freeze_panes": "B7",
         "source_specific_text_count": 0
       },
       "blank_writable_cells": {
-        "blank": 649,
+        "blank": 883,
         "nonblank": 0,
-        "total": 649
+        "total": 883
       },
-      "row_height_similarity": 0.982,
+      "row_height_similarity": 0.893,
       "column_width_similarity": 1.0,
       "missing_section_labels": [],
       "missing_row_labels": [],
@@ -415,9 +426,9 @@
         "source_specific_text_count": 0
       },
       "blank_writable_cells": {
-        "blank": 92,
+        "blank": 95,
         "nonblank": 0,
-        "total": 92
+        "total": 95
       },
       "row_height_similarity": 0.246,
       "column_width_similarity": 0.0,

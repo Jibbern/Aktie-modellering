@@ -48,8 +48,6 @@ The normalized company data package is the source of values. Support/audit sheet
 | `Scenario_Driver_Assumptions` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
 | `Slides_Debt_Profile` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
 | `Slides_Segments` | `external_normalized_json` | `external_detail` | False | external_only | generated outside Excel and linked through concise workbook lineage references |
-| `Valuation_Grid` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
-| `Valuation_Summary` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
 | `economics_market_raw` | `optional_sector_pack` | `optional_sector_output` | False | hidden_or_visible_by_pack_contract | only when an explicit sector pack is selected |
 | `operating_drivers_raw` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |
 | `{ticker}_Investment_Case_Data` | `frozen_shell` | `static_template` | True | hidden | materialized into the union shell as a neutral hidden header-only module sheet |

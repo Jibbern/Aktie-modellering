@@ -7770,8 +7770,8 @@
   ],
   "ticker": "ANF",
   "generator_version": "anf_legacy_adapter_audits/0.2.0",
-  "source_package_content_sha256": "ef026e8012db5123c5a58e493cb78fa07b227c94a8b0b8a9bf4e7b0d78109404",
-  "generated_at_utc": "2026-07-29T14:01:27+00:00",
+  "source_package_content_sha256": "653be67a6034646fb5b1f6bc1a246b7cf4b92fd26937757e26a66d48511879a3",
+  "generated_at_utc": "2026-07-29T14:01:21+00:00",
   "demotion_summary": {
     "total_demoted": 1325,
     "by_section": {

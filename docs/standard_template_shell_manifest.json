@@ -598,84 +598,6 @@
       ]
     },
     {
-      "contract_id": "valuation_output_metric_upper",
-      "sheet": "Valuation",
-      "target": "O64:O70",
-      "writable": true,
-      "target_role": "valuation output metric",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ],
-      "allowed_target_types": [
-        "text"
-      ]
-    },
-    {
-      "contract_id": "valuation_output_metric_lower",
-      "sheet": "Valuation",
-      "target": "O72:O75",
-      "writable": true,
-      "target_role": "valuation output metric",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ],
-      "allowed_target_types": [
-        "text"
-      ]
-    },
-    {
-      "contract_id": "valuation_output_value_upper",
-      "sheet": "Valuation",
-      "target": "U64:U70",
-      "writable": true,
-      "target_role": "valuation output value",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_output_value_lower",
-      "sheet": "Valuation",
-      "target": "U72:U75",
-      "writable": true,
-      "target_role": "valuation output value",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_output_interpretation_upper",
-      "sheet": "Valuation",
-      "target": "X64:X70",
-      "writable": true,
-      "target_role": "valuation output interpretation",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ],
-      "allowed_target_types": [
-        "text"
-      ]
-    },
-    {
-      "contract_id": "valuation_output_interpretation_lower",
-      "sheet": "Valuation",
-      "target": "X72:X75",
-      "writable": true,
-      "target_role": "valuation output interpretation",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ],
-      "allowed_target_types": [
-        "text"
-      ]
-    },
-    {
       "contract_id": "bs_quarter_segment_member",
       "sheet": "BS_Segments",
       "target": "A61:A67",
@@ -3090,214 +3012,6 @@
       "target_role": "bs_diluted_shares_series",
       "allowed_binding_ids": [
         "bs_diluted_shares_series"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_as_of",
-      "sheet": "Valuation",
-      "target": "D195",
-      "writable": true,
-      "target_role": "valuation_input_as_of",
-      "allowed_binding_ids": [
-        "valuation_input_as_of"
-      ],
-      "allowed_target_types": [
-        "date"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_shares_outstanding",
-      "sheet": "Valuation",
-      "target": "D196",
-      "writable": true,
-      "target_role": "valuation_input_shares_outstanding",
-      "allowed_binding_ids": [
-        "valuation_input_shares_outstanding"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_diluted_shares",
-      "sheet": "Valuation",
-      "target": "D197",
-      "writable": true,
-      "target_role": "valuation_input_diluted_shares",
-      "allowed_binding_ids": [
-        "valuation_input_diluted_shares"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_net_debt",
-      "sheet": "Valuation",
-      "target": "D198",
-      "writable": true,
-      "target_role": "valuation_input_net_debt",
-      "allowed_binding_ids": [
-        "valuation_input_net_debt"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_base_ebitda_ttm",
-      "sheet": "Valuation",
-      "target": "D199",
-      "writable": true,
-      "target_role": "valuation_input_base_ebitda_ttm",
-      "allowed_binding_ids": [
-        "valuation_input_base_ebitda_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_adjusted_ebitda_ttm",
-      "sheet": "Valuation",
-      "target": "D200",
-      "writable": true,
-      "target_role": "valuation_input_adjusted_ebitda_ttm",
-      "allowed_binding_ids": [
-        "valuation_input_adjusted_ebitda_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_fcf_ttm",
-      "sheet": "Valuation",
-      "target": "D201",
-      "writable": true,
-      "target_role": "valuation_input_fcf_ttm",
-      "allowed_binding_ids": [
-        "valuation_input_fcf_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_operating_cash_flow_ttm",
-      "sheet": "Valuation",
-      "target": "D202",
-      "writable": true,
-      "target_role": "valuation_input_operating_cash_flow_ttm",
-      "allowed_binding_ids": [
-        "valuation_input_operating_cash_flow_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_revenue_ttm",
-      "sheet": "Valuation",
-      "target": "D203",
-      "writable": true,
-      "target_role": "valuation_input_revenue_ttm",
-      "allowed_binding_ids": [
-        "valuation_input_revenue_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_eps_ttm",
-      "sheet": "Valuation",
-      "target": "D204",
-      "writable": true,
-      "target_role": "valuation_input_eps_ttm",
-      "allowed_binding_ids": [
-        "valuation_input_eps_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_adjusted_eps_ttm",
-      "sheet": "Valuation",
-      "target": "D205",
-      "writable": true,
-      "target_role": "valuation_input_adjusted_eps_ttm",
-      "allowed_binding_ids": [
-        "valuation_input_adjusted_eps_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_book_value_per_share",
-      "sheet": "Valuation",
-      "target": "D206",
-      "writable": true,
-      "target_role": "valuation_input_book_value_per_share",
-      "allowed_binding_ids": [
-        "valuation_input_book_value_per_share"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_tangible_book_value_per_share",
-      "sheet": "Valuation",
-      "target": "D207",
-      "writable": true,
-      "target_role": "valuation_input_tangible_book_value_per_share",
-      "allowed_binding_ids": [
-        "valuation_input_tangible_book_value_per_share"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_capex_ttm",
-      "sheet": "Valuation",
-      "target": "D211",
-      "writable": true,
-      "target_role": "valuation_input_capex_ttm",
-      "allowed_binding_ids": [
-        "valuation_input_capex_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_interest_paid_ttm",
-      "sheet": "Valuation",
-      "target": "D212",
-      "writable": true,
-      "target_role": "valuation_input_interest_paid_ttm",
-      "allowed_binding_ids": [
-        "valuation_input_interest_paid_ttm"
-      ],
-      "allowed_target_types": [
-        "number"
-      ]
-    },
-    {
-      "contract_id": "valuation_input_net_income_ttm",
-      "sheet": "Valuation",
-      "target": "D217",
-      "writable": true,
-      "target_role": "valuation_input_net_income_ttm",
-      "allowed_binding_ids": [
-        "valuation_input_net_income_ttm"
       ],
       "allowed_target_types": [
         "number"
@@ -6203,60 +5917,6 @@
       ]
     },
     {
-      "merge_id": "valuation_output_metric_merges_upper",
-      "sheet": "Valuation",
-      "target": "O64:T70",
-      "anchor_column": "O",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ]
-    },
-    {
-      "merge_id": "valuation_output_metric_merges_lower",
-      "sheet": "Valuation",
-      "target": "O72:T75",
-      "anchor_column": "O",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ]
-    },
-    {
-      "merge_id": "valuation_output_value_merges_upper",
-      "sheet": "Valuation",
-      "target": "U64:W70",
-      "anchor_column": "U",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ]
-    },
-    {
-      "merge_id": "valuation_output_value_merges_lower",
-      "sheet": "Valuation",
-      "target": "U72:W75",
-      "anchor_column": "U",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ]
-    },
-    {
-      "merge_id": "valuation_output_interpretation_merges_upper",
-      "sheet": "Valuation",
-      "target": "X64:AC70",
-      "anchor_column": "X",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ]
-    },
-    {
-      "merge_id": "valuation_output_interpretation_merges_lower",
-      "sheet": "Valuation",
-      "target": "X72:AC75",
-      "anchor_column": "X",
-      "allowed_binding_ids": [
-        "valuation_output_rows"
-      ]
-    },
-    {
       "merge_id": "operating_driver_current_read_merges",
       "sheet": "Operating_Drivers",
       "target": "B6:G9",
@@ -6353,15 +6013,6 @@
       "anchor_column": "D",
       "allowed_binding_ids": [
         "summary_liquidity_as_of"
-      ]
-    },
-    {
-      "merge_id": "investment_case_title_merge",
-      "sheet": "{ticker}_Investment_Case",
-      "target": "A1:J1",
-      "anchor_column": "A",
-      "allowed_binding_ids": [
-        "ic_investment_case_title"
       ]
     }
   ],
@@ -6773,14 +6424,6 @@
           ]
         },
         {
-          "zone_id": "valuation_input_values",
-          "target": "D194:D217",
-          "anchor_label": "Inputs",
-          "value_shapes": [
-            "scalar"
-          ]
-        },
-        {
           "zone_id": "valuation_period_headers",
           "target": "B6:M6",
           "anchor_label": "Quarter",
@@ -7050,11 +6693,6 @@
           "reason": "Typed thesis/debate title, note, and projection headers."
         },
         {
-          "zone_id": "valuation_output_header_rows",
-          "target": "O63:AA63",
-          "reason": "Output sidecar column headers."
-        },
-        {
           "zone_id": "valuation_debt_detail_title_row",
           "target": "A122:M122",
           "reason": "Debt detail section header band; values start below the title/header rows."
@@ -7088,41 +6726,6 @@
           "zone_id": "valuation_right_formula_support_columns",
           "target": "AD9:AI170",
           "reason": "Formula/support columns outside the guidance value-write area."
-        },
-        {
-          "zone_id": "valuation_lower_formula_bands_top",
-          "target": "A189:AI191",
-          "reason": "Formula/static region above the explicit valuation input block."
-        },
-        {
-          "zone_id": "valuation_input_static_labels",
-          "target": "A193:C216",
-          "reason": "Static input labels next to the writable D-column values."
-        },
-        {
-          "zone_id": "valuation_input_static_support",
-          "target": "E193:AI216",
-          "reason": "Static basis, help text, and formula-owned output cells beside valuation inputs."
-        },
-        {
-          "zone_id": "valuation_lower_formula_bands_tail",
-          "target": "A217:C261",
-          "reason": "Formula/static region left of the source-backed net-income input."
-        },
-        {
-          "zone_id": "valuation_lower_formula_bands_tail_right",
-          "target": "D218:AI261",
-          "reason": "Formula/static and explicit user-input region below the source-backed net-income input."
-        },
-        {
-          "zone_id": "valuation_secondary_title_row",
-          "target": "B192:S192",
-          "reason": "Secondary valuation section header retained from the standard visual template."
-        },
-        {
-          "zone_id": "valuation_formula_owned_outputs",
-          "target": "O64:AA170",
-          "reason": "Formula-owned valuation outputs and static interpretation labels."
         },
         {
           "zone_id": "valuation_formula_row_10",
@@ -7410,14 +7013,14 @@
           "reason": "Hidden generic formula-input labels."
         },
         {
-          "zone_id": "valuation_helper_support",
-          "target": "N262:AI270",
-          "reason": "Protected hidden helper support area."
+          "zone_id": "valuation_formula_helper_cfo_ttm",
+          "target": "A271:M271",
+          "reason": "Hidden protected ticker-neutral CFO TTM formula helper."
         },
         {
-          "zone_id": "valuation_formula_helper_cfo_ttm",
-          "target": "A271:AI271",
-          "reason": "Hidden protected ticker-neutral CFO TTM formula helper."
+          "zone_id": "valuation_forward_summary_formulas",
+          "target": "A192:F198",
+          "reason": "Read-only references to canonical Investment Case outputs."
         }
       ],
       "formulas_static_labels": [
@@ -7430,7 +7033,8 @@
       "module_role": "visible_product",
       "legacy_class": "A",
       "state": "visible",
-      "worksheet_protection": true
+      "worksheet_protection": true,
+      "rich_shell_lab_merge_floor_ratio": 0.38
     },
     {
       "sheet": "BS_Segments",
@@ -7874,7 +7478,7 @@
         },
         {
           "zone_id": "ic_title_value",
-          "target": "A1:J1",
+          "target": "A1:M1",
           "anchor_label": "Investment Case",
           "value_shapes": [
             "text_block"
@@ -8733,40 +8337,6 @@
       "support_column_widths": [],
       "worksheet_protection": true,
       "module_id": "quarter_notes_evidence",
-      "module_role": "hidden_support",
-      "legacy_class": "B",
-      "state": "hidden"
-    },
-    {
-      "sheet": "Valuation_Summary",
-      "static_layout_owner": "frozen_template_shell",
-      "writable_zones": [],
-      "non_writable_zones": [
-        {
-          "zone_id": "module_valuation_scenarios_valuation_summary_headers",
-          "target": "A1:K1000",
-          "reason": "Formula-owned support surface; values are never written by bindings."
-        }
-      ],
-      "formulas_static_labels": [
-        "metric",
-        "value",
-        "unit",
-        "as_of",
-        "lineage_ref",
-        "status",
-        "definition",
-        "resolved_revenue_growth_bear",
-        "resolved_revenue_growth_base",
-        "resolved_revenue_growth_bull",
-        "resolved_revenue_growth_custom"
-      ],
-      "support_title": "",
-      "support_header_row": 1,
-      "support_freeze_panes": "A2",
-      "support_column_widths": [],
-      "worksheet_protection": true,
-      "module_id": "valuation_scenarios",
       "module_role": "hidden_support",
       "legacy_class": "B",
       "state": "hidden"
@@ -9772,8 +9342,13 @@
       "non_writable_zones": [
         {
           "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_headers",
-          "target": "A1:BA1",
+          "target": "A1:BQ1",
           "reason": "Neutral module support headers owned by the frozen shell."
+        },
+        {
+          "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_formula_1",
+          "target": "BB2:BQ25",
+          "reason": "Formula-owned Hidden Value recomputation surface."
         },
         {
           "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_reserved_1",
@@ -9788,6 +9363,11 @@
         {
           "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_reserved_3",
           "target": "T202:BA5000",
+          "reason": "Reserved neutral support capacity; no binding or formula ownership."
+        },
+        {
+          "zone_id": "module_investment_case_market_implied_ticker__investment_case_data_reserved_4",
+          "target": "BB26:BQ5000",
           "reason": "Reserved neutral support capacity; no binding or formula ownership."
         }
       ],
@@ -9844,7 +9424,23 @@
         "product_basis_period",
         "product_full_year_guidance_numeric_state",
         "product_quarter_guidance_numeric_state",
-        "product_source_alias"
+        "product_source_alias",
+        "scenario_id",
+        "method_id",
+        "metric_id",
+        "metric_value",
+        "target_value",
+        "enterprise_value",
+        "equity_value",
+        "value_per_share",
+        "upside_downside",
+        "method_state",
+        "entered_weight",
+        "effective_weight",
+        "weighted_value_per_share",
+        "period_id",
+        "formula_owner",
+        "lineage_state"
       ],
       "support_title": "",
       "support_header_row": 1,
@@ -9900,7 +9496,7 @@
       "static_layout_owner": "frozen_template_shell",
       "writable_zones": [
         {
-          "zone_id": "module_valuation_scenarios_scenario_driver_assumptions_rows",
+          "zone_id": "module_investment_case_market_implied_scenario_driver_assumptions_rows",
           "target": "A2:Q1000",
           "anchor_label": "scenario_id",
           "value_shapes": [
@@ -9910,7 +9506,7 @@
       ],
       "non_writable_zones": [
         {
-          "zone_id": "module_valuation_scenarios_scenario_driver_assumptions_headers",
+          "zone_id": "module_investment_case_market_implied_scenario_driver_assumptions_headers",
           "target": "A1:Q1",
           "reason": "Neutral module support headers owned by the frozen shell."
         }
@@ -9939,7 +9535,7 @@
       "support_freeze_panes": "A2",
       "support_column_widths": [],
       "worksheet_protection": true,
-      "module_id": "valuation_scenarios",
+      "module_id": "investment_case_market_implied",
       "module_role": "hidden_support",
       "legacy_class": "C",
       "state": "hidden"
@@ -10117,35 +9713,6 @@
       "state": "hidden"
     },
     {
-      "sheet": "Valuation_Grid",
-      "static_layout_owner": "frozen_template_shell",
-      "writable_zones": [],
-      "non_writable_zones": [
-        {
-          "zone_id": "module_valuation_scenarios_valuation_grid_headers",
-          "target": "A1:F1000",
-          "reason": "Formula-owned support surface; values are never written by bindings."
-        }
-      ],
-      "formulas_static_labels": [
-        "scenario_id",
-        "row_driver",
-        "column_driver",
-        "output_metric",
-        "value",
-        "status"
-      ],
-      "support_title": "",
-      "support_header_row": 1,
-      "support_freeze_panes": "A2",
-      "support_column_widths": [],
-      "worksheet_protection": true,
-      "module_id": "valuation_scenarios",
-      "module_role": "hidden_support",
-      "legacy_class": "E",
-      "state": "hidden"
-    },
-    {
       "sheet": "Promise_Tracker",
       "static_layout_owner": "frozen_template_shell",
       "writable_zones": [
@@ -10303,12 +9870,6 @@
       "state": "hidden"
     },
     {
-      "sheet": "Valuation_Summary",
-      "module_id": "valuation_scenarios",
-      "module_role": "hidden_support",
-      "state": "hidden"
-    },
-    {
       "sheet": "Promise_Evidence",
       "module_id": "guidance_promises",
       "module_role": "hidden_support",
@@ -10430,7 +9991,7 @@
     },
     {
       "sheet": "Scenario_Driver_Assumptions",
-      "module_id": "valuation_scenarios",
+      "module_id": "investment_case_market_implied",
       "module_role": "hidden_support",
       "state": "hidden"
     },
@@ -10459,12 +10020,6 @@
       "state": "hidden"
     },
     {
-      "sheet": "Valuation_Grid",
-      "module_id": "valuation_scenarios",
-      "module_role": "hidden_support",
-      "state": "hidden"
-    },
-    {
       "sheet": "Promise_Tracker",
       "module_id": "guidance_promises",
       "module_role": "module_capacity",
@@ -10486,31 +10041,31 @@
   "semantic_contract_version": "1.8.0",
   "shell_identity": {
     "semantic_contract_version": "1.8.0",
-    "workbook_sha256": "ca1360451643b030096c8e7046f8e142fdd0589a7aa1a1236bff0342dffa1a3c",
-    "manifest_contract_signature": "a9a27fa4885c5d5a55730da5d73255dbce682057df2cd3d9e971c75f6fc20e6b",
-    "sheet_order_visibility_signature": "8bbfae50578fa47eecec1de3e0f3bba7ff79b6982dd50c539cea22c9d78f6bbb",
-    "sheet_view_signature": "5ae4c17c9e6e533360466d0ae893a8f0e3f93605fda2cfd63bce85721c1c10b2",
-    "merge_signature": "13510b022f6dad792b2035a9cdbc72369e8bc7f2ae61111475aa9c2f24ba0d7f",
-    "defined_name_signature": "4a7a6db588c438043f1b0917e3a0474daaf08266cf80c95ea0efd21cfe8f9e9b",
-    "writable_target_signature": "904ca8572ab2c46469603137b77694cfc9562af4c8a1f25ab519f4017487b1bd",
-    "binding_contract_signature": "a23612a6196f76e923233e09a624adc08feb1fa376eb1dd3b1da83792b6e2f9c",
-    "formula_static_zone_signature": "428a1957d52216faa6fa67aef40180ba6c0046f63da48a0e56a2fdc4b3138a86",
-    "worksheet_protection_signature": "c2f415c9d2d4c70d8308322d8ca39940bfb8a3a757b3830a6a2838c051c4d739",
-    "editable_surface_signature": "5d52735aea648ce8a47eea6c04a682440ef9916596c431f18da734851c36c805",
+    "workbook_sha256": "b47064e42f61666147835be1a75508ec8926a94a9911da27697236e1f3cf1e6f",
+    "manifest_contract_signature": "8d370d6dbe7883b1df23f5e5a301b5ee99fc129bd4231d29c191566af0d83c97",
+    "sheet_order_visibility_signature": "e6935c63c7976ff2c337dce141e35dad61763719f765246a468499c15d376159",
+    "sheet_view_signature": "7739c24e505b2fc50af59725414bd128460c19233e17181b282b00685485b6a5",
+    "merge_signature": "53a1120b25a06407d85840a45f52c643ba2b05a7733fd6a97fea5e0e868dcf7e",
+    "defined_name_signature": "29990531bd1f310bc27068e4827f66342d0d3c47d02095a0f780e7f39a2e2614",
+    "writable_target_signature": "3b23ba583eaba052e6a5391cc60698515b5168462389fc6d00b5eaf680ae8a87",
+    "binding_contract_signature": "460c019af7d4b78b2189ca74a6c5e5b94ff5befd8f0eb0a1b1ccd1197889beb8",
+    "formula_static_zone_signature": "708e39dd560c3418176589f0353af550d8a13cc9e93e1dd3f121f54d4c21cd88",
+    "worksheet_protection_signature": "66f4953849b53ff410928b51204a8689ab44ed4ba5833dcb8497522563798019",
+    "editable_surface_signature": "9be323479b498413fd1c8a1c3a1dfff4be5c800e3b58826b59ae3fc4faf80078",
     "counts": {
-      "sheets": 46,
-      "sheet_views": 46,
-      "merges": 1630,
-      "defined_names": 286,
-      "writable_targets": 630,
-      "binding_contracts": 189,
-      "formula_cells": 2690,
-      "static_cells": 1814,
-      "protected_worksheets": 46,
-      "editable_cells": 119
+      "sheets": 44,
+      "sheet_views": 44,
+      "merges": 1459,
+      "defined_names": 225,
+      "writable_targets": 592,
+      "binding_contracts": 172,
+      "formula_cells": 2609,
+      "static_cells": 1597,
+      "protected_worksheets": 44,
+      "editable_cells": 75
     }
   },
-  "formula_contract_version": "2.5.1",
+  "formula_contract_version": "2.5.2",
   "union_sheet_order": [
     "SUMMARY",
     "Valuation",
@@ -10528,7 +10083,6 @@
     "Quarter_Notes",
     "Quarter_Notes_Evidence",
     "Quarter_Narrative_Data",
-    "Valuation_Summary",
     "Promise_Evidence",
     "Promise_Progress",
     "Guidance_Normalized",
@@ -10554,7 +10108,6 @@
     "Debt_Buckets",
     "Debt_Recon",
     "Debt_Tranches_Q",
-    "Valuation_Grid",
     "Promise_Tracker",
     "Adjustments_Breakdown",
     "OCR_Text_Log"
@@ -10563,7 +10116,7 @@
     "path": "docs/workbook_module_manifest.json",
     "version": "1.0.0",
     "module_contract_version": "1.2.0",
-    "signature": "86d55d6d89497748eae18d355a7378f1295917956be54e6c268091f2b6f3021c"
+    "signature": "d762bd60d189e6dac10e3eb59e70e194a49fde97668245e5e5dd4b10c75f29be"
   },
   "module_profile": {
     "profile_id": "full_union",
@@ -10577,7 +10130,6 @@
       "guidance_promises",
       "quarter_notes_evidence",
       "operating_drivers",
-      "valuation_scenarios",
       "investment_case_market_implied",
       "hidden_value_signals",
       "profile_packs"
@@ -10624,7 +10176,6 @@
       "Quarter_Notes": "hidden",
       "Quarter_Notes_Evidence": "hidden",
       "Quarter_Narrative_Data": "hidden",
-      "Valuation_Summary": "hidden",
       "Promise_Evidence": "hidden",
       "Promise_Progress": "hidden",
       "Guidance_Normalized": "hidden",
@@ -10650,7 +10201,6 @@
       "Debt_Buckets": "hidden",
       "Debt_Recon": "hidden",
       "Debt_Tranches_Q": "hidden",
-      "Valuation_Grid": "hidden",
       "Promise_Tracker": "hidden",
       "Adjustments_Breakdown": "hidden",
       "OCR_Text_Log": "hidden"
@@ -10719,6 +10269,7 @@
       "interest_coverage",
       "investment_case_scenario_formulas",
       "investment_case_sensitivity_formulas",
+      "investment_case_valuation_matrix_formulas",
       "lease_adjusted_net_debt",
       "lease_adjusted_net_debt_with_securities",
       "net_cash_with_securities",
@@ -10738,7 +10289,6 @@
       "operating_margin_ttm",
       "revenue_ttm",
       "revenue_yoy",
-      "scenario_revenue_route_formulas",
       "summary_free_cash_flow_ttm",
       "summary_free_cash_flow_yoy",
       "summary_gaap_eps",
@@ -10748,38 +10298,11 @@
       "summary_revenue_ttm",
       "summary_revenue_yoy",
       "tangible_book_value_per_share",
-      "valuation_grid_formulas",
-      "valuation_output_formulas",
-      "valuation_scenario_formulas",
-      "valuation_sidecar_formulas",
-      "valuation_summary_formulas"
+      "valuation_forward_summary_formulas"
     ],
     "enabled_defined_name_ids": [
-      "Adj_EBITDA",
-      "Adj_EPS_TTM",
-      "Adj_FCF_TTM",
-      "AsOfQuarter",
-      "AutoImpliedGT",
-      "BV_PerShare",
-      "Base_EBITDA",
-      "Capex_TTM",
       "CompanyOperatingMargin_Latest",
       "CompanyOperatingMargin_TTM",
-      "DCF_EV",
-      "DCF_FCFF",
-      "DCF_Growth",
-      "DCF_Horizon",
-      "DCF_ImpliedPrice",
-      "DCF_TerminalGrowth",
-      "DCF_WACC",
-      "EPS_TTM",
-      "EV",
-      "EqShare_Target_Adj",
-      "EqShare_Target_EV",
-      "EqShare_Target_Yield",
-      "Equity_FCF_Yield",
-      "FCFF_Proxy_TTM",
-      "FCF_TTM",
       "HV_Base_MetricKey",
       "HV_Base_Status",
       "HV_Base_Value",
@@ -10789,70 +10312,48 @@
       "HV_Recompute_CandidateKey",
       "HV_Recompute_CandidateParity",
       "HV_Recompute_RowParity",
-      "ImpliedGT_Output",
-      "ImpliedGT_Status",
-      "ImpliedGT_WACC",
-      "Implied_EV_AdjEBITDA",
-      "Implied_EV_EBITDA",
-      "Implied_FCFF_Yield",
-      "InterestPaid_TTM",
+      "IC_Base_Adjusted_EBITDA",
+      "IC_Base_Blended_Value_Per_Share",
+      "IC_Base_DCF_Value_Per_Share",
+      "IC_Base_EV_Adjusted_EBITDA_Value_Per_Share",
+      "IC_Base_EV_Revenue_Value_Per_Share",
+      "IC_Base_FCF_Per_Share",
+      "IC_Base_FCF_Yield_Value_Per_Share",
+      "IC_Base_GAAP_EPS",
+      "IC_Base_PE_Value_Per_Share",
+      "IC_Base_Upside_Downside",
+      "IC_Bear_Adjusted_EBITDA",
+      "IC_Bear_Blended_Value_Per_Share",
+      "IC_Bear_DCF_Value_Per_Share",
+      "IC_Bear_EV_Adjusted_EBITDA_Value_Per_Share",
+      "IC_Bear_EV_Revenue_Value_Per_Share",
+      "IC_Bear_FCF_Per_Share",
+      "IC_Bear_FCF_Yield_Value_Per_Share",
+      "IC_Bear_GAAP_EPS",
+      "IC_Bear_PE_Value_Per_Share",
+      "IC_Bear_Upside_Downside",
+      "IC_Bull_Adjusted_EBITDA",
+      "IC_Bull_Blended_Value_Per_Share",
+      "IC_Bull_DCF_Value_Per_Share",
+      "IC_Bull_EV_Adjusted_EBITDA_Value_Per_Share",
+      "IC_Bull_EV_Revenue_Value_Per_Share",
+      "IC_Bull_FCF_Per_Share",
+      "IC_Bull_FCF_Yield_Value_Per_Share",
+      "IC_Bull_GAAP_EPS",
+      "IC_Bull_PE_Value_Per_Share",
+      "IC_Bull_Upside_Downside",
+      "IC_Current_Adjusted_EBITDA",
+      "IC_Current_Blended_Value_Per_Share",
+      "IC_Current_DCF_Value_Per_Share",
+      "IC_Current_EV_Adjusted_EBITDA_Value_Per_Share",
+      "IC_Current_EV_Revenue_Value_Per_Share",
+      "IC_Current_FCF_Per_Share",
+      "IC_Current_FCF_Yield_Value_Per_Share",
+      "IC_Current_GAAP_EPS",
+      "IC_Current_PE_Value_Per_Share",
+      "IC_Current_Upside_Downside",
       "InvestmentCaseDimensionOptions",
-      "MaintCapexRatio",
-      "MarketCap",
-      "NetDebt",
-      "NetIncome_TTM",
       "OperatingMargin_Latest",
-      "OwnerEarnings_TTM",
-      "OwnerEarnings_Yield",
-      "PerShareMode",
-      "Price",
-      "RecurringCashCosts",
-      "ResolvedRevenueGrowth_Base",
-      "ResolvedRevenueGrowth_Bear",
-      "ResolvedRevenueGrowth_Bull",
-      "ResolvedRevenueGrowth_Custom",
-      "Revenue_TTM",
-      "ScenarioAdjustedEBITDA",
-      "ScenarioAdjustedMargin",
-      "ScenarioBaseEBITDA",
-      "ScenarioBaseMargin",
-      "ScenarioBuybackCash",
-      "ScenarioBuybackPrice",
-      "ScenarioCapexChange",
-      "ScenarioCashInterestChange",
-      "ScenarioDebtPaydown",
-      "ScenarioEPS",
-      "ScenarioEV",
-      "ScenarioEVAdjustedEBITDA",
-      "ScenarioEVBaseEBITDA",
-      "ScenarioEVRevenue",
-      "ScenarioEquityValue",
-      "ScenarioFCF",
-      "ScenarioFCFYield",
-      "ScenarioGrowth",
-      "ScenarioHorizon",
-      "ScenarioImpliedPrice",
-      "ScenarioInterestTaxTreatment",
-      "ScenarioNetDebt",
-      "ScenarioPE",
-      "ScenarioPreTaxBridge",
-      "ScenarioProfile",
-      "ScenarioRevenue",
-      "ScenarioShareIssuance",
-      "ScenarioShares",
-      "ScenarioTaxRate",
-      "ScenarioTaxTreatment",
-      "ScenarioUpside",
-      "ScenarioWCAdjustment",
-      "Shares",
-      "SharesDiluted",
-      "TBV_PerShare",
-      "Target_EV_AdjEBITDA",
-      "Target_EV_EBITDA",
-      "Target_EV_Revenue",
-      "Target_EV_Yield",
-      "Target_PE",
-      "WCNormalization",
       "bs_liquidity_anchor",
       "investment_key_debate_anchor",
       "investment_snapshot_anchor",
@@ -10870,7 +10371,7 @@
       "valuation_debt_anchor",
       "valuation_share_count_anchor"
     ],
-    "signature": "e792faf8030f6035e44d1ba547cb5e44a7f269f5b4beb088814196bf01567f8b"
+    "signature": "4a71d053b4f67b65f40ec0991f971bc637803730417cebc292c01b30ad3da7b7"
   },
   "external_detail_sheets": [
     "Guidance_Raw",

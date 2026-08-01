@@ -83,7 +83,6 @@ def _base_package() -> dict:
             "summary": _field("Source-backed differentiated case.", core=True),
             "key_debate": _field("Whether execution sustains durable cash generation.", core=True),
         },
-        "valuation_outputs": {"items": []},
         "source_coverage": {"sources": []},
         "mapping_gaps": [],
         "manual_review_flags": [],

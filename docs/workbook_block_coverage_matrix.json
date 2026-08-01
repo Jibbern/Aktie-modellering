@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-29T14:37:16+00:00",
+  "generated_at": "2026-08-01T08:53:20+00:00",
   "source_workbooks": {
     "ANF": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
@@ -9,7 +9,7 @@
     },
     "PBI": {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\PBI_model.xlsx",
-      "sha256": "cf87600fbeeea285cf192f30520b1819bc4280ddbccd94c343828712d2020646",
+      "sha256": "6482617ad4f412dc5a1e130dc56c72bba5113ddacea5f7d1ab166fad8ddf5689",
       "exists": true
     },
     "GPRE": {
@@ -42,8 +42,8 @@
         "formula_cells": 0,
         "merge_count": 1,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 52.0
       },
       "GPRE": {
@@ -99,8 +99,8 @@
         "formula_cells": 0,
         "merge_count": 1,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 24.0
       },
       "GPRE": {
@@ -156,8 +156,8 @@
         "formula_cells": 0,
         "merge_count": 1,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 52.0
       },
       "GPRE": {
@@ -213,8 +213,8 @@
         "formula_cells": 0,
         "merge_count": 3,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 24.0
       },
       "GPRE": {
@@ -270,8 +270,8 @@
         "formula_cells": 0,
         "merge_count": 3,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 42.0
       },
       "GPRE": {
@@ -327,8 +327,8 @@
         "formula_cells": 0,
         "merge_count": 5,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 31.6
       },
       "GPRE": {
@@ -384,8 +384,8 @@
         "formula_cells": 0,
         "merge_count": 2,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 24.0
       },
       "GPRE": {
@@ -441,8 +441,8 @@
         "formula_cells": 0,
         "merge_count": 1,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 24.0
       },
       "GPRE": {
@@ -498,8 +498,8 @@
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 22.0
       },
       "GPRE": {
@@ -555,8 +555,8 @@
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 22.0
       },
       "GPRE": {
@@ -612,8 +612,8 @@
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 22.0
       },
       "GPRE": {
@@ -669,8 +669,8 @@
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 22.0
       },
       "GPRE": {
@@ -726,8 +726,8 @@
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 22.0
       },
       "GPRE": {
@@ -783,8 +783,8 @@
         "formula_cells": 0,
         "merge_count": 1,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 22.0
       },
       "GPRE": {
@@ -840,8 +840,8 @@
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 22.0
       },
       "GPRE": {
@@ -897,8 +897,8 @@
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 47,
-        "max_column": 6,
+        "max_row": 62,
+        "max_column": 14,
         "average_row_height": 22.0
       },
       "GPRE": {
@@ -950,7 +950,7 @@
         "block_exists": true,
         "resolved_sheet": "Valuation",
         "range": "O9:AC15",
-        "nonempty_cells": 24,
+        "nonempty_cells": 25,
         "formula_cells": 0,
         "merge_count": 16,
         "freeze_panes": "B7",
@@ -1010,9 +1010,9 @@
         "block_exists": true,
         "resolved_sheet": "Valuation",
         "range": "O16:AC21",
-        "nonempty_cells": 24,
+        "nonempty_cells": 19,
         "formula_cells": 0,
-        "merge_count": 15,
+        "merge_count": 13,
         "freeze_panes": "B7",
         "max_row": 261,
         "max_column": 35,
@@ -1070,9 +1070,9 @@
         "block_exists": true,
         "resolved_sheet": "Valuation",
         "range": "O29:AC35",
-        "nonempty_cells": 14,
-        "formula_cells": 2,
-        "merge_count": 14,
+        "nonempty_cells": 17,
+        "formula_cells": 3,
+        "merge_count": 17,
         "freeze_panes": "B7",
         "max_row": 261,
         "max_column": 35,
@@ -1092,7 +1092,7 @@
       },
       "range_similarity": "same",
       "style_similarity": "similar",
-      "merge_similarity": "different",
+      "merge_similarity": "similar",
       "freeze_pane_similarity": "same",
       "row_height_similarity": "same",
       "populated_field_families": [
@@ -1130,9 +1130,9 @@
         "block_exists": true,
         "resolved_sheet": "Valuation",
         "range": "O51:AA58",
-        "nonempty_cells": 18,
-        "formula_cells": 5,
-        "merge_count": 18,
+        "nonempty_cells": 15,
+        "formula_cells": 4,
+        "merge_count": 15,
         "freeze_panes": "B7",
         "max_row": 261,
         "max_column": 35,
@@ -1430,9 +1430,9 @@
         "block_exists": true,
         "resolved_sheet": "Valuation",
         "range": "A139:M143",
-        "nonempty_cells": 5,
+        "nonempty_cells": 10,
         "formula_cells": 0,
-        "merge_count": 2,
+        "merge_count": 4,
         "freeze_panes": "B7",
         "max_row": 261,
         "max_column": 35,
@@ -1452,7 +1452,7 @@
       },
       "range_similarity": "same",
       "style_similarity": "similar",
-      "merge_similarity": "same",
+      "merge_similarity": "different",
       "freeze_pane_similarity": "same",
       "row_height_similarity": "same",
       "populated_field_families": [
@@ -1637,66 +1637,6 @@
       "row_height_similarity": "same",
       "populated_field_families": [
         "_derived_workbook"
-      ],
-      "support_sheet_dependencies": [
-        "Debt_Profile",
-        "Debt_Tranches_Q",
-        "Guidance_Normalized",
-        "Hidden_Value_Base",
-        "Hidden_Value_Flags",
-        "History_Q",
-        "Slides_Guidance"
-      ],
-      "ticker_specific_differences": [],
-      "include_in_standard_template": true,
-      "exclusion_reason": ""
-    },
-    {
-      "block_id": "valuation_input_values",
-      "sheet": "Valuation",
-      "ANF": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "D194:D217",
-        "nonempty_cells": 19,
-        "formula_cells": 0,
-        "merge_count": 1,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "PBI": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "D194:D217",
-        "nonempty_cells": 21,
-        "formula_cells": 0,
-        "merge_count": 1,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "GPRE": {
-        "block_exists": true,
-        "resolved_sheet": "Valuation",
-        "range": "D194:D217",
-        "nonempty_cells": 19,
-        "formula_cells": 0,
-        "merge_count": 1,
-        "freeze_panes": "B7",
-        "max_row": 261,
-        "max_column": 35,
-        "average_row_height": 19.5
-      },
-      "range_similarity": "same",
-      "style_similarity": "similar",
-      "merge_similarity": "same",
-      "freeze_pane_similarity": "same",
-      "row_height_similarity": "same",
-      "populated_field_families": [
-        "valuation_inputs"
       ],
       "support_sheet_dependencies": [
         "Debt_Profile",
@@ -2270,7 +2210,7 @@
         "block_exists": true,
         "resolved_sheet": "Valuation",
         "range": "B62:M62",
-        "nonempty_cells": 9,
+        "nonempty_cells": 5,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "B7",
@@ -2632,7 +2572,7 @@
         "range": "B95:M95",
         "nonempty_cells": 0,
         "formula_cells": 0,
-        "merge_count": 0,
+        "merge_count": 1,
         "freeze_panes": "B7",
         "max_row": 261,
         "max_column": 35,
@@ -2652,7 +2592,7 @@
       },
       "range_similarity": "same",
       "style_similarity": "similar",
-      "merge_similarity": "same",
+      "merge_similarity": "similar",
       "freeze_pane_similarity": "same",
       "row_height_similarity": "same",
       "populated_field_families": [
@@ -2810,9 +2750,9 @@
         "block_exists": true,
         "resolved_sheet": "Valuation",
         "range": "B107:M107",
-        "nonempty_cells": 0,
+        "nonempty_cells": 12,
         "formula_cells": 0,
-        "merge_count": 1,
+        "merge_count": 0,
         "freeze_panes": "B7",
         "max_row": 261,
         "max_column": 35,
@@ -2832,7 +2772,7 @@
       },
       "range_similarity": "same",
       "style_similarity": "similar",
-      "merge_similarity": "similar",
+      "merge_similarity": "same",
       "freeze_pane_similarity": "same",
       "row_height_similarity": "same",
       "populated_field_families": [
@@ -2870,9 +2810,9 @@
         "block_exists": true,
         "resolved_sheet": "Valuation",
         "range": "B110:M110",
-        "nonempty_cells": 12,
+        "nonempty_cells": 0,
         "formula_cells": 0,
-        "merge_count": 0,
+        "merge_count": 1,
         "freeze_panes": "B7",
         "max_row": 261,
         "max_column": 35,
@@ -2892,7 +2832,7 @@
       },
       "range_similarity": "same",
       "style_similarity": "similar",
-      "merge_similarity": "same",
+      "merge_similarity": "similar",
       "freeze_pane_similarity": "same",
       "row_height_similarity": "same",
       "populated_field_families": [
@@ -3533,7 +3473,7 @@
         "block_exists": true,
         "resolved_sheet": "BS_Segments",
         "range": "A61:M67",
-        "nonempty_cells": 47,
+        "nonempty_cells": 37,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "B8",
@@ -3590,7 +3530,7 @@
         "block_exists": true,
         "resolved_sheet": "BS_Segments",
         "range": "B70:I71",
-        "nonempty_cells": 8,
+        "nonempty_cells": 6,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "B8",
@@ -3647,7 +3587,7 @@
         "block_exists": true,
         "resolved_sheet": "BS_Segments",
         "range": "A72:I78",
-        "nonempty_cells": 55,
+        "nonempty_cells": 43,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "B8",
@@ -5194,7 +5134,7 @@
         "formula_cells": 0,
         "merge_count": 8,
         "freeze_panes": "",
-        "max_row": 77,
+        "max_row": 75,
         "max_column": 14,
         "average_row_height": 22.5
       },
@@ -5253,7 +5193,7 @@
         "formula_cells": 0,
         "merge_count": 10,
         "freeze_panes": "",
-        "max_row": 77,
+        "max_row": 75,
         "max_column": 14,
         "average_row_height": 21.75
       },
@@ -5312,7 +5252,7 @@
         "formula_cells": 0,
         "merge_count": 11,
         "freeze_panes": "",
-        "max_row": 77,
+        "max_row": 75,
         "max_column": 14,
         "average_row_height": 19.91
       },
@@ -5367,11 +5307,11 @@
         "block_exists": true,
         "resolved_sheet": "Operating_Drivers",
         "range": "B31:N55",
-        "nonempty_cells": 92,
+        "nonempty_cells": 100,
         "formula_cells": 0,
-        "merge_count": 19,
+        "merge_count": 18,
         "freeze_panes": "",
-        "max_row": 77,
+        "max_row": 75,
         "max_column": 14,
         "average_row_height": 19.92
       },
@@ -5426,11 +5366,11 @@
         "block_exists": true,
         "resolved_sheet": "Operating_Drivers",
         "range": "B56:N125",
-        "nonempty_cells": 214,
+        "nonempty_cells": 202,
         "formula_cells": 0,
-        "merge_count": 4,
+        "merge_count": 3,
         "freeze_panes": "",
-        "max_row": 77,
+        "max_row": 75,
         "max_column": 14,
         "average_row_height": 19.5
       },
@@ -5537,7 +5477,7 @@
       "ANF": {
         "block_exists": true,
         "resolved_sheet": "ANF_Investment_Case",
-        "range": "A1:J1",
+        "range": "A1:M1",
         "nonempty_cells": 1,
         "formula_cells": 0,
         "merge_count": 1,
@@ -5549,7 +5489,7 @@
       "PBI": {
         "block_exists": true,
         "resolved_sheet": "PBI_Investment_Case",
-        "range": "A1:J1",
+        "range": "A1:M1",
         "nonempty_cells": 1,
         "formula_cells": 0,
         "merge_count": 1,
@@ -5561,7 +5501,7 @@
       "GPRE": {
         "block_exists": true,
         "resolved_sheet": "GPRE_Investment_Case",
-        "range": "A1:J1",
+        "range": "A1:M1",
         "nonempty_cells": 1,
         "formula_cells": 0,
         "merge_count": 1,
@@ -5616,9 +5556,9 @@
         "formula_cells": 0,
         "merge_count": 4,
         "freeze_panes": "A2",
-        "max_row": 304,
+        "max_row": 310,
         "max_column": 15,
-        "average_row_height": 40.5
+        "average_row_height": 44.0
       },
       "GPRE": {
         "block_exists": true,
@@ -5669,13 +5609,13 @@
         "block_exists": true,
         "resolved_sheet": "Quarter_Notes_UI",
         "range": "A10:O15",
-        "nonempty_cells": 30,
+        "nonempty_cells": 21,
         "formula_cells": 0,
-        "merge_count": 30,
+        "merge_count": 21,
         "freeze_panes": "A2",
-        "max_row": 304,
+        "max_row": 310,
         "max_column": 15,
-        "average_row_height": 50.33
+        "average_row_height": 34.17
       },
       "GPRE": {
         "block_exists": true,
@@ -5691,9 +5631,9 @@
       },
       "range_similarity": "same",
       "style_similarity": "similar",
-      "merge_similarity": "same",
+      "merge_similarity": "different",
       "freeze_pane_similarity": "same",
-      "row_height_similarity": "similar",
+      "row_height_similarity": "different",
       "populated_field_families": [
         "quarter_notes"
       ],
@@ -5730,7 +5670,7 @@
         "formula_cells": 0,
         "merge_count": 11,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
         "average_row_height": 22.86
       },
@@ -5788,7 +5728,7 @@
         "formula_cells": 0,
         "merge_count": 8,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
         "average_row_height": 23.5
       },
@@ -5847,7 +5787,7 @@
         "formula_cells": 0,
         "merge_count": 4,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
         "average_row_height": 24.0
       },
@@ -5902,13 +5842,13 @@
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
         "range": "A30:I32",
-        "nonempty_cells": 11,
+        "nonempty_cells": 19,
         "formula_cells": 0,
-        "merge_count": 2,
+        "merge_count": 1,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
-        "average_row_height": 22.0
+        "average_row_height": 22.67
       },
       "GPRE": {
         "block_exists": true,
@@ -5960,13 +5900,13 @@
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
         "range": "A35:I36",
-        "nonempty_cells": 18,
+        "nonempty_cells": 9,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
-        "average_row_height": 24.0
+        "average_row_height": 21.0
       },
       "GPRE": {
         "block_exists": true,
@@ -5984,7 +5924,7 @@
       "style_similarity": "similar",
       "merge_similarity": "similar",
       "freeze_pane_similarity": "same",
-      "row_height_similarity": "similar",
+      "row_height_similarity": "same",
       "populated_field_families": [
         "normalized_guidance"
       ],
@@ -6018,13 +5958,13 @@
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
         "range": "A39:E58",
-        "nonempty_cells": 78,
+        "nonempty_cells": 77,
         "formula_cells": 0,
-        "merge_count": 3,
+        "merge_count": 2,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
-        "average_row_height": 22.8
+        "average_row_height": 22.7
       },
       "GPRE": {
         "block_exists": true,
@@ -6078,13 +6018,13 @@
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
         "range": "A61:K67",
-        "nonempty_cells": 66,
+        "nonempty_cells": 56,
         "formula_cells": 0,
-        "merge_count": 1,
+        "merge_count": 2,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
-        "average_row_height": 22.86
+        "average_row_height": 22.57
       },
       "GPRE": {
         "block_exists": false,
@@ -6139,11 +6079,11 @@
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
         "range": "B71:O76",
-        "nonempty_cells": 42,
+        "nonempty_cells": 43,
         "formula_cells": 0,
         "merge_count": 2,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
         "average_row_height": 22.33
       },
@@ -6200,13 +6140,13 @@
         "block_exists": true,
         "resolved_sheet": "Promise_Progress_UI",
         "range": "B78:O84",
-        "nonempty_cells": 20,
+        "nonempty_cells": 51,
         "formula_cells": 0,
-        "merge_count": 1,
+        "merge_count": 4,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
-        "average_row_height": 23.0
+        "average_row_height": 22.86
       },
       "GPRE": {
         "block_exists": false,
@@ -6222,7 +6162,7 @@
       },
       "range_similarity": "missing",
       "style_similarity": "similar",
-      "merge_similarity": "similar",
+      "merge_similarity": "different",
       "freeze_pane_similarity": "same",
       "row_height_similarity": "different",
       "populated_field_families": [
@@ -6236,7 +6176,6 @@
         "Slides_Guidance"
       ],
       "ticker_specific_differences": [
-        "PBI: source sheet shorter than block range",
         "GPRE: missing block or sheet",
         "GPRE: source sheet shorter than block range"
       ],
@@ -6266,7 +6205,7 @@
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
         "average_row_height": 0.0
       },
@@ -6329,7 +6268,7 @@
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
         "average_row_height": 0.0
       },
@@ -6392,7 +6331,7 @@
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 79,
+        "max_row": 84,
         "max_column": 15,
         "average_row_height": 0.0
       },
@@ -6452,11 +6391,11 @@
         "block_exists": true,
         "resolved_sheet": "QA_Log",
         "range": "A2:Z5000",
-        "nonempty_cells": 11445,
+        "nonempty_cells": 11617,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 1267,
+        "max_row": 1286,
         "max_column": 18,
         "average_row_height": 15.0
       },
@@ -6514,11 +6453,11 @@
         "block_exists": true,
         "resolved_sheet": "Needs_Review",
         "range": "A2:Z5000",
-        "nonempty_cells": 64,
+        "nonempty_cells": 76,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 6,
+        "max_row": 7,
         "max_column": 13,
         "average_row_height": 15.0
       },
@@ -6572,11 +6511,11 @@
         "block_exists": true,
         "resolved_sheet": "QA_Checks",
         "range": "A2:Z5000",
-        "nonempty_cells": 7005,
+        "nonempty_cells": 7145,
         "formula_cells": 0,
         "merge_count": 0,
         "freeze_panes": "A2",
-        "max_row": 592,
+        "max_row": 606,
         "max_column": 24,
         "average_row_height": 15.0
       },

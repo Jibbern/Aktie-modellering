@@ -149,9 +149,6 @@ VALUATION_GUIDANCE_SIDECAR_HEADERS = {
     "Q50": "Evidence",
     "X50": "Review state",
     "Z50": "Source key",
-    "O63": "Output",
-    "U63": "Value",
-    "X63": "Interpretation",
 }
 VALUATION_STRUCTURAL_HEADERS = {
     "B138": "Summary",
@@ -166,12 +163,12 @@ VALUATION_BLUE_SECTION_HEADERS = {
     "A122",
     "A137",
     "N137",
-    "B192",
+    "A192",
 }
 VALUATION_BLUE_SECTION_HEADER_RANGES = (
     "A122:N122",
     "A152:M152",
-    "B192:S192",
+    "A192:F192",
 )
 STATUS_OUTPUT_FILL_COLORS = {
     "00D9EAF7",
@@ -493,7 +490,7 @@ def test_valuation_lower_runtime_value_status_and_date_cells_are_blank() -> None
     try:
         ws = wb["Valuation"]
         runtime_constant_ranges = (
-            "D194:D216",
+            "D199:D216",
             "E236:E240",
             "D247:D250",
             "E253:E256",
@@ -511,7 +508,6 @@ def test_valuation_lower_runtime_value_status_and_date_cells_are_blank() -> None
                         continue
                     offenders.append(f"Valuation!{cell.coordinate}={value!r}")
 
-        assert ws["D195"].value in (None, "")
         assert offenders == []
     finally:
         wb.close()
@@ -623,9 +619,10 @@ def test_valuation_lower_blocks_preserve_template_bands_merges_and_font_sizes() 
             assert ws[coord].font.sz == 12
             assert ws[coord].fill.fgColor.rgb == HEADER_BLUE
 
-        assert ws["B192"].value == "Valuation"
-        assert ws["B192"].fill.fgColor.rgb == SECTION_BLUE
-        assert ws["B192"].font.sz == 18
+        assert "A192:F192" in merged_ranges
+        assert ws["A192"].value == "Forward Valuation Summary"
+        assert ws["A192"].fill.fgColor.rgb == SECTION_BLUE
+        assert ws["A192"].font.sz == 14
     finally:
         wb.close()
 

@@ -149,9 +149,10 @@ def test_exact_cell_plan_executes_in_memory_without_obsolete_targets() -> None:
         assert workbook["Promise_Progress_UI"]["I61"].value == "2026-Q1"
         assert workbook["Promise_Progress_UI"]["J61"].value == "2026-07-07"
         assert workbook["TEST_Investment_Case"]["B5"].value.startswith("The test case depends")
-        route_formula = str(workbook["Valuation_Summary"]["H2"].value or "")
-        assert "TEST_Investment_Case_Data" in route_formula
+        route_formula = str(workbook["TEST_Investment_Case_Data"]["BI14"].value or "")
+        assert "TEST_Investment_Case" in route_formula
         assert "{ticker}" not in route_formula
+        assert workbook["Valuation"]["D197"].value == "=IC_Base_Blended_Value_Per_Share"
     finally:
         workbook.close()
 

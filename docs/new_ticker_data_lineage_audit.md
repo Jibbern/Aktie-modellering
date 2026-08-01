@@ -34,7 +34,7 @@ The target new-ticker architecture should be package-centric:
 | Transcripts | ticker material roots / source directories, read by doc-intel and operating-driver loaders | promise/quarter-note candidates, operating-driver source records | `normalized_guidance`, `operating_drivers`, `quarter_notes` |
 | Presentations | ticker material roots, PDF/text cache through `doc_intel` and writer cache | `Slides_Guidance`, `Slides_Segments`, `Quarter_Notes_Evidence`, `Promise_Evidence` | `normalized_guidance`, `segments`, `operating_drivers`, `source_coverage` |
 | Manually configured profile data | `pbi_xbrl/company_profiles.py` and profile-derived helper config | `company_overview`, driver templates, sector flags, investment-case defaults | `ticker_metadata`, `company_profile`, manual-review investment-case fields |
-| Derived/calculated fields | `pipeline.py`, `valuation.py`, `excel_writer_core.py`, valuation precompute helpers, Excel formulas | `History_Q`, `Valuation_Summary`, `Valuation_Grid`, `Leverage_Liquidity`, formula cells | normalized calculated fields only when source-backed; formulas stay owned by shell |
+| Derived/calculated fields | standard new-ticker formula and projection authorities; legacy production keeps its separate writers | `History_Q`, `{ticker}_Investment_Case_Data`, `Leverage_Liquidity`, formula cells | normalized calculated fields only when source-backed; forward valuation formulas are Investment Case-owned |
 
 ## Storage Layer Audit
 
@@ -117,8 +117,8 @@ Current storage is split across disk cache and workbook support sheets:
 - Storage layer: raw facts and SEC audit live in `DATA_Facts_Long` and
   `SEC_Audit_Log`; parsed quarterly series live in `History_Q`; debt support
   lives in `Debt_Tranches_Q`, `Debt_Profile`, and `Leverage_Liquidity`;
-  derived outputs live in `Valuation_Summary`, `Valuation_Grid`, and formula
-  support areas.
+  detailed forward outputs live only in the canonical Investment Case matrix;
+  Valuation contains a compact reference-only summary.
 - Transformation logic: `excel_writer_core.ensure_valuation_inputs()` builds
   source views and precompute bundles; `excel_writer_valuation_orchestrator.py`
   renders history grid, formulas, debt detail, hidden value, guidance, trend

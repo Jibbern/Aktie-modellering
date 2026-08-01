@@ -638,12 +638,10 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         for binding_id in (
             "ic_bull_base_bear_rows",
             "ic_scenario_bridge_rows",
-            "valuation_input_net_income_ttm",
         )
     } == {
         "ic_bull_base_bear_rows": 220,
         "ic_scenario_bridge_rows": 102,
-        "valuation_input_net_income_ttm": 1,
     }
     assert {
         binding_id: by_binding[binding_id]
@@ -672,7 +670,6 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     scenario_binding_ids = {
         "ic_bull_base_bear_rows",
         "ic_scenario_bridge_rows",
-        "valuation_input_net_income_ttm",
     }
     additive_binding_ids = (
         scenario_binding_ids
@@ -683,11 +680,11 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         | focused_pass_b1_binding_ids
         | capital_return_binding_ids
     )
-    assert len(payload["planned_writes"]) == 23_761
+    assert len(payload["planned_writes"]) == 23_613
     # Two old raw guidance filters contributed 189 exclusions each, while four
     # deferred scalar-as-table bindings contributed one apiece. Resolved 2B
-    # rowsets replace those 382 non-economic skips.
-    assert payload["structured_skip_count"] == 2_012 == 2_394 - 382
+    # rowsets and B2 retirement replace 388 non-economic skips.
+    assert payload["structured_skip_count"] == 2_006 == 2_394 - 388
     assert payload["overflow_count"] == 0
     product_pass_2a_writes = [
         write
@@ -736,7 +733,7 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     assert _canonical_digest(capital_return_writes) == (
         "9247ed248bcbeb2bcd88aeac8a0626e6a25cfae0205b7c37e2aa31da50837080"
     )
-    assert len(payload["planned_writes"]) - 157 - 389 - 761 - 240 == 22_214
+    assert len(payload["planned_writes"]) - 157 - 389 - 761 - 240 == 22_066
     non_scenario_writes = [
         write
         for write in payload["planned_writes"]
@@ -750,12 +747,12 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     # The accepted 20,518-write nonadditive baseline loses 82 retired
     # BS_Segments writes and 690 obsolete QA cells. Product Pass 2A then adds
     # 138 QA cells for six explicit unavailable scalar/date dispositions.
-    assert len(non_scenario_writes) == 19_849
-    assert _canonical_digest(non_scenario_writes) == "5abdc8266e11eacd1954a77bf4426fc46fbc3e5868d502aa6c1ee62ff04f78ca"
+    assert len(non_scenario_writes) == 19_702
+    assert _canonical_digest(non_scenario_writes) == "e32df690c6de2c2dc05773ab8333ffcb598046e3d01a417a6969a3d22a18de9c"
     # B1 replaces five inactive legacy Investment Case bindings with one
     # active typed rowset binding, which is excluded above as a bounded addition.
-    assert len(non_scenario_binding_reports) == 132
-    assert _canonical_digest(non_scenario_binding_reports) == "6f90cebf22c23f062681056cbce173576414c248392651ded4b5ee45c3361510"
+    assert len(non_scenario_binding_reports) == 117
+    assert _canonical_digest(non_scenario_binding_reports) == "4f2f3894d8368fa2de9df6495a3a68360b78d7cea540d51bd82498ec0e7fe341"
 
     segment_writes = [
         write
@@ -790,8 +787,8 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         and write.get("binding_id") not in capital_return_binding_ids
         and write.get("binding_id") not in hidden_value_binding_ids
     ]
-    assert len(stable_business_writes) == 5_431
-    assert _canonical_digest(stable_business_writes) == "80cdc083017b796c47d8b23a8044c29508a5f6d2018612c07af03f6dbcf992cc"
+    assert len(stable_business_writes) == 5_421
+    assert _canonical_digest(stable_business_writes) == "cf7fbc32d43d92432fd365403d773edfe67bf059f38215effa2f291bed1f159f"
     all_stable_business_writes = [
         write
         for write in payload["planned_writes"]
@@ -802,13 +799,13 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
         and write.get("binding_id") not in capital_return_binding_ids
         and write.get("binding_id") not in hidden_value_binding_ids
     ]
-    assert len(all_stable_business_writes) == 5_455
-    assert _canonical_digest(all_stable_business_writes) == "f2d0d9bed09c7001fa0542fe3584a9a2ba0532bb7e3b2e427d7b94fa0de0d9a4"
+    assert len(all_stable_business_writes) == 5_445
+    assert _canonical_digest(all_stable_business_writes) == "6d44d17aa9b8ae97d16c3f898758746594d0b2b6c831d7a4599d9dca0abe55b0"
     assert _canonical_digest(payload["period_axes"]) == "88b9f00e07414ea100180a8f574e4ca3ab14088885107d888f75e1b143ec8818"
-    assert _canonical_digest(payload["issue_ledger"]) == "fc7ffceade40912ef58f70ba0b7fcebdff248c22b77b55711e68070985cde010"
-    assert _canonical_digest(payload["issue_ledger"]["issues"]) == "ce17b225eee5b78725b568fd0b147b14bc797d96a995900b619fa3459a3d2d7c"
-    assert _canonical_digest(payload["issue_ledger"]["occurrences"]) == "4745093d029eb73c7cbd21bbf425ed9794ad951cb5e61913d706f40c0e604469"
-    assert _canonical_digest(payload["mapping_gaps"]) == "1d44ae3ef88320fac03d09e770ce9ce77ae53689f457037823ad3dcbcd1c452e"
+    assert _canonical_digest(payload["issue_ledger"]) == "6371c550feb51c5aea91f32bec18d393a65316788cf304351e500ad89799e8d6"
+    assert _canonical_digest(payload["issue_ledger"]["issues"]) == "a5078093a353190340a27b0e3991234850ec4053d685b8a0a24a58ed749d7c83"
+    assert _canonical_digest(payload["issue_ledger"]["occurrences"]) == "aa250df969959a18fff1cdc2a3f0bec03ba35cfd165444316b003f6a74186250"
+    assert _canonical_digest(payload["mapping_gaps"]) == "7d1b871de8f591f38dbd05e1ace993a5fdada34e38510e58d1790c3aeb3bac96"
     assert _canonical_digest(payload["manual_review_flags"]) == "be52e1510ee9fd6a64388dd66f80f192b4c0c8a03879015e97df9babbab4cf9b"
     product_pass_2a_issues = [
         issue
@@ -817,8 +814,8 @@ def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapsh
     ]
     assert len(product_pass_2a_issues) == 6
     assert {issue["occurrence_count"] for issue in product_pass_2a_issues} == {2}
-    assert summary["canonical_unique_issue_count"] == 761
-    assert summary["detailed_occurrence_count"] == 2_323
+    assert summary["canonical_unique_issue_count"] == 755
+    assert summary["detailed_occurrence_count"] == 2_311
     assert by_binding["valuation_period_headers"] == 12
     assert by_binding["valuation_revenue_series"] == 12
     assert by_binding["valuation_net_income_series"] == 12

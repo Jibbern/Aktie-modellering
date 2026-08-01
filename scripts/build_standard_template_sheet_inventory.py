@@ -75,6 +75,7 @@ VISIBLE_QA_SURFACE_CONTRACTS = [
     },
 ]
 SOURCE_TICKERS = ("PBI", "GPRE", "ANF")
+PHYSICALLY_RETIRED_STANDARD_SHEETS = frozenset({"Valuation_Summary", "Valuation_Grid"})
 
 REQUIRED_SUPPORT_SHELL_SHEETS = {
     "Hidden_Value_Flags",
@@ -98,8 +99,6 @@ RUNTIME_SUPPORT_SHEETS = {
     "REPORT_CF_Q",
     "Quarter_Notes_Evidence",
     "Quarter_Narrative_Data",
-    "Valuation_Summary",
-    "Valuation_Grid",
     "Promise_Tracker",
     "NonGAAP_Credibility",
     "Hidden_Value_Recompute",
@@ -378,6 +377,7 @@ def build_inventory(
     for states in source_states.values():
         all_sheet_names.update(states)
     all_sheet_names.update(RESERVED_RUNTIME_SHEETS)
+    all_sheet_names.difference_update(PHYSICALLY_RETIRED_STANDARD_SHEETS)
 
     rows: list[dict[str, Any]] = []
     lifecycle_rows: list[dict[str, Any]] = []

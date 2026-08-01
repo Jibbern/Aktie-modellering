@@ -151,7 +151,7 @@ def test_public_filler_applies_exact_reproduced_style_plan_after_values(
 ) -> None:
     artifacts = filled_anf_style_workbook
     result = artifacts["result"]
-    assert result.written_cell_count == 23_761
+    assert result.written_cell_count == 23_613
     assert result.styled_cell_count == 770
 
     shell = load_workbook(SHELL, data_only=False, read_only=False)
@@ -321,9 +321,17 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             formulas = _formula2_values(valuation.Range(f"B{row}:M{row}").Formula2)
             assert all("MAXIFS(" in formula or "MINIFS(" in formula for formula in formulas)
             future_formula_errors.extend(_excel_range_errors(valuation, f"B{row}:M{row}"))
-        summary_formulas = _formula2_values(book.Worksheets("Valuation_Summary").Range("H2:K2").Formula2)
-        assert all("LET(" in formula for formula in summary_formulas)
-        future_formula_errors.extend(_excel_range_errors(book.Worksheets("Valuation_Summary"), "H2:K2"))
+        matrix_formulas = _formula2_values(
+            book.Worksheets("ANF_Investment_Case_Data").Range("BB2:BQ25").Formula2
+        )
+        assert len([formula for formula in matrix_formulas if formula.startswith("=")]) == 264
+        future_formula_errors.extend(
+            _excel_range_errors(book.Worksheets("ANF_Investment_Case_Data"), "BB2:BQ25")
+        )
+        summary_formulas = _formula2_values(valuation.Range("B194:E198").Formula2)
+        assert len(summary_formulas) == 20
+        assert all(formula.startswith("=IC_") for formula in summary_formulas)
+        future_formula_errors.extend(_excel_range_errors(valuation, "B194:E198"))
         assert future_formula_errors == [], "\n".join(future_formula_errors)
 
         fail_closed_errors = [
@@ -351,7 +359,7 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
         checked_sheets = (
             "Valuation",
             "ANF_Investment_Case",
-            "Valuation_Summary",
+            "ANF_Investment_Case_Data",
             "Hidden_Value_Base",
             "Hidden_Value_Audit",
             "Hidden_Value_Recompute",
@@ -365,7 +373,8 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
         name_errors = [error for error in formula_errors if ":-2146826259:" in error]
         assert name_errors == [], "\n".join(name_errors)
 
-        valuation_before = valuation.Range("A1:S261").Value2
+        valuation_before_top = valuation.Range("A1:AI191").Value2
+        valuation_before_bottom = valuation.Range("A199:AI271").Value2
         baseline_growth = float(investment_case.Range("B45").Value)
         baseline_revenue = float(investment_case.Range("D85").Value)
         percentage_input = investment_case.Range("D45")
@@ -497,7 +506,8 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
         ):
             investment_case.Range(coordinate).ClearContents()
         excel.CalculateFullRebuild()
-        assert valuation.Range("A1:S261").Value2 == valuation_before
+        assert valuation.Range("A1:AI191").Value2 == valuation_before_top
+        assert valuation.Range("A199:AI271").Value2 == valuation_before_bottom
 
         book.Save()
         book.Close(SaveChanges=False)
@@ -514,7 +524,8 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             _excel_range_errors(book.Worksheets("Valuation"), f"B{row}:M{row}") == []
             for row in (10, 15, 21, 25, 34, 39, 46, 49, 50, 63, 64, 65, 66, 67, 88, 89, 109, 111, 271)
         )
-        assert _excel_range_errors(book.Worksheets("Valuation_Summary"), "H2:K2") == []
+        assert _excel_range_errors(book.Worksheets("ANF_Investment_Case_Data"), "BB2:BQ25") == []
+        assert _excel_range_errors(book.Worksheets("Valuation"), "B194:E198") == []
         assert all(
             _excel_range_errors(book.Worksheets(sheet_name), target) == []
             for sheet_name, target in (
@@ -554,11 +565,11 @@ def test_swedish_excel_native_recalculation_preserves_formula_and_protection_con
             _wait_for_owned_process_exit(process_id)
 
     inventory = inventory_xlsx_formula_xml(path)
-    assert inventory["cell_formula_count"] == 2690
+    assert inventory["cell_formula_count"] == 2609
     assert inventory["function_counts"]["MAXIFS"] == 324
     assert inventory["function_counts"]["MINIFS"] == 324
-    assert inventory["function_counts"]["LET"] == 4
-    assert inventory["let_local_occurrences"] == 204
+    assert inventory["function_counts"].get("LET", 0) == 0
+    assert inventory["let_local_occurrences"] == 0
     assert inventory["unprefixed_future_functions"] == {}
     assert inventory["unsupported_functions"] == {}
     assert inventory["malformed_expressions"] == []

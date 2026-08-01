@@ -139,9 +139,6 @@ VALUATION_GUIDANCE_SIDECAR_HEADERS = {
     "Q50": "Evidence",
     "X50": "Review state",
     "Z50": "Source key",
-    "O63": "Output",
-    "U63": "Value",
-    "X63": "Interpretation",
 }
 OPERATING_DRIVER_SHEET_HEADERS = {
     "A12": "Topic",

@@ -469,10 +469,10 @@ def test_anf_binding_style_and_visibility_projection_is_exact(anf_package: dict)
         "debt_maturity_ladder_resolved_rows": 0,
     }
     serialized_plan = value_plan.to_dict()
-    assert serialized_plan["planned_write_count"] == 23_761
-    assert serialized_plan["structured_skip_count"] == 2_012
-    assert value_plan.issue_ledger["summary"]["canonical_unique_issue_count"] == 761
-    assert value_plan.issue_ledger["summary"]["detailed_occurrence_count"] == 2_323
+    assert serialized_plan["planned_write_count"] == 23_613
+    assert serialized_plan["structured_skip_count"] == 2_006
+    assert value_plan.issue_ledger["summary"]["canonical_unique_issue_count"] == 755
+    assert value_plan.issue_ledger["summary"]["detailed_occurrence_count"] == 2_311
     assert len(style_plan.actions) == 770
     assert len(style_plan.decisions) == 1_298
     assert dict(value_plan.sheet_visibility)["Debt_Maturity_Ladder"] == "hidden"
@@ -526,7 +526,7 @@ def test_filled_anf_debt_product_is_exact_and_preserves_existing_snapshot(tmp_pa
     output = tmp_path / "ANF_debt_product.xlsx"
     result = fill_standard_template_from_package(ANF_PACKAGE, output_path=output)
 
-    assert result.written_cell_count == 23_761
+    assert result.written_cell_count == 23_613
     assert result.styled_cell_count == 770
     wb = load_workbook(output, data_only=False, read_only=False)
     try:

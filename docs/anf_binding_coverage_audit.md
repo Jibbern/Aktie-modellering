@@ -2,9 +2,9 @@
 
 Coverage check for how the ANF shadow normalized package maps to the current workbook binding map.
 
-- Generated: `2026-07-29T14:01:27+00:00`
-- Bindings with populated data: `71` / `189`
-- Bindings that would write useful output: `136`
+- Generated: `2026-07-29T14:01:21+00:00`
+- Bindings with populated data: `61` / `172`
+- Bindings that would write useful output: `126`
 
 | Binding | Sheet | Field | Values | Rows | Would write | Reason if blank |
 | --- | --- | --- | ---: | ---: | --- | --- |
@@ -23,7 +23,6 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `valuation_guidance_historical_rows` | `Valuation` | `_derived_workbook.guidance.historical_rows.value` | 0 | 0/7 | True |  |
 | `valuation_guidance_current_secondary_rows` | `Valuation` | `_derived_workbook.guidance.current_secondary_rows.value` | 0 | 0/6 | True |  |
 | `valuation_thesis_debate_rows` | `Valuation` | `_derived_workbook.thesis.rows.text` | 0 | 0/8 | True |  |
-| `valuation_output_rows` | `Valuation` | `valuation_outputs.items.value` | 0 | 0/107 | False | binding planning_state is formula_owned |
 | `bs_segment_quarterly_rows` | `BS_Segments` | `segments.items.revenue` | 105 | 105/7 | True |  |
 | `bs_segment_annual_rows` | `BS_Segments` | `segments.items.annual_revenue` | 21 | 21/7 | True |  |
 | `od_watchlist_rows` | `Operating_Drivers` | `operating_drivers.items.current_read` | 136 | 34/4 | True |  |
@@ -168,21 +167,6 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `bs_diluted_shares_series` | `BS_Segments` | `quarterly_financials.rows.diluted_shares` | 0 | 0/1 | True |  |
 | `bs_annual_period_headers` | `BS_Segments` | `annual_financials.rows.period` | 0 | 0/1 | True |  |
 | `bs_annual_revenue_series` | `BS_Segments` | `annual_financials.rows.revenue` | 0 | 0/1 | True |  |
-| `valuation_input_as_of` | `Valuation` | `valuation_inputs.as_of_date` | 1 | 1/1 | True |  |
-| `valuation_input_shares_outstanding` | `Valuation` | `valuation_inputs.shares_outstanding` | 0 | 0/1 | False | normalized field is absent or not populated |
-| `valuation_input_diluted_shares` | `Valuation` | `valuation_inputs.diluted_shares` | 1 | 1/1 | True |  |
-| `valuation_input_net_debt` | `Valuation` | `valuation_inputs.net_debt` | 0 | 0/1 | False | normalized field is absent or not populated |
-| `valuation_input_base_ebitda_ttm` | `Valuation` | `valuation_inputs.base_ebitda_ttm` | 1 | 1/1 | True |  |
-| `valuation_input_adjusted_ebitda_ttm` | `Valuation` | `valuation_inputs.adjusted_ebitda_ttm` | 1 | 1/1 | True |  |
-| `valuation_input_fcf_ttm` | `Valuation` | `valuation_inputs.free_cash_flow_ttm` | 1 | 1/1 | True |  |
-| `valuation_input_operating_cash_flow_ttm` | `Valuation` | `valuation_inputs.operating_cash_flow_ttm` | 1 | 1/1 | True |  |
-| `valuation_input_revenue_ttm` | `Valuation` | `valuation_inputs.revenue_ttm` | 1 | 1/1 | True |  |
-| `valuation_input_eps_ttm` | `Valuation` | `valuation_inputs.eps_ttm` | 1 | 1/1 | True |  |
-| `valuation_input_adjusted_eps_ttm` | `Valuation` | `valuation_inputs.adjusted_eps_ttm` | 0 | 0/1 | False | normalized field is absent or not populated |
-| `valuation_input_book_value_per_share` | `Valuation` | `valuation_inputs.book_value_per_share` | 0 | 0/1 | False | normalized field is absent or not populated |
-| `valuation_input_tangible_book_value_per_share` | `Valuation` | `valuation_inputs.tangible_book_value_per_share` | 0 | 0/1 | False | normalized field is absent or not populated |
-| `valuation_input_capex_ttm` | `Valuation` | `valuation_inputs.capex_ttm` | 1 | 1/1 | True |  |
-| `valuation_input_interest_paid_ttm` | `Valuation` | `valuation_inputs.interest_paid_ttm` | 0 | 0/1 | False | normalized field is absent or not populated |
 | `debt_profile_resolved_rows` | `Debt_Profile` | `_derived_workbook.debt.debt_profile_rows.value` | 0 | 0/11 | True |  |
 | `revolver_history_resolved_rows` | `Revolver_History` | `_derived_workbook.debt.revolver_history_rows.value` | 0 | 0/12 | True |  |
 | `revolver_history_companion_rows` | `Revolver_History` | `_derived_workbook.debt.revolver_history_rows.source_state` | 0 | 0/12 | True |  |
@@ -191,7 +175,6 @@ Coverage check for how the ANF shadow normalized package maps to the current wor
 | `leverage_liquidity_companion_rows` | `Leverage_Liquidity` | `_derived_workbook.debt.leverage_liquidity_rows.disposition_state` | 0 | 0/12 | True |  |
 | `debt_credit_notes_resolved_rows` | `Debt_Credit_Notes` | `_derived_workbook.debt.debt_credit_note_rows.text` | 0 | 0/6 | True |  |
 | `debt_maturity_ladder_resolved_rows` | `Debt_Maturity_Ladder` | `_derived_workbook.debt.debt_maturity_rows.amount` | 0 | 0/17 | False | normalized field is absent or not populated |
-| `valuation_input_net_income_ttm` | `Valuation` | `valuation_inputs.net_income_ttm` | 1 | 1/1 | True |  |
 | `valuation_capital_return_latest_quarter_header` | `Valuation` | `_derived_workbook.capital_return.latest_quarter_label` | 0 | 0/1 | True |  |
 | `valuation_capital_return_ttm_header` | `Valuation` | `_derived_workbook.capital_return.ttm_label` | 0 | 0/1 | True |  |
 | `valuation_capital_return_annual_header` | `Valuation` | `_derived_workbook.capital_return.annual_label` | 0 | 0/1 | True |  |

@@ -83,15 +83,15 @@ def test_plan_writes_reproducible_plans_and_non_authoritative_receipt(anf_plan: 
     assert receipt["command"] == "plan"
     assert receipt["contract_profile"]["profile_id"] == "full_union"
     assert receipt["plans"]["binding"]["digest"]
-    assert receipt["plans"]["binding"]["planned_write_count"] == 23_761
-    assert receipt["plans"]["binding"]["structured_skip_count"] == 2_012
-    assert receipt["plans"]["binding"]["issue_count"] == 761
-    assert receipt["plans"]["binding"]["occurrence_count"] == 2_323
+    assert receipt["plans"]["binding"]["planned_write_count"] == 23_613
+    assert receipt["plans"]["binding"]["structured_skip_count"] == 2_006
+    assert receipt["plans"]["binding"]["issue_count"] == 755
+    assert receipt["plans"]["binding"]["occurrence_count"] == 2_311
     assert receipt["plans"]["binding"]["blocking_issue_count"] == 0
     assert receipt["plans"]["style"]["digest"]
     assert receipt["plans"]["style"]["action_count"] == 770
     assert receipt["plans"]["style"]["decision_count"] == 1_298
-    assert receipt["formula_inventory"]["cell_formula_count"] == 2_690
+    assert receipt["formula_inventory"]["cell_formula_count"] == 2_609
 
 
 def test_ticker_profile_and_digest_mismatch_fail_before_artifacts(tmp_path: Path) -> None:

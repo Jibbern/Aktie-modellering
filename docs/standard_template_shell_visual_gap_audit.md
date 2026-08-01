@@ -1,6 +1,6 @@
 # Standard Template Shell Visual Gap Audit
 
-Generated at: 2026-07-29T08:49:03.767205+00:00
+Generated at: 2026-08-01T08:54:01.653500+00:00
 
 Preview mode: openpyxl/static only. These PNGs are contact sheets for structural review, not Excel/COM-rendered visual PASS artifacts.
 
@@ -13,9 +13,9 @@ Preview mode: openpyxl/static only. These PNGs are contact sheets for structural
 
 ## Contact Sheets
 
-- standard_shell_contact_sheet: `C:\Users\Jibbe\AppData\Local\Temp\standard-template-audit-iwfj5isa\previews\standard_shell_contact_sheet.png`
-- anf_template_lab_contact_sheet: `C:\Users\Jibbe\AppData\Local\Temp\standard-template-audit-iwfj5isa\previews\anf_template_lab_contact_sheet.png`
-- shell_vs_anf_contact_sheet: `C:\Users\Jibbe\AppData\Local\Temp\standard-template-audit-iwfj5isa\previews\shell_vs_anf_contact_sheet.png`
+- standard_shell_contact_sheet: `C:\Users\Jibbe\AppData\Local\Temp\standard-template-audit-pi9g8l9k\previews\standard_shell_contact_sheet.png`
+- anf_template_lab_contact_sheet: `C:\Users\Jibbe\AppData\Local\Temp\standard-template-audit-pi9g8l9k\previews\anf_template_lab_contact_sheet.png`
+- shell_vs_anf_contact_sheet: `C:\Users\Jibbe\AppData\Local\Temp\standard-template-audit-pi9g8l9k\previews\shell_vs_anf_contact_sheet.png`
 
 ## Sheet Reports
 
@@ -39,18 +39,18 @@ Preview mode: openpyxl/static only. These PNGs are contact sheets for structural
 
 ### Valuation
 
-- Used range: shell `A1:AI271` vs ANF lab `A1:AI261`
-- Non-empty cells: shell `1230` vs ANF lab `1748`
-- Static/template labels: shell `442` vs ANF lab `592`
-- Row labels: shell `142` vs ANF lab `163`
-- Formulas: shell `788` vs ANF lab `75`
-- Formula/helper cells outside writable zones: shell `788` vs ANF lab `75`
+- Used range: shell `A1:AO271` vs ANF lab `A1:AI261`
+- Non-empty cells: shell `947` vs ANF lab `1748`
+- Static/template labels: shell `238` vs ANF lab `554`
+- Row labels: shell `151` vs ANF lab `151`
+- Formulas: shell `709` vs ANF lab `75`
+- Formula/helper cells outside writable zones: shell `709` vs ANF lab `75`
 - ANF formulas cleared because they were inside writable value zones: `0`
-- Merges: shell `319` vs ANF lab `422`
-- Hidden columns: `AI`
+- Merges: shell `165` vs ANF lab `422`
+- Hidden columns: `AD, AE, AF, AG, AH, AI, AJ, AK, AL, AM, AN, AO`
 - Freeze panes: `B7`
-- Row height similarity: `0.982`; column width similarity: `1.0`
-- Writable cells blank/nonblank: `649` / `0`
+- Row height similarity: `0.893`; column width similarity: `1.0`
+- Writable cells blank/nonblank: `883` / `0`
 - Visually complete: `True`
 - Gaps: none material after clearing company-specific value zones.
 
@@ -102,7 +102,7 @@ Preview mode: openpyxl/static only. These PNGs are contact sheets for structural
 - Hidden columns: `N, O, P, Q, R, S, T, U, V, W, X, Y, Z, AA, AB, AC, AD, AE, AF, AG, AH, AI, AJ, AK, AL, AM, AN, AO, AP, AQ, AR, AS, AT, AU, AV, AW, AX, AY, AZ, BA`
 - Freeze panes: `A2`
 - Row height similarity: `0.246`; column width similarity: `0.0`
-- Writable cells blank/nonblank: `92` / `0`
+- Writable cells blank/nonblank: `95` / `0`
 - Visually complete: `False`
 - Gaps:
   - `should_keep_style_or_layout` P2: Row-height or column-width similarity is below the rich-shell threshold.

@@ -864,7 +864,6 @@ def _validate_collection_business_keys(package: Mapping[str, Any]) -> List[Norma
         ("normalized_guidance.items", ("metric", "horizon", "source_date", "evidence_key")),
         ("operating_drivers.items", ("topic", "period", "driver_type", "driver", "evidence_key")),
         ("quarter_notes.items", ("quarter", "theme", "metric", "evidence_key")),
-        ("valuation_outputs.items", ("metric", "as_of")),
     )
     issues: List[NormalizedDataIssue] = []
     for collection_path, key_fields in specs:

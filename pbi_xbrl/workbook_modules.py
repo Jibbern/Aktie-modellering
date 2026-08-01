@@ -109,6 +109,8 @@ def validate_workbook_module_manifest(payload: Mapping[str, Any]) -> list[str]:
                     issues.append(f"Formula-output sheet {sheet_name!r} must be a hidden support surface.")
                 if not str(sheet.get("formula_owner") or ""):
                     issues.append(f"Formula-output sheet {sheet_name!r} requires a formula_owner.")
+            if list(sheet.get("formula_owned_ranges") or []) and not str(sheet.get("formula_owner") or ""):
+                issues.append(f"Formula-owned sheet {sheet_name!r} requires a formula_owner.")
         for binding_id in module.get("binding_ids") or []:
             binding_id = str(binding_id)
             if binding_id in binding_owners:

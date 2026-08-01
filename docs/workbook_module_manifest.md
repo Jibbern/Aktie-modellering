@@ -28,8 +28,7 @@ inputs, while planner and source-history targets remain locked in every profile.
 | `guidance_promises` | core | `Promise_Progress_UI`, `Promise_Evidence`, `Promise_Progress`, `Guidance_Normalized`, `Promise_Tracker` | core history, QA/lineage |
 | `quarter_notes_evidence` | core | `Quarter_Notes_UI`, `Quarter_Notes`, `Quarter_Notes_Evidence`, `Quarter_Narrative_Data` | guidance/promises, QA/lineage |
 | `operating_drivers` | core | `Operating_Drivers`, `operating_drivers_raw` | core history, QA/lineage |
-| `valuation_scenarios` | optional | `Valuation_Summary`, `Scenario_Driver_Assumptions`, `Valuation_Grid` | core history, balance/cash flow, debt, Non-GAAP |
-| `investment_case_market_implied` | core | `{ticker}_Investment_Case`, `{ticker}_Investment_Case_Data` | segments, valuation, QA/lineage |
+| `investment_case_market_implied` | core | `{ticker}_Investment_Case`, `{ticker}_Investment_Case_Data`, `Scenario_Driver_Assumptions` | core history, balance/cash flow, segments, debt, Non-GAAP, QA/lineage |
 | `hidden_value_signals` | optional | `Hidden_Value_Flags`, `Hidden_Value_Audit`, `Hidden_Value_Recompute`, `Hidden_Value_Base` | core history, balance/cash flow, debt |
 | `qa_lineage` | core | `QA_Log`, `Needs_Review`, `QA_Checks`, `OCR_Text_Log` | none |
 | `profile_packs` | explicit pack host | shared visible blocks only | profile declaration |
@@ -44,11 +43,11 @@ packs explicitly share one mutually exclusive slot.
 
 | Profile | Enabled modules | Profile packs | Dimensions |
 | --- | --- | --- | --- |
-| `full_union` | all 13 | none | total company, business segment |
+| `full_union` | all 12 | none | total company, business segment |
 | `core_only` | core history, balance/cash flow, QA/lineage | none | total company |
-| `anf` | all 13 | `retail_operating_pack` | total company, geography, brand family |
-| `pbi` | all 13 | `shipping_mail_pack`, `bank_pack` | total company, business segment, service line |
-| `gpre` | all 13 | `commodity_ethanol_pack` | total company, business segment, product, commodity exposure |
+| `anf` | all 12 | `retail_operating_pack` | total company, geography, brand family |
+| `pbi` | all 12 | `shipping_mail_pack`, `bank_pack` | total company, business segment, service line |
+| `gpre` | all 12 | `commodity_ethanol_pack` | total company, business segment, product, commodity exposure |
 
 Ticker mappings are explicit. Unknown tickers have no inferred profile and must be
 declared before a profile shell can be materialized.

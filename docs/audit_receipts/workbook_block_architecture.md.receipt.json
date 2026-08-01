@@ -4,7 +4,7 @@
   "reason": "",
   "artifact": {
     "path": "docs/workbook_block_architecture.md",
-    "sha256": "fb298d7a1faf21a28fb2a56f06b5263bf8c9f3fe33aff32d214a8c6faf930c83",
+    "sha256": "232cc1d8d09afa7d299216f8854b97dc763003ba0271e7480a3874db50d8c06a",
     "output_schema": "text/markdown",
     "output_version": "markdown-v1"
   },
@@ -15,19 +15,19 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "4eece6b3258530ba21d0d65180757621f808983e30bb1fb179383021f00576c5"
+      "sha256": "e3bbae82169fc8381c3dde1635d874bfe708b938a940ca1d33cedac31bff208d"
     },
     {
       "path": "docs/workbook_binding_map.json",
-      "sha256": "bee69cd7fcd4f0cd342863fba1f4a4619bb2ee669b42445911d361d2dc6047ac"
+      "sha256": "7659ffef32d8f8f62fb82fde48523fdc4ffbaf50bc2f0830b176f6b228280e54"
     },
     {
       "path": "docs/sheet_data_flow_map.json",
-      "sha256": "af39ae96d4f7e2ace8c5cc1605fee2f07cd6c69150addb6ce20741f447fc6078"
+      "sha256": "104ca9b309551331b4011185d8f4806cdcdef7f99a630e9b40ceaf54a7a9e185"
     },
     {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\PBI_model.xlsx",
-      "sha256": "cf87600fbeeea285cf192f30520b1819bc4280ddbccd94c343828712d2020646"
+      "sha256": "6482617ad4f412dc5a1e130dc56c72bba5113ddacea5f7d1ab166fad8ddf5689"
     },
     {
       "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\GPRE_model.xlsm",
@@ -56,38 +56,38 @@
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "3035e15f2ac4c94cfe0730d937e361f88614b4fac7497f74f2f367d0f93247b2",
+    "run_generation_id": "2b69509ddee9d199ec9dab0df1721987f2c8434888d58999a38bb4b6cc8c9ed6",
     "generated_outputs": [
       {
-        "canonical_content_sha256": "46895de9d58c821ecfd667682b8f172fc5b729fe0d1a0e7fddb20a569ce8bd1b",
+        "canonical_content_sha256": "de1bb15be0a504cccadf516a031c693b8da52633435c2e02430dec4fb248cf64",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_architecture.json",
-        "sha256": "1de8711da5cd1b625656f02c0ecfa7095210d3b733c9eced263492de4c997c81"
+        "sha256": "16d6d393ff8b31b7bb7d84cd42808404a60b10263ce06ca93def4ef216dd9685"
       },
       {
-        "canonical_content_sha256": "d1a6760f53155181c65065271207a2bf8070dcf2171837ed571029c4ab389fe6",
+        "canonical_content_sha256": "e30de08ffc9f4c4e55d67011f6c3a3d0a2509867c72a1feac36925653d9cf2b7",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/workbook_block_architecture.md",
-        "sha256": "fb298d7a1faf21a28fb2a56f06b5263bf8c9f3fe33aff32d214a8c6faf930c83"
+        "sha256": "232cc1d8d09afa7d299216f8854b97dc763003ba0271e7480a3874db50d8c06a"
       },
       {
-        "canonical_content_sha256": "fd94dcad39bb91d2a0e0fbfd00889913109bfbfa91d7a93342570a8c32ad6cb7",
+        "canonical_content_sha256": "bdfc4833b427842cd46fc5a7f70f25dd731571ac15964db2b36540c40d29b08b",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_coverage_matrix.json",
-        "sha256": "704094c5d28d1aa2f8af0d49e1e15c112bcf79bf231a8aee156c9b7007e21a31"
+        "sha256": "6dc09be388d077192edd89dc50f3422c672aae5d7b01eaf970177b23a95dc80c"
       },
       {
-        "canonical_content_sha256": "f045d0b056fb4fd614e17e4b17f763644e18ecb220b438baf625381d85cb6dc6",
+        "canonical_content_sha256": "3f772a2fa094bd76882fd42088682da7f596c09187ccf04cb89df6a6024ed5a0",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/workbook_block_coverage_matrix.md",
-        "sha256": "d93f8df06ce7bca7632ca5b1624208fb20fb7df61be0c4aa9fc59dd9b4e5e38c"
+        "sha256": "3e8de461b0371633afac713e7aee5d29255cb0c20f148b5ca198df695ccd46a6"
       }
     ]
   },
-  "generated_at_utc": "2026-07-29T14:37:17+00:00",
-  "generation_id": "8e5239449dfaa91289e9ce65067f630e34b9a8145cc8faa2bb2552ebf5928dbb"
+  "generated_at_utc": "2026-08-01T08:53:22+00:00",
+  "generation_id": "51b91f5c579f011ff9017d94d7b61dbc398ae91e367a091da2f76e7bad4b9d25"
 }

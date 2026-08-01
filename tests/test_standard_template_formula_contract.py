@@ -141,7 +141,7 @@ def test_visible_metric_labels_are_concise_without_losing_definition() -> None:
 
 def test_formula_contract_contains_no_ticker_specific_content() -> None:
     source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
-    assert FORMULA_CONTRACT_VERSION == "2.5.1"
+    assert FORMULA_CONTRACT_VERSION == "2.5.2"
     for forbidden in ("Abercrombie", "Hollister", "ANF_model", "A&F"):
         assert forbidden not in source
 
@@ -225,90 +225,6 @@ def test_summary_business_oracles_use_signed_fcf_improvement() -> None:
     assert (current_fcf - prior_fcf) / abs(prior_fcf) == pytest.approx(0.688024979913812)
 
 
-def test_typed_scenario_formulas_have_exact_ownership_and_no_unsafe_defaults() -> None:
-    wb = load_workbook(SHELL, data_only=False, read_only=False)
-    try:
-        valuation = wb["Valuation"]
-        investment_case = wb["{ticker}_Investment_Case"]
-
-        for coordinate in ("D218", "D219", "D220", "J218", "J219", "J220", "J221", "E237", "J236", "D247", "D253", "D254"):
-            assert valuation[coordinate].value is None
-            assert valuation[coordinate].protection.locked is False
-        for coordinate in ("J222", "J223", "E241", "E244", "E259", "E260", "E261", "J259", "J261", "N238", "N244", "R261"):
-            assert isinstance(valuation[coordinate].value, str) and valuation[coordinate].value.startswith("=")
-            assert valuation[coordinate].protection.locked is True
-
-        assert "DCF_Horizon" in str(valuation["J222"].value)
-        assert "ScenarioBuybackCash/ScenarioBuybackPrice" in str(valuation["E259"].value)
-        assert "NetDebt+ScenarioBuybackCash-ScenarioDebtPaydown" in str(valuation["E260"].value)
-        assert "NetIncome_TTM" in str(valuation["E261"].value)
-        assert "Adj_EBITDA" not in str(valuation["E242"].value)
-        assert "ScenarioAdjustedMargin" in str(valuation["E243"].value)
-        assert "ResolvedRevenueGrowth_Custom" in str(valuation["E241"].value)
-        assert "ScenarioGrowth" not in str(valuation["E241"].value)
-
-        n244 = str(valuation["N244"].value)
-        assert all(token in n244 for token in (
-            "NOT(ISNUMBER(N237))",
-            "NOT(ISNUMBER(DCF_WACC))",
-            "NOT(ISNUMBER(DCF_FCFF))",
-            'IF(N237+DCF_FCFF=0,""',
-        ))
-        n261 = str(valuation["N261"].value)
-        assert all(token in n261 for token in (
-            "NOT(ISNUMBER(ScenarioFCF))",
-            "NOT(ISNUMBER(ScenarioImpliedPrice))",
-            "NOT(ISNUMBER(ScenarioShares))",
-            "ScenarioImpliedPrice<=0",
-            "ScenarioShares<=0",
-        ))
-        assert "'Valuation'!" not in "\n".join(
-            str(cell.value)
-            for cell in investment_case._cells.values()
-            if isinstance(cell.value, str) and cell.value.startswith("=")
-        )
-        assert 'MATCH("market_input|price"' in str(investment_case["A17"].value)
-        assert str(investment_case["F17"].value).startswith("=IF(ISNUMBER(")
-        assert "Manual input required" in str(investment_case["G17"].value)
-        assert investment_case["B69"].value is None
-        assert investment_case["B69"].protection.locked is False
-        assert "$B$69" in str(investment_case["E121"].value)
-        assert investment_case.row_dimensions[127].height == pytest.approx(42.0)
-        selected_margin = str(investment_case["C74"].value)
-        assert 'INDEX($C$57:$E$57' in selected_margin
-        assert '="",$B$57,IF(ISNUMBER(INDEX(' in selected_margin
-        assert 'INDEX($C$57:$E$57' in selected_margin
-        assert ',"Unavailable")),"")' in selected_margin
-        selected_capex = str(investment_case["C75"].value)
-        assert 'INDEX($C$63:$E$63' in selected_capex
-        assert '="",$B$63,IF(ISNUMBER(INDEX(' in selected_capex
-        assert ',"Unavailable")),"")' in selected_capex
-        assert str(investment_case["B89"].value).startswith("=IF(NOT(ISNUMBER(")
-        assert str(investment_case["E101"].value).startswith("=IF(E$83=")
-        assert str(investment_case["G121"].value) == '=IF(ISNUMBER(E121),"Available","Unavailable")'
-        assert str(investment_case["D106"].value).startswith("=IF(ISNUMBER(C106),")
-
-        source = (ROOT / "pbi_xbrl" / "standard_template_formula_contract.py").read_text(encoding="utf-8")
-        assert "MAX(0.001" not in source
-        assert "ScenarioBuyback_m" not in source
-        assert "0.10,0.11,0.12" not in source
-
-        for coordinate in (
-            "B42", "C45", "D45", "E45", "B69", "C56", "D63", "E68",
-            "C106", "C114", "B117", "F117", "I192", "I211",
-        ):
-            assert investment_case[coordinate].value is None
-            assert investment_case[coordinate].protection.locked is False
-        for coordinate in (
-            "B15", "E15", "A17", "F17", "G17", "A46", "B44", "F44",
-            "B73", "E80", "B85", "E101", "B106", "D114", "B121", "G127",
-            "B131", "F150", "B156", "I165", "B171", "C188",
-            "A195", "D215", "A219", "L225",
-        ):
-            assert isinstance(investment_case[coordinate].value, str) and investment_case[coordinate].value.startswith("=")
-            assert investment_case[coordinate].protection.locked is True
-    finally:
-        wb.close()
 
 
 def test_investment_case_driver_chain_is_visible_and_valuation_isolated() -> None:
@@ -391,10 +307,15 @@ def test_investment_case_driver_chain_is_visible_and_valuation_isolated() -> Non
             investment_case.cell(row, 1).value
             for row in range(73, 81)
         }
-        assert "INDEX($C$98:$E$98" in str(investment_case["B121"].value)
-        assert all(token in str(investment_case["H165"].value) for token in ("H163", "H164"))
-        assert "MATCH(IF($B$69=\"\",\"Base\",$B$69)" in str(investment_case["E121"].value)
-        assert str(investment_case["G121"].value) == '=IF(ISNUMBER(E121),"Available","Unavailable")'
+        assert "_Investment_Case_Data'!$BE$2:$BE$25" in str(investment_case["B121"].value)
+        assert "_Investment_Case_Data'!$BI$2:$BI$25" in str(investment_case["H165"].value)
+        selected_pe = str(investment_case["E121"].value)
+        assert "COUNTIFS(" in selected_pe
+        assert "!$BB$2:$BB$25" in selected_pe
+        assert "!$BC$2:$BC$25" in selected_pe
+        assert '"pe"' in selected_pe
+        assert "MATCH(1,INDEX(" in selected_pe
+        assert "_Investment_Case_Data'!$BK$2:$BK$25" in str(investment_case["G121"].value)
         assert investment_case["H127"].value == '="Unavailable methods are excluded regardless of entered weight."'
 
         assert investment_case["C41"].value == "Bear"
@@ -557,12 +478,16 @@ def test_investment_case_driver_chain_is_visible_and_valuation_isolated() -> Non
         assert horizon_validation.formula2 == "5"
 
         visible_investment_case_ref = "'{ticker}_Investment_Case'!"
-        for sheet_name in ("Valuation", "Valuation_Summary"):
-            assert visible_investment_case_ref not in "\n".join(
-                str(cell.value)
-                for cell in wb[sheet_name]._cells.values()
-                if isinstance(cell.value, str) and cell.value.startswith("=")
-            )
+        assert visible_investment_case_ref not in "\n".join(
+            str(cell.value)
+            for cell in wb["Valuation"]._cells.values()
+            if isinstance(cell.value, str) and cell.value.startswith("=")
+        )
+        assert all(
+            str(wb["Valuation"].cell(row, column).value).startswith("=IC_")
+            for row in range(194, 199)
+            for column in range(2, 6)
+        )
     finally:
         wb.close()
 
@@ -577,8 +502,9 @@ def test_investment_case_buyback_and_terminal_growth_formulas_fail_closed() -> N
         buyback_repurchases = str(ws["C184"].value)
         scenario_shares = str(ws["D95"].value)
         scenario_eps = str(ws["D98"].value)
-        pe_value = str(ws["E121"].value)
-        pe_state = str(ws["G121"].value)
+        valuation_matrix = wb["{ticker}_Investment_Case_Data"]
+        pe_value = str(valuation_matrix["BI14"].value)
+        pe_state = str(valuation_matrix["BK14"].value)
         market_cap = str(ws["B133"].value)
         market_ev = str(ws["B135"].value)
         terminal_growth = str(ws["B139"].value)
@@ -611,8 +537,8 @@ def test_investment_case_buyback_and_terminal_growth_formulas_fail_closed() -> N
         assert "D95<=0" in scenario_eps
 
         assert pe_value.startswith("=IF(NOT(ISNUMBER(")
-        assert "$D$107<=0" in pe_value
-        assert pe_state == '=IF(ISNUMBER(E121),"Available","Unavailable")'
+        assert "!$D$107<=0" in pe_value
+        assert pe_state == '=IF(ISNUMBER(BI14),"Available","Unavailable")'
 
         assert market_cap.startswith("=IF(NOT(ISNUMBER($D$106))")
         assert market_ev.startswith("=IF(NOT(ISNUMBER(B133))")
@@ -628,8 +554,12 @@ def test_investment_case_buyback_and_terminal_growth_formulas_fail_closed() -> N
         assert "INDEX($B$163:$F$163,1,$D$114)" in dcf_terminal_pv
         assert "INDEX($B$164:$F$164,1,$D$114)" in dcf_terminal_pv
         assert "COUNT(B163:F163)<>$D$114" in dcf_terminal_pv
-        assert dcf_value.startswith("=IF(NOT(ISNUMBER(H163))")
-        assert "H164<=0" in dcf_value
+        assert dcf_value.startswith("=IF(COUNTIFS(")
+        assert "!$BB$2:$BB$25" in dcf_value
+        assert "!$BC$2:$BC$25" in dcf_value
+        assert '"dcf"' in dcf_value
+        assert "MATCH(1,INDEX(" in dcf_value
+        assert "Valuation!" not in dcf_value
         assert dcf_state == '=IF(ISNUMBER(H165),"Available","Unavailable")'
         assert "COUNT($B$163:$F$163)<>$D$114" in dcf_sensitivity
         assert "INDEX($B$163:$F$163,1,$D$114)" in dcf_sensitivity
@@ -689,81 +619,6 @@ def test_excel_grouped_data_validations_keep_per_cell_relative_formula_identity(
         grouped_workbook.close()
 
 
-def test_scenario_defined_names_validations_and_support_projections_are_complete() -> None:
-    wb = load_workbook(SHELL, data_only=False, read_only=False)
-    try:
-        expected_names = {
-            "NetIncome_TTM": "'Valuation'!$D$217",
-            "DCF_Horizon": "'Valuation'!$D$220",
-            "ScenarioTaxTreatment": "'Valuation'!$E$247",
-            "ScenarioHorizon": "'Valuation'!$J$236",
-            "ScenarioInterestTaxTreatment": "'Valuation'!$E$248",
-            "ScenarioBuybackCash": "'Valuation'!$D$253",
-            "ScenarioShares": "'Valuation'!$E$259",
-            "ScenarioNetDebt": "'Valuation'!$E$260",
-            "ScenarioImpliedPrice": "'Valuation'!$J$261",
-            "ResolvedRevenueGrowth_Bear": "'Valuation_Summary'!$H$2",
-            "ResolvedRevenueGrowth_Base": "'Valuation_Summary'!$I$2",
-            "ResolvedRevenueGrowth_Bull": "'Valuation_Summary'!$J$2",
-            "ResolvedRevenueGrowth_Custom": "'Valuation_Summary'!$K$2",
-            "InvestmentCaseDimensionOptions": "'{ticker}_Investment_Case_Data'!$AV$2:$AV$4",
-        }
-        for name, target in expected_names.items():
-            assert wb.defined_names[name].attr_text == target
-
-        investment_case = wb["{ticker}_Investment_Case"]
-        dimension_validation = next(
-            validation
-            for validation in investment_case.data_validations.dataValidation
-            if str(validation.sqref) == "B42"
-        )
-        assert dimension_validation.formula1 == "=InvestmentCaseDimensionOptions"
-        assert dimension_validation.promptTitle == "Revenue scenario mode"
-        assert dimension_validation.prompt == (
-            "Choose Total Company, Brand or Geography. Blank uses Total Company."
-        )
-
-        route_support = wb["Valuation_Summary"]
-        for coordinate in ("H2", "I2", "J2"):
-            formula = str(route_support[coordinate].value or "")
-            assert formula.startswith("=_xlfn.LET(")
-            assert "selected_growth_route" in formula
-            assert "profile_driver_bridge" in formula
-            assert '=\"revenue_growth\"' in formula
-            assert formula.count('=\"total_company\"') == 4
-            assert "'{ticker}_Investment_Case'!" not in formula
-            assert '_xlpm.userGrowth,""' in formula
-            assert '_xlpm.scenarioHorizon,""' in formula
-            assert "LOWER(" not in formula
-            assert "SUBSTITUTE(" not in formula
-            assert "TRIM(" not in formula
-            assert "_xlpm.directCount+_xlpm.profileCount+_xlpm.userCount<>1" in formula
-            assert "_xlpm.bridgeCount=1" in formula
-            assert route_support[coordinate].protection.locked is True
-        custom_route = str(route_support["K2"].value or "")
-        assert custom_route.startswith("=_xlfn.LET(")
-        assert "_xlpm.userGrowth,ScenarioGrowth" in custom_route
-        assert "_xlpm.scenarioHorizon,ScenarioHorizon" in custom_route
-        assert route_support["K2"].protection.locked is True
-        assert "retail_operating_pack" not in str(route_support["I2"].value)
-
-        valuation = wb["Valuation"]
-        validation_targets = {str(validation.sqref) for validation in valuation.data_validations.dataValidation}
-        assert {"D194", "D208:D209", "D210", "D213", "D214", "D215", "D216", "D218:D219", "D220", "J218", "J219:J220", "J221", "H226:L226", "G227:G234", "E236", "E237:E239", "E240", "J236", "D247", "E247", "D248", "E248", "D249:D250", "D253", "D254", "D255:D256"} == validation_targets
-
-        summary = wb["Valuation_Summary"]
-        assert summary["A2"].value == "price"
-        assert summary["B20"].value == '=IF(ScenarioUpside="","",ScenarioUpside)'
-        assert summary["F20"].value == '=IF(B20="","unavailable","calculated")'
-        assert summary["B20"].protection.locked is True
-
-        grid = wb["Valuation_Grid"]
-        assert grid["A2"].value == '="dcf"'
-        assert "'Valuation'!$H$227" in str(grid["E2"].value)
-        assert grid["D42"].value == "scenario_implied_price"
-        assert grid["E42"].value == '=IF(ScenarioImpliedPrice="","",ScenarioImpliedPrice)'
-    finally:
-        wb.close()
 
 
 def test_calculation_history_is_a_hidden_source_backed_formula_input_projection() -> None:
@@ -812,9 +667,10 @@ def test_user_input_contract_is_the_exact_visible_edit_surface() -> None:
                 for cell in row
             )
         assert editable == expected
-        assert sum(sheet == "Valuation" for sheet, _cell in editable) == 44
+        assert sum(sheet == "Valuation" for sheet, _cell in editable) == 0
         assert sum(sheet == "{ticker}_Investment_Case" for sheet, _cell in editable) == 75
-        assert len(editable) == 119
+        assert len(editable) == 75
+        assert len(wb.sheetnames) == 44
         assert all(ws.protection.sheet for ws in wb.worksheets)
     finally:
         wb.close()

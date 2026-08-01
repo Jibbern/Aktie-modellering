@@ -29,6 +29,7 @@ DEFAULT_LAB_SOURCE = ROOT / "templates" / "lab" / "ANF_template_lab.xlsx"
 DEFAULT_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
 DEFAULT_AUDIT_JSON = ROOT / "docs" / "standard_template_hidden_support_audit.json"
 DEFAULT_AUDIT_MD = ROOT / "docs" / "standard_template_hidden_support_audit.md"
+PHYSICALLY_RETIRED_STANDARD_SHEETS = frozenset({"Valuation_Summary", "Valuation_Grid"})
 
 SOURCE_SPECIFIC_TERMS = (
     "ANF",
@@ -303,7 +304,9 @@ def scan_hidden_support_package(
             for ws in (lab_wb.worksheets if lab_wb is not None else [])
             if ws.title not in lab_standard_visible
         }
-        candidate_names = sorted(set(template_hidden) | set(lab_hidden))
+        candidate_names = sorted(
+            (set(template_hidden) | set(lab_hidden)) - PHYSICALLY_RETIRED_STANDARD_SHEETS
+        )
 
         rows: list[dict[str, Any]] = []
         pre_leakage = 0

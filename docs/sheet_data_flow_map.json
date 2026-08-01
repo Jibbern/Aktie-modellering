@@ -296,16 +296,16 @@
         "transcripts": ["guidance and management commentary when parsed"],
         "presentations": ["Slides_Guidance", "Slides_Debt_Profile"],
         "manual_profile_data": ["company_profile", "ticker flags"],
-        "derived_calculated_fields": ["valuation_grid_df", "valuation_summary_df", "hidden value state", "formula outputs"]
+        "derived_calculated_fields": ["historical formula outputs", "hidden value state", "Capital Return", "canonical Investment Case summary references"]
       },
       "storage_layer": {
         "raw_source_cache": ["StockModelData/sec_cache/{ticker}", "StockModelData/tickers/{ticker}", "StockModelData/market_cache"],
-        "parsed_data": ["History_Q", "Debt_Tranches_Q", "Leverage_Liquidity", "Valuation_Summary", "Valuation_Grid", "Hidden_Value_Flags"],
+        "parsed_data": ["History_Q", "Debt_Tranches_Q", "Leverage_Liquidity", "{ticker}_Investment_Case_Data", "Hidden_Value_Flags"],
         "normalized_fields_should_live": ["quarterly_financials", "annual_financials", "debt_liquidity", "capital_returns", "normalized_guidance"],
         "support_sheets_currently_store_intermediate_data": ["History_Q", "Debt_Tranches_Q", "Debt_Profile", "Hidden_Value_Base", "Hidden_Value_Flags"],
         "visible_ui_vs_audit_only": {
           "visible_ui": ["Valuation"],
-          "audit_only": ["Valuation_Summary", "Valuation_Grid", "Hidden_Value_Audit", "Debt_Tranches_Q"]
+          "audit_only": ["{ticker}_Investment_Case_Data", "Hidden_Value_Audit", "Debt_Tranches_Q"]
         }
       },
       "transformation_logic": {
@@ -479,8 +479,8 @@
       },
       "storage_layer": {
         "raw_source_cache": ["StockModelData/sec_cache/{ticker}", "StockModelData/tickers/{ticker}"],
-        "parsed_data": ["{ticker}_Investment_Case_Data", "Scenario_Bridge_Tax_Treatment", "Scenario_Driver_Assumptions", "Valuation_Summary"],
-        "normalized_fields_should_live": ["investment_case", "segments", "normalized_guidance", "operating_drivers"],
+        "parsed_data": ["{ticker}_Investment_Case_Data", "Scenario_Bridge_Tax_Treatment", "Scenario_Driver_Assumptions"],
+        "normalized_fields_should_live": ["investment_case", "segments", "normalized_guidance", "operating_drivers", "valuation_inputs"],
         "support_sheets_currently_store_intermediate_data": ["{ticker}_Investment_Case_Data", "Scenario_Bridge_Tax_Treatment", "Scenario_Driver_Assumptions"],
         "visible_ui_vs_audit_only": {
           "visible_ui": ["{ticker}_Investment_Case"],
@@ -489,7 +489,7 @@
       },
       "transformation_logic": {
         "parser_normalizer_module_paths": ["pbi_xbrl/excel_writer_sector_investment_case.py", "pbi_xbrl/excel_writer_investment_case_support.py", "pbi_xbrl/excel_writer_anf_investment_case.py"],
-        "data_selection_rules": ["compose investment case data sheet", "select manual inputs", "derive scenario bridges", "read support values from History_Q/Operating_Drivers/Valuation"],
+        "data_selection_rules": ["compose typed Investment Case support", "select manual inputs", "derive scenario bridges", "project canonical scenario and valuation formulas once"],
         "ticker_specific_branches": ["ANF-specific renderer/data builder", "PBI/GPRE sector defaults", "GPRE sheet order adjustment"],
         "source_backed_vs_profile_backed_vs_inferred": "Thesis/debate can be manual but must not be placeholder; scenario values must be source-backed, manual, or explicitly reviewed.",
         "missing_source_behavior": "Current writer can show generic/manual defaults; future promotion is blocked until core thesis fields are reviewed."

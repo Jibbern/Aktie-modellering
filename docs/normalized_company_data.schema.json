@@ -19,7 +19,6 @@
     "quarter_notes",
     "investment_case",
     "valuation_inputs",
-    "valuation_outputs",
     "source_coverage",
     "mapping_gaps",
     "manual_review_flags"
@@ -228,10 +227,6 @@
     "valuation_inputs.adjusted_eps_ttm",
     "valuation_inputs.book_value_per_share",
     "valuation_inputs.tangible_book_value_per_share",
-    "valuation_outputs.items.metric",
-    "valuation_outputs.items.value",
-    "valuation_outputs.items.interpretation",
-    "valuation_outputs.items.as_of",
     "mapping_gaps",
     "manual_review_flags"
   ],
@@ -607,9 +602,6 @@
     },
     "valuation_inputs": {
       "$ref": "#/$defs/valuationInputsSection"
-    },
-    "valuation_outputs": {
-      "$ref": "#/$defs/valuationOutputsSection"
     },
     "source_coverage": {
       "$ref": "#/$defs/sourceCoverage"
@@ -2076,40 +2068,6 @@
         "recurring_cash_costs": {"$ref": "#/$defs/normalizedField"},
         "working_capital_normalization": {"$ref": "#/$defs/normalizedField"},
         "per_share_denominator": {"$ref": "#/$defs/normalizedField"}
-      }
-    },
-    "valuationOutputsSection": {
-      "type": "object",
-      "additionalProperties": true,
-      "required": [
-        "items"
-      ],
-      "properties": {
-        "items": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": true,
-            "required": [
-              "metric",
-              "value"
-            ],
-            "properties": {
-              "metric": {
-                "$ref": "#/$defs/normalizedField"
-              },
-              "value": {
-                "$ref": "#/$defs/normalizedField"
-              },
-              "interpretation": {
-                "$ref": "#/$defs/normalizedField"
-              },
-              "as_of": {
-                "$ref": "#/$defs/normalizedField"
-              }
-            }
-          }
-        }
       }
     },
     "section": {

@@ -24,17 +24,16 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | summary_liquidity_as_of_value | SUMMARY | yes | same | same | same | same | - |
 | valuation_guidance_current_primary_rows | Valuation | yes | same | similar | different | same | - |
 | valuation_guidance_current_secondary_rows | Valuation | yes | same | similar | different | same | - |
-| valuation_guidance_historical_rows | Valuation | yes | same | similar | different | same | - |
+| valuation_guidance_historical_rows | Valuation | yes | same | similar | similar | same | - |
 | valuation_thesis_debate_rows | Valuation | yes | same | similar | different | same | - |
 | valuation_debt_snapshot_values | Valuation | yes | same | similar | same | same | - |
 | valuation_debt_snapshot_periods | Valuation | yes | same | same | same | same | - |
 | valuation_debt_snapshot_statuses | Valuation | yes | same | same | same | same | - |
 | valuation_debt_snapshot_evidence | Valuation | yes | same | similar | same | same | - |
-| module_hidden_value_signals_valuation_rows | Valuation | yes | same | similar | same | same | - |
+| module_hidden_value_signals_valuation_rows | Valuation | yes | same | similar | different | same | - |
 | valuation_capital_return_headers | Valuation | yes | same | same | same | same | - |
 | valuation_capital_return_product_rows | Valuation | yes | same | similar | same | same | - |
 | valuation_capital_return_support_rows | Valuation | yes | same | same | same | same | - |
-| valuation_input_values | Valuation | yes | same | similar | same | same | - |
 | valuation_period_headers | Valuation | yes | same | similar | same | same | - |
 | valuation_raw_revenue | Valuation | yes | same | similar | same | same | - |
 | valuation_raw_base_ebitda | Valuation | yes | same | similar | same | same | - |
@@ -50,11 +49,11 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | valuation_raw_debt_core | Valuation | yes | same | similar | same | same | - |
 | valuation_raw_lease_liabilities | Valuation | yes | same | similar | same | same | - |
 | valuation_raw_pension_obligation_net | Valuation | yes | same | similar | same | same | - |
-| valuation_raw_revolver_availability | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_revolver_availability | Valuation | yes | same | similar | similar | same | - |
 | valuation_raw_diluted_shares | Valuation | yes | same | similar | same | same | - |
 | valuation_raw_shares_outstanding | Valuation | yes | same | similar | same | same | - |
-| valuation_raw_eps | Valuation | yes | same | similar | similar | same | - |
-| valuation_raw_adjusted_eps | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_eps | Valuation | yes | same | similar | same | same | - |
+| valuation_raw_adjusted_eps | Valuation | yes | same | similar | similar | same | - |
 | valuation_raw_gross_profit | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
 | valuation_raw_interest_expense | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
 | valuation_raw_dividends_cash | Valuation | yes | missing | same | same | same | ANF: missing block or sheet, ANF: source sheet shorter than block range, PBI: missing block or sheet, +3 more |
@@ -101,7 +100,7 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | ic_snapshot_values | {ticker}_Investment_Case | yes | same | similar | same | same | - |
 | ic_title_value | {ticker}_Investment_Case | yes | same | similar | same | same | - |
 | qn_quarter_summary_values | Quarter_Notes_UI | yes | same | similar | same | same | - |
-| qn_quarter_block_values | Quarter_Notes_UI | yes | same | similar | same | same | - |
+| qn_quarter_block_values | Quarter_Notes_UI | yes | same | similar | different | same | - |
 | pp_scorecard_values | Promise_Progress_UI | yes | same | same | same | same | - |
 | pp_annual_guidance_values | Promise_Progress_UI | yes | same | similar | similar | same | - |
 | pp_annual_guidance_values_block_2 | Promise_Progress_UI | yes | same | similar | different | same | - |
@@ -110,7 +109,7 @@ This matrix compares the standard block map across ANF, PBI, and GPRE. ANF is th
 | pp_open_guidance_values | Promise_Progress_UI | yes | same | similar | different | same | GPRE: source sheet shorter than block range |
 | pp_guidance_revision_primary_values | Promise_Progress_UI | yes | missing | similar | similar | same | GPRE: missing block or sheet, GPRE: source sheet shorter than block range |
 | pp_guidance_timeline_values_block_2 | Promise_Progress_UI | yes | missing | similar | similar | same | GPRE: missing block or sheet, GPRE: source sheet shorter than block range |
-| pp_guidance_timeline_values_block_3 | Promise_Progress_UI | yes | missing | similar | similar | same | PBI: source sheet shorter than block range, GPRE: missing block or sheet, GPRE: source sheet shorter than block range |
+| pp_guidance_timeline_values_block_3 | Promise_Progress_UI | yes | missing | similar | different | same | GPRE: missing block or sheet, GPRE: source sheet shorter than block range |
 | pp_guidance_timeline_values_block_4 | Promise_Progress_UI | yes | missing | similar | similar | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
 | pp_guidance_timeline_values_block_5 | Promise_Progress_UI | yes | missing | similar | similar | same | PBI: missing block or sheet, PBI: source sheet shorter than block range, GPRE: missing block or sheet, +1 more |
 | pp_guidance_timeline_values_block_6 | Promise_Progress_UI | yes | missing | similar | same | same | ANF: source sheet shorter than block range, PBI: missing block or sheet, PBI: source sheet shorter than block range, +2 more |

@@ -155,19 +155,17 @@ ALLOWED_VALUATION_SIGNAL_FILL_CELLS = {
     "A122",
     "A137",
     "N137",
-    "B192",
+    "A192",
 }
 ALLOWED_VALUATION_SIGNAL_FILL_RANGES = (
     "A122:N122",
     "A152:M152",
-    "B192:S192",
+    "A192:F192",
 )
-VALUATION_RUNTIME_VALUE_CONSTANT_RANGES = (
-    "D194:D216",
-    "E236:E240",
-    "D247:D250",
-    "E253:E256",
-    "L248:S250",
+RETIRED_VALUATION_ENGINE_RANGES = (
+    "O63:X75",
+    "B199:AA261",
+    "N262:S271",
 )
 NON_NEUTRAL_CLASSES = {
     "company_specific_value",
@@ -463,24 +461,32 @@ def scan_neutrality_workbook(
         visible_runtime_value_items: list[dict[str, Any]] = []
         if "Valuation" in wb.sheetnames:
             valuation_ws = wb["Valuation"]
-            for range_ref in VALUATION_RUNTIME_VALUE_CONSTANT_RANGES:
+            for range_ref in RETIRED_VALUATION_ENGINE_RANGES:
                 min_col, min_row, max_col, max_row = range_boundaries(range_ref)
                 for row in valuation_ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
                     for cell in row:
-                        value = cell.value
-                        if value in (None, ""):
-                            continue
-                        if _is_formula(value):
+                        if cell.value in (None, "") and cell.comment is None and cell.style_id == 0:
                             continue
                         visible_runtime_value_items.append(
                             {
                                 "sheet": valuation_ws.title,
                                 "cell": cell.coordinate,
-                                "value": _text(value)[:240],
-                                "classification": "visible_value_date_status_constant",
-                                "reason": "Runtime value/date/status/input/output cells must be blank in the frozen shell.",
+                                "value": _text(cell.value)[:240],
+                                "classification": "retired_valuation_engine_residual",
+                                "reason": "Retired Valuation-engine ranges must be empty, comment-free, and style-neutral.",
                             }
                         )
+        for retired_sheet in ("Valuation_Summary", "Valuation_Grid"):
+            if retired_sheet in wb.sheetnames:
+                visible_runtime_value_items.append(
+                    {
+                        "sheet": retired_sheet,
+                        "cell": "",
+                        "value": "",
+                        "classification": "retired_valuation_engine_sheet",
+                        "reason": "Retired Valuation-engine support sheets must not exist.",
+                    }
+                )
 
         hidden_sheets = {ws.title for ws in wb.worksheets if ws.sheet_state != "visible"}
         missing_required_support = sorted(required_support_sheets - hidden_sheets)

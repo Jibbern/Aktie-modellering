@@ -103,20 +103,15 @@ def test_checked_in_shell_has_exact_future_function_xml_inventory() -> None:
         for column in "BCDEFGHIJKLM"
     }
 
-    assert inventory["cell_formula_count"] == 2690
+    assert inventory["cell_formula_count"] == 2609
     assert inventory["function_counts"]["MAXIFS"] == 324
     assert inventory["function_counts"]["MINIFS"] == 324
-    assert inventory["function_counts"]["LET"] == 4
-    assert inventory["let_local_occurrences"] == 204
-    assert inventory["future_function_cell_count"] == 232
+    assert inventory["function_counts"].get("LET", 0) == 0
+    assert inventory["let_local_occurrences"] == 0
+    assert inventory["future_function_cell_count"] == 228
     assert future_cells & expected_valuation == expected_valuation
     assert len(expected_valuation) == 228
-    assert set(inventory["let_cells"]) == {
-        "Valuation_Summary!H2",
-        "Valuation_Summary!I2",
-        "Valuation_Summary!J2",
-        "Valuation_Summary!K2",
-    }
+    assert inventory["let_cells"] == []
     assert inventory["unprefixed_future_functions"] == {}
     assert inventory["unsupported_functions"] == {}
     assert inventory["malformed_expressions"] == []
@@ -153,7 +148,7 @@ def test_exact_cell_filler_preserves_serialized_formula_xml(tmp_path: Path, monk
     inventory = inventory_xlsx_formula_xml(output)
     assert inventory["function_counts"]["MAXIFS"] == 324
     assert inventory["function_counts"]["MINIFS"] == 324
-    assert inventory["function_counts"]["LET"] == 4
+    assert inventory["function_counts"].get("LET", 0) == 0
     workbook = load_workbook(output, data_only=False, read_only=False)
     try:
         assert validate_workbook_formula_compatibility(workbook) == []
@@ -162,6 +157,6 @@ def test_exact_cell_filler_preserves_serialized_formula_xml(tmp_path: Path, monk
             cell.protection.locked is False
             for ws in workbook.worksheets
             for cell in ws._cells.values()
-        ) == 119
+        ) == 75
     finally:
         workbook.close()

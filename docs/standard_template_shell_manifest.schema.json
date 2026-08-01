@@ -24,7 +24,7 @@
     "file_type": {"type": "string", "const": ".xlsx"},
     "description": {"type": "string", "minLength": 1},
     "visible_sheet_order": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-    "union_sheet_order": {"type": "array", "minItems": 46, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 31}},
+    "union_sheet_order": {"type": "array", "minItems": 44, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 31}},
     "module_manifest": {"$ref": "#/$defs/moduleManifest"},
     "module_profile": {"$ref": "#/$defs/moduleProfile"},
     "ticker_sheet_token_rule": {"type": "object"},
@@ -33,7 +33,7 @@
     "planner_cell_contracts": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/cellContract"}},
     "planner_merge_families": {"type": "array", "items": {"type": "object"}},
     "required_anchors": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/anchor"}},
-    "sheets": {"type": "array", "minItems": 46, "items": {"$ref": "#/$defs/sheet"}},
+    "sheets": {"type": "array", "minItems": 44, "items": {"$ref": "#/$defs/sheet"}},
     "optional_support_sheets": {"type": "array", "items": {"anyOf": [{"type": "string", "minLength": 1}, {"type": "object"}]}},
     "semantic_contract_version": {"type": "string", "const": "1.8.0"},
     "shell_identity": {"$ref": "#/$defs/shellIdentity"}
@@ -115,7 +115,7 @@
         "profile_pack_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}},
         "dimensions": {"type": "array", "items": {"type": "object"}},
         "visible_sheet_order": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
-        "sheet_states": {"type": "object", "minProperties": 46, "additionalProperties": {"enum": ["visible", "hidden", "veryHidden"]}},
+        "sheet_states": {"type": "object", "minProperties": 44, "additionalProperties": {"enum": ["visible", "hidden", "veryHidden"]}},
         "enabled_formula_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}},
         "enabled_defined_name_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
         "signature": {"$ref": "#/$defs/sha256"}

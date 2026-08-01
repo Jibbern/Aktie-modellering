@@ -2,7 +2,7 @@
 
 Read-only text-quality audit for the ANF shadow normalized package. Non-renderable snippets are demoted to manual review/source coverage rather than copied into visible UI fields.
 
-- Generated: `2026-07-29T14:01:27+00:00`
+- Generated: `2026-07-29T14:01:21+00:00`
 - Audited text rows: `703`
 - Non-clean visible rows after filtering: `0`
 - Demoted rows before render: `1325`

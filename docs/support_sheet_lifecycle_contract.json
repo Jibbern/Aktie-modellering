@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-07-29T08:47:54+00:00",
+  "generated_at": "2026-08-01T08:52:57+00:00",
   "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
   "support_sheets": [
     {
@@ -1163,63 +1163,6 @@
       ]
     },
     {
-      "sheet_name": "Valuation_Grid",
-      "owner": "frozen_shell",
-      "lifecycle": "static_template",
-      "neutral_shell_required": true,
-      "headers_required": [
-        "scenario_id",
-        "row_driver",
-        "column_driver",
-        "output_metric",
-        "value",
-        "status"
-      ],
-      "allowed_writable_zones": [
-        "A2:F1000"
-      ],
-      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
-      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
-      "visibility": "hidden",
-      "validation_rules": [
-        "headers present",
-        "no source/company text below header row",
-        "no raw filing rows in frozen shell",
-        "activation is profile-declared"
-      ]
-    },
-    {
-      "sheet_name": "Valuation_Summary",
-      "owner": "frozen_shell",
-      "lifecycle": "static_template",
-      "neutral_shell_required": true,
-      "headers_required": [
-        "metric",
-        "value",
-        "unit",
-        "as_of",
-        "lineage_ref",
-        "status",
-        "definition",
-        "resolved_revenue_growth_bear",
-        "resolved_revenue_growth_base",
-        "resolved_revenue_growth_bull",
-        "resolved_revenue_growth_custom"
-      ],
-      "allowed_writable_zones": [
-        "A2:K1000"
-      ],
-      "source_of_data": "normalized company data package through module-owned exact-cell bindings",
-      "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",
-      "visibility": "hidden",
-      "validation_rules": [
-        "headers present",
-        "no source/company text below header row",
-        "no raw filing rows in frozen shell",
-        "activation is profile-declared"
-      ]
-    },
-    {
       "sheet_name": "economics_market_raw",
       "owner": "optional_sector_pack",
       "lifecycle": "optional_sector_output",
@@ -1326,10 +1269,26 @@
         "product_basis_period",
         "product_full_year_guidance_numeric_state",
         "product_quarter_guidance_numeric_state",
-        "product_source_alias"
+        "product_source_alias",
+        "scenario_id",
+        "method_id",
+        "metric_id",
+        "metric_value",
+        "target_value",
+        "enterprise_value",
+        "equity_value",
+        "value_per_share",
+        "upside_downside",
+        "method_state",
+        "entered_weight",
+        "effective_weight",
+        "weighted_value_per_share",
+        "period_id",
+        "formula_owner",
+        "lineage_state"
       ],
       "allowed_writable_zones": [
-        "A2:BA5000"
+        "A2:BQ5000"
       ],
       "source_of_data": "normalized company data package through module-owned exact-cell bindings",
       "created_when": "materialized into the union shell as a neutral hidden header-only module sheet",

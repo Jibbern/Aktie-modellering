@@ -64,7 +64,7 @@ def test_standard_template_shell_manifest_defines_visible_shell_contract() -> No
     assert manifest["visible_sheet_order"] == VISIBLE_SHEET_ORDER
     assert manifest["version"] == "0.3.0"
     assert manifest["semantic_contract_version"] == "1.8.0"
-    assert manifest["formula_contract_version"] == "2.5.1"
+    assert manifest["formula_contract_version"] == "2.5.2"
     assert manifest["union_sheet_order"] == _module_manifest()["union_sheet_order"]
     assert manifest["module_profile"]["profile_id"] == "full_union"
     assert manifest["ticker_sheet_token_rule"]["template"] == "{ticker}_Investment_Case"
@@ -78,7 +78,7 @@ def test_standard_template_shell_manifest_defines_visible_shell_contract() -> No
         assert sheet["static_layout_owner"] == "frozen_template_shell"
         assert sheet["writable_zones"]
         assert sheet["non_writable_zones"]
-    assert len(sheets_by_name) == 46
+    assert len(sheets_by_name) == 44
     for sheet in sheets_by_name.values():
         assert sheet["module_id"]
         assert sheet["module_role"] in {"visible_product", "hidden_support", "module_capacity"}

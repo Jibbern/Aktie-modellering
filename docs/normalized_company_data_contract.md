@@ -141,7 +141,7 @@ year may never disappear merely because Q4 is absent.
 
 ### valuation_inputs
 
-Explicit, typed source inputs for the formula-owned Valuation model:
+Explicit, typed source inputs for the canonical Investment Case valuation model:
 
 - price and price as-of date
 - shares outstanding
@@ -153,9 +153,9 @@ Explicit, typed source inputs for the formula-owned Valuation model:
 - CFO and FCF TTM
 - reviewed valuation assumptions where applicable
 
-These values are inputs only. Valuation outputs stay formula-owned or must come
-from a separate explicit `valuation_outputs` contract. Mapping gaps, QA rows,
-and review flags can never supply valuation output cells.
+These values are inputs only. Forward valuation outputs are formula-owned by the
+Investment Case canonical matrix. Mapping gaps, QA rows, and review flags can
+never supply valuation output cells.
 
 ### debt_liquidity
 
