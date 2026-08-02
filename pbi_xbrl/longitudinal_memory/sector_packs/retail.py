@@ -6,6 +6,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Iterable, Mapping
 
+from pbi_xbrl.longitudinal_memory.calendar_rules import (
+    IncomparablePeriodError,
+    compare_periods,
+)
 from pbi_xbrl.longitudinal_memory.identity import dimension_set_identity
 from pbi_xbrl.longitudinal_memory.types import canonical_decimal
 
@@ -217,6 +221,7 @@ class RetailSectorPack:
         selected: Mapping[tuple[str, str, str], Mapping[str, Any]],
         *,
         total_dimension_id: str,
+        calendar: Mapping[str, Any],
     ) -> tuple[tuple[str, Mapping[str, Any], Mapping[str, Any], Mapping[str, Any], Mapping[str, Any]], ...]:
         period_by_id = {str(row["period_id"]): row for row in periods}
         facts = [
@@ -258,17 +263,22 @@ class RetailSectorPack:
             ordinal=int(later_period["fiscal_ordinal"]) - 4,
             fiscal_quarter=int(later_period["fiscal_quarter"]),
         )
-        if any(
-            bool(period["is_53_week_year"]) != bool(later_period["is_53_week_year"])
-            for period in (qoq_period, yoy_period)
-        ):
-            raise RetailSemanticError(
-                "Percentage-point comparisons cannot cross incompatible 52/53-week fiscal years."
-            )
-        return (
+        requests = (
             ("qoq-percentage-point", qoq_fact, later, qoq_period, later_period),
             ("yoy-percentage-point", yoy_fact, later, yoy_period, later_period),
         )
+        try:
+            for change_kind, _earlier, _later, earlier_period, current_period in requests:
+                compare_periods(
+                    earlier_period,
+                    current_period,
+                    earlier_calendar=calendar,
+                    later_calendar=calendar,
+                    change_kind=change_kind,
+                )
+        except IncomparablePeriodError as exc:
+            raise RetailSemanticError(str(exc)) from exc
+        return requests
 
     def promise_evidence_assessment(
         self, observations: Iterable[Mapping[str, Any]], eligible_states: frozenset[str]

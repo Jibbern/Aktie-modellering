@@ -1,16 +1,13 @@
 """Safe, explicit change derivation from selected numerical observations."""
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date
 from decimal import Decimal
 from typing import Any, Mapping, Sequence
 
+from .calendar_rules import IncomparablePeriodError, compare_periods
 from .identity import change_observation_identity, identity_digest
 from .types import canonical_decimal
-
-
-class IncomparablePeriodError(ValueError):
-    """Raised rather than converting or guessing unsafe fiscal periods."""
 
 
 class IncompatibleFactError(ValueError):
@@ -28,57 +25,13 @@ COMPARISON_FIELDS = (
 
 def _period_dates(period: Mapping[str, Any]) -> tuple[date, date]:
     try:
-        return date.fromisoformat(str(period["start_date"])), date.fromisoformat(str(period["end_date"]))
+        return date.fromisoformat(str(period["start_date"])), date.fromisoformat(
+            str(period["end_date"])
+        )
     except (KeyError, ValueError) as exc:
-        raise IncomparablePeriodError("Fiscal periods require source-backed ISO start and end dates.") from exc
-
-
-def compare_periods(
-    earlier: Mapping[str, Any], later: Mapping[str, Any], *, change_kind: str
-) -> dict[str, Any]:
-    """Validate exact QoQ/YoY quarter relationships without month shifting."""
-
-    checks = {
-        "same_calendar": earlier.get("calendar_id") == later.get("calendar_id"),
-        "quarter_periods": earlier.get("period_type") == later.get("period_type") == "quarter",
-        "same_duration": earlier.get("day_count") == later.get("day_count") and earlier.get("week_count") == later.get("week_count"),
-    }
-    if not all(checks.values()):
-        raise IncomparablePeriodError("Calendar, period type or 52/53-week duration is incompatible.")
-    earlier_start, earlier_end = _period_dates(earlier)
-    later_start, later_end = _period_dates(later)
-    for label, period, start, end in (("earlier", earlier, earlier_start, earlier_end), ("later", later, later_start, later_end)):
-        actual_days = (end - start).days + 1
-        if actual_days != period.get("day_count") or (period.get("week_count") is not None and actual_days != int(period["week_count"]) * 7):
-            raise IncomparablePeriodError(f"{label} fiscal-period duration is not source-consistent.")
-    if earlier_end >= later_start or earlier_start >= later_end:
-        raise IncomparablePeriodError("Fiscal period boundaries overlap or are reversed.")
-
-    if change_kind == "qoq-percentage-point":
-        checks["adjacent_ordinal"] = (
-            isinstance(earlier.get("fiscal_ordinal"), int)
-            and isinstance(later.get("fiscal_ordinal"), int)
-            and later["fiscal_ordinal"] == earlier["fiscal_ordinal"] + 1
-        )
-        checks["adjacent_dates"] = later_start == earlier_end + timedelta(days=1)
-        if not checks["adjacent_ordinal"] or not checks["adjacent_dates"]:
-            raise IncomparablePeriodError("QoQ requires adjacent filing-backed quarters.")
-    elif change_kind == "yoy-percentage-point":
-        checks["same_fiscal_quarter"] = earlier.get("fiscal_quarter") == later.get("fiscal_quarter")
-        checks["next_fiscal_year"] = (
-            isinstance(earlier.get("fiscal_year"), int)
-            and isinstance(later.get("fiscal_year"), int)
-            and later["fiscal_year"] == earlier["fiscal_year"] + 1
-        )
-        if not checks["same_fiscal_quarter"] or not checks["next_fiscal_year"]:
-            raise IncomparablePeriodError("YoY requires the same fiscal quarter in adjacent fiscal years.")
-    else:
-        raise IncomparablePeriodError(f"Unsupported change rule {change_kind!r}.")
-    return {
-        "comparable": True,
-        "reason": "filing-backed quarter relationship is exact",
-        "checks": checks,
-    }
+        raise IncomparablePeriodError(
+            "Fiscal periods require source-backed ISO start and end dates."
+        ) from exc
 
 
 def _exact_value(record: Mapping[str, Any]) -> Decimal:
@@ -158,12 +111,20 @@ def derive_percentage_point_change(
     *,
     earlier_period: Mapping[str, Any],
     later_period: Mapping[str, Any],
+    earlier_calendar: Mapping[str, Any],
+    later_calendar: Mapping[str, Any],
     change_kind: str,
     rule_id: str,
     change_unit_id: str,
 ) -> dict[str, Any]:
     validate_fact_compatibility(earlier, later)
-    comparability = compare_periods(earlier_period, later_period, change_kind=change_kind)
+    comparability = compare_periods(
+        earlier_period,
+        later_period,
+        earlier_calendar=earlier_calendar,
+        later_calendar=later_calendar,
+        change_kind=change_kind,
+    )
     earlier_value, later_value = _exact_value(earlier), _exact_value(later)
     earlier_id = str(earlier["header"]["record_id"])
     later_id = str(later["header"]["record_id"])
@@ -219,12 +180,20 @@ def percentage_change(earlier_value: str, later_value: str) -> str:
     return canonical_decimal((Decimal(later_value) - denominator) / abs(denominator) * Decimal("100"))
 
 
-def validate_complete_ttm(periods: Sequence[Mapping[str, Any]]) -> None:
+def validate_complete_ttm(
+    periods: Sequence[Mapping[str, Any]], *, calendar: Mapping[str, Any]
+) -> None:
     if len(periods) != 4:
         raise IncomparablePeriodError("TTM requires exactly four complete fiscal quarters.")
     ordered = sorted(periods, key=lambda row: int(row.get("fiscal_ordinal", -1)))
     for earlier, later in zip(ordered, ordered[1:]):
-        compare_periods(earlier, later, change_kind="qoq-percentage-point")
+        compare_periods(
+            earlier,
+            later,
+            earlier_calendar=calendar,
+            later_calendar=calendar,
+            change_kind="qoq-percentage-point",
+        )
 
 
 def derive_quarter_from_ytd(

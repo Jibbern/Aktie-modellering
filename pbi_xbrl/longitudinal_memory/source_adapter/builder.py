@@ -1,4 +1,4 @@
-"""Deterministic source-native projection into the unchanged C1 package."""
+"""Deterministic source-native projection into the canonical C1 package."""
 from __future__ import annotations
 
 import hashlib
@@ -31,7 +31,7 @@ from .discovery import discover_sources, load_source_set, verify_reviewed_model_
 from .html import extract_html_evidence, replay_html_dateline
 from .mapping import map_candidates
 from .pdf import extract_pdf_evidence, replay_pdf_dateline
-from .periods import reconcile_periods
+from .periods import reconcile_periods, reviewed_calendar_rule_id
 from .spreadsheet import extract_spreadsheet_evidence
 from .text import extract_text_evidence
 from .types import (
@@ -422,6 +422,23 @@ def _project(
     period_by_key = {
         str(raw["period_key"]): next(row for row in periods if row["period_id"] == raw["period_id"])
         for raw in source_set.periods
+    }
+    fiscal_calendar = {
+        "calendar_id": profile.calendar_id,
+        "calendar_rule_id": reviewed_calendar_rule_id(source_set),
+        "company_id": source_set.company_id,
+        "profile_hint": profile.calendar_hint,
+        "week_pattern": "source-declared",
+        "coverage_state": "partial",
+        "evidence_occurrence_ids": sorted(
+            {
+                occurrence_by_assertion[str(raw["evidence_assertion_key"])][
+                    "evidence_occurrence_id"
+                ]
+                for raw in source_set.periods
+            }
+        ),
+        "reconciliation_state": "reconciled",
     }
     dimension_sets = pack.dimension_sets(profile.member_aliases)
     total_dimension_id = dimension_sets[pack.total_dimension_alias][0]
@@ -1038,6 +1055,7 @@ def _project(
         periods,
         selected_numerical,
         total_dimension_id=total_dimension_id,
+        calendar=fiscal_calendar,
     ):
         observations.append(
             derive_percentage_point_change(
@@ -1045,6 +1063,8 @@ def _project(
                 later,
                 earlier_period=earlier_period,
                 later_period=later_period,
+                earlier_calendar=fiscal_calendar,
+                later_calendar=fiscal_calendar,
                 change_kind=change_kind,
                 rule_id=f"rule:core:{change_kind}@1",
                 change_unit_id=pack.percentage_point_unit_id,
@@ -1100,22 +1120,7 @@ def _project(
         "knowledge_cutoff": source_set.knowledge_cutoff,
         "normalized_package_ref": dict(source_set.normalized_package_ref),
         "catalog": catalog,
-        "fiscal_calendars": [
-            {
-                "calendar_id": profile.calendar_id,
-                "company_id": source_set.company_id,
-                "profile_hint": profile.calendar_hint,
-                "week_pattern": "source-declared",
-                "coverage_state": "partial",
-                "evidence_occurrence_ids": sorted(
-                    {
-                        occurrence_by_assertion[str(raw["evidence_assertion_key"])]["evidence_occurrence_id"]
-                        for raw in source_set.periods
-                    }
-                ),
-                "reconciliation_state": "reconciled",
-            }
-        ],
+        "fiscal_calendars": [fiscal_calendar],
         "periods": sorted(periods, key=lambda row: row["period_id"]),
         "source_documents": source_documents,
         "evidence_occurrences": evidence_occurrences,

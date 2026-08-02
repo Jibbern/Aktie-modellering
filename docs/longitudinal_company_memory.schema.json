@@ -167,9 +167,9 @@
     },
     "fiscalCalendar": {
       "type": "object", "additionalProperties": false,
-      "required": ["calendar_id", "company_id", "profile_hint", "week_pattern", "coverage_state", "evidence_occurrence_ids", "reconciliation_state"],
+      "required": ["calendar_id", "calendar_rule_id", "company_id", "profile_hint", "week_pattern", "coverage_state", "evidence_occurrence_ids", "reconciliation_state"],
       "properties": {
-        "calendar_id": {"$ref": "#/$defs/semanticId"}, "company_id": {"$ref": "#/$defs/companyId"},
+        "calendar_id": {"$ref": "#/$defs/semanticId"}, "calendar_rule_id": {"$ref": "#/$defs/semanticId"}, "company_id": {"$ref": "#/$defs/companyId"},
         "profile_hint": {"type": ["string", "null"]}, "week_pattern": {"enum": ["calendar", "4-4-5", "4-5-4", "5-4-4", "source-declared"]},
         "coverage_state": {"enum": ["partial", "complete"]}, "evidence_occurrence_ids": {"$ref": "#/$defs/identityArray"},
         "reconciliation_state": {"enum": ["reconciled", "needs_review"]}

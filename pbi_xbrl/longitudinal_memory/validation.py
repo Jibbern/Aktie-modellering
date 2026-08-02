@@ -12,6 +12,11 @@ from typing import Any, Iterable, Mapping
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 from pbi_xbrl.new_ticker_issue_ledger import build_canonical_issue_ledger
 
+from .calendar_rules import (
+    FiscalCalendarRuleError,
+    fiscal_calendar_rule,
+    validate_period_for_calendar_rule,
+)
 from .changes import (
     IncomparablePeriodError,
     IncompatibleFactError,
@@ -536,6 +541,17 @@ def validate_package_semantics(package: Mapping[str, Any]) -> list[ValidationIss
 
     for index, calendar in enumerate(package.get("fiscal_calendars", ())):
         calendar_id = str(calendar.get("calendar_id", ""))
+        try:
+            fiscal_calendar_rule(calendar)
+        except FiscalCalendarRuleError as exc:
+            blocking(
+                "fiscal_calendar_rule",
+                f"$.fiscal_calendars[{index}].calendar_rule_id",
+                str(exc),
+                "Use one supported reviewed versioned fiscal-calendar rule; never infer it from issuer or dates.",
+                business=calendar_id,
+                candidates=(calendar_id,),
+            )
         if str(calendar.get("company_id", "")) != company_id:
             issues.append(_issue("P1", "fiscal_calendar_company", f"$.fiscal_calendars[{index}].company_id", "Fiscal calendar company differs from the sidecar company.", "Use the reconciled company calendar."))
         for occurrence_id in calendar.get("evidence_occurrence_ids", ()):
@@ -562,6 +578,19 @@ def validate_package_semantics(package: Mapping[str, Any]) -> list[ValidationIss
         calendar_id = str(period.get("calendar_id", ""))
         if calendar_id not in calendars:
             blocking("fiscal_calendar_reference", f"{path}.calendar_id", f"Unknown fiscal calendar {calendar_id!r}.", "Reconcile the filing-backed period with an explicit calendar.", business=period_id, candidates=(period_id,))
+        else:
+            try:
+                validate_period_for_calendar_rule(period, calendars[calendar_id])
+            except FiscalCalendarRuleError as exc:
+                blocking(
+                    "fiscal_period_calendar_rule",
+                    path,
+                    str(exc),
+                    "Correct the source-backed period or its explicit reviewed calendar rule.",
+                    business=period_id,
+                    candidates=(period_id, calendar_id),
+                    affected_period=period_id,
+                )
         try:
             start = date.fromisoformat(str(period.get("start_date")))
             end = date.fromisoformat(str(period.get("end_date")))
@@ -1357,7 +1386,13 @@ def validate_package_semantics(package: Mapping[str, Any]) -> list[ValidationIss
             to_calendar = calendars[str(to_period.get("calendar_id", ""))]
             if from_period.get("reconciliation_state") != "reconciled" or to_period.get("reconciliation_state") != "reconciled" or from_calendar.get("reconciliation_state") != "reconciled" or to_calendar.get("reconciliation_state") != "reconciled":
                 raise IncomparablePeriodError("Change inputs use a blocker-level needs-review period or calendar.")
-            expected_comparability = compare_periods(from_period, to_period, change_kind=str(payload.get("change_kind", "")))
+            expected_comparability = compare_periods(
+                from_period,
+                to_period,
+                earlier_calendar=from_calendar,
+                later_calendar=to_calendar,
+                change_kind=str(payload.get("change_kind", "")),
+            )
             if payload.get("comparability") != expected_comparability:
                 raise IncomparablePeriodError("Stored comparison state differs from exact fiscal-period replay.")
             from_value = from_record.get("payload", {}).get("value", {})

@@ -12,7 +12,13 @@ from pathlib import Path
 
 import pytest
 
-from pbi_xbrl.longitudinal_memory.sector_packs.retail import RETAIL_SECTOR_PACK
+from pbi_xbrl.longitudinal_memory.calendar_rules import (
+    SOURCE_LABELLED_52_53_WEEK_RULE_ID,
+)
+from pbi_xbrl.longitudinal_memory.sector_packs.retail import (
+    RETAIL_SECTOR_PACK,
+    RetailSemanticError,
+)
 from pbi_xbrl.longitudinal_memory.serialization import serialize_package
 import pbi_xbrl.longitudinal_memory.source_adapter.builder as builder_module
 import pbi_xbrl.longitudinal_memory.source_adapter.spreadsheet as spreadsheet_module
@@ -175,6 +181,48 @@ def test_full_external_integration_passes_unchanged_c1_validation(result) -> Non
     assert validate_package_schema(result.package) == []
     assert validate_package(result.package) == []
     assert result.package["artifact_state"] == "accepted"
+
+
+@pytest.mark.parametrize(
+    "change_kind", ["qoq-percentage-point", "yoy-percentage-point"]
+)
+def test_retail_change_producer_uses_canonical_year_classification_rule(
+    result, change_kind
+) -> None:
+    package = copy.deepcopy(result.package)
+    change = next(
+        row
+        for row in package["observations"]
+        if row["payload"].get("change_kind") == change_kind
+    )
+    observations = {
+        row["header"]["record_id"]: row for row in package["observations"]
+    }
+    periods = {row["period_id"]: row for row in package["periods"]}
+    earlier_period_id = observations[change["payload"]["from_record_id"]]["header"][
+        "fiscal_period_id"
+    ]
+    periods[earlier_period_id]["is_53_week_year"] = True
+    selected_numerical = {
+        (
+            row["payload"]["metric_id"],
+            row["header"]["effective_period_id"],
+            row["header"]["dimension_set_id"],
+        ): row
+        for row in _selected(package)
+        if row["payload"]["kind"] == "NumericalFact"
+    }
+
+    with pytest.raises(
+        RetailSemanticError,
+        match="Source-labelled fiscal-year-length classification differs",
+    ):
+        RETAIL_SECTOR_PACK.percentage_point_change_requests(
+            package["periods"],
+            selected_numerical,
+            total_dimension_id=change["header"]["dimension_set_id"],
+            calendar=package["fiscal_calendars"][0],
+        )
 
 
 def test_verified_snapshot_survives_file_replacement_after_discovery(
@@ -551,6 +599,16 @@ def test_deterministic_serialization_and_golden_sha(result, expected: dict, tmp_
     output.write_bytes(result.payload)
     assert output.read_bytes() == result.payload
     assert list(REPO.rglob("*_longitudinal_company_memory.v1.json")) == []
+
+
+def test_typed_calendar_rule_is_the_only_c2_canonical_output_delta(result) -> None:
+    calendar = result.package["fiscal_calendars"][0]
+    assert calendar["calendar_rule_id"] == SOURCE_LABELLED_52_53_WEEK_RULE_ID
+    legacy_shape = copy.deepcopy(result.package)
+    removed = legacy_shape["fiscal_calendars"][0].pop("calendar_rule_id")
+    assert removed == SOURCE_LABELLED_52_53_WEEK_RULE_ID
+    assert hashlib.sha256(serialize_package(legacy_shape)).hexdigest() == "4958979b2acd88a4d6590ed8f0d2b8b9c24d44f58d9cf5d0e42f33281ac451c7"
+    assert hashlib.sha256(result.payload).hexdigest() == "b25584e692568b460dda20a620a9e8f8f50e80c89d89a5bc41c30fe0dab4e4e0"
 
 
 def test_shared_adapter_runtime_contains_no_ticker_or_issuer_literals() -> None:

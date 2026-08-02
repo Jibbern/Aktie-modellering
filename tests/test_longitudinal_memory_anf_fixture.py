@@ -9,6 +9,10 @@ from pathlib import Path
 import pytest
 
 from pbi_xbrl.json_schema_validation import load_json_strict
+from pbi_xbrl.longitudinal_memory.calendar_rules import (
+    CALENDAR_YEAR_RULE_ID,
+    SOURCE_LABELLED_52_53_WEEK_RULE_ID,
+)
 from pbi_xbrl.longitudinal_memory.changes import derive_percentage_point_change
 from pbi_xbrl.longitudinal_memory.identity import (
     availability_observation_identity,
@@ -35,7 +39,10 @@ from pbi_xbrl.longitudinal_memory.serialization import (
     semantic_snapshot_identity,
     serialize_package,
 )
-from pbi_xbrl.longitudinal_memory.validation import validate_package
+from pbi_xbrl.longitudinal_memory.validation import (
+    validate_package,
+    validate_package_schema,
+)
 
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "longitudinal_memory"
@@ -366,8 +373,40 @@ def _materialize(raw):
     interpretation = {"header": _header(interpretation_id, "ModelInterpretation", company_id, interpretation_raw["key"], "2026-03-04", period_by_key["fy2025-q4"]["period_id"], "quarter", total_dimension_id, "interpreted", [interpretation_occ["evidence_occurrence_id"]], fiscal_period_id=period_by_key["fy2025-q4"]["period_id"], review_state="reviewed"), "payload": {"kind": "ModelInterpretation", "interpretation_key": interpretation_raw["key"], "as_of_period_id": period_by_key["fy2025-q4"]["period_id"], "method_id": interpretation_raw["method"], "producer_id": interpretation_raw["producer"], "input_record_ids": sorted([q4_primary["header"]["record_id"], fy2026_margin_release["header"]["record_id"]]), "revision": interpretation_raw["revision"], "interpretation": interpretation_occ["excerpt"], "authority_class": "accepted-normalized"}}
     observations.append(interpretation)
 
-    qoq = derive_percentage_point_change(facts_by_evidence["comp-total-fy2025-q3"], q4_primary, earlier_period=period_by_key["fy2025-q3"], later_period=period_by_key["fy2025-q4"], change_kind="qoq-percentage-point", rule_id="rule:core:qoq-percentage-point@1", change_unit_id=UNIT_PP)
-    yoy = derive_percentage_point_change(facts_by_evidence["comp-total-fy2024-q4"], q4_primary, earlier_period=period_by_key["fy2024-q4"], later_period=period_by_key["fy2025-q4"], change_kind="yoy-percentage-point", rule_id="rule:core:yoy-percentage-point@1", change_unit_id=UNIT_PP)
+    fiscal_calendar = {
+        "calendar_id": CALENDAR_ID,
+        "calendar_rule_id": SOURCE_LABELLED_52_53_WEEK_RULE_ID,
+        "company_id": company_id,
+        "profile_hint": "late-January/early-February 52/53-week year",
+        "week_pattern": "source-declared",
+        "coverage_state": "partial",
+        "evidence_occurrence_ids": [
+            occurrence_by_key["comp-total-fy2025-q4"]["evidence_occurrence_id"]
+        ],
+        "reconciliation_state": "reconciled",
+    }
+    qoq = derive_percentage_point_change(
+        facts_by_evidence["comp-total-fy2025-q3"],
+        q4_primary,
+        earlier_period=period_by_key["fy2025-q3"],
+        later_period=period_by_key["fy2025-q4"],
+        earlier_calendar=fiscal_calendar,
+        later_calendar=fiscal_calendar,
+        change_kind="qoq-percentage-point",
+        rule_id="rule:core:qoq-percentage-point@1",
+        change_unit_id=UNIT_PP,
+    )
+    yoy = derive_percentage_point_change(
+        facts_by_evidence["comp-total-fy2024-q4"],
+        q4_primary,
+        earlier_period=period_by_key["fy2024-q4"],
+        later_period=period_by_key["fy2025-q4"],
+        earlier_calendar=fiscal_calendar,
+        later_calendar=fiscal_calendar,
+        change_kind="yoy-percentage-point",
+        rule_id="rule:core:yoy-percentage-point@1",
+        change_unit_id=UNIT_PP,
+    )
     observations.extend([qoq, yoy])
 
     relations = list(total_resolution.inferred_relations)
@@ -395,7 +434,7 @@ def _materialize(raw):
         "company_id": company_id, "knowledge_cutoff": raw["knowledge_cutoff"],
         "normalized_package_ref": {"semantic_snapshot_id": semantic_snapshot_identity(raw["normalized_snapshot"]), "source_package_schema_version": raw["normalized_snapshot"]["schema_version"], "source_package_company_id": company_id, "source_package_ref": "docs/anf_normalized_text_quality_audit.json#text_excerpt@253"},
         "catalog": _catalog(dimension_sets),
-        "fiscal_calendars": [{"calendar_id": CALENDAR_ID, "company_id": company_id, "profile_hint": "late-January/early-February 52/53-week year", "week_pattern": "source-declared", "coverage_state": "partial", "evidence_occurrence_ids": [occurrence_by_key["comp-total-fy2025-q4"]["evidence_occurrence_id"]], "reconciliation_state": "reconciled"}],
+        "fiscal_calendars": [fiscal_calendar],
         "periods": periods, "source_documents": source_documents, "evidence_occurrences": evidence_occurrences, "entities": entities,
         "observations": observations, "relations": relations, "resolutions": resolutions, "review_issues": review_issues,
     }
@@ -446,6 +485,231 @@ def test_exact_anf_golden_fixture_is_closed_valid_and_source_backed(tmp_path):
     assert output.read_bytes() == payload
     assert not payload.startswith(b"\xef\xbb\xbf")
     assert b"\r\n" not in payload
+
+
+def test_calendar_rule_field_is_the_only_c1_golden_serialization_delta():
+    package = _materialize(load_json_strict(INPUT_PATH))
+    assert package["fiscal_calendars"][0]["calendar_rule_id"] == SOURCE_LABELLED_52_53_WEEK_RULE_ID
+    legacy_shape = deepcopy(package)
+    legacy_shape["fiscal_calendars"][0].pop("calendar_rule_id")
+    assert hashlib.sha256(serialize_package(legacy_shape)).hexdigest() == "d0e434c250a86d5278b69f516291590bef9f5eb4fece4acb68c1cc87aadc2367"
+    assert hashlib.sha256(serialize_package(package)).hexdigest() == "9fd73df61166105d83180da34e9ddcd5c126d83e498c1176c55f0f6a2c18ccc7"
+
+
+def test_missing_malformed_unknown_and_misapplied_calendar_rules_fail_closed():
+    missing = _materialize(load_json_strict(INPUT_PATH))
+    missing["fiscal_calendars"][0].pop("calendar_rule_id")
+    assert any("calendar_rule_id" in row.message for row in validate_package_schema(missing))
+
+    malformed = _materialize(load_json_strict(INPUT_PATH))
+    malformed["fiscal_calendars"][0]["calendar_rule_id"] = "calendar-year"
+    assert any("calendar_rule_id" in row.normalized_path for row in validate_package_schema(malformed))
+
+    unknown = _materialize(load_json_strict(INPUT_PATH))
+    unknown["fiscal_calendars"][0]["calendar_rule_id"] = "rule:core:unknown-calendar@1"
+    assert "fiscal_calendar_rule" in {row.rule_id for row in validate_package(unknown)}
+
+    misapplied = _materialize(load_json_strict(INPUT_PATH))
+    misapplied["fiscal_calendars"][0]["calendar_rule_id"] = CALENDAR_YEAR_RULE_ID
+    assert "fiscal_period_calendar_rule" in {row.rule_id for row in validate_package(misapplied)}
+
+
+def _append_calendar_year_change(package):
+    calendar_id = "calendar:test:calendar-year@1"
+    total_dimension_id = next(
+        row["dimension_set_id"]
+        for row in package["catalog"]["dimension_sets"]
+        if len(row["members"]) == 1
+    )
+    templates = {
+        row["header"]["effective_period_id"]: row
+        for row in package["observations"]
+        if row["payload"].get("kind") == "NumericalFact"
+        and row["payload"].get("metric_id") == METRIC["comparable-sales"]
+        and row["header"]["dimension_set_id"] == total_dimension_id
+        and row["header"]["effective_period_id"]
+        in {"period:anf:fy2025-q3@1", "period:anf:fy2025-q4@1"}
+    }
+    earlier_template = templates["period:anf:fy2025-q3@1"]
+    later_template = templates["period:anf:fy2025-q4@1"]
+    earlier_evidence = earlier_template["header"]["evidence_occurrence_ids"][0]
+    later_evidence = later_template["header"]["evidence_occurrence_ids"][0]
+    calendar = {
+        "calendar_id": calendar_id,
+        "calendar_rule_id": CALENDAR_YEAR_RULE_ID,
+        "company_id": package["company_id"],
+        "profile_hint": "reviewed calendar-year fiscal rule",
+        "week_pattern": "calendar",
+        "coverage_state": "partial",
+        "evidence_occurrence_ids": sorted({earlier_evidence, later_evidence}),
+        "reconciliation_state": "reconciled",
+    }
+    earlier_period = {
+        "period_id": "period:test:calendar-fy2026-q1@1",
+        "calendar_id": calendar_id,
+        "company_id": package["company_id"],
+        "fiscal_year": 2026,
+        "fiscal_quarter": 1,
+        "period_type": "quarter",
+        "start_date": "2026-01-01",
+        "end_date": "2026-03-31",
+        "day_count": 90,
+        "week_count": None,
+        "fiscal_ordinal": 201,
+        "is_53_week_year": False,
+        "evidence_occurrence_ids": [earlier_evidence],
+        "reconciliation_state": "reconciled",
+    }
+    later_period = {
+        "period_id": "period:test:calendar-fy2026-q2@1",
+        "calendar_id": calendar_id,
+        "company_id": package["company_id"],
+        "fiscal_year": 2026,
+        "fiscal_quarter": 2,
+        "period_type": "quarter",
+        "start_date": "2026-04-01",
+        "end_date": "2026-06-30",
+        "day_count": 91,
+        "week_count": None,
+        "fiscal_ordinal": 202,
+        "is_53_week_year": False,
+        "evidence_occurrence_ids": [later_evidence],
+        "reconciliation_state": "reconciled",
+    }
+
+    def fact(template, period, value, occurrence_id):
+        payload = deepcopy(template["payload"])
+        payload["business_key"] = numerical_business_key(
+            company_id=package["company_id"],
+            metric_id=payload["metric_id"],
+            definition_id=payload["definition_id"],
+            basis_id=payload["basis_id"],
+            period_id=period["period_id"],
+            dimension_set_id=template["header"]["dimension_set_id"],
+            unit_id=payload["unit_id"],
+            currency=payload["currency"],
+        )
+        payload["value"] = {"kind": "exact", "value": value}
+        record_id = numerical_fact_identity(
+            provenance_key=occurrence_id,
+            company_id=package["company_id"],
+            metric_id=payload["metric_id"],
+            definition_id=payload["definition_id"],
+            basis_id=payload["basis_id"],
+            period_id=period["period_id"],
+            dimension_set_id=template["header"]["dimension_set_id"],
+            unit_id=payload["unit_id"],
+            currency=payload["currency"],
+        )
+        header = deepcopy(template["header"])
+        header.update(
+            {
+                "record_id": record_id,
+                "identity_digest": identity_digest(record_id),
+                "knowledge_date": package["knowledge_cutoff"],
+                "effective_period_id": period["period_id"],
+                "fiscal_period_id": period["period_id"],
+                "period_type": "quarter",
+                "evidence_occurrence_ids": [occurrence_id],
+            }
+        )
+        return {"header": header, "payload": payload}
+
+    earlier = fact(earlier_template, earlier_period, "-8", earlier_evidence)
+    later = fact(later_template, later_period, "-5", later_evidence)
+    for record in (earlier, later):
+        resolution = resolve_observations(
+            [record],
+            policy_id="policy:core:reported-numerical@1",
+            as_of_date=package["knowledge_cutoff"],
+            source_documents=package["source_documents"],
+            evidence_occurrences=package["evidence_occurrences"],
+        )
+        package["observations"].append(record)
+        package["resolutions"].append(resolution.resolution)
+    change = derive_percentage_point_change(
+        earlier,
+        later,
+        earlier_period=earlier_period,
+        later_period=later_period,
+        earlier_calendar=calendar,
+        later_calendar=calendar,
+        change_kind="qoq-percentage-point",
+        rule_id="rule:core:qoq-percentage-point@1",
+        change_unit_id=UNIT_PP,
+    )
+    package["fiscal_calendars"].append(calendar)
+    package["periods"].extend([earlier_period, later_period])
+    package["observations"].append(change)
+    return change
+
+
+def test_full_package_calendar_year_change_constructs_and_replays():
+    package = _materialize(load_json_strict(INPUT_PATH))
+    change = _append_calendar_year_change(package)
+    assert change["payload"]["value"] == {"kind": "exact", "value": "3"}
+    assert change["payload"]["comparability"]["checks"]["same_duration"] is False
+    assert validate_package(package) == []
+
+    change["payload"]["comparability"]["checks"]["same_duration"] = True
+    assert "change_semantic_binding" in {row.rule_id for row in validate_package(package)}
+
+
+@pytest.mark.parametrize(
+    "change_kind", ["qoq-percentage-point", "yoy-percentage-point"]
+)
+@pytest.mark.parametrize("mutation_direction", ["false-to-true", "true-to-false"])
+def test_full_package_replays_source_labelled_year_classification_mismatch(
+    change_kind, mutation_direction
+):
+    package = _materialize(load_json_strict(INPUT_PATH))
+    change = next(
+        row
+        for row in package["observations"]
+        if row["payload"].get("change_kind") == change_kind
+    )
+    observations = {
+        row["header"]["record_id"]: row for row in package["observations"]
+    }
+    periods = {row["period_id"]: row for row in package["periods"]}
+    earlier = periods[
+        observations[change["payload"]["from_record_id"]]["header"]["fiscal_period_id"]
+    ]
+    later = periods[
+        observations[change["payload"]["to_record_id"]]["header"]["fiscal_period_id"]
+    ]
+    stored_comparability = deepcopy(change["payload"]["comparability"])
+    assert earlier["is_53_week_year"] is False
+    assert later["is_53_week_year"] is False
+    if mutation_direction == "false-to-true":
+        later["is_53_week_year"] = True
+    else:
+        earlier["is_53_week_year"] = True
+
+    assert change["payload"]["comparability"] == stored_comparability
+    assert change["payload"]["comparability"]["comparable"] is True
+    issues = validate_package(package)
+    assert "change_semantic_binding" in {row.rule_id for row in issues}
+    assert any(
+        "fiscal-year-length classification differs" in row.message
+        for row in issues
+        if row.rule_id == "change_semantic_binding"
+    )
+
+
+def test_missing_calendar_reference_and_calendar_rule_mutation_fail_full_replay():
+    missing_calendar = _materialize(load_json_strict(INPUT_PATH))
+    q3 = _period_for(missing_calendar, year=2025, quarter=3, period_type="quarter")
+    q3["calendar_id"] = "calendar:test:missing@1"
+    missing_rules = {row.rule_id for row in validate_package(missing_calendar)}
+    assert "fiscal_calendar_reference" in missing_rules
+    assert "change_semantic_binding" in missing_rules
+
+    wrong_rule = _materialize(load_json_strict(INPUT_PATH))
+    wrong_rule["fiscal_calendars"][0]["calendar_rule_id"] = CALENDAR_YEAR_RULE_ID
+    wrong_rules = {row.rule_id for row in validate_package(wrong_rule)}
+    assert "fiscal_period_calendar_rule" in wrong_rules
+    assert "change_semantic_binding" in wrong_rules
 
 
 def test_all_source_and_record_permutations_are_byte_identical():

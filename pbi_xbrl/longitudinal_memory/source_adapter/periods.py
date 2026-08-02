@@ -7,6 +7,11 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any, Literal, Mapping
 
+from pbi_xbrl.longitudinal_memory.calendar_rules import (
+    FISCAL_CALENDAR_RULES,
+    SOURCE_LABELLED_52_53_WEEK_RULE_ID,
+)
+
 from .html import derive_fiscal_label_semantics
 from .types import ExtractedEvidence, MappingError, SourceSet, text_sha256
 
@@ -17,7 +22,7 @@ CONTIGUOUS_REVIEWED_HORIZON_RULE = (
     "rule:core:contiguous-reviewed-fiscal-horizon@1"
 )
 REVIEWED_MONTH_RULE = "rule:core:reviewed-relative-month@1"
-SOURCE_LABELLED_CALENDAR_RULE = "rule:core:source-labelled-52-53-week-fiscal@1"
+SOURCE_LABELLED_CALENDAR_RULE = SOURCE_LABELLED_52_53_WEEK_RULE_ID
 
 _MONTH_DATE = (
     r"(?:January|February|March|April|May|June|July|August|September|October|November|December)"
@@ -294,9 +299,21 @@ def _normalize_fiscal_label_claims(
     )
 
 
+def reviewed_calendar_rule_id(source_set: SourceSet) -> str:
+    """Return one reviewed rule identity from typed profile data, never inference."""
+
+    rule = source_set.profile.get("reviewed_calendar_rule")
+    if not isinstance(rule, Mapping):
+        raise MappingError("Source profile has no reviewed fiscal-calendar rule.")
+    rule_id = str(rule.get("rule_id", ""))
+    if rule_id not in FISCAL_CALENDAR_RULES:
+        raise MappingError(f"Unsupported reviewed fiscal-calendar rule {rule_id!r}.")
+    return rule_id
+
+
 def _reviewed_calendar_rule(source_set: SourceSet) -> Mapping[str, Any]:
     rule = source_set.profile.get("reviewed_calendar_rule")
-    if not isinstance(rule, Mapping) or rule.get("rule_id") != SOURCE_LABELLED_CALENDAR_RULE:
+    if reviewed_calendar_rule_id(source_set) != SOURCE_LABELLED_CALENDAR_RULE:
         raise MappingError("Actual fiscal periods require one supported reviewed calendar rule.")
     if rule.get("display_hint") != source_set.profile.get("calendar_hint"):
         raise MappingError("Profile calendar hint conflicts with its reviewed calendar rule.")
