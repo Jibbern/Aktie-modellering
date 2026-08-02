@@ -1,0 +1,91 @@
+{
+  "fixture_id": "anf-source-adapter-v1",
+  "source_set_id": "source-set:anf:c2@1",
+  "artifact_state": "accepted",
+  "knowledge_cutoff": "2026-07-29",
+  "external_source_sha256": {
+    "anf-business-update-2026-01-12": "42a7da013e3c08675a9025ff594774505a83a24728c9626abe45bd7e69678768",
+    "anf-q4-2025-history": "bcd247246cbd4fda8921b9fdb4b12ab979eec63a1f4725a34ac63a94cc2e7067",
+    "anf-release-2025-03-06": "61250c47c2829ca335ff57aef0c35ea98a5aab84ca2ae241df44e51bb8c408ee",
+    "anf-release-2025-05-29": "b2dbd4bd91e8374a321b3336a45a1f639b37c1d2fe6a2e65a8fd130c4b0f6469",
+    "anf-release-2025-08-28": "63f137bbafd90d0934b1ddbe599871f3281aa493d1ab99fe6f3cb656f1e9d97f",
+    "anf-release-2025-11-26": "3c5e45eca762b418bd9e398ef73d5c178d8f10a367d1e1c5e5ffd4748b485a35",
+    "anf-release-2026-03-04": "bf16c9bb0d442b1c28b8abe8a70d9dca255901883762dd190c0f59b62ee85731",
+    "anf-transcript-2026-03-04": "3d62e4b3c62d05f8d3c7687289728a17beed7c85249ea952986fa5c3ae4a386d"
+  },
+  "counts": {
+    "external_source_documents": 8,
+    "all_source_documents": 9,
+    "external_evidence_occurrences": 51,
+    "all_evidence_occurrences": 52,
+    "entities": 5,
+    "observations": 51,
+    "relations": 33,
+    "resolutions": 18,
+    "review_issues": 1
+  },
+  "locator_counts": {
+    "cell": 13,
+    "line": 4,
+    "page": 3,
+    "paragraph": 3,
+    "table-row": 28
+  },
+  "comparable_sales": {
+    "fy2024_q4_total_company": {"kind": "exact", "value": "14"},
+    "fy2025_q3_total_company": {"kind": "exact", "value": "3"},
+    "fy2025_q4_total_company": {"kind": "exact", "value": "1"},
+    "fy2025_q4_apac": {"kind": "exact", "value": "0"},
+    "fy2025_q4_emea": {"kind": "exact", "value": "-3"},
+    "fy2025_q4_abercrombie": {"kind": "exact", "value": "-1"},
+    "fy2025_q4_hollister": {"kind": "exact", "value": "3"},
+    "qoq_percentage_point_change": {"kind": "exact", "value": "-2"},
+    "yoy_percentage_point_change": {"kind": "exact", "value": "-13"}
+  },
+  "store_evidence": {
+    "openings": {"kind": "exact", "value": "62"},
+    "closures": {"kind": "exact", "value": "-22"},
+    "net_openings": {"kind": "exact", "value": "40"},
+    "ending_stores": {"kind": "exact", "value": "829"},
+    "net_assertion_mode": "derived",
+    "promise_assessment": "needs-review-no-source-tolerance"
+  },
+  "fy2025_revenue_guidance": [
+    {"date": "2025-03-06", "kind": "range", "low": "3", "high": "5"},
+    {"date": "2025-05-29", "kind": "range", "low": "3", "high": "6"},
+    {"date": "2025-08-28", "kind": "range", "low": "5", "high": "7"},
+    {"date": "2025-11-26", "kind": "range", "low": "6", "high": "7"},
+    {"date": "2026-01-12", "kind": "bound", "operator": "gte", "value": "6"}
+  ],
+  "fy2025_margin_guidance": [
+    {"date": "2025-03-06", "kind": "range", "low": "14", "high": "15"},
+    {"date": "2025-05-29", "kind": "range", "low": "12.5", "high": "13.5"},
+    {"date": "2025-08-28", "kind": "range", "low": "13", "high": "13.5"},
+    {"date": "2025-11-26", "kind": "range", "low": "13", "high": "13.5"},
+    {"date": "2026-01-12", "kind": "approximate", "value": "13", "qualifier": "around", "tolerance": null}
+  ],
+  "fy2026_guidance": {
+    "revenue": {"kind": "range", "low": "3", "high": "5"},
+    "operating_margin": {"kind": "range", "low": "12", "high": "12.5"},
+    "release_transcript_relation": "corroborates",
+    "transcript_knowledge_date": "2026-07-29"
+  },
+  "management_statement": {
+    "topic_id": "q4-margin-tariff-freight",
+    "record_type": "ManagementStatement",
+    "knowledge_date": "2026-07-29"
+  },
+  "company_event": {
+    "event_subject_id": "merchandising-erp",
+    "effective_month": "2026-03",
+    "fiscal_period_id": null,
+    "knowledge_date": "2026-07-29",
+    "reviewed_link_key": "transcript-event-month-support"
+  },
+  "model_interpretation": {
+    "knowledge_date": "2026-07-29",
+    "as_of_period_id": "period:anf:fy2025-q4@1",
+    "text": "Treat the quarter as a strong actual baseline, while separating reported profitability from the lower 2026 margin guide."
+  },
+  "serialization_sha256": "4958979b2acd88a4d6590ed8f0d2b8b9c24d44f58d9cf5d0e42f33281ac451c7"
+}

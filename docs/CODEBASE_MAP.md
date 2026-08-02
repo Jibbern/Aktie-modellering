@@ -54,6 +54,24 @@ This map explains which modules own each major stage of the runtime so the hando
   - Reuses the strict JSON loader and existing Needs Review issue-ledger projection; it does not reuse lossy latest-row selection.
   - Remains a validated sidecar linked non-authoritatively to the normalized package. No workbook binding, formula, writer, template, ticker profile, or current product consumer reads it in this pass.
 
+### 4b. Source-native longitudinal-memory adapter (isolated C2 path)
+- [`docs/longitudinal_memory_source_adapter_contract.md`](/c:/Users/Jibbe/Aktier/Code/docs/longitudinal_memory_source_adapter_contract.md)
+  - Defines the root-injected, hash-verified, locator-replay boundary that feeds the unchanged C1 sidecar contract.
+- [`docs/longitudinal_memory_source_adapter_input.schema.json`](/c:/Users/Jibbe/Aktier/Code/docs/longitudinal_memory_source_adapter_input.schema.json)
+  - Closed Draft 2020-12 authority for declared source documents, reviewed links, explicit fiscal periods, complete fiscal-claim membership, exact reviewed horizon authorities, format locators, extraction assertions, and reviewed model inputs.
+- [`pbi_xbrl/longitudinal_memory/source_adapter/`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/longitudinal_memory/source_adapter)
+  - Generic deterministic discovery from immutable hash-verified byte snapshots, closed document-role checks, HTML/PDF/XLSX/TXT locator and temporal-evidence replay, source-text-derived fiscal claims, complete same-period evidence closure, exact reviewed-horizon reconciliation, temporary candidate mapping, C1 projection, and in-memory sidecar orchestration.
+  - Requires injected source, reviewed-model, sector-pack, and ticker-profile boundaries; it has no production writer or source-download path.
+- [`pbi_xbrl/longitudinal_memory/sector_packs/retail.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/longitudinal_memory/sector_packs/retail.py)
+  - Owns retail metric, unit, dimension, lossless guidance parsing, source eligibility, comparable-sales trend pairing, and signed net-openings semantics.
+- [`pbi_xbrl/longitudinal_memory/ticker_profiles/anf.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/longitudinal_memory/ticker_profiles/anf.py)
+  - Validates only the declarative company/publisher aliases, activated metrics, calendar hints, and reviewed source/event links supplied by the ANF source set.
+- [`tests/fixtures/longitudinal_memory/anf_source_set.v1.json`](/c:/Users/Jibbe/Aktier/Code/tests/fixtures/longitudinal_memory/anf_source_set.v1.json)
+  - Pins the eight external source paths, exact SHA-256 hashes, publication metadata, locators, declarative mappings, complete fiscal evidence groups, the exact reviewed FY2026 horizon, reviewed links, and proof periods without copying source files into Git.
+
+This C2 path remains disconnected from normalized-package production and every
+workbook product, binding, formula, template, and writer.
+
 ### 5. Workbook rendering
 - [`pbi_xbrl/excel_writer_context.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_context.py)
   - Main workbook renderer and the largest concentration of visible product logic.
