@@ -320,7 +320,7 @@ def test_management_explanation_cannot_be_substituted_for_reported_fact(
             "review_state": "accepted",
         }
     )
-    with pytest.raises(SourceContractError, match="assertion policy"):
+    with pytest.raises(MappingError, match="not eligible"):
         _build(_write(tmp_path, raw))
 
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Callable, Iterable, Mapping
@@ -29,9 +30,11 @@ from pbi_xbrl.longitudinal_memory.validation import validate_package
 
 from .discovery import discover_sources, load_source_set, verify_reviewed_model_inputs
 from .html import extract_html_evidence, replay_html_dateline
+from .inline_xbrl import extract_inline_xbrl_evidence
 from .mapping import map_candidates
 from .pdf import extract_pdf_evidence, replay_pdf_dateline
 from .periods import reconcile_periods, reviewed_calendar_rule_id
+from .reviewed_metadata import verify_reviewed_metadata_documents
 from .spreadsheet import extract_spreadsheet_evidence
 from .text import extract_text_evidence
 from .types import (
@@ -50,12 +53,28 @@ SCHEMA_VERSION = "1.0.0"
 ELIGIBLE_REVIEW_STATES = frozenset({"accepted", "reviewed"})
 REVIEW_RANK = {"accepted": 0, "reviewed": 0, "needs_review": 1, "rejected": 2}
 
+_C1_AUTHORITY_CLASS = {
+    "sec-primary": "audited-filing",
+    "reviewed-index": "accepted-normalized",
+    "reviewed-official-page": "company-release",
+}
+
+_C1_LOCATOR_KIND = {
+    "inline-xbrl-fact": "normalized-path",
+    "page-text": "page",
+}
+
 
 def _effective_review_state(*states: str) -> str:
     worst = max(states, key=lambda value: REVIEW_RANK[value])
     if REVIEW_RANK[worst] > 0:
         return worst
     return "reviewed" if "reviewed" in states else "accepted"
+
+
+def _currency_for(pack: Any, semantic_key: str) -> str | None:
+    resolver = getattr(pack, "currency_for_semantics", None)
+    return resolver(semantic_key) if resolver is not None else None
 
 
 def _document_knowledge_date(source_set: SourceSet, document: DiscoveredDocument) -> str:
@@ -104,7 +123,10 @@ def _source_documents(
                 "source_path_hint": row.spec.relative_path.replace("\\", "/"),
                 "canonical_url": row.spec.canonical_url,
                 "content_sha256": row.content_sha256,
-                "authority_class": row.spec.authority_class,
+                "authority_class": _C1_AUTHORITY_CLASS.get(
+                    row.spec.authority_class,
+                    row.spec.authority_class,
+                ),
                 "review_state": row.spec.review_state,
             }
         )
@@ -122,9 +144,10 @@ def _extract(
     for document in sorted(documents, key=lambda row: row.spec.document_key):
         embedded_date = document.spec.embedded_publication_date
         if embedded_date is not None:
-            if document.spec.source_family == "sec-exhibit":
+            locator_kind = str((document.spec.publication_date_locator or {}).get("locator_kind"))
+            if locator_kind == "html-dateline":
                 replayed_date = replay_html_dateline(document)
-            elif document.spec.source_family == "issuer-pdf":
+            elif locator_kind == "pdf-dateline":
                 replayed_date = replay_pdf_dateline(document)
             else:  # pragma: no cover - the role matrix rejects this before discovery
                 raise MappingError(
@@ -142,16 +165,42 @@ def _extract(
                     f"Publication date disagrees with embedded evidence for {document.spec.document_key!r}."
                 )
         assertions = assertions_by_document.get(document.spec.document_key, [])
-        if document.spec.source_family == "sec-exhibit":
-            result.extend(extract_html_evidence(document, assertions))
-        elif document.spec.source_family == "issuer-pdf":
-            result.extend(extract_pdf_evidence(document, assertions))
-        elif document.spec.source_family == "issuer-spreadsheet":
-            result.extend(extract_spreadsheet_evidence(document, assertions))
-        elif document.spec.source_family == "issuer-transcript":
-            result.extend(extract_text_evidence(document, assertions))
-        else:  # pragma: no cover - source schema is closed
+        by_locator: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
+        for assertion in assertions:
+            by_locator[str(assertion["locator"]["locator_kind"])].append(assertion)
+        allowed: dict[str, frozenset[str]] = {
+            "sec-primary": frozenset({"inline-xbrl-fact", "html-table", "html-text"}),
+            "sec-exhibit": frozenset({"html-table", "html-text"}),
+            "issuer-html": frozenset({"html-table", "html-text"}),
+            "issuer-pdf": frozenset({"pdf-table", "pdf-text"}),
+            "reviewed-page-snapshot": frozenset({"pdf-table", "pdf-text"}),
+            "issuer-spreadsheet": frozenset({"xlsx-cell", "xlsx-range"}),
+            "issuer-transcript": frozenset({"text-lines"}),
+            "reviewed-metadata": frozenset(),
+            "reviewed-model": frozenset(),
+        }
+        permitted = allowed.get(document.spec.source_family)
+        if permitted is None:
             raise MappingError(f"Unknown source family {document.spec.source_family!r}.")
+        unexpected = set(by_locator) - permitted
+        if unexpected:
+            raise MappingError(
+                f"Source family {document.spec.source_family!r} cannot use locator families "
+                f"{sorted(unexpected)}."
+            )
+        if by_locator.get("inline-xbrl-fact"):
+            result.extend(extract_inline_xbrl_evidence(document, by_locator["inline-xbrl-fact"]))
+        html_assertions = by_locator.get("html-table", []) + by_locator.get("html-text", [])
+        if html_assertions:
+            result.extend(extract_html_evidence(document, html_assertions))
+        pdf_assertions = by_locator.get("pdf-table", []) + by_locator.get("pdf-text", [])
+        if pdf_assertions:
+            result.extend(extract_pdf_evidence(document, pdf_assertions))
+        spreadsheet_assertions = by_locator.get("xlsx-cell", []) + by_locator.get("xlsx-range", [])
+        if spreadsheet_assertions:
+            result.extend(extract_spreadsheet_evidence(document, spreadsheet_assertions))
+        if by_locator.get("text-lines"):
+            result.extend(extract_text_evidence(document, by_locator["text-lines"]))
     produced = {row.assertion_key for row in result}
     required = {str(row["assertion_key"]) for row in source_set.required_assertions}
     if produced != required:
@@ -171,6 +220,7 @@ def _evidence_occurrences(
     result: list[dict[str, Any]] = []
     for extracted in evidence:
         document = by_key[extracted.document_key]
+        locator_kind = _C1_LOCATOR_KIND.get(extracted.locator_kind, extracted.locator_kind)
         review_state = _effective_review_state(
             document.spec.review_state,
             extracted.review_state,
@@ -179,7 +229,7 @@ def _evidence_occurrences(
             company_id=source_set.company_id,
             document_key=document.spec.document_key,
             document_revision=document.spec.revision,
-            locator_kind=extracted.locator_kind,
+            locator_kind=locator_kind,
             locator_key=extracted.locator_key,
             ordinal=extracted.ordinal,
         )
@@ -191,7 +241,7 @@ def _evidence_occurrences(
                 "company_id": source_set.company_id,
                 "source_document_id": document.source_document_id,
                 "occurrence_key": extracted.assertion_key,
-                "locator_kind": extracted.locator_kind,
+                "locator_kind": locator_kind,
                 "locator_key": extracted.locator_key,
                 "ordinal": extracted.ordinal,
                 "excerpt": extracted.excerpt,
@@ -312,12 +362,120 @@ def _promise_semantic_key(candidate: MappedCandidate) -> tuple[Any, ...]:
         candidate.metadata["target_definition_id"],
         candidate.metadata["target_basis_id"],
         candidate.metadata["target_dimension_alias"],
+        candidate.metadata.get("deadline_period_key"),
     )
 
 
-def _validate_promise_candidate_chain(
+def _promise_base_key(candidate: MappedCandidate) -> tuple[Any, ...]:
+    return _promise_semantic_key(candidate)[:-1]
+
+
+def _reviewed_normalized_promise_wording(
+    profile: Any,
+    origin: MappedCandidate,
+    group: tuple[MappedCandidate, ...],
+) -> str | None:
+    """Replay one reviewed target-independent wording rule for a Promise group."""
+
+    rules = tuple(getattr(profile, "promise_wording_rules", ()))
+    if not rules:
+        return None
+    identity = {
+        "promise_subject_id": origin.metadata["promise_subject_id"],
+        "program_id": origin.metadata["program_id"],
+        "target_metric_id": origin.metadata["target_metric_id"],
+        "target_definition_id": origin.metadata["target_definition_id"],
+        "target_basis_id": origin.metadata["target_basis_id"],
+    }
+    matches = [
+        rule
+        for rule in rules
+        if all(rule.get(key) == value for key, value in identity.items())
+    ]
+    if len(matches) != 1:
+        raise MappingError(
+            "A Promise group must resolve exactly one reviewed normalized-wording rule."
+        )
+    rule = matches[0]
+    if (
+        rule.get("derivation_rule_id")
+        != "rule:core:source-backed-normalized-promise-wording@1"
+        or rule.get("review_state") not in ELIGIBLE_REVIEW_STATES
+    ):
+        raise MappingError("A Promise normalized-wording rule is not reviewed and versioned.")
+    wording = " ".join(str(rule.get("normalized_wording", "")).split())
+    normalized_wording = wording.casefold()
+    forbidden_phrases = (
+        "run rate",
+        "identified savings",
+        "initiated savings",
+        "implementation charge",
+        "target update",
+        "reaffirmation",
+    )
+    if (
+        not wording
+        or re.search(r"[0-9$€£]", wording)
+        or any(phrase in normalized_wording for phrase in forbidden_phrases)
+    ):
+        raise MappingError(
+            "Normalized Promise wording must be target-independent program scope."
+        )
+
+    by_assertion = {candidate.assertion_key: candidate for candidate in group}
+    supports = tuple(rule.get("source_assertions", ()))
+    support_keys = [str(support.get("assertion_key", "")) for support in supports]
+    if not supports or len(support_keys) != len(set(support_keys)):
+        raise MappingError("A Promise wording rule needs unique source-backed supports.")
+    for support, assertion_key in zip(supports, support_keys, strict=True):
+        candidate = by_assertion.get(assertion_key)
+        if candidate is None or candidate.evidence.review_state not in ELIGIBLE_REVIEW_STATES:
+            raise MappingError(
+                f"Promise wording support {assertion_key!r} is absent or not reviewed."
+            )
+        excerpt = " ".join(candidate.evidence.excerpt.split()).casefold()
+        fragments = tuple(str(value) for value in support.get("required_fragments", ()))
+        if not fragments or any(" ".join(fragment.split()).casefold() not in excerpt for fragment in fragments):
+            raise MappingError(
+                f"Promise wording support {assertion_key!r} no longer replays its source text."
+            )
+    return wording
+
+
+def _validate_promise_version_source_coherence(
+    records_by_assertion: Mapping[str, Mapping[str, Any]],
+    candidates_by_assertion: Mapping[str, MappedCandidate],
+    occurrences_by_assertion: Mapping[str, Mapping[str, Any]],
+    expected_wordings: Mapping[str, str],
+) -> None:
+    """Fail before C1 projection can accept a target, wording or evidence mismatch."""
+
+    if set(records_by_assertion) != set(candidates_by_assertion):
+        raise MappingError("Promise records do not cover their complete source candidate group.")
+    for assertion_key in sorted(candidates_by_assertion):
+        record = records_by_assertion[assertion_key]
+        candidate = candidates_by_assertion[assertion_key]
+        occurrence = occurrences_by_assertion[assertion_key]
+        payload = record["payload"]
+        if dict(payload["target"]) != dict(candidate.value or {}):
+            raise MappingError(
+                f"Promise target {assertion_key!r} differs from its source-derived candidate."
+            )
+        if payload["wording"] != expected_wordings[assertion_key]:
+            raise MappingError(
+                f"Promise wording {assertion_key!r} differs from its reviewed normalized wording."
+            )
+        if record["header"]["evidence_occurrence_ids"] != [
+            occurrence["evidence_occurrence_id"]
+        ]:
+            raise MappingError(
+                f"Promise version {assertion_key!r} is not anchored to its own evidence occurrence."
+            )
+
+
+def _validate_promise_candidate_chains(
     candidates: list[MappedCandidate],
-) -> MappedCandidate:
+) -> tuple[tuple[MappedCandidate, tuple[MappedCandidate, ...]], ...]:
     by_assertion = {row.assertion_key: row for row in candidates}
     if len(by_assertion) != len(candidates):
         raise MappingError("Promise assertion keys must be unique.")
@@ -326,14 +484,21 @@ def _validate_promise_candidate_chain(
     for origin in origins:
         if origin.metadata["previous_assertion_key"] is not None:
             raise MappingError("Promise origin cannot have a predecessor.")
-        origins_by_key[_promise_semantic_key(origin)].append(origin)
+        origins_by_key[_promise_base_key(origin)].append(origin)
 
     matched_origin: dict[str, MappedCandidate] = {}
     for candidate in candidates:
         if candidate.metadata["change_kind"] == "origin":
             matched_origin[candidate.assertion_key] = candidate
             continue
-        compatible = origins_by_key.get(_promise_semantic_key(candidate), [])
+        compatible = list(origins_by_key.get(_promise_base_key(candidate), []))
+        if candidate.metadata["change_kind"] != "deadline_update":
+            compatible = [
+                origin
+                for origin in compatible
+                if origin.metadata.get("deadline_period_key")
+                == candidate.metadata.get("deadline_period_key")
+            ]
         if not compatible:
             raise MappingError(
                 f"Mandatory Needs Review: promise version {candidate.assertion_key!r} has no "
@@ -352,13 +517,14 @@ def _validate_promise_candidate_chain(
             raise MappingError(
                 f"Promise version {candidate.assertion_key!r} has no explicit predecessor."
             )
-        if _promise_semantic_key(predecessor) != _promise_semantic_key(candidate):
+        if _promise_base_key(predecessor) != _promise_base_key(candidate):
             raise MappingError(
                 f"Promise version {candidate.assertion_key!r} has a predecessor in another promise."
             )
         if (
             candidate.metadata["change_kind"] != "deadline_update"
-            and candidate.period_key != origin.period_key
+            and candidate.metadata.get("deadline_period_key")
+            != origin.metadata.get("deadline_period_key")
         ):
             raise MappingError(
                 f"Promise version {candidate.assertion_key!r} changes its deadline without a deadline update."
@@ -385,9 +551,20 @@ def _validate_promise_candidate_chain(
                 f"Promise version {candidate.assertion_key!r} does not reach its compatible origin."
             )
 
-    if len(origins) != 1:
-        raise MappingError("The bounded promise projection requires exactly one deterministic origin.")
-    return origins[0]
+    groups: list[tuple[MappedCandidate, tuple[MappedCandidate, ...]]] = []
+    for origin in sorted(origins, key=lambda row: row.assertion_key):
+        members = tuple(
+            sorted(
+                (
+                    row
+                    for row in candidates
+                    if matched_origin.get(row.assertion_key) is origin
+                ),
+                key=lambda row: row.assertion_key,
+            )
+        )
+        groups.append((origin, members))
+    return tuple(groups)
 
 
 def _project(
@@ -423,12 +600,20 @@ def _project(
         str(raw["period_key"]): next(row for row in periods if row["period_id"] == raw["period_id"])
         for raw in source_set.periods
     }
+    calendar_rule = source_set.profile["reviewed_calendar_rule"]
+    calendar_basis = str(calendar_rule.get("calendar_basis") or "source-labelled-52-53-week")
+    week_pattern = {
+        "calendar-year": "calendar",
+        "source-labelled-52-53-week": "source-declared",
+    }.get(calendar_basis)
+    if week_pattern is None:
+        raise MappingError(f"Unknown reviewed canonical calendar basis {calendar_basis!r}.")
     fiscal_calendar = {
         "calendar_id": profile.calendar_id,
         "calendar_rule_id": reviewed_calendar_rule_id(source_set),
         "company_id": source_set.company_id,
         "profile_hint": profile.calendar_hint,
-        "week_pattern": "source-declared",
+        "week_pattern": week_pattern,
         "coverage_state": "partial",
         "evidence_occurrence_ids": sorted(
             {
@@ -464,6 +649,7 @@ def _project(
     numerical_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for candidate in (row for row in candidates if row.candidate_kind == "numerical_fact"):
         metric_id, definition_id, basis_id, unit_id = pack.metric_semantics(candidate.semantic_key)
+        currency = _currency_for(pack, candidate.semantic_key)
         if metric_id not in activated:
             raise MappingError(f"Metric {metric_id!r} is not activated by the ticker profile.")
         period = period_by_key[str(candidate.period_key)]
@@ -486,7 +672,7 @@ def _project(
             period_id=period["period_id"],
             dimension_set_id=dimension_set_id,
             unit_id=unit_id,
-            currency=None,
+            currency=currency,
         )
         record_id = numerical_fact_identity(
             provenance_key=occurrence["evidence_occurrence_id"],
@@ -497,7 +683,7 @@ def _project(
             period_id=period["period_id"],
             dimension_set_id=dimension_set_id,
             unit_id=unit_id,
-            currency=None,
+            currency=currency,
         )
         record = {
             "header": _header(
@@ -520,7 +706,7 @@ def _project(
                 "definition_id": definition_id,
                 "basis_id": basis_id,
                 "unit_id": unit_id,
-                "currency": None,
+                "currency": currency,
                 "value": dict(candidate.value or {}),
             },
         }
@@ -547,6 +733,7 @@ def _project(
     for group_key in sorted(guidance_groups):
         horizon_key, metric_key = group_key
         metric_id, definition_id, basis_id, unit_id = pack.metric_semantics(metric_key, guidance=True)
+        currency = _currency_for(pack, metric_key)
         if metric_id not in activated:
             raise MappingError(f"Metric {metric_id!r} is not activated by the ticker profile.")
         period = period_by_key[horizon_key]
@@ -558,7 +745,7 @@ def _project(
             horizon_period_id=period["period_id"],
             dimension_set_id=total_dimension_id,
             unit_id=unit_id,
-            currency=None,
+            currency=currency,
         )
         entities.append(
             {
@@ -578,7 +765,7 @@ def _project(
                     "horizon_period_id": period["period_id"],
                     "dimension_set_id": total_dimension_id,
                     "unit_id": unit_id,
-                    "currency": None,
+                    "currency": currency,
                 },
             }
         )
@@ -685,111 +872,180 @@ def _project(
         (row for row in candidates if row.candidate_kind == "promise_version"),
         key=lambda row: row.assertion_key,
     )
-    promise_id: str | None = None
+    promise_ids: list[str] = []
     promise_version_ids: dict[str, str] = {}
+    promise_groups: tuple[tuple[MappedCandidate, tuple[MappedCandidate, ...]], ...] = ()
     if promise_candidates:
-        origin = _validate_promise_candidate_chain(promise_candidates)
-        origin_occurrence = occurrence_by_assertion[origin.assertion_key]
-        promise_id = promise_identity(
-            company_id=source_set.company_id,
-            subject_id=str(origin.metadata["promise_subject_id"]),
-            program_id=origin.metadata["program_id"],
-            origin_occurrence_id=origin_occurrence["evidence_occurrence_id"],
-        )
-        for candidate in promise_candidates:
-            occurrence = occurrence_by_assertion[candidate.assertion_key]
-            promise_version_ids[candidate.assertion_key] = promise_version_identity(
-                promise_id=promise_id,
-                occurrence_id=occurrence["evidence_occurrence_id"],
+        promise_groups = _validate_promise_candidate_chains(promise_candidates)
+        for origin, group in promise_groups:
+            origin_occurrence = occurrence_by_assertion[origin.assertion_key]
+            promise_id = promise_identity(
+                company_id=source_set.company_id,
+                subject_id=str(origin.metadata["promise_subject_id"]),
+                program_id=origin.metadata["program_id"],
+                origin_occurrence_id=origin_occurrence["evidence_occurrence_id"],
             )
-        deadline_period = period_by_key[str(origin.period_key)]
-        deadline = {
-            "kind": "period",
-            "value": deadline_period["period_id"],
-            "precision": "fiscal-period",
-        }
-        original_wording = origin.evidence.excerpt
-        entities.append(
-            {
-                "header": {
-                    "entity_id": promise_id,
-                    "identity_digest": identity_digest(promise_id),
-                    "entity_type": "Promise",
-                    "schema_version": SCHEMA_VERSION,
-                    "company_id": source_set.company_id,
-                    "evidence_occurrence_ids": [origin_occurrence["evidence_occurrence_id"]],
-                },
-                "payload": {
-                    "kind": "Promise",
-                    "promise_subject_id": origin.metadata["promise_subject_id"],
-                    "program_id": origin.metadata["program_id"],
-                    "origin_occurrence_id": origin_occurrence["evidence_occurrence_id"],
-                    "origin_version_id": promise_version_ids[origin.assertion_key],
-                    "original_wording": original_wording,
-                    "original_target": dict(origin.value or {}),
-                    "original_baseline": None,
-                    "original_deadline": deadline,
-                },
-            }
-        )
-        promise_records: dict[str, dict[str, Any]] = {}
-        for candidate in promise_candidates:
-            predecessor_key = candidate.metadata["previous_assertion_key"]
-            if candidate.metadata["change_kind"] == "reaffirmation" and dict(candidate.value or {}) != dict(origin.value or {}):
-                raise MappingError("A promise reaffirmation cannot silently change the source target.")
-            occurrence = occurrence_by_assertion[candidate.assertion_key]
-            document, _ = source_by_key[candidate.document_key]
-            period = period_by_key[str(candidate.period_key)]
-            record_id = promise_version_ids[candidate.assertion_key]
-            record = {
-                "header": _header(
-                    record_id=record_id,
-                    record_type="PromiseVersion",
-                    company_id=source_set.company_id,
-                    subject_id=promise_id,
-                    publication_date=document.spec.publication_date,
-                    knowledge_date=_document_knowledge_date(source_set, document),
-                    period=period,
-                    dimension_set_id=total_dimension_id,
-                    assertion_mode="stated",
+            promise_ids.append(promise_id)
+            for candidate in group:
+                occurrence = occurrence_by_assertion[candidate.assertion_key]
+                promise_version_ids[candidate.assertion_key] = promise_version_identity(
+                    promise_id=promise_id,
                     occurrence_id=occurrence["evidence_occurrence_id"],
-                    review_state=_effective_review_state(
-                        str(candidate.metadata["review_state"]),
-                        candidate.evidence.review_state,
-                        document.spec.review_state,
-                    ),
-                ),
-                "payload": {
-                    "kind": "PromiseVersion",
-                    "promise_id": promise_id,
-                    "previous_version_id": promise_version_ids.get(str(predecessor_key)),
-                    "change_kind": candidate.metadata["change_kind"],
-                    "version_state": candidate.metadata["version_state"],
-                    "wording": original_wording if candidate.metadata["change_kind"] == "reaffirmation" else candidate.evidence.excerpt,
-                    "target": dict(candidate.value or {}),
-                    "baseline": None,
-                    "deadline": {
-                        "kind": "period",
-                        "value": period["period_id"],
-                        "precision": "fiscal-period",
-                    },
-                },
-            }
-            promise_records[candidate.assertion_key] = record
-            observations.append(record)
-            record_by_assertion[candidate.assertion_key] = record
-        for candidate in promise_candidates:
-            predecessor_key = candidate.metadata["previous_assertion_key"]
-            if candidate.metadata["change_kind"] == "reaffirmation" and predecessor_key is not None:
-                relations.append(
-                    _relation(
-                        "reaffirms",
-                        promise_records[candidate.assertion_key]["header"]["record_id"],
-                        promise_records[str(predecessor_key)]["header"]["record_id"],
-                        "rule:core:promise-reaffirmation@1",
-                        promise_records[candidate.assertion_key]["header"]["evidence_occurrence_ids"],
-                    )
                 )
+
+            def deadline_for(candidate: MappedCandidate) -> dict[str, Any] | None:
+                deadline_key = candidate.metadata.get("deadline_period_key")
+                if deadline_key is None:
+                    return None
+                deadline_period = period_by_key[str(deadline_key)]
+                return {"kind": "period", "value": deadline_period["period_id"], "precision": "fiscal-period"}
+
+            normalized_wording = _reviewed_normalized_promise_wording(
+                profile,
+                origin,
+                group,
+            )
+            original_wording = normalized_wording or origin.evidence.excerpt
+            entities.append(
+                {
+                    "header": {
+                        "entity_id": promise_id,
+                        "identity_digest": identity_digest(promise_id),
+                        "entity_type": "Promise",
+                        "schema_version": SCHEMA_VERSION,
+                        "company_id": source_set.company_id,
+                        "evidence_occurrence_ids": [origin_occurrence["evidence_occurrence_id"]],
+                    },
+                    "payload": {
+                        "kind": "Promise",
+                        "promise_subject_id": origin.metadata["promise_subject_id"],
+                        "program_id": origin.metadata["program_id"],
+                        "origin_occurrence_id": origin_occurrence["evidence_occurrence_id"],
+                        "origin_version_id": promise_version_ids[origin.assertion_key],
+                        "original_wording": original_wording,
+                        "original_target": dict(origin.value or {}),
+                        "original_baseline": None,
+                        "original_deadline": deadline_for(origin),
+                    },
+                }
+            )
+            promise_records: dict[str, dict[str, Any]] = {}
+            by_assertion = {row.assertion_key: row for row in group}
+
+            def wording_for(candidate: MappedCandidate) -> str:
+                if normalized_wording is not None:
+                    return normalized_wording
+                cursor = candidate
+                while cursor.metadata["change_kind"] in {
+                    "reaffirmation",
+                    "target_update",
+                    "deadline_update",
+                }:
+                    predecessor_key = cursor.metadata["previous_assertion_key"]
+                    predecessor = by_assertion.get(str(predecessor_key))
+                    if predecessor is None:  # protected by chain validation
+                        raise MappingError("A promise history update needs a valid predecessor.")
+                    cursor = predecessor
+                return cursor.evidence.excerpt
+
+            for candidate in group:
+                predecessor_key = candidate.metadata["previous_assertion_key"]
+                predecessor = by_assertion.get(str(predecessor_key)) if predecessor_key is not None else None
+                if candidate.metadata["change_kind"] == "reaffirmation":
+                    if predecessor is None or dict(candidate.value or {}) != dict(predecessor.value or {}):
+                        raise MappingError("A promise reaffirmation cannot silently change its predecessor target.")
+                if candidate.metadata["change_kind"] == "target_update":
+                    if predecessor is None or dict(candidate.value or {}) == dict(predecessor.value or {}):
+                        raise MappingError("A promise target update must change its predecessor target.")
+                occurrence = occurrence_by_assertion[candidate.assertion_key]
+                document, _ = source_by_key[candidate.document_key]
+                period = period_by_key[str(candidate.period_key)]
+                record_id = promise_version_ids[candidate.assertion_key]
+                record = {
+                    "header": _header(
+                        record_id=record_id,
+                        record_type="PromiseVersion",
+                        company_id=source_set.company_id,
+                        subject_id=promise_id,
+                        publication_date=document.spec.publication_date,
+                        knowledge_date=_document_knowledge_date(source_set, document),
+                        period=period,
+                        dimension_set_id=total_dimension_id,
+                        assertion_mode="stated",
+                        occurrence_id=occurrence["evidence_occurrence_id"],
+                        review_state=_effective_review_state(
+                            str(candidate.metadata["review_state"]),
+                            candidate.evidence.review_state,
+                            document.spec.review_state,
+                        ),
+                    ),
+                    "payload": {
+                        "kind": "PromiseVersion",
+                        "promise_id": promise_id,
+                        "previous_version_id": promise_version_ids.get(str(predecessor_key)),
+                        "change_kind": candidate.metadata["change_kind"],
+                        "version_state": candidate.metadata["version_state"],
+                        "wording": wording_for(candidate),
+                        "target": dict(candidate.value or {}),
+                        "baseline": None,
+                        "deadline": deadline_for(candidate),
+                    },
+                }
+                promise_records[candidate.assertion_key] = record
+                observations.append(record)
+                record_by_assertion[candidate.assertion_key] = record
+            expected_wordings = {
+                candidate.assertion_key: wording_for(candidate) for candidate in group
+            }
+            _validate_promise_version_source_coherence(
+                promise_records,
+                by_assertion,
+                occurrence_by_assertion,
+                expected_wordings,
+            )
+            for candidate in group:
+                predecessor_key = candidate.metadata["previous_assertion_key"]
+                if predecessor_key is None:
+                    continue
+                relation_type = {
+                    "reaffirmation": "reaffirms",
+                    "target_update": "supersedes",
+                    "deadline_update": "supersedes",
+                    "reformulation": "supersedes",
+                    "withdrawal": "supersedes",
+                }.get(str(candidate.metadata["change_kind"]))
+                if relation_type is not None:
+                    relations.append(
+                        _relation(
+                            relation_type,
+                            promise_records[candidate.assertion_key]["header"]["record_id"],
+                            promise_records[str(predecessor_key)]["header"]["record_id"],
+                            f"rule:core:promise-{candidate.metadata['change_kind'].replace('_', '-')}@1",
+                            promise_records[candidate.assertion_key]["header"]["evidence_occurrence_ids"],
+                        )
+                    )
+                if (
+                    candidate.metadata["change_kind"] == "target_update"
+                    and predecessor_key is not None
+                ):
+                    governing = by_assertion[str(predecessor_key)]
+                    while governing.metadata["change_kind"] == "reaffirmation":
+                        governing_predecessor_key = governing.metadata["previous_assertion_key"]
+                        if governing_predecessor_key is None:
+                            raise MappingError(
+                                "A reaffirmation chain does not resolve a governing promise target."
+                            )
+                        governing = by_assertion[str(governing_predecessor_key)]
+                    if governing.assertion_key != predecessor_key:
+                        relations.append(
+                            _relation(
+                                "supersedes",
+                                promise_records[candidate.assertion_key]["header"]["record_id"],
+                                promise_records[governing.assertion_key]["header"]["record_id"],
+                                "rule:core:promise-target-update-governing-target@1",
+                                promise_records[candidate.assertion_key]["header"]["evidence_occurrence_ids"],
+                            )
+                        )
 
     statement_records: list[dict[str, Any]] = []
     for candidate in (row for row in candidates if row.candidate_kind == "management_statement"):
@@ -840,6 +1096,14 @@ def _project(
         occurrence = occurrence_by_assertion[candidate.assertion_key]
         document, _ = source_by_key[candidate.document_key]
         period = period_by_key[str(candidate.period_key)]
+        effective_date = candidate.metadata.get("effective_date")
+        if candidate.metadata["effective_precision"] == "day":
+            if effective_date is None or not (
+                str(period["start_date"]) <= str(effective_date) <= str(period["end_date"])
+            ):
+                raise MappingError("A day-precision company event needs one date inside its effective period.")
+        elif effective_date is not None:
+            raise MappingError("Only a day-precision company event may carry an exact effective date.")
         event_id = company_event_identity(
             company_id=source_set.company_id,
             event_type=str(candidate.metadata["event_type"]),
@@ -873,8 +1137,12 @@ def _project(
                 "event_subject_id": candidate.metadata["event_subject_id"],
                 "event_stage": candidate.metadata["event_stage"],
                 "description": candidate.evidence.excerpt,
-                "effective_date": None,
-                "effective_month": str(period["start_date"])[:7],
+                "effective_date": effective_date,
+                "effective_month": (
+                    str(period["start_date"])[:7]
+                    if candidate.metadata["effective_precision"] == "month"
+                    else None
+                ),
                 "effective_precision": candidate.metadata["effective_precision"],
             },
         }
@@ -1051,6 +1319,151 @@ def _project(
                 selected["header"]["dimension_set_id"],
             )
         ] = selected
+
+    derived_fact_requests = getattr(pack, "derived_fact_requests", None)
+    if derived_fact_requests is not None:
+        periods_by_id = {str(row["period_id"]): row for row in periods}
+        for request in derived_fact_requests(selected_numerical):
+            semantic_key = str(request["semantic_binding_id"])
+            metric_id, definition_id, basis_id, unit_id = pack.metric_semantics(
+                semantic_key
+            )
+            currency = _currency_for(pack, semantic_key)
+            period = periods_by_id[str(request["period_id"])]
+            dimension_set_id = str(request["dimension_set_id"])
+            input_records = tuple(request["input_records"])
+            input_ids = sorted(
+                str(row["header"]["record_id"]) for row in input_records
+            )
+            evidence_ids = sorted(
+                {
+                    str(evidence_id)
+                    for row in input_records
+                    for evidence_id in row["header"]["evidence_occurrence_ids"]
+                }
+            )
+            occurrences_by_id = {
+                str(row["evidence_occurrence_id"]): row for row in evidence_occurrences
+            }
+            input_occurrences = [occurrences_by_id[value] for value in evidence_ids]
+            source_document_ids = {
+                str(row["source_document_id"]) for row in input_occurrences
+            }
+            if len(source_document_ids) != 1:
+                raise MappingError(
+                    "A transparent derived fact requires all source inputs in one verified document."
+                )
+            source_document_id = next(iter(source_document_ids))
+            source_document = next(
+                row
+                for row in external_source_documents
+                if row["source_document_id"] == source_document_id
+            )
+            input_digest = identity_digest("|".join(input_ids))
+            compound_locator_key = f"derived-source-pair:{input_digest}"
+            compound_occurrence_id = evidence_occurrence_identity(
+                company_id=source_set.company_id,
+                document_key=str(source_document["document_key"]),
+                document_revision=int(source_document["revision"]),
+                locator_kind="normalized-path",
+                locator_key=compound_locator_key,
+                ordinal=1,
+            )
+            compound_occurrence = {
+                "evidence_occurrence_id": compound_occurrence_id,
+                "identity_digest": identity_digest(compound_occurrence_id),
+                "schema_version": SCHEMA_VERSION,
+                "company_id": source_set.company_id,
+                "source_document_id": source_document_id,
+                "occurrence_key": f"derived-source-pair:{request['rule_id']}:{input_digest}",
+                "locator_kind": "normalized-path",
+                "locator_key": compound_locator_key,
+                "ordinal": 1,
+                "excerpt": " | ".join(
+                    str(row["excerpt"])
+                    for row in sorted(
+                        input_occurrences,
+                        key=lambda value: str(value["evidence_occurrence_id"]),
+                    )
+                ),
+                "review_state": _effective_review_state(
+                    *(str(row["review_state"]) for row in input_occurrences)
+                ),
+            }
+            evidence_occurrences.append(compound_occurrence)
+            provenance_key = compound_occurrence_id
+            business_key = numerical_business_key(
+                company_id=source_set.company_id,
+                metric_id=metric_id,
+                definition_id=definition_id,
+                basis_id=basis_id,
+                period_id=period["period_id"],
+                dimension_set_id=dimension_set_id,
+                unit_id=unit_id,
+                currency=currency,
+            )
+            record_id = numerical_fact_identity(
+                provenance_key=provenance_key,
+                company_id=source_set.company_id,
+                metric_id=metric_id,
+                definition_id=definition_id,
+                basis_id=basis_id,
+                period_id=period["period_id"],
+                dimension_set_id=dimension_set_id,
+                unit_id=unit_id,
+                currency=currency,
+            )
+            publication_dates = [
+                str(row["header"]["publication_date"])
+                for row in input_records
+                if row["header"]["publication_date"] is not None
+            ]
+            knowledge_dates = [
+                str(row["header"]["knowledge_date"]) for row in input_records
+            ]
+            review_state = _effective_review_state(
+                *(str(row["header"]["review_state"]) for row in input_records)
+            )
+            header = _header(
+                record_id=record_id,
+                record_type="NumericalFact",
+                company_id=source_set.company_id,
+                subject_id=metric_id,
+                publication_date=max(publication_dates) if publication_dates else None,
+                knowledge_date=max(knowledge_dates),
+                period=period,
+                dimension_set_id=dimension_set_id,
+                assertion_mode="derived",
+                occurrence_id=compound_occurrence_id,
+                review_state=review_state,
+            )
+            record = {
+                "header": header,
+                "payload": {
+                    "kind": "NumericalFact",
+                    "business_key": business_key,
+                    "metric_id": metric_id,
+                    "definition_id": definition_id,
+                    "basis_id": basis_id,
+                    "unit_id": unit_id,
+                    "currency": currency,
+                    "value": dict(request["value"]),
+                },
+            }
+            observations.append(record)
+            result = resolve_observations(
+                [record],
+                policy_id="policy:core:reported-numerical@1",
+                as_of_date=source_set.knowledge_cutoff,
+                source_documents=external_source_documents,
+                evidence_occurrences=evidence_occurrences,
+            )
+            resolutions.append(result.resolution)
+            relations.extend(result.inferred_relations)
+            review_issues.extend(result.review_issues)
+            selected_numerical[
+                (metric_id, period["period_id"], dimension_set_id)
+            ] = record
     for change_kind, earlier, later, earlier_period, later_period in pack.percentage_point_change_requests(
         periods,
         selected_numerical,
@@ -1071,10 +1484,23 @@ def _project(
             )
         )
 
-    if promise_id is not None:
-        assessment = pack.promise_evidence_assessment(
-            observations, ELIGIBLE_REVIEW_STATES
-        )
+    for promise_index, (promise_id, (origin_candidate, _group)) in enumerate(
+        zip(promise_ids, promise_groups, strict=True)
+    ):
+        per_promise = getattr(pack, "promise_evidence_assessment_for", None)
+        if per_promise is not None:
+            assessment = per_promise(
+                promise_id,
+                origin_candidate,
+                observations,
+                ELIGIBLE_REVIEW_STATES,
+            )
+        elif len(promise_ids) == 1 and promise_index == 0:
+            assessment = pack.promise_evidence_assessment(
+                observations, ELIGIBLE_REVIEW_STATES
+            )
+        else:
+            continue
         evidence_record = assessment["evidence_record"]
         relations.append(
             _relation(
@@ -1085,7 +1511,6 @@ def _project(
                 evidence_record["header"]["evidence_occurrence_ids"],
             )
         )
-        origin_candidate = next(row for row in promise_candidates if row.metadata["change_kind"] == "origin")
         review_issues.append(
             _review_issue(
                 rule_id=assessment["review_rule_id"],
@@ -1103,6 +1528,26 @@ def _project(
                 action=assessment["action"],
             )
         )
+
+    for spec in sorted(
+        source_set.review_issue_specs,
+        key=lambda row: (str(row["rule_id"]), str(row["business_key"])),
+    ):
+        issue = _review_issue(
+            rule_id=str(spec["rule_id"]),
+            business_key=str(spec["business_key"]),
+            entity_ids=(),
+            candidate_ids=(),
+            evidence_ids=(
+                occurrence_by_assertion[str(assertion_key)]["evidence_occurrence_id"]
+                for assertion_key in spec["evidence_assertion_keys"]
+            ),
+            message=str(spec["message"]),
+            action=str(spec["suggested_action"]),
+            severity=str(spec["severity"]),
+        )
+        issue["promotion_blocking"] = bool(spec["promotion_blocking"])
+        review_issues.append(issue)
 
     source_documents = _merge_identity_rows(external_source_documents, "source_document_id")
     evidence_occurrences = _merge_identity_rows(evidence_occurrences, "evidence_occurrence_id")
@@ -1152,6 +1597,7 @@ def build_source_native_sidecar(
     source_set = load_source_set(source_set_path)
     verify_reviewed_model_inputs(source_set, reviewed_model_root)
     discovered = discover_sources(source_set, source_root)
+    verify_reviewed_metadata_documents(source_set, discovered)
     extracted = _extract(source_set, discovered)
     profile = ticker_profile_loader(source_set)
     candidates = map_candidates(

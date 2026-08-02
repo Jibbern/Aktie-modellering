@@ -15,8 +15,8 @@ The runtime flow is:
    SHA-256 before creating a source identity;
 4. replay document datelines and every format locator only against that verified
    snapshot; the source path is diagnostic after discovery;
-5. verify reviewed model-input bytes below a separately injected root and replay
-   their recorded acceptance date;
+5. verify reviewed metadata and reviewed model-input bytes below their injected
+   roots and replay their recorded review or acceptance date;
 6. map evidence through a sector pack and a declarative ticker profile;
 7. project evidence-anchored candidates into C1 records;
 8. run C1 reconciliation, change derivation, validation and serialization.
@@ -45,7 +45,10 @@ manifest destination paths, mtime and directory order have no authority.
 whether an accession, embedded-dateline locator, origin relationship or reviewed
 link is required and which assertion policies it may support. External documents
 must use the profile publisher. SEC accessions must match the profile CIK. A
-transcript cannot claim filing authority, and a reviewed model input has the fixed
+transcript cannot claim filing authority. Reviewed official-page PDF snapshots
+retain the issuer URL, capture timestamp and byte hash without pretending to be SEC
+filings. Reviewed transcript metadata is an index into one immutable raw transcript,
+not independent economic evidence. A reviewed model input has the fixed
 internal-research/reviewed-model role rather than producer-supplied issuer authority.
 
 ## Locator semantics
@@ -65,6 +68,16 @@ method, bounded excerpt, excerpt SHA-256 and review state.
   snapshot and are never recalculated or saved.
 - TXT locators use one-based line ranges, an exact line digest and reproducible
   speaker/turn diagnostics. Filename dates have no semantic role.
+- Inline-XBRL locators bind the exact fact ID and concept to its context, entity,
+  period, dimensions, unit, decimals, scale, sign, continuation chain, DOM path,
+  raw text and canonical value. Context and unit references replay from the same
+  verified SEC bytes; a comparative table position is not evidence identity.
+- A reviewed transcript-metadata revision replays its own hash, predecessor hash,
+  revision, review date, raw-transcript hash and every material quoted field against
+  exact transcript line ranges. Closed generic field guards replay reviewed
+  classifications without company or segment literals in shared runtime. Metadata
+  may classify analyst-introduced content, but it cannot create a fact or management
+  statement.
 
 Any change to source bytes, the format-specific extraction method, node/turn
 diagnostics, selected headers, extracted text, number format, formula/cached state
@@ -76,6 +89,11 @@ or excerpt digest fails closed.
 period reconciliation, orchestration and C1 projection. It contains no company,
 brand or geography literals and no ticker conditionals.
 
+Sector packs own closed semantic registries: a source assertion names a versioned
+binding whose metric, definition, basis, unit, currency, candidate kinds and
+dimension axes are validated before mapping. This keeps the shared schema typed
+without baking one sector's enums into shared runtime.
+
 `sector_packs.retail` owns versioned retail metric IDs, unit/dimension concepts,
 lossless percent/count/guidance parsing and the explicit net-openings arithmetic
 rule. It also declares assertion-specific eligible source families and the retail
@@ -86,6 +104,13 @@ issuer identifiers.
 company and publisher identity, CIK/host aliases, dimension-member aliases,
 activated retail metrics, calendar hints and reviewed source/event links. It owns
 no reported number, guidance range, precedence rule or generic calculation.
+
+`sector_packs.business_services` owns mailing/business-services definitions for
+segment revenue, adjusted segment EBIT and margin, reported growth, pieces and
+volume, cost pressure, bookings/backlog, guidance and distinct cost-savings value
+forms. `ticker_profiles.pbi` owns only declarative company/publisher identities,
+SendTech/Presort aliases, activated registry bindings, reviewed links and the
+reviewed calendar-year rule. Neither adds company branches to shared runtime.
 
 ## Publication and periods
 
@@ -142,6 +167,15 @@ present; the exact month boundaries are derived from that linked document date a
 must match the declared period. Calendar hints corroborate and cannot override
 source evidence.
 
+The closed calendar-year rule `rule:core:calendar-year-fiscal@1` instead requires
+exact January-March, April-June, July-September and October-December quarter
+boundaries (or January-December annual boundaries), source-backed Inline-XBRL or
+label context, and reviewed ordinal anchors. It is carried into the canonical C1
+FiscalCalendar as `calendar_rule_id`; it is never inferred from issuer, ticker,
+period duration or calendar name. Natural 90/91/92-day quarter differences are
+handled only by the canonical C1 rule-aware compatibility helper. The accepted
+source-labelled 52/53-week rule remains strict.
+
 Ambiguous publication dates, missing period evidence, conflicting duration,
 unsafe 52/53-week comparison, nonadjacent QoQ and wrong-quarter YoY fail closed.
 
@@ -167,6 +201,12 @@ preserve the origin wording, target, baseline and deadline. An approximate targe
 source tolerance is never assessed as achieved automatically. Store openings and
 signed closures also produce a separately evidence-anchored derived net-opening
 fact; the arithmetic result does not silently become a promise assessment.
+
+Multiple promise programs remain independent. Cost-savings targets, potential or
+identified savings, annualized costs removed, annualized run rate, realized-period
+and cumulative savings, gross/net savings and implementation charges use distinct
+versioned definitions. A run rate may support a Needs Review assessment but cannot
+be coerced into realized savings or an undisclosed deadline.
 
 Reported facts, issuer explanations, company events and reviewed model
 interpretations remain different C1 record types. A reviewed model interpretation

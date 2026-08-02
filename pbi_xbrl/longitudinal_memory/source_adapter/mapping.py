@@ -6,6 +6,45 @@ from typing import Any, Mapping
 from .types import ExtractedEvidence, MappedCandidate, MappingError, SourceSet
 
 
+def _activate_semantic_binding(
+    assertion: Mapping[str, Any],
+    *,
+    candidate_kind: str,
+    sector_pack: Any,
+    ticker_profile: Any,
+) -> str | None:
+    binding_id = assertion.get("semantic_binding_id")
+    if binding_id is None:
+        return None
+    binding = sector_pack.semantic_binding(str(binding_id))
+    activated = set(getattr(ticker_profile, "activated_semantic_binding_ids", ()))
+    if str(binding_id) not in activated:
+        raise MappingError(f"Semantic binding {binding_id!r} is not activated by the ticker profile.")
+    if candidate_kind not in binding.candidate_kinds:
+        raise MappingError(
+            f"Semantic binding {binding_id!r} cannot produce candidate kind {candidate_kind!r}."
+        )
+    return str(binding_id)
+
+
+def _validate_binding_dimension(
+    semantic_key: str,
+    dimension_alias: str,
+    *,
+    assertion: Mapping[str, Any],
+    sector_pack: Any,
+    ticker_profile: Any,
+) -> None:
+    if assertion.get("semantic_binding_id") is None:
+        return
+    dimension_id = ticker_profile.dimension_id_for_alias(dimension_alias)
+    binding = sector_pack.semantic_binding(semantic_key)
+    if dimension_id not in binding.dimension_ids:
+        raise MappingError(
+            f"Semantic binding {semantic_key!r} forbids dimension {dimension_id!r}."
+        )
+
+
 def map_candidates(
     source_set: SourceSet,
     evidence: tuple[ExtractedEvidence, ...],
@@ -41,12 +80,32 @@ def map_candidates(
         dimension_alias: str | None = None
         metadata: dict[str, Any] = {"review_state": assertion["review_state"]}
         if kind == "numerical_fact":
-            semantic_key = str(assertion["metric_key"])
+            semantic_key = _activate_semantic_binding(
+                assertion,
+                candidate_kind=kind,
+                sector_pack=sector_pack,
+                ticker_profile=ticker_profile,
+            ) or str(assertion["metric_key"])
             sector_pack.metric_semantics(semantic_key)
             period_key = str(assertion["period_key"])
             dimension_alias = str(assertion["dimension_alias"])
+            _validate_binding_dimension(semantic_key, dimension_alias, assertion=assertion, sector_pack=sector_pack, ticker_profile=ticker_profile)
             expected_member = ticker_profile.member_id(dimension_alias)
             row_fingerprint = assertion["locator"].get("row_header_fingerprint")
+            if row_fingerprint is None:
+                row_fingerprint = assertion["locator"].get("text_fingerprint")
+            if row_fingerprint is None:
+                inline = extracted.diagnostics.get("inline_xbrl")
+                if isinstance(inline, Mapping):
+                    row_fingerprint = " ".join(
+                        str(row["member"])
+                        for row in inline.get("context_dimensions", ())
+                    )
+            section_context = extracted.diagnostics.get("section_context_text")
+            if section_context is not None:
+                row_fingerprint = " ".join(
+                    value for value in (str(row_fingerprint or ""), str(section_context)) if value
+                )
             observed_member = (
                 ticker_profile.evidence_member_id(str(row_fingerprint))
                 if row_fingerprint is not None
@@ -65,9 +124,15 @@ def map_candidates(
                 raise MappingError(f"Numerical assertion {assertion_key!r} has no value text.")
             value = sector_pack.parse_value(str(assertion["value_parser_id"]), extracted.value_text)
         elif kind == "guidance":
-            semantic_key = str(assertion["metric_key"])
+            semantic_key = _activate_semantic_binding(
+                assertion,
+                candidate_kind=kind,
+                sector_pack=sector_pack,
+                ticker_profile=ticker_profile,
+            ) or str(assertion["metric_key"])
             period_key = str(assertion["horizon_period_key"])
             dimension_alias = sector_pack.total_dimension_alias
+            _validate_binding_dimension(semantic_key, dimension_alias, assertion=assertion, sector_pack=sector_pack, ticker_profile=ticker_profile)
             if extracted.value_text is None:
                 raise MappingError(f"Guidance assertion {assertion_key!r} has no value text.")
             value = sector_pack.parse_value(str(assertion["value_parser_id"]), extracted.value_text)
@@ -100,13 +165,29 @@ def map_candidates(
                     raise MappingError(
                         f"Replacement guidance {assertion_key!r} lacks explicit replacement wording."
                     )
-                if replacement_evidence == "current-previous-columns" and (
-                    "current" not in str(assertion["locator"]["column_header_fingerprint"]).casefold()
-                    or "previous:" not in extracted.excerpt.casefold()
-                ):
-                    raise MappingError(
-                        f"Replacement guidance {assertion_key!r} lacks reproducible current/previous columns."
+                if replacement_evidence == "current-previous-columns":
+                    header = str(
+                        assertion["locator"].get("column_header_fingerprint")
+                        or assertion["locator"].get("replacement_header_fingerprint")
+                        or ""
                     )
+                    header_folded = header.casefold()
+                    has_current = any(
+                        token in header_folded
+                        for token in ("current", "updated guidance", "new guidance")
+                    )
+                    has_previous = any(
+                        token in header_folded
+                        for token in ("previous", "initial guidance", "prior guidance")
+                    )
+                    excerpt_folded = extracted.excerpt.casefold()
+                    if (
+                        not has_current
+                        or not (has_previous or "previous:" in excerpt_folded)
+                    ):
+                        raise MappingError(
+                            f"Replacement guidance {assertion_key!r} lacks reproducible current/previous columns."
+                        )
                 previous_value = sector_pack.parse_value(
                     str(assertion["value_parser_id"]), extracted.comparison_text
                 )
@@ -124,11 +205,28 @@ def map_candidates(
                 }
             )
         elif kind == "promise_version":
-            semantic_key = str(assertion["promise_subject_id"])
-            period_key = str(assertion["deadline_period_key"])
+            semantic_key = _activate_semantic_binding(
+                assertion,
+                candidate_kind=kind,
+                sector_pack=sector_pack,
+                ticker_profile=ticker_profile,
+            ) or str(assertion["promise_subject_id"])
+            period_key = str(
+                assertion.get("observation_period_key")
+                or assertion.get("deadline_period_key")
+                or ""
+            )
+            if not period_key:
+                raise MappingError(
+                    f"Promise assertion {assertion_key!r} needs an observation period even without a deadline."
+                )
             dimension_alias = str(assertion["dimension_alias"])
+            _validate_binding_dimension(semantic_key, dimension_alias, assertion=assertion, sector_pack=sector_pack, ticker_profile=ticker_profile)
             expected_metric, expected_definition, expected_basis, _unit_id = (
-                sector_pack.metric_semantics(semantic_key, guidance=True)
+                sector_pack.metric_semantics(
+                    semantic_key,
+                    guidance=assertion.get("semantic_binding_id") is None,
+                )
             )
             declared_target = (
                 str(assertion["target_metric_id"]),
@@ -159,6 +257,7 @@ def map_candidates(
                     "change_kind": assertion["change_kind"],
                     "version_state": assertion["version_state"],
                     "previous_assertion_key": assertion["previous_assertion_key"],
+                    "deadline_period_key": assertion["deadline_period_key"],
                 }
             )
         elif kind == "management_statement":
@@ -199,6 +298,7 @@ def map_candidates(
                     "event_subject_id": assertion["event_subject_id"],
                     "event_stage": assertion["event_stage"],
                     "effective_precision": assertion["effective_precision"],
+                    "effective_date": assertion.get("effective_date"),
                     "required_reviewed_link_key": link_key,
                 }
             )

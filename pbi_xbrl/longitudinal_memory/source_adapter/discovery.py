@@ -36,13 +36,17 @@ DEFAULT_SOURCE_SCHEMA_PATH = (
 @dataclass(frozen=True)
 class DocumentRole:
     role_id: str
-    source_family: str
-    document_type: str
-    authority_class: str
-    publication_date_basis: str
+    source_families: frozenset[str]
+    document_types: frozenset[str]
+    authority_classes: frozenset[str]
+    publication_date_bases: frozenset[str]
+    publisher_types: frozenset[str | None]
     accession_required: bool
     embedded_date_locator_kind: str | None
     reviewed_link_type: str | None
+    origin_requirement: str
+    canonical_url_required: bool
+    required_role_metadata: frozenset[str]
     permitted_assertion_kinds: frozenset[str]
 
 
@@ -60,73 +64,267 @@ _ISSUER_RELEASE_ASSERTIONS = frozenset(
 DOCUMENT_ROLES = (
     DocumentRole(
         role_id="sec-filed-earnings-release-exhibit",
-        source_family="sec-exhibit",
-        document_type="earnings-release",
-        authority_class="filed-exhibit",
-        publication_date_basis="sec-filed-date",
+        source_families=frozenset({"sec-exhibit"}),
+        document_types=frozenset({"earnings-release"}),
+        authority_classes=frozenset({"filed-exhibit"}),
+        publication_date_bases=frozenset({"sec-filed-date"}),
+        publisher_types=frozenset({None, "issuer", "sec-registrant"}),
         accession_required=True,
         embedded_date_locator_kind="html-dateline",
         reviewed_link_type=None,
+        origin_requirement="optional",
+        canonical_url_required=False,
+        required_role_metadata=frozenset(),
         permitted_assertion_kinds=_ISSUER_RELEASE_ASSERTIONS,
     ),
     DocumentRole(
         role_id="issuer-earnings-release-pdf",
-        source_family="issuer-pdf",
-        document_type="earnings-release",
-        authority_class="company-release",
-        publication_date_basis="embedded-dateline",
+        source_families=frozenset({"issuer-pdf"}),
+        document_types=frozenset({"earnings-release"}),
+        authority_classes=frozenset({"company-release"}),
+        publication_date_bases=frozenset({"embedded-dateline"}),
+        publisher_types=frozenset({None, "issuer"}),
         accession_required=False,
         embedded_date_locator_kind="pdf-dateline",
         reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=False,
+        required_role_metadata=frozenset(),
         permitted_assertion_kinds=_ISSUER_RELEASE_ASSERTIONS,
     ),
     DocumentRole(
         role_id="issuer-business-update-pdf",
-        source_family="issuer-pdf",
-        document_type="business-update",
-        authority_class="company-release",
-        publication_date_basis="embedded-dateline",
+        source_families=frozenset({"issuer-pdf"}),
+        document_types=frozenset({"business-update"}),
+        authority_classes=frozenset({"company-release"}),
+        publication_date_bases=frozenset({"embedded-dateline"}),
+        publisher_types=frozenset({None, "issuer"}),
         accession_required=False,
         embedded_date_locator_kind="pdf-dateline",
         reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=False,
+        required_role_metadata=frozenset(),
         permitted_assertion_kinds=_ISSUER_RELEASE_ASSERTIONS,
     ),
     DocumentRole(
         role_id="issuer-earnings-history-workbook",
-        source_family="issuer-spreadsheet",
-        document_type="earnings-presentation-workbook",
-        authority_class="company-presentation",
-        publication_date_basis="reviewed-source-catalog",
+        source_families=frozenset({"issuer-spreadsheet"}),
+        document_types=frozenset({"earnings-presentation-workbook"}),
+        authority_classes=frozenset({"company-presentation"}),
+        publication_date_bases=frozenset({"reviewed-source-catalog"}),
+        publisher_types=frozenset({None, "issuer"}),
         accession_required=False,
         embedded_date_locator_kind=None,
         reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=False,
+        required_role_metadata=frozenset(),
         permitted_assertion_kinds=frozenset({"numerical_fact", "period_evidence"}),
     ),
     DocumentRole(
         role_id="earnings-call-transcript",
-        source_family="issuer-transcript",
-        document_type="earnings-transcript",
-        authority_class="company-transcript",
-        publication_date_basis="reviewed-same-event-link",
+        source_families=frozenset({"issuer-transcript"}),
+        document_types=frozenset({"earnings-transcript"}),
+        authority_classes=frozenset({"company-transcript"}),
+        publication_date_bases=frozenset({"reviewed-same-event-link"}),
+        publisher_types=frozenset({None, "issuer"}),
         accession_required=False,
         embedded_date_locator_kind=None,
         reviewed_link_type="same-event",
+        origin_requirement="forbidden",
+        canonical_url_required=False,
+        required_role_metadata=frozenset(),
         permitted_assertion_kinds=frozenset(
-            {"guidance", "promise_version", "management_statement", "company_event"}
+            {"guidance", "promise_version", "management_statement", "company_event", "numerical_fact"}
         ),
+    ),
+    DocumentRole(
+        role_id="sec-primary-10-q",
+        source_families=frozenset({"sec-primary"}),
+        document_types=frozenset({"sec-primary-10-q"}),
+        authority_classes=frozenset({"sec-primary"}),
+        publication_date_bases=frozenset({"sec-filed-date"}),
+        publisher_types=frozenset({"sec-registrant"}),
+        accession_required=True,
+        embedded_date_locator_kind=None,
+        reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=True,
+        required_role_metadata=frozenset(),
+        permitted_assertion_kinds=frozenset({"numerical_fact", "period_evidence", "management_statement", "company_event"}),
+    ),
+    DocumentRole(
+        role_id="sec-primary-10-k",
+        source_families=frozenset({"sec-primary"}),
+        document_types=frozenset({"sec-primary-10-k"}),
+        authority_classes=frozenset({"sec-primary"}),
+        publication_date_bases=frozenset({"sec-filed-date"}),
+        publisher_types=frozenset({"sec-registrant"}),
+        accession_required=True,
+        embedded_date_locator_kind=None,
+        reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=True,
+        required_role_metadata=frozenset(),
+        permitted_assertion_kinds=_ISSUER_RELEASE_ASSERTIONS,
+    ),
+    DocumentRole(
+        role_id="sec-primary-8-k",
+        source_families=frozenset({"sec-primary"}),
+        document_types=frozenset({"sec-primary-8-k"}),
+        authority_classes=frozenset({"sec-primary"}),
+        publication_date_bases=frozenset({"sec-filed-date"}),
+        publisher_types=frozenset({"sec-registrant"}),
+        accession_required=True,
+        embedded_date_locator_kind=None,
+        reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=True,
+        required_role_metadata=frozenset(),
+        permitted_assertion_kinds=_ISSUER_RELEASE_ASSERTIONS,
+    ),
+    DocumentRole(
+        role_id="sec-filed-exhibit",
+        source_families=frozenset({"sec-exhibit"}),
+        document_types=frozenset({"earnings-release", "ceo-letter", "issuer-presentation"}),
+        authority_classes=frozenset({"filed-exhibit"}),
+        publication_date_bases=frozenset({"sec-filed-date"}),
+        publisher_types=frozenset({"sec-registrant", "issuer"}),
+        accession_required=True,
+        embedded_date_locator_kind="html-dateline",
+        reviewed_link_type=None,
+        origin_requirement="required",
+        canonical_url_required=True,
+        required_role_metadata=frozenset(),
+        permitted_assertion_kinds=_ISSUER_RELEASE_ASSERTIONS,
+    ),
+    DocumentRole(
+        role_id="issuer-earnings-release",
+        source_families=frozenset({"issuer-html", "issuer-pdf"}),
+        document_types=frozenset({"earnings-release", "business-update"}),
+        authority_classes=frozenset({"company-release"}),
+        publication_date_bases=frozenset({"embedded-dateline"}),
+        publisher_types=frozenset({"issuer"}),
+        accession_required=False,
+        embedded_date_locator_kind=None,
+        reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=True,
+        required_role_metadata=frozenset(),
+        permitted_assertion_kinds=_ISSUER_RELEASE_ASSERTIONS,
+    ),
+    DocumentRole(
+        role_id="issuer-ceo-letter",
+        source_families=frozenset({"issuer-html", "issuer-pdf"}),
+        document_types=frozenset({"ceo-letter"}),
+        authority_classes=frozenset({"company-release"}),
+        publication_date_bases=frozenset({"embedded-dateline"}),
+        publisher_types=frozenset({"issuer"}),
+        accession_required=False,
+        embedded_date_locator_kind=None,
+        reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=True,
+        required_role_metadata=frozenset(),
+        permitted_assertion_kinds=frozenset({"management_statement", "guidance", "period_evidence"}),
+    ),
+    DocumentRole(
+        role_id="issuer-presentation",
+        source_families=frozenset({"issuer-html", "issuer-pdf"}),
+        document_types=frozenset({"issuer-presentation"}),
+        authority_classes=frozenset({"company-presentation"}),
+        publication_date_bases=frozenset({"embedded-dateline", "reviewed-source-catalog"}),
+        publisher_types=frozenset({"issuer"}),
+        accession_required=False,
+        embedded_date_locator_kind=None,
+        reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=True,
+        required_role_metadata=frozenset(),
+        permitted_assertion_kinds=_ISSUER_RELEASE_ASSERTIONS,
+    ),
+    DocumentRole(
+        role_id="issuer-spreadsheet",
+        source_families=frozenset({"issuer-spreadsheet"}),
+        document_types=frozenset({"issuer-spreadsheet"}),
+        authority_classes=frozenset({"company-presentation"}),
+        publication_date_bases=frozenset({"reviewed-source-catalog"}),
+        publisher_types=frozenset({"issuer"}),
+        accession_required=False,
+        embedded_date_locator_kind=None,
+        reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=True,
+        required_role_metadata=frozenset(),
+        permitted_assertion_kinds=frozenset({"numerical_fact", "period_evidence"}),
+    ),
+    DocumentRole(
+        role_id="reviewed-official-page-pdf-snapshot",
+        source_families=frozenset({"reviewed-page-snapshot"}),
+        document_types=frozenset({"official-page-snapshot"}),
+        authority_classes=frozenset({"reviewed-official-page"}),
+        publication_date_bases=frozenset({"embedded-dateline"}),
+        publisher_types=frozenset({"reviewed-capture"}),
+        accession_required=False,
+        embedded_date_locator_kind="pdf-dateline",
+        reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=True,
+        required_role_metadata=frozenset({"embedded_title", "capture_date", "snapshot_producer_id", "issuer_content_id", "capture_method", "assertion_authority"}),
+        permitted_assertion_kinds=frozenset(
+            {"numerical_fact", "promise_version", "management_statement", "period_evidence"}
+        ),
+    ),
+    DocumentRole(
+        role_id="reviewed-transcript-metadata",
+        source_families=frozenset({"reviewed-metadata"}),
+        document_types=frozenset({"transcript-metadata"}),
+        authority_classes=frozenset({"reviewed-index"}),
+        publication_date_bases=frozenset({"review-date"}),
+        publisher_types=frozenset({"reviewed-index"}),
+        accession_required=False,
+        embedded_date_locator_kind=None,
+        reviewed_link_type=None,
+        origin_requirement="required",
+        canonical_url_required=False,
+        required_role_metadata=frozenset({"transcript_document_key", "transcript_sha256", "metadata_revision", "metadata_sha256", "review_date", "predecessor_metadata_sha256", "predecessor_bytes_available", "change_reason", "assertion_authority", "material_quote_locators", "reviewed_field_guards"}),
+        permitted_assertion_kinds=frozenset(),
+    ),
+    DocumentRole(
+        role_id="reviewed-model-artifact",
+        source_families=frozenset({"reviewed-model"}),
+        document_types=frozenset({"reviewed-model-artifact"}),
+        authority_classes=frozenset({"reviewed-model"}),
+        publication_date_bases=frozenset({"review-date"}),
+        publisher_types=frozenset({"reviewed-research"}),
+        accession_required=False,
+        embedded_date_locator_kind=None,
+        reviewed_link_type=None,
+        origin_requirement="forbidden",
+        canonical_url_required=False,
+        required_role_metadata=frozenset({"assertion_authority"}),
+        permitted_assertion_kinds=frozenset(),
     ),
 )
 
 ROLE_BY_TUPLE = {
-    (
-        role.source_family,
-        role.document_type,
-        role.authority_class,
-        role.publication_date_basis,
-    ): role
+    (source_family, document_type, authority_class, publication_date_basis): role
     for role in DOCUMENT_ROLES
+    if role.role_id in {
+        "sec-filed-earnings-release-exhibit", "issuer-earnings-release-pdf",
+        "issuer-business-update-pdf", "issuer-earnings-history-workbook",
+        "earnings-call-transcript",
+    }
+    for source_family in role.source_families
+    for document_type in role.document_types
+    for authority_class in role.authority_classes
+    for publication_date_basis in role.publication_date_bases
 }
-KNOWN_SOURCE_FAMILIES = frozenset(role.source_family for role in DOCUMENT_ROLES)
+ROLE_BY_ID = {role.role_id: role for role in DOCUMENT_ROLES}
+KNOWN_SOURCE_FAMILIES = frozenset(
+    source_family for role in DOCUMENT_ROLES for source_family in role.source_families
+)
 _ACCESSION_PATTERN = re.compile(r"^[0-9]{10}-[0-9]{2}-[0-9]{6}$")
 
 
@@ -152,6 +350,27 @@ def _relative_parts(raw: str) -> tuple[str, ...]:
 
 
 def document_role(document: DocumentSpec) -> DocumentRole:
+    if document.role_id is not None:
+        role = ROLE_BY_ID.get(document.role_id)
+        if role is None:
+            raise SourceContractError(
+                f"Unknown explicit document role {document.role_id!r}."
+            )
+        if (
+            document.source_family not in role.source_families
+            or document.document_type not in role.document_types
+            or document.authority_class not in role.authority_classes
+            or document.publication_date_basis not in role.publication_date_bases
+        ):
+            raise SourceContractError(
+                f"Document {document.document_key!r} is incoherent with explicit role "
+                f"{role.role_id!r}."
+            )
+        if document.publisher_type not in role.publisher_types:
+            raise SourceContractError(
+                f"Document {document.document_key!r} has an incompatible publisher type."
+            )
+        return role
     key = (
         document.source_family,
         document.document_type,
@@ -175,8 +394,12 @@ def _validate_document_role(
     *,
     role: DocumentRole,
 ) -> None:
-    profile_publisher = str(source_set.profile.get("publisher_id", ""))
-    if document.publisher_id != profile_publisher:
+    profile_publishers = {
+        str(value) for value in source_set.profile.get("publisher_ids", ())
+    }
+    if not profile_publishers:
+        profile_publishers = {str(source_set.profile.get("publisher_id", ""))}
+    if document.publisher_id not in profile_publishers:
         raise SourceContractError(
             f"Document {document.document_key!r} is not published by the declared profile publisher."
         )
@@ -185,7 +408,9 @@ def _validate_document_role(
             raise SourceContractError(
                 f"SEC source {document.document_key!r} requires one valid accession."
             )
-        if not document.accession.startswith(f"{source_set.profile.get('cik')}-"):
+        if document.role_id is None and not document.accession.startswith(
+            f"{source_set.profile.get('cik')}-"
+        ):
             raise SourceContractError(
                 f"SEC source {document.document_key!r} accession is not owned by the profile CIK."
             )
@@ -198,9 +423,57 @@ def _validate_document_role(
             f"Non-SEC source {document.document_key!r} cannot claim an SEC accession."
         )
 
+    if role.origin_requirement == "required" and document.origin_document_key is None:
+        raise SourceContractError(
+            f"Document role {role.role_id!r} requires one immutable origin document."
+        )
+    if role.origin_requirement == "forbidden" and document.origin_document_key is not None:
+        raise SourceContractError(
+            f"Document role {role.role_id!r} forbids an origin-document claim."
+        )
+    if role.canonical_url_required and document.canonical_url is None:
+        raise SourceContractError(
+            f"Document role {role.role_id!r} requires one canonical URL."
+        )
+    metadata = dict(document.role_metadata or {})
+    missing_metadata = role.required_role_metadata - set(metadata)
+    if missing_metadata:
+        raise SourceContractError(
+            f"Document role {role.role_id!r} lacks role metadata {sorted(missing_metadata)}."
+        )
+    if document.role_id == "reviewed-official-page-pdf-snapshot":
+        if metadata.get("assertion_authority") != "issuer-content":
+            raise SourceContractError("Reviewed page snapshots may expose only reviewed issuer content.")
+        capture_date = date.fromisoformat(str(metadata["capture_date"]))
+        if capture_date < date.fromisoformat(document.publication_date) or capture_date > date.fromisoformat(
+            source_set.knowledge_cutoff
+        ):
+            raise SourceContractError("Reviewed page snapshot has an invalid capture date.")
+    if document.role_id == "reviewed-transcript-metadata":
+        if metadata.get("assertion_authority") != "index-only":
+            raise SourceContractError("Reviewed transcript metadata is index-only authority.")
+        if metadata.get("metadata_sha256") != document.expected_sha256:
+            raise SourceContractError("Reviewed transcript metadata hash differs from its document bytes.")
+        if int(metadata.get("metadata_revision", 0)) != document.revision:
+            raise SourceContractError("Reviewed transcript metadata revision is inconsistent.")
+        if metadata.get("review_date") != document.publication_date:
+            raise SourceContractError("Reviewed transcript metadata publication date must equal review date.")
+
     locator = document.publication_date_locator
     embedded = document.embedded_publication_date
-    if role.embedded_date_locator_kind is None:
+    expected_locator_kind = role.embedded_date_locator_kind
+    if document.role_id in {"issuer-earnings-release", "issuer-ceo-letter", "issuer-presentation"} and document.publication_date_basis == "embedded-dateline":
+        expected_locator_kind = (
+            "html-dateline" if document.source_family == "issuer-html" else "pdf-dateline"
+        )
+    optional_sec_exhibit_dateline = document.role_id == "sec-filed-exhibit"
+    if optional_sec_exhibit_dateline and embedded is None and locator is None:
+        expected_locator_kind = None
+    elif optional_sec_exhibit_dateline and (embedded is None) != (locator is None):
+        raise SourceContractError(
+            f"SEC exhibit {document.document_key!r} must provide both embedded date and locator or neither."
+        )
+    if expected_locator_kind is None:
         if embedded is not None or locator is not None:
             raise SourceContractError(
                 f"Source role {role.role_id!r} cannot claim an embedded publication dateline."
@@ -216,7 +489,7 @@ def _validate_document_role(
             raise SourceContractError(
                 f"Source {document.document_key!r} has an invalid embedded dateline."
             ) from exc
-        if locator.get("locator_kind") != role.embedded_date_locator_kind:
+        if locator.get("locator_kind") != expected_locator_kind:
             raise SourceContractError(
                 f"Source {document.document_key!r} uses the wrong dateline locator family."
             )
@@ -317,10 +590,22 @@ def _validate_semantics(source_set: SourceSet) -> None:
         if source.document_key == target.document_key:
             raise SourceContractError(f"Reviewed link {link.get('link_key')!r} cannot be a self-link.")
         if link.get("relation_type") in {"same-event", "event-date-support"}:
-            if source.publication_date != target.publication_date:
-                raise SourceContractError(
-                    f"Reviewed event link {link.get('link_key')!r} joins different publication dates."
-                )
+            explicit_event_date = link.get("event_date")
+            if explicit_event_date is None:
+                if source.publication_date != target.publication_date:
+                    raise SourceContractError(
+                        f"Reviewed event link {link.get('link_key')!r} joins different publication dates."
+                    )
+            else:
+                event_date = date.fromisoformat(str(explicit_event_date))
+                if event_date != date.fromisoformat(source.publication_date):
+                    raise SourceContractError(
+                        f"Reviewed event link {link.get('link_key')!r} does not replay the source event date."
+                    )
+                if not link.get("event_time") or not link.get("event_timezone") or not link.get("authority_url"):
+                    raise SourceContractError(
+                        f"Reviewed event link {link.get('link_key')!r} lacks time, timezone or authority URL."
+                    )
             if (
                 source.report_date is not None
                 and target.report_date is not None
@@ -352,10 +637,23 @@ def _validate_semantics(source_set: SourceSet) -> None:
         if document.origin_document_key is None:
             continue
         origin = documents_by_key[document.origin_document_key]
-        if document_role(origin).role_id != roles_by_document[document.document_key].role_id:
+        origin_role = document_role(origin).role_id
+        child_role = roles_by_document[document.document_key].role_id
+        permitted_origin_roles = {
+            "sec-filed-exhibit": frozenset({"sec-primary-8-k"}),
+            "reviewed-transcript-metadata": frozenset({"earnings-call-transcript"}),
+        }
+        allowed = permitted_origin_roles.get(child_role, frozenset({child_role}))
+        if origin_role not in allowed:
             raise SourceContractError(
                 f"Origin document for {document.document_key!r} has an incompatible source role."
             )
+        if child_role == "reviewed-transcript-metadata":
+            metadata = dict(document.role_metadata or {})
+            if metadata.get("transcript_document_key") != origin.document_key:
+                raise SourceContractError("Reviewed metadata references the wrong transcript document.")
+            if metadata.get("transcript_sha256") != origin.expected_sha256:
+                raise SourceContractError("Reviewed metadata references the wrong transcript SHA-256.")
     for document in source_set.documents:
         role = roles_by_document[document.document_key]
         if role.reviewed_link_type is None:
@@ -375,6 +673,18 @@ def _validate_semantics(source_set: SourceSet) -> None:
             raise SourceContractError(
                 f"Document {document.document_key!r} lacks one reviewed publication-date link."
             )
+    issue_rules = [str(row.get("rule_id", "")) for row in source_set.review_issue_specs]
+    issue_business_keys = [str(row.get("business_key", "")) for row in source_set.review_issue_specs]
+    if _duplicates([f"{rule}|{business}" for rule, business in zip(issue_rules, issue_business_keys)]):
+        raise SourceContractError("Review-issue specifications must have unique rule/business identities.")
+    for issue in source_set.review_issue_specs:
+        missing_assertions = set(issue.get("evidence_assertion_keys", ())) - assertion_set
+        if missing_assertions:
+            raise SourceContractError(
+                f"Review issue {issue.get('rule_id')!r} references unknown assertions {sorted(missing_assertions)}."
+            )
+        if issue.get("promotion_blocking") and issue.get("severity") not in {"P0", "P1"}:
+            raise SourceContractError("Only P0/P1 review issues may be promotion-blocking.")
 
 
 def load_source_set(

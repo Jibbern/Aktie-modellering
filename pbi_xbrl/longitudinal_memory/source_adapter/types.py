@@ -56,13 +56,22 @@ class DocumentSpec:
     origin_document_key: str | None
     required: bool
     review_state: str
+    role_id: str | None = None
+    publisher_type: str | None = None
+    role_metadata: Mapping[str, Any] | None = None
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "DocumentSpec":
-        fields = {field.name: value[field.name] for field in dataclasses.fields(cls)}
+        fields = {
+            field.name: value.get(field.name, field.default)
+            for field in dataclasses.fields(cls)
+        }
         locator = fields["publication_date_locator"]
         if locator is not None:
             fields["publication_date_locator"] = MappingProxyType(dict(locator))
+        role_metadata = fields["role_metadata"]
+        if role_metadata is not None:
+            fields["role_metadata"] = MappingProxyType(dict(role_metadata))
         return cls(**fields)
 
 
@@ -82,6 +91,7 @@ class SourceSet:
     documents: tuple[DocumentSpec, ...]
     required_assertions: tuple[Mapping[str, Any], ...]
     reviewed_model_inputs: tuple[Mapping[str, Any], ...]
+    review_issue_specs: tuple[Mapping[str, Any], ...] = ()
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "SourceSet":
@@ -100,6 +110,9 @@ class SourceSet:
             documents=tuple(DocumentSpec.from_mapping(row) for row in value["documents"]),
             required_assertions=tuple(MappingProxyType(dict(row)) for row in value["required_assertions"]),
             reviewed_model_inputs=tuple(MappingProxyType(dict(row)) for row in value["reviewed_model_inputs"]),
+            review_issue_specs=tuple(
+                MappingProxyType(dict(row)) for row in value.get("review_issue_specs", ())
+            ),
         )
 
 
@@ -149,6 +162,35 @@ class MappedCandidate:
         if self.value is not None:
             object.__setattr__(self, "value", MappingProxyType(dict(self.value)))
         object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticBinding:
+    """One closed, versioned metric/definition/basis/unit registry binding."""
+
+    semantic_binding_id: str
+    metric_id: str
+    definition_id: str
+    basis_id: str
+    unit_id: str
+    currency: str | None
+    assertion_mode: str
+    candidate_kinds: frozenset[str]
+    dimension_ids: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticRegistry:
+    """Closed sector registry consumed through activated binding references."""
+
+    sector_pack_id: str
+    registry_version: str
+    bindings: Mapping[str, SemanticBinding]
+    dimensions: Mapping[str, frozenset[str]]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "bindings", MappingProxyType(dict(self.bindings)))
+        object.__setattr__(self, "dimensions", MappingProxyType(dict(self.dimensions)))
 
 
 @dataclass(frozen=True)

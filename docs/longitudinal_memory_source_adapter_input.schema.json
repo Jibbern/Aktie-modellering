@@ -61,6 +61,10 @@
     "reviewed_model_inputs": {
       "type": "array",
       "items": {"$ref": "#/$defs/reviewedModelInput"}
+    },
+    "review_issue_specs": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/reviewIssueSpec"}
     }
   },
   "$defs": {
@@ -70,6 +74,7 @@
     "companyId": {"type": "string", "pattern": "^[A-Z][A-Z0-9.-]{0,31}$"},
     "semanticId": {"type": "string", "pattern": "^[a-z][a-z0-9-]*(?::[a-z0-9][a-z0-9-]*)+@[1-9][0-9]*$"},
     "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "decimal": {"type": "string", "pattern": "^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$"},
     "reviewState": {"enum": ["accepted", "reviewed", "needs_review", "rejected"]},
     "stringArray": {
       "type": "array",
@@ -92,7 +97,8 @@
       "additionalProperties": false,
       "required": ["axis", "alias", "member_id"],
       "properties": {
-        "axis": {"enum": ["company", "geography", "brand"]},
+        "axis": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+        "dimension_id": {"$ref": "#/$defs/semanticId"},
         "alias": {"$ref": "#/$defs/nonEmpty"},
         "member_id": {"$ref": "#/$defs/semanticId"}
       }
@@ -131,7 +137,7 @@
         "reviewed_horizons"
       ],
       "properties": {
-        "rule_id": {"const": "rule:core:source-labelled-52-53-week-fiscal@1"},
+        "rule_id": {"enum": ["rule:core:source-labelled-52-53-week-fiscal@1", "rule:core:calendar-year-fiscal@1"]},
         "display_hint": {"$ref": "#/$defs/nonEmpty"},
         "fiscal_label_basis": {"const": "direct-source"},
         "quarters_per_year": {"const": 4},
@@ -139,11 +145,11 @@
         "ordinal_anchor_fiscal_quarter": {"type": "integer", "minimum": 1, "maximum": 4},
         "ordinal_anchor": {"type": "integer"},
         "quarter_week_counts": {
-          "type": "array", "minItems": 1, "uniqueItems": true,
+          "type": "array", "uniqueItems": true,
           "items": {"type": "integer", "minimum": 1}
         },
         "annual_week_counts": {
-          "type": "array", "minItems": 1, "uniqueItems": true,
+          "type": "array", "uniqueItems": true,
           "items": {"type": "integer", "minimum": 1}
         },
         "fiscal_year_end_months": {
@@ -153,6 +159,11 @@
         "reviewed_horizons": {
           "type": "array", "uniqueItems": true,
           "items": {"$ref": "#/$defs/reviewedHorizon"}
+        },
+        "calendar_basis": {"enum": ["calendar-year", "source-labelled-52-53-week"]},
+        "quarter_boundaries": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^Q[1-4]:[0-9]{2}-[0-9]{2}:[0-9]{2}-[0-9]{2}$"}
         }
       }
     },
@@ -182,6 +193,9 @@
         "calendar_id": {"$ref": "#/$defs/semanticId"},
         "calendar_hint": {"$ref": "#/$defs/nonEmpty"},
         "reviewed_calendar_rule": {"$ref": "#/$defs/reviewedCalendarRule"}
+        ,"publisher_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}}
+        ,"activated_semantic_binding_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/semanticId"}}
+        ,"sector_registry_version": {"$ref": "#/$defs/semanticId"}
       }
     },
     "reviewedLink": {
@@ -194,7 +208,25 @@
         "from_document_key": {"$ref": "#/$defs/nonEmpty"},
         "to_document_key": {"$ref": "#/$defs/nonEmpty"},
         "knowledge_date": {"$ref": "#/$defs/date"},
-        "review_state": {"$ref": "#/$defs/reviewState"}
+        "review_state": {"$ref": "#/$defs/reviewState"},
+        "event_date": {"$ref": "#/$defs/date"},
+        "event_time": {"type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$"},
+        "event_timezone": {"$ref": "#/$defs/nonEmpty"},
+        "authority_url": {"type": "string", "format": "uri"}
+      }
+    },
+    "reviewIssueSpec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "rule_id", "business_key", "message", "suggested_action", "promotion_blocking", "evidence_assertion_keys"],
+      "properties": {
+        "severity": {"enum": ["P0", "P1", "P2"]},
+        "rule_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+        "business_key": {"$ref": "#/$defs/nonEmpty"},
+        "message": {"$ref": "#/$defs/nonEmpty"},
+        "suggested_action": {"$ref": "#/$defs/nonEmpty"},
+        "promotion_blocking": {"type": "boolean"},
+        "evidence_assertion_keys": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/nonEmpty"}}
       }
     },
     "periodSpec": {
@@ -303,14 +335,14 @@
       "properties": {
         "document_key": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
         "publisher_id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
-        "document_type": {"enum": ["earnings-presentation-workbook", "earnings-release", "business-update", "earnings-transcript"]},
-        "source_family": {"enum": ["issuer-spreadsheet", "sec-exhibit", "issuer-pdf", "issuer-transcript"]},
+        "document_type": {"enum": ["earnings-presentation-workbook", "earnings-release", "business-update", "earnings-transcript", "sec-primary-10-q", "sec-primary-10-k", "sec-primary-8-k", "ceo-letter", "issuer-presentation", "issuer-spreadsheet", "transcript-metadata", "reviewed-model-artifact", "official-page-snapshot"]},
+        "source_family": {"enum": ["issuer-spreadsheet", "sec-exhibit", "issuer-pdf", "issuer-transcript", "issuer-html", "sec-primary", "reviewed-page-snapshot", "reviewed-metadata", "reviewed-model"]},
         "relative_path": {"$ref": "#/$defs/nonEmpty"},
         "expected_sha256": {"$ref": "#/$defs/sha256"},
         "revision": {"type": "integer", "minimum": 1},
-        "authority_class": {"enum": ["filed-exhibit", "company-release", "company-presentation", "company-transcript"]},
+        "authority_class": {"enum": ["filed-exhibit", "company-release", "company-presentation", "company-transcript", "sec-primary", "reviewed-index", "reviewed-model", "reviewed-official-page"]},
         "publication_date": {"$ref": "#/$defs/date"},
-        "publication_date_basis": {"enum": ["sec-filed-date", "embedded-dateline", "reviewed-source-catalog", "reviewed-same-event-link"]},
+        "publication_date_basis": {"enum": ["sec-filed-date", "embedded-dateline", "reviewed-source-catalog", "reviewed-same-event-link", "review-date", "reviewed-capture"]},
         "embedded_publication_date": {"$ref": "#/$defs/nullableDate"},
         "publication_date_locator": {
           "oneOf": [
@@ -323,7 +355,62 @@
         "canonical_url": {"type": ["string", "null"], "format": "uri"},
         "origin_document_key": {"type": ["string", "null"]},
         "required": {"type": "boolean"},
-        "review_state": {"$ref": "#/$defs/reviewState"}
+        "review_state": {"$ref": "#/$defs/reviewState"},
+        "role_id": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9-]*$"},
+        "publisher_type": {"type": ["string", "null"], "enum": ["issuer", "sec-registrant", "reviewed-capture", "reviewed-index", "reviewed-research", null]},
+        "role_metadata": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "embedded_title": {"$ref": "#/$defs/nonEmpty"},
+                "capture_date": {"$ref": "#/$defs/date"},
+                "snapshot_producer_id": {"$ref": "#/$defs/nonEmpty"},
+                "issuer_content_id": {"$ref": "#/$defs/nonEmpty"},
+                "capture_method": {"$ref": "#/$defs/nonEmpty"},
+                "transcript_document_key": {"$ref": "#/$defs/nonEmpty"},
+                "transcript_sha256": {"$ref": "#/$defs/sha256"},
+                "metadata_revision": {"type": "integer", "minimum": 1},
+                "metadata_sha256": {"$ref": "#/$defs/sha256"},
+                "review_date": {"$ref": "#/$defs/date"},
+                "predecessor_metadata_sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+                "predecessor_bytes_available": {"enum": ["yes", "no", "not-applicable"]},
+                "change_reason": {"$ref": "#/$defs/nonEmpty"},
+                "reviewed_link_key": {"type": ["string", "null"]},
+                "assertion_authority": {"enum": ["issuer-content", "index-only", "reviewed-model"]},
+                "material_quote_locators": {
+                  "type": "array", "minItems": 1, "uniqueItems": true,
+                  "items": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["section", "metadata_key", "start_line", "end_line", "line_digest"],
+                    "properties": {
+                      "section": {"$ref": "#/$defs/nonEmpty"},
+                      "metadata_key": {"$ref": "#/$defs/nonEmpty"},
+                      "start_line": {"type": "integer", "minimum": 1},
+                      "end_line": {"type": "integer", "minimum": 1},
+                      "line_digest": {"$ref": "#/$defs/sha256"}
+                    }
+                  }
+                },
+                "reviewed_field_guards": {
+                  "type": "array", "minItems": 1, "uniqueItems": true,
+                  "items": {
+                    "type": "object", "additionalProperties": false,
+                    "required": ["section", "metadata_key", "operator", "expected_value"],
+                    "properties": {
+                      "section": {"$ref": "#/$defs/nonEmpty"},
+                      "metadata_key": {"$ref": "#/$defs/nonEmpty"},
+                      "operator": {"enum": ["equals", "not-contains"]},
+                      "expected_value": {"$ref": "#/$defs/nonEmpty"}
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
       }
     },
     "htmlFiscalLabelClaim": {
@@ -419,6 +506,9 @@
         "text_fingerprint": {"$ref": "#/$defs/nonEmpty"},
         "ancestor_fingerprints": {"$ref": "#/$defs/stringArray"},
         "match_ordinal": {"type": "integer", "minimum": 1},
+        "value_text_fingerprint": {"type": ["string", "null"], "minLength": 1},
+        "comparison_text_fingerprint": {"type": ["string", "null"], "minLength": 1},
+        "replacement_header_fingerprint": {"type": ["string", "null"], "minLength": 1},
         "fiscal_label_evidence": {
           "oneOf": [
             {"$ref": "#/$defs/htmlFiscalLabelEvidence"},
@@ -510,13 +600,65 @@
         "turn_diagnostics": {"$ref": "#/$defs/nonEmpty"}
       }
     },
+    "pdfTextLocator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["locator_kind", "locator_version", "locator_key", "ordinal", "extraction_method_id", "excerpt", "excerpt_sha256", "review_state", "page", "text_fingerprint", "match_ordinal"],
+      "properties": {
+        "locator_kind": {"const": "pdf-text"}, "locator_version": {"const": 1},
+        "locator_key": {"$ref": "#/$defs/nonEmpty"}, "ordinal": {"type": "integer", "minimum": 1},
+        "extraction_method_id": {"const": "extractor:source:pdf-text@1"},
+        "excerpt": {"$ref": "#/$defs/nonEmpty"}, "excerpt_sha256": {"$ref": "#/$defs/sha256"},
+        "review_state": {"$ref": "#/$defs/reviewState"}, "page": {"type": "integer", "minimum": 1},
+        "text_fingerprint": {"$ref": "#/$defs/nonEmpty"}, "match_ordinal": {"type": "integer", "minimum": 1},
+        "section_context": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["page", "text_fingerprint", "match_ordinal", "excerpt_sha256"],
+          "properties": {
+            "page": {"type": "integer", "minimum": 1},
+            "text_fingerprint": {"$ref": "#/$defs/nonEmpty"},
+            "match_ordinal": {"type": "integer", "minimum": 1},
+            "excerpt_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        },
+        "value_text_fingerprint": {"type": ["string", "null"], "minLength": 1},
+        "comparison_text_fingerprint": {"type": ["string", "null"], "minLength": 1},
+        "replacement_header_fingerprint": {"type": ["string", "null"], "minLength": 1}
+      }
+    },
+    "inlineXbrlLocator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["locator_kind", "locator_version", "locator_key", "ordinal", "extraction_method_id", "excerpt", "excerpt_sha256", "review_state", "fact_id", "concept", "context_id", "entity_identifier", "period_start", "period_end", "period_instant", "context_dimensions", "unit_ref", "unit_numerator_measures", "unit_denominator_measures", "decimals", "scale", "sign", "format", "nil", "continuation_ids", "continuation_paths", "continuation_digest", "raw_text", "canonical_value", "dom_node_path"],
+      "properties": {
+        "locator_kind": {"const": "inline-xbrl-fact"}, "locator_version": {"const": 1},
+        "locator_key": {"$ref": "#/$defs/nonEmpty"}, "ordinal": {"type": "integer", "minimum": 1},
+        "extraction_method_id": {"const": "extractor:source:inline-xbrl-fact@1"},
+        "excerpt": {"$ref": "#/$defs/nonEmpty"}, "excerpt_sha256": {"$ref": "#/$defs/sha256"},
+        "review_state": {"$ref": "#/$defs/reviewState"}, "fact_id": {"$ref": "#/$defs/nonEmpty"},
+        "concept": {"$ref": "#/$defs/nonEmpty"}, "context_id": {"$ref": "#/$defs/nonEmpty"},
+        "entity_identifier": {"$ref": "#/$defs/nonEmpty"}, "period_start": {"$ref": "#/$defs/nullableDate"},
+        "period_end": {"$ref": "#/$defs/nullableDate"}, "period_instant": {"$ref": "#/$defs/nullableDate"},
+        "context_dimensions": {"type": "array", "uniqueItems": true, "items": {"type": "object", "additionalProperties": false, "required": ["dimension", "member"], "properties": {"dimension": {"$ref": "#/$defs/nonEmpty"}, "member": {"$ref": "#/$defs/nonEmpty"}}}},
+        "unit_ref": {"$ref": "#/$defs/nonEmpty"}, "unit_numerator_measures": {"$ref": "#/$defs/stringArray"},
+        "unit_denominator_measures": {"$ref": "#/$defs/stringArray"}, "decimals": {"type": ["string", "null"]},
+        "scale": {"type": ["integer", "null"]}, "sign": {"type": ["string", "null"]},
+        "format": {"type": ["string", "null"]}, "nil": {"type": "boolean"},
+        "continuation_ids": {"$ref": "#/$defs/stringArray"},
+        "continuation_paths": {"$ref": "#/$defs/stringArray"},
+        "continuation_digest": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "raw_text": {"$ref": "#/$defs/nonEmpty"},
+        "canonical_value": {"$ref": "#/$defs/decimal"}, "dom_node_path": {"$ref": "#/$defs/nonEmpty"}
+      }
+    },
     "locator": {
       "oneOf": [
         {"$ref": "#/$defs/htmlTableLocator"},
         {"$ref": "#/$defs/htmlTextLocator"},
         {"$ref": "#/$defs/pdfTableLocator"},
         {"$ref": "#/$defs/xlsxLocator"},
-        {"$ref": "#/$defs/textLocator"}
+        {"$ref": "#/$defs/textLocator"},
+        {"$ref": "#/$defs/pdfTextLocator"},
+        {"$ref": "#/$defs/inlineXbrlLocator"}
       ]
     },
     "numericalAssertion": {
@@ -527,7 +669,8 @@
         "assertion_key": {"$ref": "#/$defs/nonEmpty"},
         "assertion_kind": {"const": "numerical_fact"},
         "document_key": {"$ref": "#/$defs/nonEmpty"},
-        "metric_key": {"enum": ["comparable-sales", "store-openings", "store-closures", "ending-stores", "net-store-openings"]},
+        "metric_key": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+        "semantic_binding_id": {"$ref": "#/$defs/semanticId"},
         "period_key": {"$ref": "#/$defs/nonEmpty"},
         "dimension_alias": {"$ref": "#/$defs/nonEmpty"},
         "value_parser_id": {"$ref": "#/$defs/semanticId"},
@@ -543,7 +686,8 @@
         "assertion_key": {"$ref": "#/$defs/nonEmpty"},
         "assertion_kind": {"const": "guidance"},
         "document_key": {"$ref": "#/$defs/nonEmpty"},
-        "metric_key": {"enum": ["revenue-growth", "operating-margin"]},
+        "metric_key": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+        "semantic_binding_id": {"$ref": "#/$defs/semanticId"},
         "horizon_period_key": {"$ref": "#/$defs/nonEmpty"},
         "value_parser_id": {"$ref": "#/$defs/semanticId"},
         "version_kind": {"enum": ["origin", "replacement", "reaffirmation"]},
@@ -574,9 +718,11 @@
         "target_basis_id": {"$ref": "#/$defs/semanticId"},
         "dimension_alias": {"$ref": "#/$defs/nonEmpty"},
         "change_kind": {"enum": ["origin", "reaffirmation", "target_update", "deadline_update", "reformulation", "withdrawal"]},
-        "version_state": {"enum": ["active", "reaffirmed", "updated", "reformulated", "withdrawn"]},
+        "version_state": {"enum": ["active", "reaffirmed", "superseded", "withdrawn"]},
         "previous_assertion_key": {"type": ["string", "null"]},
-        "deadline_period_key": {"$ref": "#/$defs/nonEmpty"},
+        "deadline_period_key": {"type": ["string", "null"], "minLength": 1},
+        "observation_period_key": {"$ref": "#/$defs/nonEmpty"},
+        "semantic_binding_id": {"$ref": "#/$defs/semanticId"},
         "value_parser_id": {"$ref": "#/$defs/semanticId"},
         "locator": {"$ref": "#/$defs/locator"},
         "review_state": {"$ref": "#/$defs/reviewState"}
@@ -590,7 +736,7 @@
         "assertion_key": {"$ref": "#/$defs/nonEmpty"},
         "assertion_kind": {"const": "management_statement"},
         "document_key": {"$ref": "#/$defs/nonEmpty"},
-        "statement_kind": {"enum": ["explanation"]},
+        "statement_kind": {"enum": ["explanation", "outlook", "commentary", "commitment"]},
         "topic_id": {"$ref": "#/$defs/nonEmpty"},
         "statement_period_key": {"$ref": "#/$defs/nonEmpty"},
         "speaker_id": {"$ref": "#/$defs/nonEmpty"},
@@ -610,7 +756,8 @@
         "event_subject_id": {"$ref": "#/$defs/nonEmpty"},
         "event_stage": {"enum": ["planned", "announced", "completed"]},
         "effective_period_key": {"$ref": "#/$defs/nonEmpty"},
-        "effective_precision": {"enum": ["month"]},
+        "effective_precision": {"enum": ["day", "month", "quarter", "year", "fiscal-period"]},
+        "effective_date": {"$ref": "#/$defs/nullableDate"},
         "required_reviewed_link_key": {"type": ["string", "null"]},
         "locator": {"$ref": "#/$defs/locator"},
         "review_state": {"$ref": "#/$defs/reviewState"}

@@ -72,6 +72,24 @@ This map explains which modules own each major stage of the runtime so the hando
 This C2 path remains disconnected from normalized-package production and every
 workbook product, binding, formula, template, and writer.
 
+### 4c. PBI source-native generalization proof (isolated C3 path)
+- [`docs/longitudinal_memory_pbi_source_proof_contract.md`](/c:/Users/Jibbe/Aktier/Code/docs/longitudinal_memory_pbi_source_proof_contract.md)
+  - Defines the bounded 18-source PBI proof, source-authority boundary, calendar-year semantics, cost-savings Promise history, definition break and explicit exclusions.
+- [`pbi_xbrl/longitudinal_memory/source_adapter/inline_xbrl.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/longitudinal_memory/source_adapter/inline_xbrl.py)
+  - Replays numeric Inline-XBRL facts with exact concept, context, dimensions, unit, decimals, scale, continuation and DOM identity from immutable SEC bytes.
+- [`pbi_xbrl/longitudinal_memory/source_adapter/reviewed_metadata.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/longitudinal_memory/source_adapter/reviewed_metadata.py)
+  - Verifies reviewed transcript-metadata revisions against the immutable raw transcript; metadata is a locator/index and never independent economics.
+- [`pbi_xbrl/longitudinal_memory/sector_packs/business_services.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/longitudinal_memory/sector_packs/business_services.py)
+  - Owns reusable mailing/business-services metrics, definitions, units, segment dimensions, value parsers, margin derivation and cost-savings evidence distinctions.
+- [`pbi_xbrl/longitudinal_memory/ticker_profiles/pbi.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/longitudinal_memory/ticker_profiles/pbi.py)
+  - Validates the declarative PBI company/CIK/publisher identities, SendTech and Presort aliases, activated registry references, reviewed links and calendar-year rule.
+- [`tests/fixtures/longitudinal_memory/pbi_source_set.v1.json`](/c:/Users/Jibbe/Aktier/Code/tests/fixtures/longitudinal_memory/pbi_source_set.v1.json)
+  - Pins the 18 external source paths, full hashes, source roles, locators, reviewed transcript metadata, exact calendar periods, semantic bindings and expected Needs Review policies.
+
+The C3 path has no production writer, workbook consumer, normalized-package binding,
+source acquisition or ModelInterpretation. It exists only as a source-native
+generalization proof over the unchanged C1 sidecar.
+
 ### 5. Workbook rendering
 - [`pbi_xbrl/excel_writer_context.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_context.py)
   - Main workbook renderer and the largest concentration of visible product logic.

@@ -8,6 +8,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Literal, Mapping
 
 from pbi_xbrl.longitudinal_memory.calendar_rules import (
+    CALENDAR_YEAR_RULE_ID,
     FISCAL_CALENDAR_RULES,
     SOURCE_LABELLED_52_53_WEEK_RULE_ID,
 )
@@ -23,6 +24,7 @@ CONTIGUOUS_REVIEWED_HORIZON_RULE = (
 )
 REVIEWED_MONTH_RULE = "rule:core:reviewed-relative-month@1"
 SOURCE_LABELLED_CALENDAR_RULE = SOURCE_LABELLED_52_53_WEEK_RULE_ID
+CALENDAR_YEAR_FISCAL_RULE = CALENDAR_YEAR_RULE_ID
 
 _MONTH_DATE = (
     r"(?:January|February|March|April|May|June|July|August|September|October|November|December)"
@@ -73,7 +75,7 @@ class ReconciledFiscalPeriodTuple:
     end_date: date
     duration_class: FiscalDurationClass
     duration_days: int
-    week_count: int
+    week_count: int | None
     fiscal_calendar_id: str
 _ONES = {
     "zero": 0,
@@ -117,6 +119,10 @@ def _derive_start(period: Mapping[str, Any]) -> date:
     if rule_id == REVIEWED_MONTH_RULE:
         if declared_start is None:
             raise MappingError(f"{rule_id!r} requires an explicit reviewed start date.")
+        return date.fromisoformat(str(declared_start))
+    if rule_id == CALENDAR_YEAR_FISCAL_RULE:
+        if declared_start is None:
+            raise MappingError("Calendar-year fiscal periods require one declared source-replayed start.")
         return date.fromisoformat(str(declared_start))
     raise MappingError(f"Unknown period start rule {rule_id!r}.")
 
@@ -320,6 +326,151 @@ def _reviewed_calendar_rule(source_set: SourceSet) -> Mapping[str, Any]:
     if rule.get("fiscal_label_basis") != "direct-source":
         raise MappingError("Reviewed calendar rule cannot override direct source fiscal labels.")
     return rule
+
+
+def _calendar_year_rule(source_set: SourceSet) -> Mapping[str, Any]:
+    rule = source_set.profile.get("reviewed_calendar_rule")
+    if not isinstance(rule, Mapping) or rule.get("rule_id") != CALENDAR_YEAR_FISCAL_RULE:
+        raise MappingError("Calendar-year periods require the reviewed calendar-year fiscal rule.")
+    if rule.get("display_hint") != source_set.profile.get("calendar_hint"):
+        raise MappingError("Profile calendar hint conflicts with its reviewed calendar-year rule.")
+    if rule.get("calendar_basis") != "calendar-year":
+        raise MappingError("Calendar-year fiscal rule has the wrong calendar basis.")
+    if rule.get("quarter_week_counts") or rule.get("annual_week_counts"):
+        raise MappingError("Calendar-year fiscal rule cannot carry 52/53-week duration choices.")
+    if set(rule.get("fiscal_year_end_months", ())) != {12}:
+        raise MappingError("Calendar-year fiscal rule must end in December.")
+    if rule.get("reviewed_horizons"):
+        raise MappingError("Calendar-year fiscal periods use exact calendar boundaries, not reviewed 52/53-week horizons.")
+    expected_boundaries = {
+        "Q1:01-01:03-31",
+        "Q2:04-01:06-30",
+        "Q3:07-01:09-30",
+        "Q4:10-01:12-31",
+    }
+    if set(rule.get("quarter_boundaries", ())) != expected_boundaries:
+        raise MappingError("Calendar-year fiscal rule has incomplete or conflicting quarter boundaries.")
+    return rule
+
+
+def _calendar_expected_dates(
+    *, fiscal_year: int, period_type: str, fiscal_quarter: int | None
+) -> tuple[date, date, FiscalLabelPeriodType]:
+    if period_type == "annual":
+        if fiscal_quarter is not None:
+            raise MappingError("Calendar-year annual period cannot carry a fiscal quarter.")
+        return date(fiscal_year, 1, 1), date(fiscal_year, 12, 31), "fiscal_year"
+    if period_type != "quarter" or fiscal_quarter not in {1, 2, 3, 4}:
+        raise MappingError("Calendar-year actual periods must be a closed quarter or annual period.")
+    boundaries = {
+        1: ((1, 1), (3, 31)),
+        2: ((4, 1), (6, 30)),
+        3: ((7, 1), (9, 30)),
+        4: ((10, 1), (12, 31)),
+    }
+    (start_month, start_day), (end_month, end_day) = boundaries[fiscal_quarter]
+    return (
+        date(fiscal_year, start_month, start_day),
+        date(fiscal_year, end_month, end_day),
+        "fiscal_quarter",
+    )
+
+
+def _reconcile_calendar_year_period(
+    source_set: SourceSet,
+    raw: Mapping[str, Any],
+    evidence_by_assertion: Mapping[str, tuple[Mapping[str, Any], ExtractedEvidence]],
+    assertions: Mapping[str, Mapping[str, Any]],
+    *,
+    calendar_id: str,
+) -> tuple[ReconciledFiscalPeriodTuple, tuple[tuple[Mapping[str, Any], ExtractedEvidence], ...]]:
+    rule = _calendar_year_rule(source_set)
+    fiscal_year = int(raw["fiscal_year"])
+    fiscal_quarter = raw.get("fiscal_quarter")
+    period_type = str(raw["period_type"])
+    expected_start, expected_end, normalized_type = _calendar_expected_dates(
+        fiscal_year=fiscal_year,
+        period_type=period_type,
+        fiscal_quarter=fiscal_quarter,
+    )
+    declared_start = date.fromisoformat(str(raw["start_date"]))
+    declared_end = date.fromisoformat(str(raw["end_date"]))
+    if (declared_start, declared_end) != (expected_start, expected_end):
+        raise _atomic_error(raw, "has non-calendar source boundaries")
+    if raw.get("week_count") is not None or bool(raw.get("is_53_week_year")):
+        raise _atomic_error(raw, "uses a 52/53-week representation under the calendar-year rule")
+    expected_ordinal = _ordinal_for(
+        rule,
+        fiscal_year=fiscal_year,
+        period_type=normalized_type,
+        fiscal_quarter=fiscal_quarter,
+    )
+    if raw.get("fiscal_ordinal") != expected_ordinal:
+        raise _atomic_error(raw, "has a fiscal ordinal that conflicts with the reviewed anchor")
+
+    period_key = str(raw["period_key"])
+    eligible: list[tuple[Mapping[str, Any], ExtractedEvidence]] = []
+    eligible_keys: list[str] = []
+    for assertion_key in sorted(assertions):
+        assertion = assertions[assertion_key]
+        if _assertion_period_key(assertion) != period_key:
+            continue
+        pair = evidence_by_assertion.get(assertion_key)
+        if pair is None:
+            raise _atomic_error(raw, f"is missing extracted evidence for {assertion_key!r}")
+        occurrence, evidence = pair
+        inline = evidence.diagnostics.get("inline_xbrl")
+        claims = evidence.diagnostics.get("fiscal_label_claims")
+        if inline is None and not claims:
+            continue
+        if occurrence.get("review_state") not in {"accepted", "reviewed"}:
+            raise _atomic_error(raw, f"has blocker-level period evidence in {assertion_key!r}")
+        if inline is not None:
+            if inline.get("period_instant") is not None:
+                raise _atomic_error(raw, "uses an instant Inline XBRL context for a duration period")
+            context_dates = (
+                date.fromisoformat(str(inline.get("period_start"))),
+                date.fromisoformat(str(inline.get("period_end"))),
+            )
+            if context_dates != (expected_start, expected_end):
+                raise _atomic_error(raw, "has an Inline XBRL context that conflicts with calendar boundaries")
+            if str(inline.get("entity_identifier")) != str(source_set.profile.get("cik")):
+                raise _atomic_error(raw, "has an Inline XBRL context for another entity")
+        if claims:
+            normalized_claims = _normalize_fiscal_label_claims(raw, (pair,), rule)
+            for claim in normalized_claims:
+                if claim.fiscal_year is not None and claim.fiscal_year != fiscal_year:
+                    raise _atomic_error(raw, "has a direct source label for another fiscal year")
+                if claim.period_type != "unspecified_fiscal_context" and claim.period_type != normalized_type:
+                    raise _atomic_error(raw, "has a direct source label for another period type")
+                if claim.fiscal_quarter is not None and claim.fiscal_quarter != fiscal_quarter:
+                    raise _atomic_error(raw, "has a direct source label for another fiscal quarter")
+        eligible.append(pair)
+        eligible_keys.append(assertion_key)
+    declared = raw.get("fiscal_claim_assertion_keys")
+    if not isinstance(declared, (list, tuple)) or set(map(str, declared)) != set(eligible_keys):
+        raise _atomic_error(raw, "declared calendar evidence membership is incomplete or contains ineligible assertions")
+    if not eligible:
+        raise _atomic_error(raw, "has no source context or direct fiscal-label evidence")
+    duration_days = (expected_end - expected_start).days + 1
+    duration_class: FiscalDurationClass = (
+        "fiscal_quarter_duration" if normalized_type == "fiscal_quarter" else "fiscal_year_duration"
+    )
+    return (
+        ReconciledFiscalPeriodTuple(
+            fiscal_year=fiscal_year,
+            period_type=normalized_type,
+            fiscal_quarter=fiscal_quarter,
+            fiscal_ordinal=expected_ordinal,
+            start_date=expected_start,
+            end_date=expected_end,
+            duration_class=duration_class,
+            duration_days=duration_days,
+            week_count=None,
+            fiscal_calendar_id=calendar_id,
+        ),
+        tuple(sorted(eligible, key=lambda pair: str(pair[0]["evidence_occurrence_id"]))),
+    )
 
 
 def _eligible_fiscal_evidence_closure(
@@ -637,6 +788,10 @@ def reconcile_periods(
             if raw.get("fiscal_claim_assertion_keys"):
                 raise MappingError("Effective-only month periods cannot claim fiscal-label membership.")
             anchor_report_date = None
+        elif rule_id == CALENDAR_YEAR_FISCAL_RULE:
+            start = _derive_start(raw)
+            end = date.fromisoformat(str(raw["end_date"]))
+            anchor_report_date = end.isoformat()
         elif rule_id == REVIEWED_HORIZON_RULE:
             start, end, anchor_report_date = _replay_reviewed_horizon(
                 source_set,
@@ -654,7 +809,15 @@ def reconcile_periods(
             raise MappingError(f"Period {period_id!r} has an unsafe duration.")
         fiscal_tuple: ReconciledFiscalPeriodTuple | None = None
         closure: tuple[tuple[Mapping[str, Any], ExtractedEvidence], ...] = ()
-        if rule_id == INCLUSIVE_WEEKS_RULE:
+        if rule_id == CALENDAR_YEAR_FISCAL_RULE:
+            fiscal_tuple, closure = _reconcile_calendar_year_period(
+                source_set,
+                raw,
+                evidence_by_assertion,
+                assertions,
+                calendar_id=calendar_id,
+            )
+        elif rule_id == INCLUSIVE_WEEKS_RULE:
             claims = _period_claims(evidence.excerpt)
             if (int(weeks), end) not in claims:
                 raise MappingError(

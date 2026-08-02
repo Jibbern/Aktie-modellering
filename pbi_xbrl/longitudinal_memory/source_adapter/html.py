@@ -21,7 +21,8 @@ _FISCAL_YEAR = re.compile(
     flags=re.IGNORECASE,
 )
 _FULL_YEAR = re.compile(
-    r"\bfull\s+year(?:\s+fiscal)?(?:\s+(?P<year>[0-9]{4}))?\b",
+    r"\b(?:(?P<prefix_year>[0-9]{4})\s+)?full[- ]year(?:\s+fiscal)?"
+    r"(?:\s+(?P<year>[0-9]{4}))?\b",
     flags=re.IGNORECASE,
 )
 _FISCAL_QUARTER = re.compile(
@@ -68,6 +69,8 @@ def derive_fiscal_label_semantics(source_text: str) -> dict[str, Any]:
 
     for match in _FULL_YEAR.finditer(normalized):
         specific_types.add("fiscal_year")
+        if match.group("prefix_year") is not None:
+            years.add(int(match.group("prefix_year")))
         if match.group("year") is not None:
             years.add(int(match.group("year")))
     for match in _FISCAL_QUARTER.finditer(normalized):
@@ -149,6 +152,34 @@ def _verify_expected(assertion_key: str, locator: Mapping[str, Any], excerpt: st
         )
     if text_sha256(excerpt) != locator.get("excerpt_sha256"):
         raise LocatorError(f"HTML excerpt digest mismatch for {assertion_key!r}.")
+
+
+def _bounded_subtext(
+    excerpt: str,
+    fingerprint: Any,
+    *,
+    assertion_key: str,
+    field: str,
+) -> str | None:
+    if fingerprint is None:
+        return None
+    expected = _text(fingerprint)
+    starts: list[int] = []
+    cursor = 0
+    while True:
+        match = excerpt.casefold().find(expected.casefold(), cursor)
+        if match < 0:
+            break
+        starts.append(match)
+        cursor = match + max(1, len(expected))
+    if len(starts) != 1:
+        raise LocatorError(
+            f"HTML {field} fingerprint for {assertion_key!r} matched {len(starts)} times, not one."
+        )
+    value = excerpt[starts[0] : starts[0] + len(expected)]
+    if value.casefold() != expected.casefold():
+        raise LocatorError(f"HTML {field} fingerprint changed for {assertion_key!r}.")
+    return value
 
 
 def _replay_fiscal_label_claims(
@@ -372,8 +403,21 @@ def _extract_text(
         extraction_method_id=str(locator["extraction_method_id"]),
         excerpt=excerpt,
         excerpt_sha256=str(locator["excerpt_sha256"]),
-        value_text=excerpt,
-        comparison_text=None,
+        value_text=(
+            _bounded_subtext(
+                excerpt,
+                locator.get("value_text_fingerprint"),
+                assertion_key=str(assertion["assertion_key"]),
+                field="value-text",
+            )
+            or excerpt
+        ),
+        comparison_text=_bounded_subtext(
+            excerpt,
+            locator.get("comparison_text_fingerprint"),
+            assertion_key=str(assertion["assertion_key"]),
+            field="comparison-text",
+        ),
         review_state=str(locator["review_state"]),
         diagnostics={
             "node_path": locator["node_path"],

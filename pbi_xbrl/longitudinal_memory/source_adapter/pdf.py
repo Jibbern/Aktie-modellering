@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime
 from io import BytesIO
+import re
 from typing import Any, Mapping
 
 import pdfplumber
@@ -13,10 +14,53 @@ from .types import DiscoveredDocument, ExtractedEvidence, LocatorError, text_sha
 
 METHOD_ID = "extractor:source:pdf-text-table@1"
 DATELINE_METHOD_ID = "extractor:source:pdf-dateline@1"
+TEXT_METHOD_ID = "extractor:source:pdf-text@1"
 
 
 def _text(value: Any) -> str:
     return " ".join(str(value or "").split())
+
+
+def _bounded_subtext(excerpt: str, fingerprint: Any, *, subject: str) -> str | None:
+    if fingerprint is None:
+        return None
+    expected = _text(fingerprint)
+    matches = [match.start() for match in re.finditer(re.escape(expected), excerpt, flags=re.IGNORECASE)]
+    if len(matches) != 1:
+        raise LocatorError(f"PDF {subject} fingerprint matched {len(matches)} times, not one.")
+    return excerpt[matches[0] : matches[0] + len(expected)]
+
+
+def _replay_section_context(pdf: Any, locator: Mapping[str, Any], *, subject: str) -> str | None:
+    context = locator.get("section_context")
+    if context is None:
+        return None
+    page_number = int(context["page"])
+    evidence_page = int(locator["page"])
+    if page_number < 1 or page_number > len(pdf.pages) or page_number not in {
+        evidence_page,
+        evidence_page - 1,
+    }:
+        raise LocatorError(f"PDF section context page is invalid for {subject}.")
+    page_text = _text(pdf.pages[page_number - 1].extract_text())
+    if not page_text:
+        raise LocatorError(f"PDF section context text is empty for {subject}.")
+    fingerprint = _text(context["text_fingerprint"])
+    occurrences: list[int] = []
+    offset = 0
+    while True:
+        match = page_text.casefold().find(fingerprint.casefold(), offset)
+        if match < 0:
+            break
+        occurrences.append(match)
+        offset = match + max(1, len(fingerprint))
+    ordinal = int(context["match_ordinal"])
+    if ordinal < 1 or ordinal > len(occurrences):
+        raise LocatorError(f"PDF section context has no deterministic match for {subject}.")
+    excerpt = page_text[occurrences[ordinal - 1] : occurrences[ordinal - 1] + len(fingerprint)]
+    if excerpt != fingerprint or text_sha256(excerpt) != context["excerpt_sha256"]:
+        raise LocatorError(f"PDF section context changed for {subject}.")
+    return excerpt
 
 
 def extract_pdf_evidence(
@@ -30,6 +74,74 @@ def extract_pdf_evidence(
     with pdfplumber.open(stream) as pdf:
         for assertion in sorted(assertions, key=lambda row: str(row["assertion_key"])):
             locator = assertion["locator"]
+            if locator["locator_kind"] == "pdf-text":
+                if locator["extraction_method_id"] != TEXT_METHOD_ID:
+                    raise LocatorError(
+                        f"PDF text extraction method changed for {assertion['assertion_key']!r}."
+                    )
+                page_number = int(locator["page"])
+                if page_number < 1 or page_number > len(pdf.pages):
+                    raise LocatorError(f"PDF page is invalid for {assertion['assertion_key']!r}.")
+                page_text = _text(pdf.pages[page_number - 1].extract_text())
+                if not page_text:
+                    raise LocatorError(f"PDF text extraction returned empty text on page {page_number}.")
+                fingerprint = _text(locator["text_fingerprint"])
+                occurrences: list[int] = []
+                offset = 0
+                while True:
+                    match = page_text.casefold().find(fingerprint.casefold(), offset)
+                    if match < 0:
+                        break
+                    occurrences.append(match)
+                    offset = match + max(1, len(fingerprint))
+                match_ordinal = int(locator["match_ordinal"])
+                if match_ordinal < 1 or match_ordinal > len(occurrences):
+                    raise LocatorError(
+                        f"PDF text locator {locator['locator_key']!r} has no deterministic match {match_ordinal}."
+                    )
+                excerpt = page_text[
+                    occurrences[match_ordinal - 1] : occurrences[match_ordinal - 1] + len(fingerprint)
+                ]
+                if excerpt != locator["excerpt"] or text_sha256(excerpt) != locator["excerpt_sha256"]:
+                    raise LocatorError(f"PDF text excerpt changed for {assertion['assertion_key']!r}.")
+                section_context = _replay_section_context(
+                    pdf,
+                    locator,
+                    subject=f"assertion {assertion['assertion_key']!r}",
+                )
+                result.append(
+                    ExtractedEvidence(
+                        assertion_key=str(assertion["assertion_key"]),
+                        document_key=document.spec.document_key,
+                        locator_kind="page-text",
+                        locator_key=str(locator["locator_key"]),
+                        ordinal=int(locator["ordinal"]),
+                        extraction_method_id=TEXT_METHOD_ID,
+                        excerpt=excerpt,
+                        excerpt_sha256=str(locator["excerpt_sha256"]),
+                        value_text=(
+                            _bounded_subtext(
+                                excerpt,
+                                locator.get("value_text_fingerprint"),
+                                subject=f"value text for {assertion['assertion_key']!r}",
+                            )
+                            or excerpt
+                        ),
+                        comparison_text=_bounded_subtext(
+                            excerpt,
+                            locator.get("comparison_text_fingerprint"),
+                            subject=f"comparison text for {assertion['assertion_key']!r}",
+                        ),
+                        review_state=str(locator["review_state"]),
+                        diagnostics={
+                            "page": page_number,
+                            "match_ordinal": match_ordinal,
+                            "text_layer": True,
+                            "section_context_text": section_context,
+                        },
+                    )
+                )
+                continue
             if locator["locator_kind"] != "pdf-table":
                 raise LocatorError(f"Unsupported PDF locator kind {locator['locator_kind']!r}.")
             if locator["extraction_method_id"] != METHOD_ID:
@@ -153,7 +265,12 @@ def replay_pdf_dateline(document: DiscoveredDocument) -> str:
     excerpt = page_text[occurrences[ordinal - 1] : occurrences[ordinal - 1] + len(fingerprint)]
     if excerpt != fingerprint or text_sha256(excerpt) != locator.get("excerpt_sha256"):
         raise LocatorError(f"PDF dateline evidence changed for {document.spec.document_key!r}.")
-    try:
-        return datetime.strptime(excerpt, "%B %d, %Y").date().isoformat()
-    except ValueError as exc:
-        raise LocatorError(f"PDF dateline is not an exact publication date for {document.spec.document_key!r}.") from exc
+    normalized = re.sub(r"\b(Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)\.", r"\1", excerpt)
+    for pattern in ("%B %d, %Y", "%b %d, %Y"):
+        try:
+            return datetime.strptime(normalized, pattern).date().isoformat()
+        except ValueError:
+            continue
+    raise LocatorError(
+        f"PDF dateline is not an exact publication date for {document.spec.document_key!r}."
+    )
