@@ -1,0 +1,153 @@
+{
+  "fixture_id": "fixture:promise-progress:pbi-capability-oracle@1",
+  "source_package_fixture": "tests/fixtures/longitudinal_memory/pbi_source_adapter_expected.v1.json",
+  "source_package_golden_sha256": "da8577e389be383aeec80f481c0889acf62c38edf604e25f62df736cf89c34a6",
+  "projection_plan": {
+    "template_oracle_sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
+    "ui_as_of_date": "2026-08-02",
+    "annual_fiscal_years": [2026],
+    "business_order": [
+      {
+        "order": 1,
+        "selector": {
+          "kind": "GuidanceSeries",
+          "metric_id": "metric:core:revenue@1",
+          "definition_id": "definition:core:company-guidance@1"
+        }
+      },
+      {
+        "order": 2,
+        "selector": {
+          "kind": "GuidanceSeries",
+          "metric_id": "metric:core:adjusted-ebit@1",
+          "definition_id": "definition:business-services:adjusted-ebit-ex-terminated-plan-pension@1"
+        }
+      },
+      {
+        "order": 3,
+        "selector": {
+          "kind": "GuidanceSeries",
+          "metric_id": "metric:core:adjusted-ebit@1",
+          "definition_id": "definition:business-services:adjusted-ebit-pension-treatment-ambiguous@1"
+        }
+      },
+      {
+        "order": 4,
+        "selector": {
+          "kind": "Promise",
+          "program_id": "program:pbi:2024-cost-rationalization@1"
+        }
+      }
+    ],
+    "guidance_bindings": [
+      {
+        "entity_selector": {
+          "kind": "GuidanceSeries",
+          "metric_id": "metric:core:revenue@1",
+          "definition_id": "definition:core:company-guidance@1"
+        },
+        "metric_label": "FY2026 revenue guidance"
+      },
+      {
+        "entity_selector": {
+          "kind": "GuidanceSeries",
+          "metric_id": "metric:core:adjusted-ebit@1",
+          "definition_id": "definition:business-services:adjusted-ebit-ex-terminated-plan-pension@1"
+        },
+        "metric_label": "FY2026 adjusted EBIT guidance"
+      },
+      {
+        "entity_selector": {
+          "kind": "GuidanceSeries",
+          "metric_id": "metric:core:adjusted-ebit@1",
+          "definition_id": "definition:business-services:adjusted-ebit-pension-treatment-ambiguous@1"
+        },
+        "metric_label": "FY2026 adjusted EBIT (basis ambiguous)",
+        "status_rule_id": "assessment:promise-progress:basis-composite@1",
+        "review_issue_rule_ids": ["adjusted_ebit_guidance_basis_ambiguous"]
+      }
+    ],
+    "promise_bindings": [
+      {
+        "entity_selector": {
+          "kind": "Promise",
+          "program_id": "program:pbi:2024-cost-rationalization@1"
+        },
+        "metric_label": "Enterprise cost rationalization",
+        "include_in_annual": false,
+        "include_in_open": true,
+        "currency": "USD",
+        "target_display_suffix": "potential annualized savings",
+        "horizon_display": "Program; no exact deadline disclosed",
+        "target_semantic_identity": {
+          "metric_id": "metric:business-services:cost-savings@1",
+          "definition_id": "definition:business-services:cost-savings-program-target@1",
+          "basis_id": "basis:business-services:potential-annualized@1",
+          "unit_id": "unit:core:usd-millions@1",
+          "dimension_set_id": "dimset:v1|members=dimension%3Acore%3Acompany%401%3Dmember%3Acore%3Acompany%3Acompany%3Atotal-company%401"
+        },
+        "actual": {
+          "actual_role_id": "actual:promise-progress:cumulative-outcome@1",
+          "role_semantic_assertion": {
+            "actual_role_id": "actual:promise-progress:cumulative-outcome@1",
+            "semantic_class": "cumulative-outcome",
+            "allowed_definition_ids": ["definition:business-services:cumulative-savings@1"],
+            "allowed_basis_ids": ["basis:business-services:cumulative-realized@1"]
+          },
+          "semantic_identity": {
+            "metric_id": "metric:business-services:cost-savings@1",
+            "definition_id": "definition:business-services:cumulative-savings@1",
+            "basis_id": "basis:business-services:cumulative-realized@1",
+            "unit_id": "unit:core:usd-millions@1",
+            "dimension_set_id": "dimset:v1|members=dimension%3Acore%3Acompany%401%3Dmember%3Acore%3Acompany%3Acompany%3Atotal-company%401"
+          },
+          "selector": {
+            "kind": "NumericalFact",
+            "metric_id": "metric:business-services:cost-savings@1",
+            "definition_id": "definition:business-services:cumulative-savings@1",
+            "basis_id": "basis:business-services:cumulative-realized@1",
+            "unit_id": "unit:core:usd-millions@1",
+            "dimension_set_id": "dimset:v1|members=dimension%3Acore%3Acompany%401%3Dmember%3Acore%3Acompany%3Acompany%3Atotal-company%401"
+          }
+        },
+        "progress": {
+          "progress_role_id": "progress:promise-progress:annualized-run-rate@1",
+          "role_semantic_assertion": {
+            "progress_role_id": "progress:promise-progress:annualized-run-rate@1",
+            "semantic_class": "annualized-run-rate",
+            "allowed_definition_ids": ["definition:business-services:annualized-run-rate@1"],
+            "allowed_basis_ids": ["basis:business-services:annualized-run-rate@1"]
+          },
+          "latest_period": true,
+          "display_suffix": "net annualized run rate",
+          "selector": {
+            "kind": "NumericalFact",
+            "metric_id": "metric:business-services:cost-savings@1",
+            "definition_id": "definition:business-services:annualized-run-rate@1",
+            "basis_id": "basis:business-services:annualized-run-rate@1",
+            "unit_id": "unit:core:usd-millions@1"
+          }
+        },
+        "status_rule_id": "assessment:promise-progress:annualized-or-run-rate-target@1",
+        "review_issue_rule_ids": [
+          "gross_net_savings_bridge_missing",
+          "promise_run_rate_not_realized_savings"
+        ],
+        "note_suffixes": [
+          "Run rate is not realized savings; gross/net bridge and exact deadline remain unresolved."
+        ]
+      }
+    ],
+    "coverage_gaps": [],
+    "parity_exception_ids": [
+      "parity:scorecard-unreviewed-legacy@1",
+      "parity:empty-tracker-parallel-ownership@1",
+      "parity:lossy-support-matrix@1",
+      "parity:fuzzy-hidden-trace-keys@1",
+      "parity:static-status-without-rule@1",
+      "parity:generic-source-note-without-locator@1"
+    ]
+  },
+  "expected_product_sha256": "f45600121f16dbc8efa9e7e585cebd5447871bcb5d2dfc54ec12c28e059532d8",
+  "expected_shadow_sha256": "d5c61ef5c0495cae35f52fcce76485297d77962439009118fce2c7ab1a8229e4"
+}

@@ -1,0 +1,300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://local.invalid/promise_progress_shadow_projection.schema.json",
+  "title": "Promise Progress source-native shadow matrix",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_id", "product_id", "company_id", "template_oracle_sha256",
+    "sheet_name", "ui_as_of_date", "knowledge_cutoff", "reference_catalog",
+    "rows", "fields", "lineage_digest"
+  ],
+  "properties": {
+    "schema_id": {"const": "schema:promise-progress-shadow-matrix@1"},
+    "product_id": {"$ref": "#/$defs/versionedProductId"},
+    "company_id": {"type": "string", "minLength": 1, "pattern": "^[A-Za-z0-9._-]+$"},
+    "template_oracle_sha256": {"$ref": "#/$defs/sha256"},
+    "sheet_name": {"const": "Promise_Progress_UI"},
+    "ui_as_of_date": {"$ref": "#/$defs/date"},
+    "knowledge_cutoff": {"$ref": "#/$defs/date"},
+    "reference_catalog": {"$ref": "#/$defs/referenceCatalog"},
+    "rows": {"type": "array", "items": {"$ref": "#/$defs/row"}},
+    "fields": {"type": "array", "items": {"$ref": "#/$defs/field"}},
+    "lineage_digest": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "date": {"type": "string", "format": "date", "pattern": "^\\d{4}-\\d{2}-\\d{2}$"},
+    "decimal": {"type": "string", "pattern": "^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?$"},
+    "canonicalId": {"type": "string", "minLength": 1, "pattern": "^[^\\s]+$"},
+    "versionedProductId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]*@1$"},
+    "nullableCanonicalId": {"oneOf": [{"$ref": "#/$defs/canonicalId"}, {"type": "null"}]},
+    "nullableDate": {"oneOf": [{"$ref": "#/$defs/date"}, {"type": "null"}]},
+    "identityArray": {
+      "type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/canonicalId"}
+    },
+    "blockId": {
+      "enum": [
+        "block:promise-progress:management-credibility-scorecard@1",
+        "block:promise-progress:annual-guidance-progression@1",
+        "block:promise-progress:open-guidance@1",
+        "block:promise-progress:quarterly-revision-timeline@1"
+      ]
+    },
+    "referenceCatalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonical_record_ids", "series_or_program_ids", "source_document_ids", "source_occurrence_ids",
+        "review_issue_ids", "period_or_horizon_ids", "metric_ids", "definition_ids",
+        "basis_ids", "unit_ids", "axis_ids", "member_ids", "actual_selection_ids",
+        "progress_selection_ids", "status_assessment_ids", "parity_exception_ids"
+      ],
+      "properties": {
+        "canonical_record_ids": {"$ref": "#/$defs/identityArray"},
+        "series_or_program_ids": {"$ref": "#/$defs/identityArray"},
+        "source_document_ids": {"$ref": "#/$defs/identityArray"},
+        "source_occurrence_ids": {"$ref": "#/$defs/identityArray"},
+        "review_issue_ids": {"$ref": "#/$defs/identityArray"},
+        "period_or_horizon_ids": {"$ref": "#/$defs/identityArray"},
+        "metric_ids": {"$ref": "#/$defs/identityArray"},
+        "definition_ids": {"$ref": "#/$defs/identityArray"},
+        "basis_ids": {"$ref": "#/$defs/identityArray"},
+        "unit_ids": {"$ref": "#/$defs/identityArray"},
+        "axis_ids": {"$ref": "#/$defs/identityArray"},
+        "member_ids": {"$ref": "#/$defs/identityArray"},
+        "actual_selection_ids": {"$ref": "#/$defs/identityArray"},
+        "progress_selection_ids": {"$ref": "#/$defs/identityArray"},
+        "status_assessment_ids": {"$ref": "#/$defs/identityArray"},
+        "parity_exception_ids": {"$ref": "#/$defs/identityArray"}
+      }
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "product_id", "block_id", "row_id", "row_variant", "business_order",
+        "visible_sheet_row", "ui_as_of_date", "canonical_series_or_program_id",
+        "canonical_version_id", "field_ids", "review_issue_ids",
+        "parity_exception_ids", "lineage_digest"
+      ],
+      "properties": {
+        "product_id": {"$ref": "#/$defs/versionedProductId"},
+        "block_id": {"$ref": "#/$defs/blockId"},
+        "row_id": {"$ref": "#/$defs/versionedProductId"},
+        "row_variant": {
+          "enum": [
+            "scorecard_assessment", "annual_guidance_series", "open_guidance",
+            "guidance_version", "promise_version", "diagnostic_coverage_gap"
+          ]
+        },
+        "business_order": {"type": "integer", "minimum": 0},
+        "visible_sheet_row": {"type": "integer", "minimum": 1, "maximum": 102},
+        "ui_as_of_date": {"$ref": "#/$defs/date"},
+        "canonical_series_or_program_id": {"$ref": "#/$defs/nullableCanonicalId"},
+        "canonical_version_id": {"$ref": "#/$defs/nullableCanonicalId"},
+        "field_ids": {"$ref": "#/$defs/identityArray"},
+        "review_issue_ids": {"$ref": "#/$defs/identityArray"},
+        "parity_exception_ids": {"$ref": "#/$defs/identityArray"},
+        "lineage_digest": {"$ref": "#/$defs/sha256"}
+      },
+      "oneOf": [
+        {
+          "type": "object", "required": ["block_id", "row_variant", "visible_sheet_row"],
+          "properties": {"block_id": {"const": "block:promise-progress:management-credibility-scorecard@1"}, "row_variant": {"const": "scorecard_assessment"}, "visible_sheet_row": {"minimum": 5, "maximum": 9}}
+        },
+        {
+          "type": "object", "required": ["block_id", "row_variant"],
+          "properties": {"block_id": {"const": "block:promise-progress:annual-guidance-progression@1"}, "row_variant": {"enum": ["annual_guidance_series", "diagnostic_coverage_gap"]}}
+        },
+        {
+          "type": "object", "required": ["block_id", "row_variant"],
+          "properties": {"block_id": {"const": "block:promise-progress:open-guidance@1"}, "row_variant": {"const": "open_guidance"}}
+        },
+        {
+          "type": "object", "required": ["block_id", "row_variant"],
+          "properties": {"block_id": {"const": "block:promise-progress:quarterly-revision-timeline@1"}, "row_variant": {"enum": ["guidance_version", "promise_version"]}}
+        }
+      ]
+    },
+    "exactValue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value_form", "display_text", "machine_value"],
+      "properties": {
+        "value_form": {"enum": ["exact", "percentage"]},
+        "display_text": {"type": "string", "minLength": 1},
+        "machine_value": {"$ref": "#/$defs/decimal"}
+      }
+    },
+    "approximateMachine": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value", "qualifier", "tolerance"],
+      "properties": {
+        "value": {"$ref": "#/$defs/decimal"},
+        "qualifier": {"enum": ["around", "about", "approximately", "tilde"]},
+        "tolerance": {"oneOf": [{"$ref": "#/$defs/decimal"}, {"type": "null"}]}
+      }
+    },
+    "approximateValue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value_form", "display_text", "machine_value"],
+      "properties": {
+        "value_form": {"const": "approximate"},
+        "display_text": {"type": "string", "minLength": 1},
+        "machine_value": {"$ref": "#/$defs/approximateMachine"}
+      }
+    },
+    "rangeMachine": {
+      "type": "object", "additionalProperties": false,
+      "required": ["low", "high", "low_inclusive", "high_inclusive"],
+      "properties": {
+        "low": {"$ref": "#/$defs/decimal"}, "high": {"$ref": "#/$defs/decimal"},
+        "low_inclusive": {"type": "boolean"}, "high_inclusive": {"type": "boolean"}
+      }
+    },
+    "rangeValue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value_form", "display_text", "machine_value"],
+      "properties": {
+        "value_form": {"const": "range"}, "display_text": {"type": "string", "minLength": 1},
+        "machine_value": {"$ref": "#/$defs/rangeMachine"}
+      }
+    },
+    "boundMachine": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operator", "value"],
+      "properties": {"operator": {"enum": ["gt", "gte", "lt", "lte"]}, "value": {"$ref": "#/$defs/decimal"}}
+    },
+    "boundValue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value_form", "display_text", "machine_value"],
+      "properties": {
+        "value_form": {"const": "bound"}, "display_text": {"type": "string", "minLength": 1},
+        "machine_value": {"$ref": "#/$defs/boundMachine"}
+      }
+    },
+    "qualitativeTextMachine": {
+      "type": "object", "additionalProperties": false,
+      "required": ["text", "normalized_band"],
+      "properties": {"text": {"type": "string", "minLength": 1}, "normalized_band": {"type": ["string", "null"]}}
+    },
+    "qualitativeComponent": {
+      "type": "object", "additionalProperties": false,
+      "required": ["label", "record_id", "value"],
+      "properties": {"label": {"type": "string"}, "record_id": {"$ref": "#/$defs/canonicalId"}, "value": {"$ref": "#/$defs/decimal"}}
+    },
+    "qualitativeValue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value_form", "display_text", "machine_value"],
+      "properties": {
+        "value_form": {"const": "qualitative"}, "display_text": {"type": "string", "minLength": 1},
+        "machine_value": {
+          "oneOf": [
+            {"type": "string"}, {"type": "null"}, {"$ref": "#/$defs/qualitativeTextMachine"},
+            {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/qualitativeComponent"}}
+          ]
+        }
+      }
+    },
+    "dateValue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value_form", "display_text", "machine_value"],
+      "properties": {"value_form": {"const": "date"}, "display_text": {"$ref": "#/$defs/date"}, "machine_value": {"$ref": "#/$defs/date"}}
+    },
+    "missingValue": {
+      "type": "object", "additionalProperties": false,
+      "required": ["value_form", "display_text", "machine_value"],
+      "properties": {"value_form": {"const": "missing"}, "display_text": {"const": ""}, "machine_value": {"type": "null"}}
+    },
+    "displayValue": {
+      "oneOf": [
+        {"$ref": "#/$defs/exactValue"}, {"$ref": "#/$defs/approximateValue"},
+        {"$ref": "#/$defs/rangeValue"}, {"$ref": "#/$defs/boundValue"},
+        {"$ref": "#/$defs/qualitativeValue"}, {"$ref": "#/$defs/dateValue"},
+        {"$ref": "#/$defs/missingValue"}
+      ]
+    },
+    "semanticIdentity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["metric_id", "definition_id", "basis_id", "unit_id", "dimensions"],
+      "properties": {
+        "metric_id": {"$ref": "#/$defs/nullableCanonicalId"},
+        "definition_id": {"$ref": "#/$defs/nullableCanonicalId"},
+        "basis_id": {"$ref": "#/$defs/nullableCanonicalId"},
+        "unit_id": {"$ref": "#/$defs/nullableCanonicalId"},
+        "dimensions": {
+          "type": "array", "uniqueItems": true,
+          "items": {
+            "type": "object", "additionalProperties": false,
+            "required": ["axis_id", "member_id"],
+            "properties": {"axis_id": {"$ref": "#/$defs/canonicalId"}, "member_id": {"$ref": "#/$defs/canonicalId"}}
+          }
+        }
+      }
+    },
+    "destination": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sheet", "anchor_cell", "display_range"],
+      "properties": {
+        "sheet": {"const": "Promise_Progress_UI"},
+        "anchor_cell": {"type": "string", "pattern": "^[A-L](?:[1-9]|[1-9][0-9]|10[0-2])$"},
+        "display_range": {"type": "string", "pattern": "^[A-L](?:[1-9]|[1-9][0-9]|10[0-2])(?::[A-L](?:[1-9]|[1-9][0-9]|10[0-2]))?$"}
+      }
+    },
+    "field": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "product_id", "block_id", "row_id", "field_id", "field_role", "destination",
+        "display_value", "canonical_record_ids", "target_version_id", "actual_selection_id",
+        "actual_observation_id", "progress_selection_id", "progress_observation_ids",
+        "status_assessment_id", "semantic_identity", "period_or_horizon_id",
+        "publication_date", "event_date", "ui_as_of_date", "knowledge_dates",
+        "source_document_ids", "source_occurrence_ids", "selection_or_calculation_method_id",
+        "review_issue_ids", "parity_exception_ids", "lineage_state", "lineage_digest"
+      ],
+      "properties": {
+        "product_id": {"$ref": "#/$defs/versionedProductId"}, "block_id": {"$ref": "#/$defs/blockId"},
+        "row_id": {"$ref": "#/$defs/versionedProductId"}, "field_id": {"$ref": "#/$defs/versionedProductId"},
+        "field_role": {
+          "enum": [
+            "category", "score", "evidence", "read", "metric", "initial_guide", "q1_guide",
+            "q2_guide", "q3_guide", "q4_guide", "actual", "status", "notes_source",
+            "current_guide", "horizon", "previous_guide", "change_type", "progress",
+            "stated_in", "source_date", "source_note"
+          ]
+        },
+        "destination": {"$ref": "#/$defs/destination"}, "display_value": {"$ref": "#/$defs/displayValue"},
+        "canonical_record_ids": {"$ref": "#/$defs/identityArray"}, "target_version_id": {"$ref": "#/$defs/nullableCanonicalId"},
+        "actual_selection_id": {"$ref": "#/$defs/nullableCanonicalId"}, "actual_observation_id": {"$ref": "#/$defs/nullableCanonicalId"},
+        "progress_selection_id": {"$ref": "#/$defs/nullableCanonicalId"}, "progress_observation_ids": {"$ref": "#/$defs/identityArray"},
+        "status_assessment_id": {"$ref": "#/$defs/nullableCanonicalId"}, "semantic_identity": {"$ref": "#/$defs/semanticIdentity"},
+        "period_or_horizon_id": {"$ref": "#/$defs/nullableCanonicalId"}, "publication_date": {"$ref": "#/$defs/nullableDate"},
+        "event_date": {"$ref": "#/$defs/nullableDate"}, "ui_as_of_date": {"$ref": "#/$defs/date"},
+        "knowledge_dates": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/date"}},
+        "source_document_ids": {"$ref": "#/$defs/identityArray"}, "source_occurrence_ids": {"$ref": "#/$defs/identityArray"},
+        "selection_or_calculation_method_id": {"$ref": "#/$defs/canonicalId"}, "review_issue_ids": {"$ref": "#/$defs/identityArray"},
+        "parity_exception_ids": {"$ref": "#/$defs/identityArray"},
+        "lineage_state": {"enum": ["accepted", "diagnostic", "needs-review", "missing", "blocked"]},
+        "lineage_digest": {"$ref": "#/$defs/sha256"}
+      },
+      "oneOf": [
+        {
+          "type": "object", "required": ["block_id", "field_role"],
+          "properties": {"block_id": {"const": "block:promise-progress:management-credibility-scorecard@1"}, "field_role": {"enum": ["category", "score", "evidence", "read"]}}
+        },
+        {
+          "type": "object", "required": ["block_id", "field_role"],
+          "properties": {"block_id": {"const": "block:promise-progress:annual-guidance-progression@1"}, "field_role": {"enum": ["metric", "initial_guide", "q1_guide", "q2_guide", "q3_guide", "q4_guide", "actual", "status", "notes_source"]}}
+        },
+        {
+          "type": "object", "required": ["block_id", "field_role"],
+          "properties": {"block_id": {"const": "block:promise-progress:open-guidance@1"}, "field_role": {"enum": ["metric", "current_guide", "horizon", "status", "notes_source"]}}
+        },
+        {
+          "type": "object", "required": ["block_id", "field_role"],
+          "properties": {"block_id": {"const": "block:promise-progress:quarterly-revision-timeline@1"}, "field_role": {"enum": ["metric", "previous_guide", "current_guide", "change_type", "actual", "progress", "status", "horizon", "stated_in", "source_date", "source_note"]}}
+        }
+      ]
+    }
+  }
+}

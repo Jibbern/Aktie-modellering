@@ -1,0 +1,430 @@
+{
+  "fixture_id": "fixture:promise-progress:generic-future-capabilities@1",
+  "source_package": {
+    "artifact_state": "accepted",
+    "company_id": "GENERIC",
+    "knowledge_cutoff": "2027-01-15",
+    "normalized_package_ref": {
+      "semantic_snapshot_id": "normalized-snapshot:generic-promise-progress-capabilities@1"
+    },
+    "catalog": {
+      "metrics": [
+        {"metric_id": "metric:generic:policy-benefit@1", "display_name": "Policy-dependent benefit"},
+        {"metric_id": "metric:generic:cost-savings@1", "display_name": "Minimum cost savings"},
+        {"metric_id": "metric:generic:facility-milestone@1", "display_name": "Facility milestone"},
+        {"metric_id": "metric:generic:qualitative-commitment@1", "display_name": "Qualitative commitment"}
+      ],
+      "definitions": [
+        {"definition_id": "definition:generic:policy-dependent-target@1", "display_name": "Policy-dependent target"},
+        {"definition_id": "definition:generic:commitment-amount@1", "display_name": "Commitment amount"},
+        {"definition_id": "definition:generic:milestone-state@1", "display_name": "Milestone state"},
+        {"definition_id": "definition:generic:qualitative-state@1", "display_name": "Qualitative state"}
+      ],
+      "bases": [
+        {"basis_id": "basis:generic:policy-dependent@1", "display_name": "Policy-dependent"},
+        {"basis_id": "basis:generic:commitment@1", "display_name": "Commitment"},
+        {"basis_id": "basis:generic:milestone@1", "display_name": "Milestone"},
+        {"basis_id": "basis:generic:contingent@1", "display_name": "Contingent"}
+      ],
+      "units": [
+        {"unit_id": "unit:core:usd-millions@1", "display_name": "USD millions", "unit_kind": "currency", "scale": "1000000"},
+        {"unit_id": "unit:core:qualitative@1", "display_name": "Qualitative", "unit_kind": "qualitative", "scale": "1"}
+      ],
+      "dimensions": [
+        {"dimension_id": "dimension:core:company@1", "display_name": "Company"}
+      ],
+      "dimension_members": [
+        {"member_id": "member:generic:company:total@1", "dimension_id": "dimension:core:company@1", "display_name": "Total company"}
+      ],
+      "dimension_sets": [
+        {
+          "dimension_set_id": "dimset:generic:company@1",
+          "members": [
+            {"dimension_id": "dimension:core:company@1", "member_id": "member:generic:company:total@1"}
+          ]
+        }
+      ]
+    },
+    "source_documents": [
+      {
+        "source_document_id": "source-document:generic:policy-origin@1",
+        "publisher_id": "publisher:generic:issuer@1",
+        "publication_date": "2026-12-15",
+        "title": "Reviewed policy-dependent guidance"
+      },
+      {
+        "source_document_id": "source-document:generic:savings-origin@1",
+        "publisher_id": "publisher:generic:issuer@1",
+        "publication_date": "2026-01-15",
+        "title": "Reviewed minimum-savings commitment"
+      },
+      {
+        "source_document_id": "source-document:generic:savings-actual@1",
+        "publisher_id": "publisher:generic:issuer@1",
+        "publication_date": "2027-01-10",
+        "title": "Reviewed savings outcome"
+      },
+      {
+        "source_document_id": "source-document:generic:milestone-origin@1",
+        "publisher_id": "publisher:generic:issuer@1",
+        "publication_date": "2026-01-20",
+        "title": "Reviewed facility-start commitment"
+      },
+      {
+        "source_document_id": "source-document:generic:milestone-actual@1",
+        "publisher_id": "publisher:generic:issuer@1",
+        "publication_date": "2026-11-30",
+        "title": "Reviewed facility-start outcome"
+      },
+      {
+        "source_document_id": "source-document:generic:contingent-origin@1",
+        "publisher_id": "publisher:generic:issuer@1",
+        "publication_date": "2026-03-01",
+        "title": "Reviewed contingent commitment"
+      }
+    ],
+    "evidence_occurrences": [
+      {"evidence_occurrence_id": "evidence:generic:policy-origin@1", "source_document_id": "source-document:generic:policy-origin@1"},
+      {"evidence_occurrence_id": "evidence:generic:savings-origin@1", "source_document_id": "source-document:generic:savings-origin@1"},
+      {"evidence_occurrence_id": "evidence:generic:savings-actual@1", "source_document_id": "source-document:generic:savings-actual@1"},
+      {"evidence_occurrence_id": "evidence:generic:milestone-origin@1", "source_document_id": "source-document:generic:milestone-origin@1"},
+      {"evidence_occurrence_id": "evidence:generic:milestone-actual@1", "source_document_id": "source-document:generic:milestone-actual@1"},
+      {"evidence_occurrence_id": "evidence:generic:contingent-origin@1", "source_document_id": "source-document:generic:contingent-origin@1"}
+    ],
+    "periods": [
+      {
+        "period_id": "period:generic:fy2026@1",
+        "period_type": "annual",
+        "fiscal_year": 2026,
+        "fiscal_quarter": null,
+        "fiscal_ordinal": 104,
+        "start_date": "2026-01-01",
+        "end_date": "2026-12-31"
+      },
+      {
+        "period_id": "period:generic:fy2027@1",
+        "period_type": "annual",
+        "fiscal_year": 2027,
+        "fiscal_quarter": null,
+        "fiscal_ordinal": 108,
+        "start_date": "2027-01-01",
+        "end_date": "2027-12-31"
+      }
+    ],
+    "entities": [
+      {
+        "header": {"entity_id": "gseries:generic:policy-benefit@1"},
+        "payload": {
+          "kind": "GuidanceSeries",
+          "metric_id": "metric:generic:policy-benefit@1",
+          "definition_id": "definition:generic:policy-dependent-target@1",
+          "basis_id": "basis:generic:policy-dependent@1",
+          "unit_id": "unit:core:usd-millions@1",
+          "currency": "USD",
+          "dimension_set_id": "dimset:generic:company@1",
+          "horizon_period_id": "period:generic:fy2027@1"
+        }
+      },
+      {
+        "header": {"entity_id": "promise:generic:minimum-savings@1"},
+        "payload": {
+          "kind": "Promise",
+          "program_id": "program:generic:minimum-savings@1",
+          "promise_subject_id": "minimum-cost-savings",
+          "unit_id": "unit:core:usd-millions@1",
+          "currency": "USD",
+          "original_deadline": {"kind": "period", "value": "period:generic:fy2026@1"}
+        }
+      },
+      {
+        "header": {"entity_id": "promise:generic:facility-start@1"},
+        "payload": {
+          "kind": "Promise",
+          "program_id": "program:generic:facility-start@1",
+          "promise_subject_id": "facility-start",
+          "unit_id": "unit:core:qualitative@1",
+          "currency": null,
+          "original_deadline": {"kind": "period", "value": "period:generic:fy2026@1"}
+        }
+      },
+      {
+        "header": {"entity_id": "promise:generic:contingent-commitment@1"},
+        "payload": {
+          "kind": "Promise",
+          "program_id": "program:generic:contingent-commitment@1",
+          "promise_subject_id": "contingent-commitment",
+          "unit_id": "unit:core:qualitative@1",
+          "currency": null,
+          "original_deadline": null
+        }
+      }
+    ],
+    "observations": [
+      {
+        "header": {
+          "record_id": "record:generic:policy-origin@1",
+          "publication_date": "2026-12-15",
+          "knowledge_date": "2026-12-15",
+          "effective_period_id": "period:generic:fy2027@1",
+          "dimension_set_id": "dimset:generic:company@1",
+          "evidence_occurrence_ids": ["evidence:generic:policy-origin@1"]
+        },
+        "payload": {
+          "kind": "GuidanceVersion",
+          "guidance_series_id": "gseries:generic:policy-benefit@1",
+          "version_kind": "origin",
+          "value": {"kind": "range", "low": "40", "high": "60", "low_inclusive": true, "high_inclusive": true},
+          "wording": "Policy-dependent benefit of $40 million to $60 million."
+        }
+      },
+      {
+        "header": {
+          "record_id": "record:generic:savings-origin@1",
+          "publication_date": "2026-01-15",
+          "knowledge_date": "2026-01-15",
+          "effective_period_id": "period:generic:fy2026@1",
+          "dimension_set_id": "dimset:generic:company@1",
+          "evidence_occurrence_ids": ["evidence:generic:savings-origin@1"]
+        },
+        "payload": {
+          "kind": "PromiseVersion",
+          "promise_id": "promise:generic:minimum-savings@1",
+          "change_kind": "origin",
+          "target": {"kind": "bound", "operator": "gte", "value": "10"},
+          "deadline": {"kind": "period", "value": "period:generic:fy2026@1"},
+          "wording": "At least $10 million of cost savings."
+        }
+      },
+      {
+        "header": {
+          "record_id": "record:generic:savings-actual@1",
+          "publication_date": "2027-01-10",
+          "knowledge_date": "2027-01-10",
+          "effective_period_id": "period:generic:fy2026@1",
+          "dimension_set_id": "dimset:generic:company@1",
+          "evidence_occurrence_ids": ["evidence:generic:savings-actual@1"]
+        },
+        "payload": {
+          "kind": "NumericalFact",
+          "metric_id": "metric:generic:cost-savings@1",
+          "definition_id": "definition:generic:commitment-amount@1",
+          "basis_id": "basis:generic:commitment@1",
+          "unit_id": "unit:core:usd-millions@1",
+          "currency": "USD",
+          "value": {"kind": "exact", "value": "12"}
+        }
+      },
+      {
+        "header": {
+          "record_id": "record:generic:milestone-origin@1",
+          "publication_date": "2026-01-20",
+          "knowledge_date": "2026-01-20",
+          "effective_period_id": "period:generic:fy2026@1",
+          "dimension_set_id": "dimset:generic:company@1",
+          "evidence_occurrence_ids": ["evidence:generic:milestone-origin@1"]
+        },
+        "payload": {
+          "kind": "PromiseVersion",
+          "promise_id": "promise:generic:facility-start@1",
+          "change_kind": "origin",
+          "target": {"kind": "qualitative", "text": "Start facility operations"},
+          "deadline": {"kind": "period", "value": "period:generic:fy2026@1"},
+          "wording": "Start facility operations by the end of 2026."
+        }
+      },
+      {
+        "header": {
+          "record_id": "record:generic:milestone-actual@1",
+          "publication_date": "2026-11-30",
+          "knowledge_date": "2026-11-30",
+          "effective_period_id": "period:generic:fy2026@1",
+          "dimension_set_id": "dimset:generic:company@1",
+          "evidence_occurrence_ids": ["evidence:generic:milestone-actual@1"]
+        },
+        "payload": {
+          "kind": "NumericalFact",
+          "metric_id": "metric:generic:facility-milestone@1",
+          "definition_id": "definition:generic:milestone-state@1",
+          "basis_id": "basis:generic:milestone@1",
+          "unit_id": "unit:core:qualitative@1",
+          "currency": null,
+          "value": {"kind": "qualitative", "text": "Facility operations started"}
+        }
+      },
+      {
+        "header": {
+          "record_id": "record:generic:contingent-origin@1",
+          "publication_date": "2026-03-01",
+          "knowledge_date": "2026-03-01",
+          "effective_period_id": "period:generic:fy2027@1",
+          "dimension_set_id": "dimset:generic:company@1",
+          "evidence_occurrence_ids": ["evidence:generic:contingent-origin@1"]
+        },
+        "payload": {
+          "kind": "PromiseVersion",
+          "promise_id": "promise:generic:contingent-commitment@1",
+          "change_kind": "origin",
+          "target": {"kind": "qualitative", "text": "Advance the policy-dependent project if approvals are obtained"},
+          "deadline": null,
+          "wording": "Advance the project if required policy approvals are obtained."
+        }
+      }
+    ],
+    "relations": [],
+    "resolutions": [
+      {"resolution_id": "resolution:generic:savings-actual@1", "status": "selected", "selected_record_id": "record:generic:savings-actual@1"},
+      {"resolution_id": "resolution:generic:milestone-actual@1", "status": "selected", "selected_record_id": "record:generic:milestone-actual@1"}
+    ],
+    "review_issues": [
+      {
+        "issue_id": "review-issue:generic:unresolved-dependency@1",
+        "rule_id": "unresolved_dependency",
+        "business_key": "promise:generic:contingent-commitment@1",
+        "entity_ids": ["promise:generic:contingent-commitment@1"],
+        "candidate_record_ids": ["record:generic:contingent-origin@1"]
+      }
+    ]
+  },
+  "projection_plan": {
+    "template_oracle_sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
+    "ui_as_of_date": "2027-01-15",
+    "annual_fiscal_years": [2027],
+    "scorecard_categories": [
+      "Sales guidance accuracy",
+      "Margin guidance accuracy",
+      "EPS guidance accuracy",
+      "Buyback/capital allocation delivery",
+      "Inventory discipline"
+    ],
+    "business_order": [
+      {"order": 1, "selector": {"kind": "GuidanceSeries", "metric_id": "metric:generic:policy-benefit@1"}},
+      {"order": 2, "selector": {"kind": "Promise", "program_id": "program:generic:minimum-savings@1"}},
+      {"order": 3, "selector": {"kind": "Promise", "program_id": "program:generic:facility-start@1"}},
+      {"order": 4, "selector": {"kind": "Promise", "program_id": "program:generic:contingent-commitment@1"}}
+    ],
+    "guidance_bindings": [
+      {
+        "entity_selector": {"kind": "GuidanceSeries", "metric_id": "metric:generic:policy-benefit@1"},
+        "metric_label": "Policy-dependent benefit"
+      }
+    ],
+    "promise_bindings": [
+      {
+        "entity_selector": {"kind": "Promise", "program_id": "program:generic:minimum-savings@1"},
+        "metric_label": "Minimum cost savings",
+        "include_in_annual": true,
+        "include_in_open": false,
+        "target_semantic_identity": {
+          "metric_id": "metric:generic:cost-savings@1",
+          "definition_id": "definition:generic:commitment-amount@1",
+          "basis_id": "basis:generic:commitment@1",
+          "unit_id": "unit:core:usd-millions@1",
+          "dimension_set_id": "dimset:generic:company@1"
+        },
+        "actual": {
+          "actual_role_id": "actual:promise-progress:fiscal-year-outcome@1",
+          "role_semantic_assertion": {
+            "actual_role_id": "actual:promise-progress:fiscal-year-outcome@1",
+            "semantic_class": "fiscal-year-outcome",
+            "allowed_definition_ids": ["definition:generic:commitment-amount@1"],
+            "allowed_basis_ids": ["basis:generic:commitment@1"],
+            "allowed_period_types": ["annual"]
+          },
+          "semantic_identity": {
+            "metric_id": "metric:generic:cost-savings@1",
+            "definition_id": "definition:generic:commitment-amount@1",
+            "basis_id": "basis:generic:commitment@1",
+            "unit_id": "unit:core:usd-millions@1",
+            "dimension_set_id": "dimset:generic:company@1"
+          },
+          "selector": {
+            "kind": "NumericalFact",
+            "metric_id": "metric:generic:cost-savings@1",
+            "definition_id": "definition:generic:commitment-amount@1",
+            "basis_id": "basis:generic:commitment@1",
+            "unit_id": "unit:core:usd-millions@1",
+            "effective_period_id": "period:generic:fy2026@1",
+            "dimension_set_id": "dimset:generic:company@1"
+          }
+        },
+        "status_rule_id": "assessment:promise-progress:minimum-bound-target@1",
+        "favorable_direction": "higher"
+      },
+      {
+        "entity_selector": {"kind": "Promise", "program_id": "program:generic:facility-start@1"},
+        "metric_label": "Facility start milestone",
+        "include_in_annual": true,
+        "include_in_open": false,
+        "target_semantic_identity": {
+          "metric_id": "metric:generic:facility-milestone@1",
+          "definition_id": "definition:generic:milestone-state@1",
+          "basis_id": "basis:generic:milestone@1",
+          "unit_id": "unit:core:qualitative@1",
+          "dimension_set_id": "dimset:generic:company@1"
+        },
+        "actual": {
+          "actual_role_id": "actual:promise-progress:milestone-outcome@1",
+          "role_semantic_assertion": {
+            "actual_role_id": "actual:promise-progress:milestone-outcome@1",
+            "semantic_class": "milestone-outcome",
+            "allowed_definition_ids": ["definition:generic:milestone-state@1"],
+            "allowed_basis_ids": ["basis:generic:milestone@1"],
+            "allowed_period_types": ["annual"]
+          },
+          "semantic_identity": {
+            "metric_id": "metric:generic:facility-milestone@1",
+            "definition_id": "definition:generic:milestone-state@1",
+            "basis_id": "basis:generic:milestone@1",
+            "unit_id": "unit:core:qualitative@1",
+            "dimension_set_id": "dimset:generic:company@1"
+          },
+          "selector": {
+            "kind": "NumericalFact",
+            "metric_id": "metric:generic:facility-milestone@1",
+            "definition_id": "definition:generic:milestone-state@1",
+            "basis_id": "basis:generic:milestone@1",
+            "unit_id": "unit:core:qualitative@1",
+            "effective_period_id": "period:generic:fy2026@1",
+            "dimension_set_id": "dimset:generic:company@1"
+          },
+          "milestone_state": {
+            "state": "completed",
+            "exact_source_text": "Facility operations started",
+            "assessment_method_id": "assessment-method:promise-progress:reviewed-milestone-state@1",
+            "knowledge_date": "2026-11-30",
+            "deadline_or_horizon_id": "period:generic:fy2026@1",
+            "review_state": "accepted"
+          }
+        },
+        "status_rule_id": "assessment:promise-progress:date-or-milestone@1"
+      },
+      {
+        "entity_selector": {"kind": "Promise", "program_id": "program:generic:contingent-commitment@1"},
+        "metric_label": "Policy-contingent qualitative milestone",
+        "include_in_annual": false,
+        "include_in_open": true,
+        "horizon_display": "Contingent on policy approval; timing unresolved",
+        "target_semantic_identity": {
+          "metric_id": "metric:generic:qualitative-commitment@1",
+          "definition_id": "definition:generic:qualitative-state@1",
+          "basis_id": "basis:generic:contingent@1",
+          "unit_id": "unit:core:qualitative@1",
+          "dimension_set_id": "dimset:generic:company@1"
+        },
+        "status_rule_id": "assessment:promise-progress:qualitative-commitment@1",
+        "review_issue_rule_ids": ["unresolved_dependency"]
+      }
+    ],
+    "coverage_gaps": [],
+    "parity_exception_ids": [
+      "parity:scorecard-unreviewed-legacy@1",
+      "parity:empty-tracker-parallel-ownership@1",
+      "parity:lossy-support-matrix@1",
+      "parity:fuzzy-hidden-trace-keys@1",
+      "parity:static-status-without-rule@1",
+      "parity:generic-source-note-without-locator@1"
+    ]
+  },
+  "expected_product_sha256": "34a9f12d602e43edf44ecd0ba4320c9ae041872452c14fc90d8849e7c982c22b",
+  "expected_shadow_sha256": "4688e1f60583bfa3266700c8a28d31ed2573c1c3b17072c5cf66bcbcacd9d87c"
+}

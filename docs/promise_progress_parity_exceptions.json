@@ -1,0 +1,1501 @@
+{
+  "schema_id": "register:promise-progress:parity-exceptions@1",
+  "register_state": "closed-for-first-shadow",
+  "acceptance_rule": "A clean parity result requires exact independently pinned legacy and source scope manifests, one complete reviewed row-disposition partition, independently replayed field differences, and explicit structural observations. Every accepted field, row, or structural condition must resolve exactly one active closed policy and replay its own authorization digest; global activation, matching failure, or current output may never create authorization.",
+  "authorization_layers": [
+    {
+      "layer_id": "frozen-scope-manifests",
+      "authority": "independently pinned legacy capture and source-native product scope",
+      "may_classify": false,
+      "may_authorize": false
+    },
+    {
+      "layer_id": "independent-comparison-and-classification",
+      "authority": "runtime field, counterpart, and structural replay",
+      "may_classify": true,
+      "may_authorize": false
+    },
+    {
+      "layer_id": "reviewed-accepted-difference-binding",
+      "authority": "pinned reviewed field binding configuration",
+      "may_classify": false,
+      "may_authorize": false
+    },
+    {
+      "layer_id": "reviewed-row-disposition",
+      "authority": "pinned complete row-partition configuration",
+      "may_classify": false,
+      "may_authorize": false
+    },
+    {
+      "layer_id": "reviewed-structural-binding",
+      "authority": "pinned structural observation binding",
+      "may_classify": false,
+      "may_authorize": false
+    },
+    {
+      "layer_id": "exception-policy",
+      "authority": "closed reviewed field, row-disposition, or structural policy register",
+      "may_classify": false,
+      "may_authorize": true
+    }
+  ],
+  "closed_difference_reason_codes": [
+    "accepted_annual_actual_unavailable",
+    "equivalent_label_display_normalized",
+    "equivalent_value_display_normalized",
+    "legacy_fuzzy_trace_key_replaced",
+    "legacy_generic_source_note_replaced_by_lineage",
+    "legacy_lossy_support_matrix_replaced",
+    "legacy_parallel_tracker_ownership_removed",
+    "legacy_static_status_replaced_by_replay",
+    "legacy_temporal_leakage_removed",
+    "legacy_terminal_summary_replaced_by_typed_history",
+    "legacy_unreviewed_scorecard_value",
+    "legacy_unsupported_by_accepted_product",
+    "reviewed_row_destination_remap",
+    "reviewed_semantic_row_pair",
+    "source_native_canonical_row_legacy_omitted",
+    "source_native_typed_history_legacy_omitted"
+  ],
+  "binding_required_fields": [
+    "binding_id",
+    "exception_id",
+    "exception_policy_version",
+    "semantic_reason_code",
+    "product_id",
+    "block_id",
+    "reviewed_legacy_business_key",
+    "source_native_row_id",
+    "row_type",
+    "business_key_class",
+    "field_role",
+    "legacy_destination_cell",
+    "source_native_destination_cell",
+    "difference_class",
+    "legacy_value",
+    "source_native_value",
+    "comparison_digest",
+    "exception_authorization_digest"
+  ],
+  "policy_required_fields": [
+    "policy_id",
+    "authorization_kind",
+    "exception_id",
+    "exception_policy_version",
+    "state",
+    "allowed_difference_reason_codes",
+    "allowed_product_ids",
+    "allowed_block_ids",
+    "allowed_row_types",
+    "allowed_business_key_classes",
+    "allowed_reviewed_business_keys",
+    "allowed_legacy_row_ids",
+    "allowed_source_native_row_ids",
+    "allowed_disposition_kinds",
+    "allowed_field_roles",
+    "allowed_difference_classes",
+    "allowed_destination_pairs",
+    "allowed_structural_binding_ids",
+    "allowed_structural_condition_types",
+    "allowed_sheet_names",
+    "duration",
+    "acceptance_owner",
+    "source_native_rationale",
+    "legacy_behavior_category"
+  ],
+  "exceptions": [
+    {
+      "exception_id": "parity:anf-accepted-actual-coverage-gap@1",
+      "legacy_behavior": "Legacy annual cells contain hard-coded outcomes not all present as compatible accepted source-native facts.",
+      "source_native_behavior": "Unsupported Actual cells remain blank or Needs Review and comparable sales is not relabelled net-sales growth.",
+      "semantic_reason": "Prevents workbook values and incompatible metrics from becoming canonical facts.",
+      "acceptance_owner": "source-native product owner",
+      "duration": "temporary source-coverage gap",
+      "authorization_policies": [
+        {
+          "policy_id": "policy:promise-progress:annual-actual-coverage@1",
+          "authorization_kind": "field-difference",
+          "exception_id": "parity:anf-accepted-actual-coverage-gap@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "accepted_annual_actual_unavailable"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:annual-guidance-progression@1"
+          ],
+          "allowed_row_types": [
+            "annual_guidance_series",
+            "diagnostic_coverage_gap"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:annual-coverage-gap@1",
+            "business-key-class:promise-progress:annual-guidance-series@1"
+          ],
+          "allowed_reviewed_business_keys": [
+            "legacy-business-key:anf:annual:row-13@1",
+            "legacy-business-key:anf:annual:row-14@1",
+            "legacy-business-key:anf:annual:row-15@1"
+          ],
+          "allowed_source_native_row_ids": [
+            "promise-progress-row:ed53fc72da1b:annual:1f79d2f665ef0049b1da@1",
+            "promise-progress-row:ed53fc72da1b:annual:f6f3c5e72a2f04bf7b08@1",
+            "promise-progress-row:ed53fc72da1b:annual:f6fdf1989dda999e7064@1"
+          ],
+          "allowed_field_roles": [
+            "actual",
+            "notes_source",
+            "status"
+          ],
+          "allowed_difference_classes": [
+            "unregistered-difference"
+          ],
+          "allowed_destination_pairs": [
+            {
+              "legacy_destination_cell": "G13",
+              "source_native_destination_cell": "G13"
+            },
+            {
+              "legacy_destination_cell": "H13",
+              "source_native_destination_cell": "H13"
+            },
+            {
+              "legacy_destination_cell": "I13",
+              "source_native_destination_cell": "I13"
+            },
+            {
+              "legacy_destination_cell": "G14",
+              "source_native_destination_cell": "G14"
+            },
+            {
+              "legacy_destination_cell": "H14",
+              "source_native_destination_cell": "H14"
+            },
+            {
+              "legacy_destination_cell": "I14",
+              "source_native_destination_cell": "I14"
+            },
+            {
+              "legacy_destination_cell": "G15",
+              "source_native_destination_cell": "G15"
+            },
+            {
+              "legacy_destination_cell": "H15",
+              "source_native_destination_cell": "H15"
+            },
+            {
+              "legacy_destination_cell": "I15",
+              "source_native_destination_cell": "I15"
+            }
+          ],
+          "duration": "temporary source-coverage gap",
+          "acceptance_owner": "source-native product owner",
+          "source_native_rationale": "Unsupported Actual cells remain blank or Needs Review and comparable sales is not relabelled net-sales growth.",
+          "legacy_behavior_category": "accepted_annual_actual_unavailable",
+          "allowed_legacy_row_ids": [],
+          "allowed_disposition_kinds": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": []
+        }
+      ]
+    },
+    {
+      "exception_id": "parity:empty-tracker-parallel-ownership@1",
+      "legacy_behavior": "Promise_Tracker is empty while other legacy sheets separately materialize product data.",
+      "source_native_behavior": "One immutable product owns selection, status, visible rows, traces, and shadow fields.",
+      "semantic_reason": "Removes parallel truth engines.",
+      "acceptance_owner": "workbook architecture owner",
+      "duration": "permanent",
+      "authorization_policies": [
+        {
+          "policy_id": "policy:promise-progress:empty-tracker-ownership@1",
+          "authorization_kind": "structural-product-difference",
+          "exception_id": "parity:empty-tracker-parallel-ownership@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "legacy_parallel_tracker_ownership_removed"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:management-credibility-scorecard@1",
+            "block:promise-progress:annual-guidance-progression@1",
+            "block:promise-progress:open-guidance@1",
+            "block:promise-progress:quarterly-revision-timeline@1"
+          ],
+          "allowed_row_types": [],
+          "allowed_business_key_classes": [],
+          "allowed_reviewed_business_keys": [],
+          "allowed_source_native_row_ids": [],
+          "allowed_field_roles": [],
+          "allowed_difference_classes": [
+            "structural-product-difference"
+          ],
+          "allowed_destination_pairs": [],
+          "duration": "permanent",
+          "acceptance_owner": "workbook architecture owner",
+          "source_native_rationale": "One immutable product owns selection, status, visible rows, traces, and shadow fields.",
+          "legacy_behavior_category": "legacy_parallel_tracker_ownership_removed",
+          "allowed_legacy_row_ids": [],
+          "allowed_disposition_kinds": [],
+          "allowed_structural_binding_ids": [
+            "structural-binding:promise-progress:empty-tracker@1"
+          ],
+          "allowed_structural_condition_types": [
+            "empty-tracker-parallel-ownership"
+          ],
+          "allowed_sheet_names": [
+            "Promise_Progress_UI"
+          ]
+        }
+      ]
+    },
+    {
+      "exception_id": "parity:equivalent-display-normalization@1",
+      "legacy_behavior": "The legacy UI uses presentation-specific labels and value formatting.",
+      "source_native_behavior": "Equivalent values use deterministic product-owned display text while retaining the same economic identity.",
+      "semantic_reason": "Normalizes equivalent display representation without changing economics.",
+      "acceptance_owner": "Promise Progress product owner",
+      "duration": "permanent",
+      "authorization_policies": [
+        {
+          "policy_id": "policy:promise-progress:equivalent-display-normalization@1",
+          "authorization_kind": "field-difference",
+          "exception_id": "parity:equivalent-display-normalization@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "equivalent_label_display_normalized",
+            "equivalent_value_display_normalized"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:annual-guidance-progression@1",
+            "block:promise-progress:open-guidance@1"
+          ],
+          "allowed_row_types": [
+            "annual_guidance_series",
+            "diagnostic_coverage_gap",
+            "open_guidance"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:annual-coverage-gap@1",
+            "business-key-class:promise-progress:annual-guidance-series@1",
+            "business-key-class:promise-progress:open-guidance-series@1"
+          ],
+          "allowed_reviewed_business_keys": [
+            "legacy-business-key:anf:annual:row-13@1",
+            "legacy-business-key:anf:annual:row-14@1",
+            "legacy-business-key:anf:annual:row-15@1",
+            "legacy-business-key:anf:open:row-39@1",
+            "legacy-business-key:anf:open:row-40@1"
+          ],
+          "allowed_source_native_row_ids": [
+            "promise-progress-row:ed53fc72da1b:annual:1f79d2f665ef0049b1da@1",
+            "promise-progress-row:ed53fc72da1b:annual:f6f3c5e72a2f04bf7b08@1",
+            "promise-progress-row:ed53fc72da1b:annual:f6fdf1989dda999e7064@1",
+            "promise-progress-row:ed53fc72da1b:open:b0d307eead8f00121c79@1",
+            "promise-progress-row:ed53fc72da1b:open:d611086c046cb4de7a30@1"
+          ],
+          "allowed_field_roles": [
+            "current_guide",
+            "horizon",
+            "initial_guide",
+            "metric",
+            "q1_guide",
+            "q2_guide",
+            "q3_guide",
+            "q4_guide"
+          ],
+          "allowed_difference_classes": [
+            "unregistered-difference"
+          ],
+          "allowed_destination_pairs": [
+            {
+              "legacy_destination_cell": "A13",
+              "source_native_destination_cell": "A13"
+            },
+            {
+              "legacy_destination_cell": "B13",
+              "source_native_destination_cell": "B13"
+            },
+            {
+              "legacy_destination_cell": "C13",
+              "source_native_destination_cell": "C13"
+            },
+            {
+              "legacy_destination_cell": "D13",
+              "source_native_destination_cell": "D13"
+            },
+            {
+              "legacy_destination_cell": "E13",
+              "source_native_destination_cell": "E13"
+            },
+            {
+              "legacy_destination_cell": "F13",
+              "source_native_destination_cell": "F13"
+            },
+            {
+              "legacy_destination_cell": "A14",
+              "source_native_destination_cell": "A14"
+            },
+            {
+              "legacy_destination_cell": "D14",
+              "source_native_destination_cell": "D14"
+            },
+            {
+              "legacy_destination_cell": "E14",
+              "source_native_destination_cell": "E14"
+            },
+            {
+              "legacy_destination_cell": "A15",
+              "source_native_destination_cell": "A15"
+            },
+            {
+              "legacy_destination_cell": "B15",
+              "source_native_destination_cell": "B15"
+            },
+            {
+              "legacy_destination_cell": "C15",
+              "source_native_destination_cell": "C15"
+            },
+            {
+              "legacy_destination_cell": "D15",
+              "source_native_destination_cell": "D15"
+            },
+            {
+              "legacy_destination_cell": "E15",
+              "source_native_destination_cell": "E15"
+            },
+            {
+              "legacy_destination_cell": "F15",
+              "source_native_destination_cell": "F15"
+            },
+            {
+              "legacy_destination_cell": "A39",
+              "source_native_destination_cell": "A39"
+            },
+            {
+              "legacy_destination_cell": "B39",
+              "source_native_destination_cell": "B39"
+            },
+            {
+              "legacy_destination_cell": "C39",
+              "source_native_destination_cell": "C39"
+            },
+            {
+              "legacy_destination_cell": "A40",
+              "source_native_destination_cell": "A40"
+            },
+            {
+              "legacy_destination_cell": "C40",
+              "source_native_destination_cell": "C40"
+            }
+          ],
+          "duration": "permanent",
+          "acceptance_owner": "Promise Progress product owner",
+          "source_native_rationale": "Equivalent values use deterministic product-owned display text while retaining the same economic identity.",
+          "legacy_behavior_category": "equivalent_label_display_normalized",
+          "allowed_legacy_row_ids": [],
+          "allowed_disposition_kinds": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": []
+        }
+      ]
+    },
+    {
+      "exception_id": "parity:fuzzy-hidden-trace-keys@1",
+      "legacy_behavior": "Hidden column O uses fuzzy display-derived trace slugs while M and N are unused.",
+      "source_native_behavior": "M and N remain reserved; O receives only a stable versioned product row_id in a later writer phase.",
+      "semantic_reason": "Replaces lossy fuzzy identity with deterministic lineage.",
+      "acceptance_owner": "evidence-lineage owner",
+      "duration": "permanent",
+      "authorization_policies": [
+        {
+          "policy_id": "policy:promise-progress:fuzzy-trace-key@1",
+          "authorization_kind": "structural-product-difference",
+          "exception_id": "parity:fuzzy-hidden-trace-keys@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "legacy_fuzzy_trace_key_replaced"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:quarterly-revision-timeline@1"
+          ],
+          "allowed_row_types": [],
+          "allowed_business_key_classes": [],
+          "allowed_reviewed_business_keys": [],
+          "allowed_source_native_row_ids": [],
+          "allowed_field_roles": [],
+          "allowed_difference_classes": [
+            "structural-product-difference"
+          ],
+          "allowed_destination_pairs": [],
+          "duration": "permanent",
+          "acceptance_owner": "evidence-lineage owner",
+          "source_native_rationale": "M and N remain reserved; O receives only a stable versioned product row_id in a later writer phase.",
+          "legacy_behavior_category": "legacy_fuzzy_trace_key_replaced",
+          "allowed_legacy_row_ids": [],
+          "allowed_disposition_kinds": [],
+          "allowed_structural_binding_ids": [
+            "structural-binding:promise-progress:fuzzy-trace@1"
+          ],
+          "allowed_structural_condition_types": [
+            "fuzzy-hidden-trace-identity"
+          ],
+          "allowed_sheet_names": [
+            "Promise_Progress_UI"
+          ]
+        }
+      ]
+    },
+    {
+      "exception_id": "parity:generic-source-note-without-locator@1",
+      "legacy_behavior": "Visible notes may use generic publisher/date prose without immutable locators.",
+      "source_native_behavior": "Compact prose remains visible while each shadow field retains exact documents and occurrences.",
+      "semantic_reason": "Adds replayable lineage without expanding the first-parity UI.",
+      "acceptance_owner": "evidence-lineage owner",
+      "duration": "permanent",
+      "authorization_policies": [
+        {
+          "policy_id": "policy:promise-progress:generic-source-lineage@1",
+          "authorization_kind": "field-difference",
+          "exception_id": "parity:generic-source-note-without-locator@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "legacy_generic_source_note_replaced_by_lineage"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:open-guidance@1"
+          ],
+          "allowed_row_types": [
+            "open_guidance"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:open-guidance-series@1"
+          ],
+          "allowed_reviewed_business_keys": [
+            "legacy-business-key:anf:open:row-39@1",
+            "legacy-business-key:anf:open:row-40@1"
+          ],
+          "allowed_source_native_row_ids": [
+            "promise-progress-row:ed53fc72da1b:open:b0d307eead8f00121c79@1",
+            "promise-progress-row:ed53fc72da1b:open:d611086c046cb4de7a30@1"
+          ],
+          "allowed_field_roles": [
+            "notes_source"
+          ],
+          "allowed_difference_classes": [
+            "unregistered-difference"
+          ],
+          "allowed_destination_pairs": [
+            {
+              "legacy_destination_cell": "E39",
+              "source_native_destination_cell": "E39"
+            },
+            {
+              "legacy_destination_cell": "E40",
+              "source_native_destination_cell": "E40"
+            }
+          ],
+          "duration": "permanent",
+          "acceptance_owner": "evidence-lineage owner",
+          "source_native_rationale": "Compact prose remains visible while each shadow field retains exact documents and occurrences.",
+          "legacy_behavior_category": "legacy_generic_source_note_replaced_by_lineage",
+          "allowed_legacy_row_ids": [],
+          "allowed_disposition_kinds": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": []
+        }
+      ]
+    },
+    {
+      "exception_id": "parity:lossy-support-matrix@1",
+      "legacy_behavior": "Legacy support matrices and the visible UI contain different lossy subsets.",
+      "source_native_behavior": "One complete field-level shadow matrix generates validation, parity, and later UI views.",
+      "semantic_reason": "Retains target history, basis, evidence, review, and temporal state.",
+      "acceptance_owner": "workbook architecture owner",
+      "duration": "permanent",
+      "authorization_policies": [
+        {
+          "policy_id": "policy:promise-progress:legacy-terminal-summary@1",
+          "authorization_kind": "row-disposition",
+          "exception_id": "parity:lossy-support-matrix@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "legacy_terminal_summary_replaced_by_typed_history"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:quarterly-revision-timeline@1"
+          ],
+          "allowed_row_types": [
+            "legacy-row-type:timeline-terminal-summary@1"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:legacy-timeline-unsupported@1"
+          ],
+          "allowed_reviewed_business_keys": [
+            "legacy-business-key:anf:timeline:row-78@1",
+            "legacy-business-key:anf:timeline:row-79@1"
+          ],
+          "allowed_legacy_row_ids": [
+            "legacy-row:promise-progress:timeline:78@1",
+            "legacy-row:promise-progress:timeline:79@1"
+          ],
+          "allowed_source_native_row_ids": [],
+          "allowed_disposition_kinds": [
+            "legacy_only"
+          ],
+          "allowed_field_roles": [],
+          "allowed_difference_classes": [],
+          "allowed_destination_pairs": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": [
+            "Promise_Progress_UI"
+          ],
+          "duration": "permanent",
+          "acceptance_owner": "Promise Progress parity owner",
+          "source_native_rationale": "Static terminal summary rows are replaced by explicit typed version histories rather than paired to unrelated versions.",
+          "legacy_behavior_category": "legacy_terminal_summary_replaced_by_typed_history"
+        },
+        {
+          "policy_id": "policy:promise-progress:legacy-unsupported-row@1",
+          "authorization_kind": "row-disposition",
+          "exception_id": "parity:lossy-support-matrix@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "legacy_unsupported_by_accepted_product"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:annual-guidance-progression@1",
+            "block:promise-progress:quarterly-revision-timeline@1"
+          ],
+          "allowed_row_types": [
+            "legacy-row-type:annual-capital-structure@1",
+            "legacy-row-type:timeline-unsupported@1"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:legacy-annual-capital-structure@1",
+            "business-key-class:promise-progress:legacy-timeline-unsupported@1"
+          ],
+          "allowed_reviewed_business_keys": [
+            "legacy-business-key:anf:annual:row-16@1",
+            "legacy-business-key:anf:annual:row-17@1",
+            "legacy-business-key:anf:timeline:row-62@1",
+            "legacy-business-key:anf:timeline:row-64@1",
+            "legacy-business-key:anf:timeline:row-65@1",
+            "legacy-business-key:anf:timeline:row-66@1",
+            "legacy-business-key:anf:timeline:row-67@1",
+            "legacy-business-key:anf:timeline:row-73@1",
+            "legacy-business-key:anf:timeline:row-74@1",
+            "legacy-business-key:anf:timeline:row-80@1",
+            "legacy-business-key:anf:timeline:row-81@1",
+            "legacy-business-key:anf:timeline:row-82@1",
+            "legacy-business-key:anf:timeline:row-83@1",
+            "legacy-business-key:anf:timeline:row-86@1",
+            "legacy-business-key:anf:timeline:row-87@1"
+          ],
+          "allowed_legacy_row_ids": [
+            "legacy-row:promise-progress:annual:16@1",
+            "legacy-row:promise-progress:annual:17@1",
+            "legacy-row:promise-progress:timeline:62@1",
+            "legacy-row:promise-progress:timeline:64@1",
+            "legacy-row:promise-progress:timeline:65@1",
+            "legacy-row:promise-progress:timeline:66@1",
+            "legacy-row:promise-progress:timeline:67@1",
+            "legacy-row:promise-progress:timeline:73@1",
+            "legacy-row:promise-progress:timeline:74@1",
+            "legacy-row:promise-progress:timeline:80@1",
+            "legacy-row:promise-progress:timeline:81@1",
+            "legacy-row:promise-progress:timeline:82@1",
+            "legacy-row:promise-progress:timeline:83@1",
+            "legacy-row:promise-progress:timeline:86@1",
+            "legacy-row:promise-progress:timeline:87@1"
+          ],
+          "allowed_source_native_row_ids": [],
+          "allowed_disposition_kinds": [
+            "legacy_only"
+          ],
+          "allowed_field_roles": [],
+          "allowed_difference_classes": [],
+          "allowed_destination_pairs": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": [
+            "Promise_Progress_UI"
+          ],
+          "duration": "temporary until compatible canonical coverage is accepted",
+          "acceptance_owner": "Promise Progress parity owner",
+          "source_native_rationale": "Legacy rows without compatible accepted canonical records remain explicit legacy-only product-oracle content.",
+          "legacy_behavior_category": "legacy_unsupported_by_accepted_product"
+        },
+        {
+          "policy_id": "policy:promise-progress:lossy-support-matrix@1",
+          "authorization_kind": "structural-product-difference",
+          "exception_id": "parity:lossy-support-matrix@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "legacy_lossy_support_matrix_replaced"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:management-credibility-scorecard@1",
+            "block:promise-progress:annual-guidance-progression@1",
+            "block:promise-progress:open-guidance@1",
+            "block:promise-progress:quarterly-revision-timeline@1"
+          ],
+          "allowed_row_types": [],
+          "allowed_business_key_classes": [],
+          "allowed_reviewed_business_keys": [],
+          "allowed_source_native_row_ids": [],
+          "allowed_field_roles": [],
+          "allowed_difference_classes": [
+            "structural-product-difference"
+          ],
+          "allowed_destination_pairs": [],
+          "duration": "permanent",
+          "acceptance_owner": "workbook architecture owner",
+          "source_native_rationale": "One complete field-level shadow matrix generates validation, parity, and later UI views.",
+          "legacy_behavior_category": "legacy_lossy_support_matrix_replaced",
+          "allowed_legacy_row_ids": [],
+          "allowed_disposition_kinds": [],
+          "allowed_structural_binding_ids": [
+            "structural-binding:promise-progress:lossy-support-matrix@1"
+          ],
+          "allowed_structural_condition_types": [
+            "lossy-support-matrix-ownership"
+          ],
+          "allowed_sheet_names": [
+            "Promise_Progress_UI"
+          ]
+        },
+        {
+          "policy_id": "policy:promise-progress:row-pair-reviewed@1",
+          "authorization_kind": "row-disposition",
+          "exception_id": "parity:lossy-support-matrix@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "reviewed_semantic_row_pair"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:management-credibility-scorecard@1",
+            "block:promise-progress:annual-guidance-progression@1",
+            "block:promise-progress:open-guidance@1",
+            "block:promise-progress:quarterly-revision-timeline@1"
+          ],
+          "allowed_row_types": [
+            "annual_guidance_series",
+            "diagnostic_coverage_gap",
+            "guidance_version",
+            "open_guidance",
+            "scorecard_assessment"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:annual-coverage-gap@1",
+            "business-key-class:promise-progress:annual-guidance-series@1",
+            "business-key-class:promise-progress:open-guidance-series@1",
+            "business-key-class:promise-progress:scorecard-assessment@1",
+            "business-key-class:promise-progress:timeline-guidance-version@1"
+          ],
+          "allowed_reviewed_business_keys": [
+            "legacy-business-key:anf:annual:row-13@1",
+            "legacy-business-key:anf:annual:row-14@1",
+            "legacy-business-key:anf:annual:row-15@1",
+            "legacy-business-key:anf:open:row-39@1",
+            "legacy-business-key:anf:open:row-40@1",
+            "legacy-business-key:anf:scorecard:row-5@1",
+            "legacy-business-key:anf:scorecard:row-6@1",
+            "legacy-business-key:anf:scorecard:row-7@1",
+            "legacy-business-key:anf:scorecard:row-8@1",
+            "legacy-business-key:anf:scorecard:row-9@1",
+            "legacy-business-key:anf:timeline:row-61@1",
+            "legacy-business-key:anf:timeline:row-63@1",
+            "legacy-business-key:anf:timeline:row-71@1",
+            "legacy-business-key:anf:timeline:row-72@1"
+          ],
+          "allowed_legacy_row_ids": [
+            "legacy-row:promise-progress:annual:13@1",
+            "legacy-row:promise-progress:annual:14@1",
+            "legacy-row:promise-progress:annual:15@1",
+            "legacy-row:promise-progress:open:39@1",
+            "legacy-row:promise-progress:open:40@1",
+            "legacy-row:promise-progress:scorecard:5@1",
+            "legacy-row:promise-progress:scorecard:6@1",
+            "legacy-row:promise-progress:scorecard:7@1",
+            "legacy-row:promise-progress:scorecard:8@1",
+            "legacy-row:promise-progress:scorecard:9@1",
+            "legacy-row:promise-progress:timeline:61@1",
+            "legacy-row:promise-progress:timeline:63@1",
+            "legacy-row:promise-progress:timeline:71@1",
+            "legacy-row:promise-progress:timeline:72@1"
+          ],
+          "allowed_source_native_row_ids": [
+            "promise-progress-row:ed53fc72da1b:annual:1f79d2f665ef0049b1da@1",
+            "promise-progress-row:ed53fc72da1b:annual:f6f3c5e72a2f04bf7b08@1",
+            "promise-progress-row:ed53fc72da1b:annual:f6fdf1989dda999e7064@1",
+            "promise-progress-row:ed53fc72da1b:open:b0d307eead8f00121c79@1",
+            "promise-progress-row:ed53fc72da1b:open:d611086c046cb4de7a30@1",
+            "promise-progress-row:ed53fc72da1b:scorecard:0da8134d8a0c9154cda0@1",
+            "promise-progress-row:ed53fc72da1b:scorecard:75686a48543da1e24dba@1",
+            "promise-progress-row:ed53fc72da1b:scorecard:a010934ae4a75f0c3b22@1",
+            "promise-progress-row:ed53fc72da1b:scorecard:d9e0e3625cc126bdded5@1",
+            "promise-progress-row:ed53fc72da1b:scorecard:fe32e56cd12965110beb@1",
+            "promise-progress-row:ed53fc72da1b:timeline:1cfdead948f8ab1a754d@1",
+            "promise-progress-row:ed53fc72da1b:timeline:3e624b61933d55be4bcd@1",
+            "promise-progress-row:ed53fc72da1b:timeline:d741a23e844b8530ae3f@1",
+            "promise-progress-row:ed53fc72da1b:timeline:ee6ae22ff5036a313e95@1"
+          ],
+          "allowed_disposition_kinds": [
+            "paired"
+          ],
+          "allowed_field_roles": [],
+          "allowed_difference_classes": [],
+          "allowed_destination_pairs": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": [
+            "Promise_Progress_UI"
+          ],
+          "duration": "permanent",
+          "acceptance_owner": "Promise Progress parity owner",
+          "source_native_rationale": "Exact typed identities establish each reviewed legacy/source-native semantic row pair.",
+          "legacy_behavior_category": "reviewed_semantic_row_pair"
+        },
+        {
+          "policy_id": "policy:promise-progress:source-canonical-row-legacy-omitted@1",
+          "authorization_kind": "row-disposition",
+          "exception_id": "parity:lossy-support-matrix@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "source_native_canonical_row_legacy_omitted"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:annual-guidance-progression@1"
+          ],
+          "allowed_row_types": [
+            "annual_guidance_series",
+            "diagnostic_coverage_gap"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:annual-coverage-gap@1",
+            "business-key-class:promise-progress:annual-guidance-series@1"
+          ],
+          "allowed_reviewed_business_keys": [],
+          "allowed_legacy_row_ids": [],
+          "allowed_source_native_row_ids": [
+            "promise-progress-row:ed53fc72da1b:annual:7c2942331dcd5826b327@1",
+            "promise-progress-row:ed53fc72da1b:annual:ca8125f020b48ba4b288@1"
+          ],
+          "allowed_disposition_kinds": [
+            "source_native_only"
+          ],
+          "allowed_field_roles": [],
+          "allowed_difference_classes": [],
+          "allowed_destination_pairs": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": [
+            "Promise_Progress_UI"
+          ],
+          "duration": "permanent",
+          "acceptance_owner": "Promise Progress parity owner",
+          "source_native_rationale": "Canonical annual diagnostic and Promise rows omitted by the legacy product remain explicit source-native-only rows.",
+          "legacy_behavior_category": "source_native_canonical_row_legacy_omitted"
+        },
+        {
+          "policy_id": "policy:promise-progress:source-history-legacy-omitted@1",
+          "authorization_kind": "row-disposition",
+          "exception_id": "parity:lossy-support-matrix@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "source_native_typed_history_legacy_omitted"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:quarterly-revision-timeline@1"
+          ],
+          "allowed_row_types": [
+            "guidance_version",
+            "promise_version"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:timeline-guidance-version@1",
+            "business-key-class:promise-progress:timeline-promise-version@1"
+          ],
+          "allowed_reviewed_business_keys": [],
+          "allowed_legacy_row_ids": [],
+          "allowed_source_native_row_ids": [
+            "promise-progress-row:ed53fc72da1b:timeline:11eb1bed9e11fd131111@1",
+            "promise-progress-row:ed53fc72da1b:timeline:27a0b8ec5385749098b5@1",
+            "promise-progress-row:ed53fc72da1b:timeline:4a647287cedd1923cdff@1",
+            "promise-progress-row:ed53fc72da1b:timeline:564624e5cfa1d7406cde@1",
+            "promise-progress-row:ed53fc72da1b:timeline:6f30ef6366ba1c3ae786@1",
+            "promise-progress-row:ed53fc72da1b:timeline:7c10486f69bd08573c72@1",
+            "promise-progress-row:ed53fc72da1b:timeline:81330053ff9b2343fc4b@1",
+            "promise-progress-row:ed53fc72da1b:timeline:871c798775741e82af18@1",
+            "promise-progress-row:ed53fc72da1b:timeline:87271feb34018b9cfc57@1",
+            "promise-progress-row:ed53fc72da1b:timeline:95325ac29cf9b29b60f9@1",
+            "promise-progress-row:ed53fc72da1b:timeline:9e62e7292797c0815b0b@1",
+            "promise-progress-row:ed53fc72da1b:timeline:aa2da9a21af75ec055cc@1",
+            "promise-progress-row:ed53fc72da1b:timeline:af87fb9d35492fac51ab@1",
+            "promise-progress-row:ed53fc72da1b:timeline:b11b83ea0d947c230fcf@1",
+            "promise-progress-row:ed53fc72da1b:timeline:e6bb8c8969ca6d09fe34@1"
+          ],
+          "allowed_disposition_kinds": [
+            "source_native_only"
+          ],
+          "allowed_field_roles": [],
+          "allowed_difference_classes": [],
+          "allowed_destination_pairs": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": [
+            "Promise_Progress_UI"
+          ],
+          "duration": "permanent",
+          "acceptance_owner": "Promise Progress parity owner",
+          "source_native_rationale": "Material typed guidance and Promise versions without one-to-one legacy rows remain explicit source-native history.",
+          "legacy_behavior_category": "source_native_typed_history_legacy_omitted"
+        }
+      ]
+    },
+    {
+      "exception_id": "parity:reviewed-row-destination-remap@1",
+      "legacy_behavior": "A reviewed legacy business row occupies a different visible destination from its source-native counterpart.",
+      "source_native_behavior": "The semantic counterpart is selected by typed identity and rendered in deterministic product order.",
+      "semantic_reason": "Preserves a reviewed business concept while removing workbook-row-order ownership.",
+      "acceptance_owner": "Promise Progress product owner",
+      "duration": "permanent",
+      "authorization_policies": [
+        {
+          "policy_id": "policy:promise-progress:reviewed-row-remap@1",
+          "authorization_kind": "field-difference",
+          "exception_id": "parity:reviewed-row-destination-remap@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "reviewed_row_destination_remap"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:quarterly-revision-timeline@1"
+          ],
+          "allowed_row_types": [
+            "guidance_version"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:timeline-guidance-version@1"
+          ],
+          "allowed_reviewed_business_keys": [
+            "legacy-business-key:anf:timeline:row-61@1",
+            "legacy-business-key:anf:timeline:row-63@1",
+            "legacy-business-key:anf:timeline:row-71@1",
+            "legacy-business-key:anf:timeline:row-72@1"
+          ],
+          "allowed_source_native_row_ids": [
+            "promise-progress-row:ed53fc72da1b:timeline:1cfdead948f8ab1a754d@1",
+            "promise-progress-row:ed53fc72da1b:timeline:3e624b61933d55be4bcd@1",
+            "promise-progress-row:ed53fc72da1b:timeline:d741a23e844b8530ae3f@1",
+            "promise-progress-row:ed53fc72da1b:timeline:ee6ae22ff5036a313e95@1"
+          ],
+          "allowed_field_roles": [
+            "actual",
+            "change_type",
+            "current_guide",
+            "horizon",
+            "metric",
+            "previous_guide",
+            "progress",
+            "source_date",
+            "source_note",
+            "stated_in",
+            "status"
+          ],
+          "allowed_difference_classes": [
+            "reviewed-destination-remap"
+          ],
+          "allowed_destination_pairs": [
+            {
+              "legacy_destination_cell": "A61",
+              "source_native_destination_cell": "A82"
+            },
+            {
+              "legacy_destination_cell": "B61",
+              "source_native_destination_cell": "B82"
+            },
+            {
+              "legacy_destination_cell": "C61",
+              "source_native_destination_cell": "C82"
+            },
+            {
+              "legacy_destination_cell": "D61",
+              "source_native_destination_cell": "D82"
+            },
+            {
+              "legacy_destination_cell": "E61",
+              "source_native_destination_cell": "E82"
+            },
+            {
+              "legacy_destination_cell": "F61",
+              "source_native_destination_cell": "F82"
+            },
+            {
+              "legacy_destination_cell": "G61",
+              "source_native_destination_cell": "G82"
+            },
+            {
+              "legacy_destination_cell": "H61",
+              "source_native_destination_cell": "H82"
+            },
+            {
+              "legacy_destination_cell": "I61",
+              "source_native_destination_cell": "I82"
+            },
+            {
+              "legacy_destination_cell": "J61",
+              "source_native_destination_cell": "J82"
+            },
+            {
+              "legacy_destination_cell": "K61",
+              "source_native_destination_cell": "K82"
+            },
+            {
+              "legacy_destination_cell": "A63",
+              "source_native_destination_cell": "A86"
+            },
+            {
+              "legacy_destination_cell": "B63",
+              "source_native_destination_cell": "B86"
+            },
+            {
+              "legacy_destination_cell": "C63",
+              "source_native_destination_cell": "C86"
+            },
+            {
+              "legacy_destination_cell": "D63",
+              "source_native_destination_cell": "D86"
+            },
+            {
+              "legacy_destination_cell": "E63",
+              "source_native_destination_cell": "E86"
+            },
+            {
+              "legacy_destination_cell": "F63",
+              "source_native_destination_cell": "F86"
+            },
+            {
+              "legacy_destination_cell": "G63",
+              "source_native_destination_cell": "G86"
+            },
+            {
+              "legacy_destination_cell": "H63",
+              "source_native_destination_cell": "H86"
+            },
+            {
+              "legacy_destination_cell": "I63",
+              "source_native_destination_cell": "I86"
+            },
+            {
+              "legacy_destination_cell": "J63",
+              "source_native_destination_cell": "J86"
+            },
+            {
+              "legacy_destination_cell": "K63",
+              "source_native_destination_cell": "K86"
+            },
+            {
+              "legacy_destination_cell": "A71",
+              "source_native_destination_cell": "A65"
+            },
+            {
+              "legacy_destination_cell": "B71",
+              "source_native_destination_cell": "B65"
+            },
+            {
+              "legacy_destination_cell": "C71",
+              "source_native_destination_cell": "C65"
+            },
+            {
+              "legacy_destination_cell": "D71",
+              "source_native_destination_cell": "D65"
+            },
+            {
+              "legacy_destination_cell": "E71",
+              "source_native_destination_cell": "E65"
+            },
+            {
+              "legacy_destination_cell": "F71",
+              "source_native_destination_cell": "F65"
+            },
+            {
+              "legacy_destination_cell": "G71",
+              "source_native_destination_cell": "G65"
+            },
+            {
+              "legacy_destination_cell": "H71",
+              "source_native_destination_cell": "H65"
+            },
+            {
+              "legacy_destination_cell": "I71",
+              "source_native_destination_cell": "I65"
+            },
+            {
+              "legacy_destination_cell": "J71",
+              "source_native_destination_cell": "J65"
+            },
+            {
+              "legacy_destination_cell": "K71",
+              "source_native_destination_cell": "K65"
+            },
+            {
+              "legacy_destination_cell": "A72",
+              "source_native_destination_cell": "A73"
+            },
+            {
+              "legacy_destination_cell": "B72",
+              "source_native_destination_cell": "B73"
+            },
+            {
+              "legacy_destination_cell": "C72",
+              "source_native_destination_cell": "C73"
+            },
+            {
+              "legacy_destination_cell": "D72",
+              "source_native_destination_cell": "D73"
+            },
+            {
+              "legacy_destination_cell": "E72",
+              "source_native_destination_cell": "E73"
+            },
+            {
+              "legacy_destination_cell": "F72",
+              "source_native_destination_cell": "F73"
+            },
+            {
+              "legacy_destination_cell": "G72",
+              "source_native_destination_cell": "G73"
+            },
+            {
+              "legacy_destination_cell": "H72",
+              "source_native_destination_cell": "H73"
+            },
+            {
+              "legacy_destination_cell": "I72",
+              "source_native_destination_cell": "I73"
+            },
+            {
+              "legacy_destination_cell": "J72",
+              "source_native_destination_cell": "J73"
+            },
+            {
+              "legacy_destination_cell": "K72",
+              "source_native_destination_cell": "K73"
+            }
+          ],
+          "duration": "permanent",
+          "acceptance_owner": "Promise Progress product owner",
+          "source_native_rationale": "The semantic counterpart is selected by typed identity and rendered in deterministic product order.",
+          "legacy_behavior_category": "reviewed_row_destination_remap",
+          "allowed_legacy_row_ids": [],
+          "allowed_disposition_kinds": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": []
+        }
+      ]
+    },
+    {
+      "exception_id": "parity:scorecard-unreviewed-legacy@1",
+      "legacy_behavior": "The legacy scorecard contains hard-coded scores and investor reads without a reviewed assessment artifact.",
+      "source_native_behavior": "The scorecard geometry remains present while accepted Score and Read content remains Needs Review.",
+      "semantic_reason": "Separates analytical assessment from source facts.",
+      "acceptance_owner": "Promise Progress product owner",
+      "duration": "temporary until a reviewed assessment artifact is accepted",
+      "authorization_policies": [
+        {
+          "policy_id": "policy:promise-progress:scorecard-unreviewed@1",
+          "authorization_kind": "field-difference",
+          "exception_id": "parity:scorecard-unreviewed-legacy@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "active",
+          "allowed_difference_reason_codes": [
+            "legacy_unreviewed_scorecard_value"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:management-credibility-scorecard@1"
+          ],
+          "allowed_row_types": [
+            "scorecard_assessment"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:scorecard-assessment@1"
+          ],
+          "allowed_reviewed_business_keys": [
+            "legacy-business-key:anf:scorecard:row-5@1",
+            "legacy-business-key:anf:scorecard:row-6@1",
+            "legacy-business-key:anf:scorecard:row-7@1",
+            "legacy-business-key:anf:scorecard:row-8@1",
+            "legacy-business-key:anf:scorecard:row-9@1"
+          ],
+          "allowed_source_native_row_ids": [
+            "promise-progress-row:ed53fc72da1b:scorecard:0da8134d8a0c9154cda0@1",
+            "promise-progress-row:ed53fc72da1b:scorecard:75686a48543da1e24dba@1",
+            "promise-progress-row:ed53fc72da1b:scorecard:a010934ae4a75f0c3b22@1",
+            "promise-progress-row:ed53fc72da1b:scorecard:d9e0e3625cc126bdded5@1",
+            "promise-progress-row:ed53fc72da1b:scorecard:fe32e56cd12965110beb@1"
+          ],
+          "allowed_field_roles": [
+            "evidence",
+            "read",
+            "score"
+          ],
+          "allowed_difference_classes": [
+            "unregistered-difference"
+          ],
+          "allowed_destination_pairs": [
+            {
+              "legacy_destination_cell": "B5",
+              "source_native_destination_cell": "B5"
+            },
+            {
+              "legacy_destination_cell": "C5",
+              "source_native_destination_cell": "C5"
+            },
+            {
+              "legacy_destination_cell": "G5",
+              "source_native_destination_cell": "G5"
+            },
+            {
+              "legacy_destination_cell": "B6",
+              "source_native_destination_cell": "B6"
+            },
+            {
+              "legacy_destination_cell": "C6",
+              "source_native_destination_cell": "C6"
+            },
+            {
+              "legacy_destination_cell": "G6",
+              "source_native_destination_cell": "G6"
+            },
+            {
+              "legacy_destination_cell": "B7",
+              "source_native_destination_cell": "B7"
+            },
+            {
+              "legacy_destination_cell": "C7",
+              "source_native_destination_cell": "C7"
+            },
+            {
+              "legacy_destination_cell": "G7",
+              "source_native_destination_cell": "G7"
+            },
+            {
+              "legacy_destination_cell": "B8",
+              "source_native_destination_cell": "B8"
+            },
+            {
+              "legacy_destination_cell": "C8",
+              "source_native_destination_cell": "C8"
+            },
+            {
+              "legacy_destination_cell": "G8",
+              "source_native_destination_cell": "G8"
+            },
+            {
+              "legacy_destination_cell": "B9",
+              "source_native_destination_cell": "B9"
+            },
+            {
+              "legacy_destination_cell": "C9",
+              "source_native_destination_cell": "C9"
+            },
+            {
+              "legacy_destination_cell": "G9",
+              "source_native_destination_cell": "G9"
+            }
+          ],
+          "duration": "temporary until a reviewed assessment artifact is accepted",
+          "acceptance_owner": "Promise Progress product owner",
+          "source_native_rationale": "The scorecard geometry remains present while accepted Score and Read content remains Needs Review.",
+          "legacy_behavior_category": "legacy_unreviewed_scorecard_value",
+          "allowed_legacy_row_ids": [],
+          "allowed_disposition_kinds": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": []
+        }
+      ]
+    },
+    {
+      "exception_id": "parity:static-status-without-rule@1",
+      "legacy_behavior": "Legacy Status cells contain non-replayable static labels and fills.",
+      "source_native_behavior": "Every nonblank status replays one closed rule; unsafe labels become Needs Review or Basis-dependent.",
+      "semantic_reason": "Makes status deterministic and fail-closed.",
+      "acceptance_owner": "Promise Progress product owner",
+      "duration": "permanent",
+      "authorization_policies": [
+        {
+          "policy_id": "policy:promise-progress:static-status-deny-unpaired@1",
+          "authorization_kind": "deny-all",
+          "exception_id": "parity:static-status-without-rule@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "inactive",
+          "allowed_difference_reason_codes": [
+            "legacy_static_status_replaced_by_replay"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:annual-guidance-progression@1",
+            "block:promise-progress:open-guidance@1",
+            "block:promise-progress:quarterly-revision-timeline@1"
+          ],
+          "allowed_row_types": [
+            "annual_guidance_series",
+            "diagnostic_coverage_gap",
+            "guidance_version",
+            "open_guidance",
+            "promise_version"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:annual-coverage-gap@1",
+            "business-key-class:promise-progress:annual-guidance-series@1",
+            "business-key-class:promise-progress:open-guidance-series@1",
+            "business-key-class:promise-progress:timeline-guidance-version@1",
+            "business-key-class:promise-progress:timeline-promise-version@1"
+          ],
+          "allowed_reviewed_business_keys": [],
+          "allowed_source_native_row_ids": [
+            "promise-progress-row:ed53fc72da1b:annual:1f79d2f665ef0049b1da@1",
+            "promise-progress-row:ed53fc72da1b:annual:7c2942331dcd5826b327@1",
+            "promise-progress-row:ed53fc72da1b:annual:ca8125f020b48ba4b288@1",
+            "promise-progress-row:ed53fc72da1b:annual:f6f3c5e72a2f04bf7b08@1",
+            "promise-progress-row:ed53fc72da1b:annual:f6fdf1989dda999e7064@1",
+            "promise-progress-row:ed53fc72da1b:open:b0d307eead8f00121c79@1",
+            "promise-progress-row:ed53fc72da1b:open:d611086c046cb4de7a30@1",
+            "promise-progress-row:ed53fc72da1b:timeline:11eb1bed9e11fd131111@1",
+            "promise-progress-row:ed53fc72da1b:timeline:1cfdead948f8ab1a754d@1",
+            "promise-progress-row:ed53fc72da1b:timeline:27a0b8ec5385749098b5@1",
+            "promise-progress-row:ed53fc72da1b:timeline:3e624b61933d55be4bcd@1",
+            "promise-progress-row:ed53fc72da1b:timeline:4a647287cedd1923cdff@1",
+            "promise-progress-row:ed53fc72da1b:timeline:564624e5cfa1d7406cde@1",
+            "promise-progress-row:ed53fc72da1b:timeline:6f30ef6366ba1c3ae786@1",
+            "promise-progress-row:ed53fc72da1b:timeline:7c10486f69bd08573c72@1",
+            "promise-progress-row:ed53fc72da1b:timeline:81330053ff9b2343fc4b@1",
+            "promise-progress-row:ed53fc72da1b:timeline:871c798775741e82af18@1",
+            "promise-progress-row:ed53fc72da1b:timeline:87271feb34018b9cfc57@1",
+            "promise-progress-row:ed53fc72da1b:timeline:95325ac29cf9b29b60f9@1",
+            "promise-progress-row:ed53fc72da1b:timeline:9e62e7292797c0815b0b@1",
+            "promise-progress-row:ed53fc72da1b:timeline:aa2da9a21af75ec055cc@1",
+            "promise-progress-row:ed53fc72da1b:timeline:af87fb9d35492fac51ab@1",
+            "promise-progress-row:ed53fc72da1b:timeline:b11b83ea0d947c230fcf@1",
+            "promise-progress-row:ed53fc72da1b:timeline:d741a23e844b8530ae3f@1",
+            "promise-progress-row:ed53fc72da1b:timeline:e6bb8c8969ca6d09fe34@1",
+            "promise-progress-row:ed53fc72da1b:timeline:ee6ae22ff5036a313e95@1"
+          ],
+          "allowed_field_roles": [
+            "status"
+          ],
+          "allowed_difference_classes": [
+            "unregistered-difference"
+          ],
+          "allowed_destination_pairs": [],
+          "duration": "permanent",
+          "acceptance_owner": "Promise Progress product owner",
+          "source_native_rationale": "Every nonblank status replays one closed rule; unsafe labels become Needs Review or Basis-dependent.",
+          "legacy_behavior_category": "legacy_static_status_replaced_by_replay",
+          "allowed_legacy_row_ids": [],
+          "allowed_disposition_kinds": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": []
+        }
+      ]
+    },
+    {
+      "exception_id": "parity:temporal-leakage-pre-release-actuals@1",
+      "legacy_behavior": "Pre-release rows may show later final actual, progress, or status values.",
+      "source_native_behavior": "Each historical row uses only records eligible at its explicit UI as-of date.",
+      "semantic_reason": "Prevents look-ahead and preserves historical epistemic state.",
+      "acceptance_owner": "longitudinal-memory architecture owner",
+      "duration": "permanent",
+      "authorization_policies": [
+        {
+          "policy_id": "policy:promise-progress:temporal-leakage-deny-unpaired@1",
+          "authorization_kind": "deny-all",
+          "exception_id": "parity:temporal-leakage-pre-release-actuals@1",
+          "exception_policy_version": "parity-policy-version:1@1",
+          "state": "inactive",
+          "allowed_difference_reason_codes": [
+            "legacy_temporal_leakage_removed"
+          ],
+          "allowed_product_ids": [
+            "promise-progress-product:ANF:2026-07-29@1"
+          ],
+          "allowed_block_ids": [
+            "block:promise-progress:quarterly-revision-timeline@1"
+          ],
+          "allowed_row_types": [
+            "promise_version"
+          ],
+          "allowed_business_key_classes": [
+            "business-key-class:promise-progress:timeline-promise-version@1"
+          ],
+          "allowed_reviewed_business_keys": [],
+          "allowed_source_native_row_ids": [
+            "promise-progress-row:ed53fc72da1b:timeline:871c798775741e82af18@1",
+            "promise-progress-row:ed53fc72da1b:timeline:95325ac29cf9b29b60f9@1",
+            "promise-progress-row:ed53fc72da1b:timeline:9e62e7292797c0815b0b@1",
+            "promise-progress-row:ed53fc72da1b:timeline:aa2da9a21af75ec055cc@1",
+            "promise-progress-row:ed53fc72da1b:timeline:e6bb8c8969ca6d09fe34@1"
+          ],
+          "allowed_field_roles": [
+            "actual",
+            "source_note",
+            "status"
+          ],
+          "allowed_difference_classes": [
+            "unregistered-difference"
+          ],
+          "allowed_destination_pairs": [],
+          "duration": "permanent",
+          "acceptance_owner": "longitudinal-memory architecture owner",
+          "source_native_rationale": "Each historical row uses only records eligible at its explicit UI as-of date.",
+          "legacy_behavior_category": "legacy_temporal_leakage_removed",
+          "allowed_legacy_row_ids": [],
+          "allowed_disposition_kinds": [],
+          "allowed_structural_binding_ids": [],
+          "allowed_structural_condition_types": [],
+          "allowed_sheet_names": []
+        }
+      ]
+    }
+  ],
+  "row_disposition_required_fields": [
+    "disposition_id",
+    "disposition_version",
+    "disposition_kind",
+    "product_id",
+    "block_id",
+    "legacy_row_id",
+    "source_native_row_id",
+    "legacy_business_key",
+    "source_native_business_key",
+    "row_type",
+    "business_key_class",
+    "semantic_counterpart_class",
+    "mapping_kind",
+    "reviewed_mapping_reason",
+    "reason_code",
+    "expected_legacy_field_inventory_digest",
+    "expected_source_native_field_inventory_digest",
+    "counterpart_search_result",
+    "policy_id",
+    "policy_version",
+    "review_owner",
+    "duration",
+    "authorization_digest"
+  ],
+  "capture_manifest_required_fields": [
+    "manifest_id",
+    "manifest_version",
+    "workbook_oracle_id",
+    "workbook_oracle_sha256",
+    "sheet_name",
+    "comparison_scope_id",
+    "used_comparison_scope",
+    "ordered_legacy_row_ids",
+    "destination_cells",
+    "row_field_inventories",
+    "row_count",
+    "field_count",
+    "legacy_matrix_digest"
+  ],
+  "source_scope_manifest_required_fields": [
+    "manifest_id",
+    "manifest_version",
+    "product_type",
+    "product_id",
+    "block_ids",
+    "row_scope",
+    "row_count",
+    "field_count",
+    "scope_digest"
+  ],
+  "structural_observation_required_fields": [
+    "structural_observation_id",
+    "observation_version",
+    "product_id",
+    "sheet_name",
+    "block_ids",
+    "condition_type",
+    "observed_legacy_state",
+    "observed_source_native_state",
+    "difference_reason_code",
+    "comparison_digest"
+  ],
+  "structural_binding_required_fields": [
+    "structural_binding_id",
+    "binding_version",
+    "structural_observation_id",
+    "policy_id",
+    "exception_id",
+    "policy_version",
+    "product_id",
+    "sheet_name",
+    "block_ids",
+    "condition_type",
+    "difference_reason_code",
+    "difference_class",
+    "comparison_digest",
+    "structural_authorization_digest"
+  ]
+}

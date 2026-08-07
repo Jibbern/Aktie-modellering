@@ -21,6 +21,7 @@ from pbi_xbrl.longitudinal_memory.source_adapter.builder import (
 )
 from pbi_xbrl.longitudinal_memory.source_adapter.types import MappingError, SourceAdapterError
 from pbi_xbrl.longitudinal_memory.ticker_profiles.pbi import load_pbi_profile
+from pbi_xbrl.longitudinal_memory.serialization import serialize_package
 from pbi_xbrl.longitudinal_memory.validation import (
     validate_package,
     validate_package_schema,
@@ -49,6 +50,18 @@ def _write(tmp_path: Path, raw: dict, name: str = "source-set.json") -> Path:
     path = tmp_path / name
     path.write_text(json.dumps(raw), encoding="utf-8", newline="\n")
     return path
+
+
+def _strict_json_bytes(path: Path) -> dict:
+    def object_pairs(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate JSON key {key!r} in {path}")
+            result[key] = value
+        return result
+
+    return json.loads(path.read_bytes(), object_pairs_hook=object_pairs)
 
 
 @pytest.fixture(scope="module")
@@ -112,10 +125,20 @@ def test_full_pbi_build_projects_and_validates_unchanged_c1(result) -> None:
 
 
 def test_pbi_golden_bytes_and_sha_are_exact(result) -> None:
-    expected = EXPECTED.read_bytes()
+    expected_object = _strict_json_bytes(EXPECTED)
+    expected = serialize_package(expected_object)
+    assert json.loads(result.payload) == expected_object
     assert result.payload == expected
     assert result.sidecar_sha256 == GOLDEN_SHA
     assert hashlib.sha256(expected).hexdigest() == GOLDEN_SHA
+
+
+def test_pbi_semantic_golden_rejects_real_json_mutation(result) -> None:
+    mutated = _strict_json_bytes(EXPECTED)
+    mutated["artifact_state"] = "needs-review"
+    mutated_payload = serialize_package(mutated)
+    assert mutated_payload != result.payload
+    assert hashlib.sha256(mutated_payload).hexdigest() != GOLDEN_SHA
 
 
 def test_canonical_calendar_year_rule_and_natural_quarter_lengths(result) -> None:
