@@ -1,0 +1,490 @@
+{
+  "registry_id": "registry:approval-gates@1",
+  "registry_version": "1.0.0",
+  "checkpoint": "4cd55be61c0007c2d65e4527d912574942e19dd5",
+  "purpose": "Explicit stop conditions for changes that alter authority, compatibility, accepted semantics, sources or delivered workbook state.",
+  "review_modes": [
+    "human_review",
+    "human_acceptance",
+    "human_authorization"
+  ],
+  "gates": [
+    {
+      "gate_id": "gate:authority-order-change@1",
+      "triggering_change_classes": [
+        "change:source-role@1",
+        "change:metric-definition@1",
+        "change:free-cash-flow-definition@1",
+        "change:net-debt-definition@1",
+        "change:guidance-rule@1"
+      ],
+      "trigger": "A change alters which source or reviewed record may govern an assertion.",
+      "why_approval_is_required": "Authority changes can silently replace canonical facts across products.",
+      "required_evidence": [
+        "before/after authority table",
+        "conflict and equal-authority mutations",
+        "affected package/product diff"
+      ],
+      "protected_scope": [
+        "accepted source bytes",
+        "historical canonical resolutions",
+        "unrelated assertions"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "read-only source inventory",
+        "shadow resolution",
+        "comparison report"
+      ],
+      "prohibited_automation_before_approval": [
+        "production activation",
+        "golden replacement",
+        "workbook cutover"
+      ]
+    },
+    {
+      "gate_id": "gate:schema-compatibility-break@1",
+      "triggering_change_classes": [
+        "change:canonical-schema-field@1",
+        "change:fiscal-calendar-rule@1",
+        "change:promise-progress-row-block@1"
+      ],
+      "trigger": "A closed schema, identity format, required field or versioned semantic contract becomes incompatible.",
+      "why_approval_is_required": "Existing fixtures, readers and historical IDs must not be silently reinterpreted.",
+      "required_evidence": [
+        "compatibility classification",
+        "version and migration proposal",
+        "old/new fixture validation",
+        "consumer inventory"
+      ],
+      "protected_scope": [
+        "historical schema versions",
+        "accepted identities",
+        "existing goldens"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "schema diff",
+        "read-only consumer search",
+        "migration simulation"
+      ],
+      "prohibited_automation_before_approval": [
+        "in-place schema reinterpretation",
+        "fixture rewrite",
+        "reader cutover"
+      ]
+    },
+    {
+      "gate_id": "gate:semantic-golden-regeneration@1",
+      "triggering_change_classes": [
+        "change:canonical-schema-field@1",
+        "change:fiscal-calendar-rule@1",
+        "change:source-role@1",
+        "change:metric-definition@1",
+        "change:free-cash-flow-definition@1",
+        "change:net-debt-definition@1",
+        "change:guidance-rule@1",
+        "change:promise-status-rule@1",
+        "change:product-field@1",
+        "change:promise-progress-row-block@1",
+        "change:new-ticker-activation@1",
+        "change:new-sector-concept@1"
+      ],
+      "trigger": "Accepted canonical or product bytes change for semantic reasons.",
+      "why_approval_is_required": "A golden must prove reviewed semantics, not bless current implementation output.",
+      "required_evidence": [
+        "normalized semantic diff",
+        "independent oracle/source evidence",
+        "mutation coverage",
+        "complete new SHA list"
+      ],
+      "protected_scope": [
+        "unaffected goldens",
+        "accepted source packages",
+        "unrelated visible product fields"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "regenerate into temporary path",
+        "calculate hashes",
+        "produce normalized diff"
+      ],
+      "prohibited_automation_before_approval": [
+        "overwrite checked-in golden",
+        "auto-accept output",
+        "broad snapshot update"
+      ]
+    },
+    {
+      "gate_id": "gate:legacy-oracle-replacement@1",
+      "triggering_change_classes": [
+        "change:product-field@1",
+        "change:promise-progress-row-block@1",
+        "change:workbook-destination-binding@1",
+        "change:presentation-style-only@1"
+      ],
+      "trigger": "A legacy workbook, frozen field matrix, screenshot, structural capture or capability oracle is replaced.",
+      "why_approval_is_required": "Oracle replacement changes the parity baseline and can conceal regressions.",
+      "required_evidence": [
+        "old/new oracle SHA",
+        "reason for replacement",
+        "independent capture procedure",
+        "semantic and visual diff"
+      ],
+      "protected_scope": [
+        "source authority",
+        "accepted legacy workbook bytes",
+        "unrelated parity exceptions"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "read-only capture",
+        "comparison report",
+        "temporary render"
+      ],
+      "prohibited_automation_before_approval": [
+        "replace oracle in place",
+        "save legacy workbook",
+        "auto-register parity exceptions"
+      ]
+    },
+    {
+      "gate_id": "gate:source-overwrite-replacement@1",
+      "triggering_change_classes": [
+        "change:source-role@1",
+        "change:new-ticker-activation@1"
+      ],
+      "trigger": "Existing external source bytes, locators, hashes or reviewed metadata would be overwritten or replaced.",
+      "why_approval_is_required": "Immutable source history and replayability would change.",
+      "required_evidence": [
+        "exact source path and old/new SHA",
+        "revision/correction provenance",
+        "locator replay",
+        "affected observations"
+      ],
+      "protected_scope": [
+        "original source bytes",
+        "historical evidence identities",
+        "unrelated source tree"
+      ],
+      "review_mode": "human_authorization",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "download to new candidate path",
+        "hash and compare",
+        "read-only locator validation"
+      ],
+      "prohibited_automation_before_approval": [
+        "overwrite existing source",
+        "delete original",
+        "rewrite reviewed metadata"
+      ]
+    },
+    {
+      "gate_id": "gate:reviewed-source-acquisition@1",
+      "triggering_change_classes": [
+        "change:source-role@1",
+        "change:new-ticker-activation@1"
+      ],
+      "trigger": "A new reviewed external source is added to accepted scope or acquisition requires credentials/manual source choice.",
+      "why_approval_is_required": "Acquisition changes accepted evidence scope and may contact external systems.",
+      "required_evidence": [
+        "source identity and authority role",
+        "expected path",
+        "hash/locator plan",
+        "network and overwrite behavior"
+      ],
+      "protected_scope": [
+        "existing source tree",
+        "credentials",
+        "unrelated publishers"
+      ],
+      "review_mode": "human_authorization",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "public metadata lookup",
+        "path collision check",
+        "download plan"
+      ],
+      "prohibited_automation_before_approval": [
+        "authenticated acquisition",
+        "accepted source activation",
+        "overwrite"
+      ]
+    },
+    {
+      "gate_id": "gate:ticker-production-activation@1",
+      "triggering_change_classes": [
+        "change:new-ticker-activation@1"
+      ],
+      "trigger": "A ticker enters accepted source-native, normalized or workbook production scope.",
+      "why_approval_is_required": "Activation establishes company-specific authority, outputs and ongoing maintenance obligations.",
+      "required_evidence": [
+        "reviewed source set and profile",
+        "sector/calendar compatibility",
+        "semantic golden",
+        "product/workbook scope statement"
+      ],
+      "protected_scope": [
+        "shared runtime",
+        "other tickers",
+        "production output directory"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "isolated build",
+        "shadow product",
+        "validation and determinism tests"
+      ],
+      "prohibited_automation_before_approval": [
+        "production publish",
+        "shared-runtime ticker branch",
+        "workbook promotion"
+      ]
+    },
+    {
+      "gate_id": "gate:workbook-cutover@1",
+      "triggering_change_classes": [
+        "change:product-field@1",
+        "change:promise-progress-row-block@1",
+        "change:workbook-destination-binding@1",
+        "change:presentation-style-only@1",
+        "change:new-ticker-activation@1"
+      ],
+      "trigger": "A new engine, product projection or binding becomes the delivered workbook path.",
+      "why_approval_is_required": "Cutover changes the user-facing product and may retire a compatibility owner.",
+      "required_evidence": [
+        "shadow-first comparison",
+        "structural and visual parity",
+        "formula/value/source reconciliation",
+        "rollback plan"
+      ],
+      "protected_scope": [
+        "accepted legacy output",
+        "source-native semantics",
+        "workbook template",
+        "production output path"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "copied preview workbook",
+        "read-only comparison",
+        "candidate validation"
+      ],
+      "prohibited_automation_before_approval": [
+        "in-place replacement",
+        "production promotion",
+        "legacy retirement"
+      ]
+    },
+    {
+      "gate_id": "gate:destructive-cleanup@1",
+      "triggering_change_classes": [],
+      "trigger": "Files, caches, branches, worktrees, sources or outputs would be deleted, moved or irreversibly rewritten.",
+      "why_approval_is_required": "Destructive cleanup can remove source history, user work or recovery options.",
+      "required_evidence": [
+        "exact allowlist",
+        "resolved absolute paths",
+        "ownership classification",
+        "recovery or backup plan"
+      ],
+      "protected_scope": [
+        "repository root",
+        "StockModelData root",
+        "source archives",
+        "user worktrees"
+      ],
+      "review_mode": "human_authorization",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "read-only inventory",
+        "collision and hash report"
+      ],
+      "prohibited_automation_before_approval": [
+        "delete",
+        "move",
+        "reset",
+        "clean"
+      ]
+    },
+    {
+      "gate_id": "gate:deprecated-module-retirement@1",
+      "triggering_change_classes": [
+        "change:workbook-destination-binding@1",
+        "change:presentation-style-only@1"
+      ],
+      "trigger": "A deprecated or compatibility module, schema field, writer or adapter is removed.",
+      "why_approval_is_required": "Hidden callers, historical fixtures and rollback paths may still depend on it.",
+      "required_evidence": [
+        "caller/import search",
+        "replacement coverage",
+        "historical fixture policy",
+        "rollback plan"
+      ],
+      "protected_scope": [
+        "compatibility callers",
+        "historical goldens",
+        "accepted workbook outputs"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "read-only dependency scan",
+        "deprecation report"
+      ],
+      "prohibited_automation_before_approval": [
+        "module deletion",
+        "compatibility shim removal",
+        "history rewrite"
+      ]
+    },
+    {
+      "gate_id": "gate:canonical-owner-migration@1",
+      "triggering_change_classes": [
+        "change:canonical-schema-field@1",
+        "change:metric-definition@1",
+        "change:free-cash-flow-definition@1",
+        "change:net-debt-definition@1",
+        "change:guidance-rule@1",
+        "change:promise-status-rule@1",
+        "change:product-field@1",
+        "change:promise-progress-row-block@1",
+        "change:workbook-destination-binding@1"
+      ],
+      "trigger": "Canonical responsibility moves from one module/product/contract to another.",
+      "why_approval_is_required": "Parallel ownership can create two truth engines or premature retirement.",
+      "required_evidence": [
+        "old/new ownership map",
+        "single-selector proof",
+        "consumer migration inventory",
+        "parity and rollback evidence"
+      ],
+      "protected_scope": [
+        "existing canonical outputs",
+        "legacy compatibility path",
+        "unmigrated consumers"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "shadow projection",
+        "dual-read comparison",
+        "consumer report"
+      ],
+      "prohibited_automation_before_approval": [
+        "direct replacement",
+        "old-owner deletion",
+        "silent fallback"
+      ]
+    },
+    {
+      "gate_id": "gate:unsupported-economic-fallback@1",
+      "triggering_change_classes": [
+        "change:metric-definition@1",
+        "change:free-cash-flow-definition@1",
+        "change:net-debt-definition@1",
+        "change:guidance-rule@1",
+        "change:promise-status-rule@1",
+        "change:new-sector-concept@1"
+      ],
+      "trigger": "A proposed fallback would infer, substitute, convert or default an unsupported economic value.",
+      "why_approval_is_required": "Fallbacks can turn missing or incompatible evidence into false certainty.",
+      "required_evidence": [
+        "exact unsupported condition",
+        "economic compatibility proof",
+        "missing/zero and conflict behavior",
+        "negative tests"
+      ],
+      "protected_scope": [
+        "missing values",
+        "GAAP/adjusted definitions",
+        "period and dimension compatibility"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "Needs Review output",
+        "candidate comparison",
+        "synthetic mutation tests"
+      ],
+      "prohibited_automation_before_approval": [
+        "blank-to-zero",
+        "newest-compatible guess",
+        "cross-basis conversion",
+        "production fallback"
+      ]
+    },
+    {
+      "gate_id": "gate:product-contract-change@1",
+      "triggering_change_classes": [
+        "change:promise-status-rule@1",
+        "change:product-field@1",
+        "change:promise-progress-row-block@1"
+      ],
+      "trigger": "A closed product role, visible field, block, row, ordering or assessment meaning changes.",
+      "why_approval_is_required": "Product contract changes affect display semantics, lineage, parity and future workbook behavior.",
+      "required_evidence": [
+        "product contract diff",
+        "semantic replay",
+        "shadow/parity diff",
+        "golden hashes"
+      ],
+      "protected_scope": [
+        "unaffected product fields",
+        "source-native records",
+        "legacy oracle"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "in-memory projection",
+        "temporary fixture generation",
+        "parity report"
+      ],
+      "prohibited_automation_before_approval": [
+        "golden overwrite",
+        "workbook write",
+        "automatic parity exception"
+      ]
+    },
+    {
+      "gate_id": "gate:workbook-presentation-layout@1",
+      "triggering_change_classes": [
+        "change:workbook-destination-binding@1",
+        "change:presentation-style-only@1"
+      ],
+      "trigger": "Visible workbook layout, style, dimensions, merges, destinations or accessibility signaling changes.",
+      "why_approval_is_required": "Presentation changes can damage readability, parity or protected formula/value regions even without intended economic change.",
+      "required_evidence": [
+        "exact before/after layout scope",
+        "structural validation",
+        "human-readable visual diff",
+        "economic invariance proof"
+      ],
+      "protected_scope": [
+        "values and formulas",
+        "source/evidence",
+        "semantic products",
+        "unrelated sheets"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "copied candidate workbook",
+        "render/screenshot",
+        "pixel and structural comparison"
+      ],
+      "prohibited_automation_before_approval": [
+        "production workbook save",
+        "in-place template overwrite",
+        "writer economic changes"
+      ]
+    }
+  ]
+}

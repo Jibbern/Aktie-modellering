@@ -1,0 +1,1016 @@
+{
+  "registry_id": "registry:canonical-ownership@1",
+  "registry_version": "1.0.0",
+  "checkpoint": "4cd55be61c0007c2d65e4527d912574942e19dd5",
+  "purpose": "Canonical ownership index. It routes changes to live owners and records parallel compatibility owners without declaring migration complete.",
+  "ownership_states": [
+    "unified",
+    "unified_unwired",
+    "transition_conflict",
+    "split_by_layer"
+  ],
+  "concepts": [
+    {
+      "concept_id": "concept:source-acquisition@1",
+      "name": "Source acquisition",
+      "canonical_owner_component_id": "component:source-acquisition@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/sec_ingest.py",
+        "pbi_xbrl/source_material_refresh.py",
+        "pbi_xbrl/market_data/service.py"
+      ],
+      "public_interfaces": [
+        "stock_models.py acquisition/refresh commands"
+      ],
+      "current_consumers": [
+        "legacy pipeline",
+        "reviewed source-set preparation"
+      ],
+      "ownership_state": "split_by_layer",
+      "parallel_owners": [],
+      "allowed_extension_point": "Add explicit I/O adapters with reviewed overwrite, cache and provenance policy.",
+      "prohibited_owners": [
+        "product projection",
+        "workbook writer",
+        "sector pack"
+      ],
+      "notes": "Acquisition owns bytes and provenance, not economic meaning."
+    },
+    {
+      "concept_id": "concept:source-discovery@1",
+      "name": "Source discovery and reviewed document roles",
+      "canonical_owner_component_id": "component:source-native-adapter@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/source_adapter/discovery.py",
+        "docs/longitudinal_memory_source_adapter_input.schema.json"
+      ],
+      "public_interfaces": [
+        "load_source_set",
+        "discover_sources",
+        "DocumentRole",
+        "DOCUMENT_ROLES"
+      ],
+      "current_consumers": [
+        "source-native adapter builder"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "pbi_xbrl/source_material_refresh.py",
+          "lifecycle_state": "active",
+          "authority_limit": "Legacy production discovery only; not source-native role authority."
+        }
+      ],
+      "allowed_extension_point": "Closed versioned document role and format/locator extractor where needed.",
+      "prohibited_owners": [
+        "ticker filename heuristic",
+        "legacy workbook",
+        "workbook writer"
+      ],
+      "notes": "Runtime role registry and schema enum are intentionally both checked; their duplication remains deferred."
+    },
+    {
+      "concept_id": "concept:source-document-identity@1",
+      "name": "SourceDocument identity",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/types.py",
+        "pbi_xbrl/longitudinal_memory/identity.py",
+        "docs/longitudinal_company_memory_contract.md"
+      ],
+      "public_interfaces": [
+        "SourceDocument",
+        "source_document_id",
+        "identity_digest"
+      ],
+      "current_consumers": [
+        "EvidenceOccurrence",
+        "canonical observations",
+        "product lineage"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [],
+      "allowed_extension_point": "New versioned identity contract only when identity semantics change.",
+      "prohibited_owners": [
+        "filesystem path alone",
+        "workbook source label",
+        "unhashed source cache"
+      ],
+      "notes": "Readable identity is authoritative; digest is an integrity/index checksum."
+    },
+    {
+      "concept_id": "concept:evidence-occurrence@1",
+      "name": "EvidenceOccurrence",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/types.py",
+        "pbi_xbrl/longitudinal_memory/source_adapter",
+        "docs/longitudinal_company_memory.schema.json"
+      ],
+      "public_interfaces": [
+        "EvidenceOccurrence",
+        "immutable locator identity",
+        "excerpt and review state"
+      ],
+      "current_consumers": [
+        "canonical records",
+        "resolutions",
+        "Promise Progress shadow lineage"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "pbi_xbrl/doc_intel.py",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Legacy narrative evidence shaping only."
+        }
+      ],
+      "allowed_extension_point": "Add deterministic locator replay for a supported source format.",
+      "prohibited_owners": [
+        "generic company filing note",
+        "writer-created evidence",
+        "source order"
+      ],
+      "notes": "Evidence is immutable and occurrence-specific."
+    },
+    {
+      "concept_id": "concept:source-authority@1",
+      "name": "Source authority and conflict reconciliation",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/source_adapter/discovery.py",
+        "pbi_xbrl/longitudinal_memory/reconciliation.py",
+        "docs/longitudinal_company_memory_contract.md"
+      ],
+      "public_interfaces": [
+        "DocumentRole assertion permissions",
+        "resolve_observations"
+      ],
+      "current_consumers": [
+        "CanonicalResolution",
+        "product projections"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "pbi_xbrl/doc_intel.py and pipeline helpers",
+          "lifecycle_state": "active",
+          "authority_limit": "Compatibility behavior for legacy workbook output only."
+        }
+      ],
+      "allowed_extension_point": "Assertion-specific closed authority rules and explicit correction/supersession relations.",
+      "prohibited_owners": [
+        "global source ranking",
+        "newest-only fallback",
+        "legacy workbook value"
+      ],
+      "notes": "Same-origin mirrors are duplicates, not independent corroboration."
+    },
+    {
+      "concept_id": "concept:publication-knowledge-dates@1",
+      "name": "Publication and knowledge dates",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/types.py",
+        "pbi_xbrl/longitudinal_memory/source_adapter/builder.py",
+        "pbi_xbrl/longitudinal_memory/validation.py"
+      ],
+      "public_interfaces": [
+        "SourceDocument.publication_date",
+        "record header knowledge_date",
+        "as-of validation"
+      ],
+      "current_consumers": [
+        "canonical resolution",
+        "guidance chronology",
+        "Promise Progress"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [],
+      "allowed_extension_point": "Explicit reviewed temporal metadata and deterministic eligibility rules.",
+      "prohibited_owners": [
+        "filesystem modified time",
+        "current date fallback",
+        "workbook row date"
+      ],
+      "notes": "Event, publication, knowledge, fiscal/effective and UI as-of dates remain distinct."
+    },
+    {
+      "concept_id": "concept:fiscal-calendar@1",
+      "name": "FiscalCalendar",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/calendar_rules.py",
+        "docs/longitudinal_company_memory_contract.md"
+      ],
+      "public_interfaces": [
+        "FISCAL_CALENDAR_RULES",
+        "fiscal_calendar_rule",
+        "validate_period_for_calendar_rule",
+        "evaluate_period_compatibility"
+      ],
+      "current_consumers": [
+        "source-adapter periods",
+        "ChangeObservation",
+        "product period selection"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "legacy pipeline period helpers",
+          "lifecycle_state": "active",
+          "authority_limit": "Legacy workbook compatibility; not the source-native calendar registry."
+        }
+      ],
+      "allowed_extension_point": "New versioned generic calendar rule with explicit reviewed boundary evidence.",
+      "prohibited_owners": [
+        "ticker branch",
+        "month-name inference",
+        "workbook header"
+      ],
+      "notes": "Existing period IDs are never reinterpreted by a new rule."
+    },
+    {
+      "concept_id": "concept:period@1",
+      "name": "Fiscal and effective Period",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/source_adapter/periods.py",
+        "pbi_xbrl/longitudinal_memory/calendar_rules.py",
+        "docs/longitudinal_company_memory.schema.json"
+      ],
+      "public_interfaces": [
+        "reviewed Period records",
+        "period compatibility replay"
+      ],
+      "current_consumers": [
+        "observations",
+        "guidance and Promise histories",
+        "ChangeObservation",
+        "products"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "legacy period labels and dataframe ordering",
+          "lifecycle_state": "active",
+          "authority_limit": "Legacy production only."
+        }
+      ],
+      "allowed_extension_point": "Reviewed period construction under a registered FiscalCalendar rule.",
+      "prohibited_owners": [
+        "workbook column position",
+        "Q4-as-FY fallback",
+        "source order"
+      ],
+      "notes": "Period type, bounds, fiscal identity and calendar rule are explicit."
+    },
+    {
+      "concept_id": "concept:metric-identity@1",
+      "name": "Metric identity",
+      "canonical_owner_component_id": "component:source-native-sector-packs@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/sector_packs",
+        "docs/longitudinal_company_memory.schema.json"
+      ],
+      "public_interfaces": [
+        "semantic_binding",
+        "metric_semantics",
+        "versioned metric catalog IDs"
+      ],
+      "current_consumers": [
+        "source mapping",
+        "canonical resolution",
+        "product projections"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "legacy metric aliases across pipeline and writers",
+          "lifecycle_state": "active",
+          "authority_limit": "Compatibility aliases and workbook rows only."
+        }
+      ],
+      "allowed_extension_point": "Reusable sector-pack metric identity; core-only concepts may live in the shared canonical catalog.",
+      "prohibited_owners": [
+        "ticker profile economic definition",
+        "display-label fuzzy match",
+        "workbook row name"
+      ],
+      "notes": "New business-services KPIs belong in the business-services sector pack, not a ticker profile."
+    },
+    {
+      "concept_id": "concept:definition-basis-unit@1",
+      "name": "Definition, basis and unit",
+      "canonical_owner_component_id": "component:source-native-sector-packs@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/sector_packs",
+        "pbi_xbrl/longitudinal_memory/types.py",
+        "docs/longitudinal_company_memory.schema.json"
+      ],
+      "public_interfaces": [
+        "SemanticBinding",
+        "versioned definition/basis/unit catalog IDs"
+      ],
+      "current_consumers": [
+        "candidate compatibility",
+        "derived calculations",
+        "Actual/Progress/Status selection"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "legacy dataframe and writer labels",
+          "lifecycle_state": "active",
+          "authority_limit": "Legacy output labels; cannot redefine source-native identities."
+        }
+      ],
+      "allowed_extension_point": "Mint a new versioned identity for a new meaning; never overwrite a historical definition.",
+      "prohibited_owners": [
+        "number format",
+        "writer fallback",
+        "silent GAAP-adjusted conversion"
+      ],
+      "notes": "Definition changes may make historical observations incomparable."
+    },
+    {
+      "concept_id": "concept:dimensions@1",
+      "name": "Dimensions and members",
+      "canonical_owner_component_id": "component:source-native-sector-packs@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/sector_packs",
+        "pbi_xbrl/longitudinal_memory/ticker_profiles"
+      ],
+      "public_interfaces": [
+        "sector dimension catalog",
+        "ticker member alias mapping",
+        "dimension_set_id"
+      ],
+      "current_consumers": [
+        "source mapping",
+        "canonical resolution",
+        "products"
+      ],
+      "ownership_state": "split_by_layer",
+      "parallel_owners": [
+        {
+          "component_id": "component:source-native-ticker-profiles@1",
+          "path": "pbi_xbrl/longitudinal_memory/ticker_profiles",
+          "lifecycle_state": "active",
+          "authority_limit": "Company-specific member aliases and activation only."
+        }
+      ],
+      "allowed_extension_point": "Sector pack defines reusable dimension; ticker profile maps reviewed company members and aliases.",
+      "prohibited_owners": [
+        "source row position",
+        "display text",
+        "shared-runtime ticker branch"
+      ],
+      "notes": "Shared engine -> sector pack -> ticker profile is the required direction."
+    },
+    {
+      "concept_id": "concept:guidance-series-version@1",
+      "name": "GuidanceSeries and GuidanceVersion",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "docs/longitudinal_company_memory.schema.json",
+        "pbi_xbrl/longitudinal_memory/source_adapter/builder.py",
+        "pbi_xbrl/longitudinal_memory/validation.py"
+      ],
+      "public_interfaces": [
+        "GuidanceSeries",
+        "GuidanceVersion",
+        "explicit history relations"
+      ],
+      "current_consumers": [
+        "component:promise-progress-product@1"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "legacy guidance extraction and writer repair",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Legacy workbook output only."
+        }
+      ],
+      "allowed_extension_point": "New versioned guidance semantics and explicit origin/update/reaffirmation/supersession relations.",
+      "prohibited_owners": [
+        "workbook quarter column",
+        "latest date only",
+        "writer copy-forward"
+      ],
+      "notes": "Source-native product consumption is active; workbook consumption is not."
+    },
+    {
+      "concept_id": "concept:promise-version@1",
+      "name": "Promise and PromiseVersion",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "docs/longitudinal_company_memory.schema.json",
+        "pbi_xbrl/longitudinal_memory/source_adapter/builder.py",
+        "pbi_xbrl/longitudinal_memory/validation.py"
+      ],
+      "public_interfaces": [
+        "Promise",
+        "PromiseVersion",
+        "typed history and evidence links"
+      ],
+      "current_consumers": [
+        "Promise Progress timeline and assessment"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "legacy Promise Tracker and document-intelligence rows",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Legacy display only."
+        }
+      ],
+      "allowed_extension_point": "Versioned Promise type/economic identity in longitudinal contracts plus product-specific projection rules.",
+      "prohibited_owners": [
+        "Promise Tracker worksheet",
+        "writer prose extraction",
+        "static status label"
+      ],
+      "notes": "Promise wording is target-independent and evidence-linked."
+    },
+    {
+      "concept_id": "concept:company-event@1",
+      "name": "CompanyEvent",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "docs/longitudinal_company_memory.schema.json",
+        "pbi_xbrl/longitudinal_memory/types.py",
+        "pbi_xbrl/longitudinal_memory/validation.py"
+      ],
+      "public_interfaces": [
+        "CompanyEvent canonical observation payload"
+      ],
+      "current_consumers": [
+        "canonical resolutions",
+        "future products"
+      ],
+      "ownership_state": "unified_unwired",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "legacy event/note extraction",
+          "lifecycle_state": "active",
+          "authority_limit": "Legacy notes and workbook output."
+        }
+      ],
+      "allowed_extension_point": "Typed event category with explicit dates, dimensions, evidence and review state.",
+      "prohibited_owners": [
+        "workbook note text",
+        "source filename alone"
+      ],
+      "notes": "No general workbook consumer is wired."
+    },
+    {
+      "concept_id": "concept:canonical-resolution@1",
+      "name": "CanonicalResolution",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/reconciliation.py",
+        "pbi_xbrl/longitudinal_memory/validation.py"
+      ],
+      "public_interfaces": [
+        "resolve_observations",
+        "CanonicalResolution record"
+      ],
+      "current_consumers": [
+        "Promise Progress selection",
+        "canonical outputs"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "legacy source-selection helpers",
+          "lifecycle_state": "active",
+          "authority_limit": "Compatibility output; not canonical source-native resolution."
+        }
+      ],
+      "allowed_extension_point": "Assertion-specific deterministic reconciliation with complete candidate/review lineage.",
+      "prohibited_owners": [
+        "newest record alone",
+        "first match",
+        "writer selection"
+      ],
+      "notes": "Equal-authority incompatible terminal candidates remain unresolved."
+    },
+    {
+      "concept_id": "concept:change-observation@1",
+      "name": "ChangeObservation",
+      "canonical_owner_component_id": "component:source-native-longitudinal-core@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/changes.py",
+        "pbi_xbrl/longitudinal_memory/calendar_rules.py"
+      ],
+      "public_interfaces": [
+        "derive_percentage_point_change",
+        "typed ChangeObservation record"
+      ],
+      "current_consumers": [
+        "longitudinal products and diagnostics"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "legacy dataframe/workbook formulas",
+          "lifecycle_state": "active",
+          "authority_limit": "Compatibility calculations only."
+        }
+      ],
+      "allowed_extension_point": "Typed compatible calculations with explicit input record IDs and calendar replay.",
+      "prohibited_owners": [
+        "display difference",
+        "workbook formula without lineage",
+        "cross-definition comparison"
+      ],
+      "notes": "Metric, definition, basis, unit, currency, dimensions and period compatibility are required."
+    },
+    {
+      "concept_id": "concept:actual@1",
+      "name": "Promise Progress Actual",
+      "canonical_owner_component_id": "component:promise-progress-product@1",
+      "canonical_owner_paths": [
+        "docs/promise_progress_product_contract.md",
+        "pbi_xbrl/longitudinal_memory/promise_progress_projection.py"
+      ],
+      "public_interfaces": [
+        "ActualSelection",
+        "closed Actual semantic classes"
+      ],
+      "current_consumers": [
+        "Promise Progress rows",
+        "status assessment",
+        "shadow matrix"
+      ],
+      "ownership_state": "unified_unwired",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "legacy Promise Progress writer values",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Legacy workbook parity reference only."
+        }
+      ],
+      "allowed_extension_point": "Closed typed Actual role/selection within the product contract.",
+      "prohibited_owners": [
+        "Q4 as FY",
+        "blank to zero",
+        "writer newest value"
+      ],
+      "notes": "Product is accepted; workbook consumer is not wired."
+    },
+    {
+      "concept_id": "concept:progress@1",
+      "name": "Promise Progress Progress",
+      "canonical_owner_component_id": "component:promise-progress-product@1",
+      "canonical_owner_paths": [
+        "docs/promise_progress_product_contract.md",
+        "pbi_xbrl/longitudinal_memory/promise_progress_projection.py"
+      ],
+      "public_interfaces": [
+        "ProgressSelection",
+        "CLOSED_PROGRESS_ROLE_IDS"
+      ],
+      "current_consumers": [
+        "Promise Progress rows",
+        "status assessment",
+        "shadow matrix"
+      ],
+      "ownership_state": "unified_unwired",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "legacy progress/run-rate display",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Legacy UI behavior only."
+        }
+      ],
+      "allowed_extension_point": "Closed progress role and compatible replayable calculation/selection.",
+      "prohibited_owners": [
+        "run rate as realized savings",
+        "writer relabel",
+        "universal completion percentage"
+      ],
+      "notes": "Progress is a display role, not a universal numeric type."
+    },
+    {
+      "concept_id": "concept:status@1",
+      "name": "Promise Progress Status",
+      "canonical_owner_component_id": "component:promise-progress-product@1",
+      "canonical_owner_paths": [
+        "docs/promise_progress_product_contract.md",
+        "pbi_xbrl/longitudinal_memory/promise_progress_projection.py"
+      ],
+      "public_interfaces": [
+        "StatusAssessment",
+        "CLOSED_STATUS_RULE_IDS",
+        "assess_status"
+      ],
+      "current_consumers": [
+        "Promise Progress visible rows and shadow matrix"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "legacy static status labels and formatting",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Legacy parity behavior; cannot override source-native replay."
+        }
+      ],
+      "allowed_extension_point": "Versioned closed assessment rule with explicit target, Actual/Progress, as-of, review and explanation.",
+      "prohibited_owners": [
+        "workbook conditional format",
+        "static writer text",
+        "legacy label copy"
+      ],
+      "notes": "Visible palette is presentation metadata, not economic logic."
+    },
+    {
+      "concept_id": "concept:product-row-ordering@1",
+      "name": "Promise Progress product row ordering",
+      "canonical_owner_component_id": "component:promise-progress-product@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/promise_progress_projection.py"
+      ],
+      "public_interfaces": [
+        "BLOCK_ORDER",
+        "stable row_id",
+        "ordered visible rows"
+      ],
+      "current_consumers": [
+        "shadow matrix",
+        "parity report",
+        "future writer"
+      ],
+      "ownership_state": "unified_unwired",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "legacy workbook row construction",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Legacy layout only."
+        }
+      ],
+      "allowed_extension_point": "Typed block-specific business order and stable identity.",
+      "prohibited_owners": [
+        "source enumeration",
+        "dictionary order",
+        "workbook row availability"
+      ],
+      "notes": "A field/row change also affects shadow, scope manifests, parity and future capacity."
+    },
+    {
+      "concept_id": "concept:product-display-text@1",
+      "name": "Product display text and Notes/source",
+      "canonical_owner_component_id": "component:promise-progress-product@1",
+      "canonical_owner_paths": [
+        "docs/promise_progress_product_contract.md",
+        "pbi_xbrl/longitudinal_memory/promise_progress_projection.py"
+      ],
+      "public_interfaces": [
+        "ProductField.display_value",
+        "product-owned Notes/source"
+      ],
+      "current_consumers": [
+        "shadow matrix",
+        "parity report",
+        "future writer"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "legacy workbook display reconstruction",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Legacy UI only."
+        }
+      ],
+      "allowed_extension_point": "Product-owned deterministic display role and complete lineage.",
+      "prohibited_owners": [
+        "writer format guess",
+        "generic source note when exact source exists",
+        "unsupported interpretation"
+      ],
+      "notes": "Future writer consumes display text; it does not reconstruct meaning."
+    },
+    {
+      "concept_id": "concept:promise-progress-projection@1",
+      "name": "Promise Progress projection",
+      "canonical_owner_component_id": "component:promise-progress-product@1",
+      "canonical_owner_paths": [
+        "docs/promise_progress_product_contract.md",
+        "docs/promise_progress_shadow_projection.schema.json",
+        "pbi_xbrl/longitudinal_memory/promise_progress_projection.py"
+      ],
+      "public_interfaces": [
+        "build_promise_progress_product",
+        "serialize_promise_progress_product",
+        "serialize_shadow_matrix"
+      ],
+      "current_consumers": [
+        "accepted ANF/PBI/generic fixtures and tests"
+      ],
+      "ownership_state": "unified_unwired",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "pbi_xbrl/excel_writer_promise_progress.py",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Current legacy workbook UI, not source-native product semantics."
+        }
+      ],
+      "allowed_extension_point": "New typed block/field/assessment under the closed product, shadow and parity contracts.",
+      "prohibited_owners": [
+        "workbook writer selection pass",
+        "support-sheet truth engine",
+        "direct legacy replacement"
+      ],
+      "notes": "The product is active and accepted; its workbook bridge is target_not_wired."
+    },
+    {
+      "concept_id": "concept:normalized-package@1",
+      "name": "Normalized company-data package",
+      "canonical_owner_component_id": "component:normalized-package-contract@1",
+      "canonical_owner_paths": [
+        "docs/normalized_company_data.schema.json",
+        "pbi_xbrl/normalized_company_data_validation.py",
+        "scripts/generate_normalized_company_data_package.py"
+      ],
+      "public_interfaces": [
+        "normalized package schema",
+        "validate_normalized_company_data"
+      ],
+      "current_consumers": [
+        "binding planner",
+        "new-engine shadow render"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "PipelineArtifacts and WorkbookInputs",
+          "lifecycle_state": "active",
+          "authority_limit": "Current legacy workbook handoff, distinct from the normalized transition package."
+        }
+      ],
+      "allowed_extension_point": "Validated transition fields with explicit status/source lineage and binding consumers.",
+      "prohibited_owners": [
+        "silent source-native reinterpretation",
+        "unknown-field ownership",
+        "workbook-derived economic source"
+      ],
+      "notes": "Root schema closure and source-native bridge are deferred structural work."
+    },
+    {
+      "concept_id": "concept:workbook-binding@1",
+      "name": "Workbook binding",
+      "canonical_owner_component_id": "component:workbook-binding-contract@1",
+      "canonical_owner_paths": [
+        "docs/workbook_binding_map.json",
+        "pbi_xbrl/new_ticker_binding_planner.py"
+      ],
+      "public_interfaces": [
+        "binding map",
+        "BindingPlan",
+        "reproduce_binding_plan"
+      ],
+      "current_consumers": [
+        "new ticker value filler",
+        "coverage and post-fill validation"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "hard-coded cells in excel_writer modules",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Current legacy writer destinations only."
+        }
+      ],
+      "allowed_extension_point": "Exact approved field-to-cell mapping inside declared writable zones.",
+      "prohibited_owners": [
+        "economic selection",
+        "workbook-wide range dump",
+        "missing-value coercion"
+      ],
+      "notes": "A destination change is presentation/binding migration, not an economic definition change."
+    },
+    {
+      "concept_id": "concept:workbook-style@1",
+      "name": "Workbook style and layout",
+      "canonical_owner_component_id": "component:workbook-style-contract@1",
+      "canonical_owner_paths": [
+        "templates/standard_stock_model_template.xlsx",
+        "docs/standard_template_shell_manifest.json",
+        "docs/standard_template_style_policy.json",
+        "pbi_xbrl/new_ticker_style_planner.py",
+        "pbi_xbrl/new_ticker_style_application.py"
+      ],
+      "public_interfaces": [
+        "frozen shell manifest",
+        "style policy",
+        "StylePlan",
+        "apply_style_plan"
+      ],
+      "current_consumers": [
+        "normalized frozen-shell engine"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "legacy writer styling/scaffold",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Current legacy workbook UI."
+        }
+      ],
+      "allowed_extension_point": "Presentation-only shell/style change with exact protected-property and visual validation.",
+      "prohibited_owners": [
+        "economic calculations",
+        "source selection",
+        "status assessment"
+      ],
+      "notes": "The requested output path must be identified before choosing legacy writer versus frozen-shell owner."
+    },
+    {
+      "concept_id": "concept:free-cash-flow@1",
+      "name": "Free cash flow economics",
+      "canonical_owner_component_id": null,
+      "canonical_owner_paths": [],
+      "public_interfaces": [
+        "standard template free_cash_flow FormulaRow contract",
+        "normalized quarterly/annual free_cash_flow fields",
+        "valuation_engine",
+        "derive_fcf_coverage"
+      ],
+      "current_consumers": [
+        "legacy Valuation, Summary and Investment Case workbook outputs",
+        "valuation yields and scenario calculations",
+        "Latest Quarter QA and trend signals",
+        "capital-return coverage",
+        "normalized package and frozen-shell formula consumers"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "pbi_xbrl/signals.py; pbi_xbrl/quarter_notes.py; pbi_xbrl/excel_writer_core.py; pbi_xbrl/valuation.py",
+          "lifecycle_state": "active",
+          "authority_limit": "Current production derives the base CFO-less-capex series and valuation consumers; it is not a unified definition authority for every FCF variant."
+        },
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "pbi_xbrl/non_gaap.py; pbi_xbrl/excel_writer_investment_case_support.py; pbi_xbrl/excel_writer_latest_quarter_qa.py",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Compatibility extraction, writer presentation and QA retain company-adjusted FCF separately from CFO less capex."
+        },
+        {
+          "component_id": "component:normalized-package-contract@1",
+          "path": "docs/normalized_company_data.schema.json; pbi_xbrl/standard_template_formula_contract.py; pbi_xbrl/anf_capital_return_source_adapter.py; pbi_xbrl/new_ticker_capital_return.py",
+          "lifecycle_state": "transition",
+          "authority_limit": "The normalized contract versions CFO-less-capex fields and source-backed capital-return inputs, but it has not replaced all production consumers."
+        }
+      ],
+      "allowed_extension_point": "First identify the exact FCF definition and output surface, then change the owning executable formula/source contract and every compatible consumer through change:free-cash-flow-definition@1.",
+      "prohibited_owners": [
+        "sector pack as an invented universal FCF owner",
+        "workbook label or style",
+        "ticker-specific branch",
+        "company-adjusted FCF silently substituted for CFO less capex"
+      ],
+      "notes": "No unified canonical owner exists across active production and the normalized transition. CFO less capex, issuer/company-adjusted FCF, FCFF proxies, yields and capital-return coverage are definition-sensitive variants or consumers. This entry is descriptive routing metadata; executable formula and source contracts remain authority. General source-native longitudinal ownership is not yet wired."
+    },
+    {
+      "concept_id": "concept:net-debt@1",
+      "name": "Net debt economics",
+      "canonical_owner_component_id": null,
+      "canonical_owner_paths": [],
+      "public_interfaces": [
+        "standard template net_debt FormulaRow contract",
+        "normalized debt_liquidity.net_debt and valuation_inputs.net_debt fields",
+        "compute_debt_core_instant",
+        "valuation_engine"
+      ],
+      "current_consumers": [
+        "legacy Valuation, leverage and Investment Case workbook outputs",
+        "enterprise-value and equity-value calculations",
+        "Latest Quarter QA debt-basis checks",
+        "Debt Detail and Leverage/Liquidity transition projections",
+        "normalized package and frozen-shell formula consumers"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "pbi_xbrl/pipeline.py; pbi_xbrl/excel_writer_core.py; pbi_xbrl/valuation.py",
+          "lifecycle_state": "active",
+          "authority_limit": "Current production selects core debt and cash, derives net debt and consumes it in leverage and valuation."
+        },
+        {
+          "component_id": "component:legacy-writer-semantics@1",
+          "path": "pbi_xbrl/doc_intel.py; pbi_xbrl/excel_writer_investment_case_support.py; pbi_xbrl/excel_writer_latest_quarter_qa.py",
+          "lifecycle_state": "compatibility",
+          "authority_limit": "Compatibility analytics, writer bridges and QA replay debt-minus-cash and preserve basis caveats."
+        },
+        {
+          "component_id": "component:normalized-package-contract@1",
+          "path": "docs/normalized_company_data.schema.json; pbi_xbrl/standard_template_formula_contract.py; pbi_xbrl/new_ticker_debt_scope.py; pbi_xbrl/new_ticker_debt_projection.py; pbi_xbrl/anf_debt_source_adapter.py",
+          "lifecycle_state": "transition",
+          "authority_limit": "The normalized/debt contracts type source-backed instruments, core debt, cash, restricted cash, leases and formula variants, but are not the universal production owner."
+        }
+      ],
+      "allowed_extension_point": "First identify the exact debt/cash basis and output surface, then change the owning executable debt/formula contract and every compatible consumer through change:net-debt-definition@1.",
+      "prohibited_owners": [
+        "Debt Detail instrument rows treated as the summary definition",
+        "workbook style or label",
+        "ticker-specific branch",
+        "restricted cash or operating leases silently included or excluded"
+      ],
+      "notes": "No unified canonical owner exists across active production and the normalized transition. Base core-debt-less-unrestricted-cash, lease-adjusted net debt, securities/net-cash variants, gross debt, revolver and leverage inputs remain distinct. Debt Detail is source-backed instrument detail, not the net-debt summary owner. This entry is descriptive routing metadata; executable contracts remain authority. General source-native longitudinal ownership is not yet wired."
+    },
+    {
+      "concept_id": "concept:valuation-economics@1",
+      "name": "Valuation economics",
+      "canonical_owner_component_id": "component:legacy-workbook-production@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/valuation.py",
+        "pbi_xbrl/pipeline.py",
+        "pbi_xbrl/excel_writer_context.py"
+      ],
+      "public_interfaces": [
+        "valuation_engine",
+        "legacy workbook valuation inputs/outputs"
+      ],
+      "current_consumers": [
+        "legacy Valuation workbook sheet"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:normalized-package-contract@1",
+          "path": "normalized valuation formula contracts and Investment Case projection",
+          "lifecycle_state": "transition",
+          "authority_limit": "Validated transition output; no universal production cutover."
+        }
+      ],
+      "allowed_extension_point": "Preserve current production unless a versioned generic calculation contract and cutover are separately accepted.",
+      "prohibited_owners": [
+        "new writer-only fallback",
+        "ticker-specific formula without contract",
+        "legacy workbook as upstream source fact"
+      ],
+      "notes": "Ownership is not unified; do not claim migration complete."
+    },
+    {
+      "concept_id": "concept:capital-allocation-economics@1",
+      "name": "Capital-allocation economics",
+      "canonical_owner_component_id": "component:normalized-package-contract@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/new_ticker_capital_return.py",
+        "docs/normalized_company_data.schema.json",
+        "docs/workbook_binding_map.json"
+      ],
+      "public_interfaces": [
+        "make_capital_return_record",
+        "derive_total_capital_return",
+        "build_capital_return_workbook_projection"
+      ],
+      "current_consumers": [
+        "normalized package",
+        "new-engine workbook projection"
+      ],
+      "ownership_state": "transition_conflict",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "legacy pipeline and Valuation writer capital-return logic",
+          "lifecycle_state": "active",
+          "authority_limit": "Current legacy workbook production."
+        }
+      ],
+      "allowed_extension_point": "Typed source-backed capital-return records and generic versioned calculations.",
+      "prohibited_owners": [
+        "workbook formula without lineage",
+        "program authorization as executed buybacks",
+        "blank-to-zero fallback"
+      ],
+      "notes": "Parallel legacy and transition owners remain until an explicit cutover."
+    }
+  ]
+}

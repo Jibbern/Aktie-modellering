@@ -5,6 +5,29 @@
 - Build evidence-aware workbook surfaces for `SUMMARY`, `Valuation`, `Quarter_Notes_UI`, QA, and audit sheets.
 - Validate the saved workbook after export instead of trusting in-memory previews.
 
+## Current Architecture Surfaces
+
+Three surfaces coexist. Their lifecycle and authority are machine-readable in
+[`SYSTEM_LIFECYCLE_REGISTRY.json`](SYSTEM_LIFECYCLE_REGISTRY.json).
+
+1. **Legacy workbook production — active.** `stock_models.py`, the pipeline, and
+   legacy writers build the currently delivered PBI/GPRE workbooks. The saved,
+   readback-validated workbook is the delivered artifact for this path. Legacy
+   writers still contain compatibility economics and must not become the owner of
+   new source-native semantics.
+2. **Normalized/frozen-shell engine — transition.** The normalized package,
+   binding planner, frozen shell, value-only filler, and style-only applicator are
+   validated transition capabilities. They have not replaced every production
+   consumer and are not the source-native Promise Progress workbook bridge.
+3. **Source-native longitudinal/product architecture — active for its accepted
+   in-memory scope.** C1/C2/C3 records and `PromiseProgressProduct@1` have closed
+   contracts, deterministic goldens, and tests. Promise Progress is a real product
+   consumer of longitudinal memory, but its workbook bridge is
+   **target_not_wired**.
+
+Legacy workbooks may be read-only product, capability, behavior, or visual oracles.
+They are not canonical source authority for economic facts.
+
 ## Main Inputs
 - `sec_cache/<TICKER>/`
   - Canonical filing and narrative cache layout.
@@ -25,6 +48,13 @@
   - Supporting narrative evidence where useful.
 
 ## Authoritative Paths
+- `docs/SYSTEM_LIFECYCLE_REGISTRY.json`
+  - Current lifecycle, authority and production status for active, compatibility,
+    transition, oracle, generated, and not-wired surfaces.
+- `docs/OWNERSHIP_REGISTRY.json`
+  - Canonical owner and declared parallel compatibility owner for important concepts.
+- `docs/EXTENSION_POINTS.md`
+  - Task-oriented starting points and prohibited implementation locations.
 - `Code/pbi_xbrl/summary_overview.py`
   - Live topic-aware `SUMMARY` builder.
 - `Code/pbi_xbrl/excel_writer_context.py`
@@ -39,13 +69,18 @@
 - Do not assume Codex/Chat thread history will be available or identical on another machine.
 - For machine changes or fresh restarts, begin with:
   - [README.md](/c:/Users/Jibbe/Aktier/Code/README.md)
+  - [SYSTEM_LIFECYCLE_REGISTRY.json](SYSTEM_LIFECYCLE_REGISTRY.json)
   - [CODEBASE_MAP.md](/c:/Users/Jibbe/Aktier/Code/docs/CODEBASE_MAP.md)
+  - [OWNERSHIP_REGISTRY.json](OWNERSHIP_REGISTRY.json)
+  - [EXTENSION_POINTS.md](EXTENSION_POINTS.md)
+  - [CHANGE_IMPACT_REGISTRY.json](CHANGE_IMPACT_REGISTRY.json)
+  - [APPROVAL_GATES.json](APPROVAL_GATES.json)
   - [SEC_CACHE_REFERENCE.md](/c:/Users/Jibbe/Aktier/Code/docs/SEC_CACHE_REFERENCE.md)
   - [SETUP_ON_NEW_MACHINE.md](/c:/Users/Jibbe/Aktier/Code/docs/SETUP_ON_NEW_MACHINE.md)
   - [BASELINE_FREEZE_2026-03-20.md](/c:/Users/Jibbe/Aktier/Code/docs/BASELINE_FREEZE_2026-03-20.md)
   - [CURRENT_PASS.md](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md)
 
-## Active Workbook Dataflow
+## Active Legacy Workbook Dataflow
 1. Pipeline artifacts are built from filings, structured facts, and narrative evidence.
 2. `summary_overview.build_company_overview()` resolves topic-aware `SUMMARY` rows.
 3. `excel_writer_context` resolves `Valuation` inputs and final visible note rows, while run-scoped helper modules cache repeated quarter-note, valuation-doc, operating-driver, and market-data fallback analysis inside one export.
@@ -84,7 +119,13 @@
 - See [MARKET_DATA_USDA.md](/c:/Users/Jibbe/Aktier/Code/docs/MARKET_DATA_USDA.md) for the live NWER / AMS download and archive-backfill flow.
 
 ## Key Product Rules
-- Saved workbook is truth.
+- The saved workbook is the delivered/readback truth boundary for the active legacy
+  production path; it is not upstream source or canonical semantic authority.
+- New semantic work should follow shared engine -> sector pack -> ticker profile ->
+  typed product. Workbook presentation consumes approved outputs and must not
+  reinterpret them.
+- The accepted source-native Promise Progress projection is workbook-independent
+  until a separately reviewed shadow-first bridge and cutover are implemented.
 - Conservative blanks are better than contaminated values.
 - Common dividends require explicit common-stock support.
 - Quarter buyback execution requires explicit quarter-safe evidence.

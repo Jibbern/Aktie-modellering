@@ -19,18 +19,26 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
 
 ## Recommended Reading Order
 1. [`docs/SYSTEM_OVERVIEW.md`](/c:/Users/Jibbe/Aktier/Code/docs/SYSTEM_OVERVIEW.md)
-2. [`docs/CODEBASE_MAP.md`](/c:/Users/Jibbe/Aktier/Code/docs/CODEBASE_MAP.md)
-3. [`docs/SEC_CACHE_REFERENCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/SEC_CACHE_REFERENCE.md)
-4. [`docs/MARKET_DATA_USDA.md`](/c:/Users/Jibbe/Aktier/Code/docs/MARKET_DATA_USDA.md)
-5. [`docs/GPRE_ECONOMICS_OVERLAY.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_ECONOMICS_OVERLAY.md)
-6. [`docs/GPRE_DERIVATIVE_HEDGE_DIAGNOSTICS.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_DERIVATIVE_HEDGE_DIAGNOSTICS.md)
-7. [`docs/PERFORMANCE_NOTES.md`](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md)
-8. [`docs/WORKBOOK_ACCEPTANCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/WORKBOOK_ACCEPTANCE.md)
-9. [`docs/CURRENT_PASS.md`](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md) (active legacy-production status log; not the current new-engine migration authority)
-10. [`docs/new_engine_operator_workflow.md`](/c:/Users/Jibbe/Aktier/Code/docs/new_engine_operator_workflow.md) (supported new-engine plan, shadow-render, and immutable-validation CLI)
+2. [`docs/SYSTEM_LIFECYCLE_REGISTRY.json`](docs/SYSTEM_LIFECYCLE_REGISTRY.json)
+3. [`docs/CODEBASE_MAP.md`](/c:/Users/Jibbe/Aktier/Code/docs/CODEBASE_MAP.md)
+4. [`docs/OWNERSHIP_REGISTRY.json`](docs/OWNERSHIP_REGISTRY.json)
+5. [`docs/EXTENSION_POINTS.md`](docs/EXTENSION_POINTS.md)
+6. [`docs/CHANGE_IMPACT_REGISTRY.json`](docs/CHANGE_IMPACT_REGISTRY.json)
+7. [`docs/APPROVAL_GATES.json`](docs/APPROVAL_GATES.json)
+8. [`docs/SEC_CACHE_REFERENCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/SEC_CACHE_REFERENCE.md)
+9. [`docs/MARKET_DATA_USDA.md`](/c:/Users/Jibbe/Aktier/Code/docs/MARKET_DATA_USDA.md)
+10. [`docs/GPRE_ECONOMICS_OVERLAY.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_ECONOMICS_OVERLAY.md)
+11. [`docs/GPRE_DERIVATIVE_HEDGE_DIAGNOSTICS.md`](/c:/Users/Jibbe/Aktier/Code/docs/GPRE_DERIVATIVE_HEDGE_DIAGNOSTICS.md)
+12. [`docs/PERFORMANCE_NOTES.md`](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md)
+13. [`docs/WORKBOOK_ACCEPTANCE.md`](/c:/Users/Jibbe/Aktier/Code/docs/WORKBOOK_ACCEPTANCE.md)
+14. [`docs/CURRENT_PASS.md`](/c:/Users/Jibbe/Aktier/Code/docs/CURRENT_PASS.md) (active legacy-production status log; not the current new-engine migration authority)
+15. [`docs/new_engine_operator_workflow.md`](/c:/Users/Jibbe/Aktier/Code/docs/new_engine_operator_workflow.md) (supported normalized/frozen-shell transition workflow; not a source-native workbook bridge)
 
 ## Runtime Model
-- The saved workbook is the product truth.
+- For the active legacy production path, the saved and readback-validated workbook is the delivered product artifact.
+- Source authority and canonical source-native semantics belong to their closed source, longitudinal-memory, and product contracts; a workbook is not upstream economic authority.
+- The accepted source-native Promise Progress product is active in memory and fixtures, but has no workbook bridge. The normalized/frozen-shell engine is a validated transition path, not a universal production replacement.
+- Use `docs/SYSTEM_LIFECYCLE_REGISTRY.json` to select the current lifecycle surface before choosing implementation files.
 - `sec_cache` is a mixed runtime store:
   - source-like SEC and local-document cache
   - derived pipeline/stage artifacts
@@ -127,6 +135,7 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
 
 ## Documentation Conventions
 - Keep durable architectural and runtime truth in `docs/`.
+- Route high-level changes through the lifecycle, ownership, extension, impact, and approval registries before reading generated audits or historical artifacts.
 - Use module docstrings and short section comments to explain intent, persistence, handoff boundaries, and expected downstream consumers.
 - Avoid comments that restate obvious syntax or pandas/openpyxl mechanics.
 - Prefer adding comments at cache boundaries, safe-blank decisions, and workbook handoff points instead of commenting every helper line.

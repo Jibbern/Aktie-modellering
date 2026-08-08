@@ -1,0 +1,515 @@
+{
+  "registry_id": "registry:system-lifecycle@1",
+  "registry_version": "1.0.0",
+  "checkpoint": "4cd55be61c0007c2d65e4527d912574942e19dd5",
+  "purpose": "Machine-readable index of current lifecycle and authority. Live code and closed contracts remain behavioral authority; this registry routes agents to them and must not be used as runtime configuration.",
+  "lifecycle_states": [
+    "active",
+    "compatibility",
+    "transition",
+    "target_not_wired",
+    "oracle",
+    "deprecated",
+    "generated",
+    "test_fixture",
+    "audit_only",
+    "archive"
+  ],
+  "authority_levels": [
+    "canonical_semantic",
+    "operational_production",
+    "presentation_contract",
+    "compatibility_only",
+    "parity_oracle",
+    "transition_contract",
+    "test_evidence",
+    "audit_evidence",
+    "none"
+  ],
+  "mutability_states": [
+    "immutable_contract",
+    "immutable_artifact",
+    "mutable_runtime",
+    "mixed"
+  ],
+  "production_statuses": [
+    "active_production",
+    "compatibility_production",
+    "accepted_not_workbook_wired",
+    "validated_transition",
+    "not_implemented",
+    "read_only_reference",
+    "test_only",
+    "generated_only",
+    "nonproduction"
+  ],
+  "components": [
+    {
+      "component_id": "component:legacy-workbook-production@1",
+      "name": "Legacy workbook production pipeline",
+      "lifecycle_state": "active",
+      "authority_level": "operational_production",
+      "canonical_owner": "stock_models.py and pbi_xbrl.pipeline_orchestration",
+      "repository_paths": [
+        "stock_models.py",
+        "pbi_xbrl/pipeline_orchestration.py",
+        "pbi_xbrl/pipeline.py",
+        "pbi_xbrl/excel_writer_context.py",
+        "pbi_xbrl/excel_writer.py"
+      ],
+      "producer": "stock_models.py workbook-export workflow",
+      "consumers": [
+        "delivered PBI and GPRE workbooks",
+        "saved-workbook readback validation"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "active_production",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Compatibility fixes and current production behavior only; new canonical semantics should start in source-native contracts where supported.",
+      "prohibited_ownership": [
+        "new canonical source authority",
+        "new source-native metric identity",
+        "PromiseProgressProduct economics"
+      ],
+      "notes": "The saved workbook is the delivered artifact for this path. It is not canonical source authority for economic facts. Direct legacy workbook publication is not universally candidate-isolated, validation-before-write or atomic; that is deferred production debt and must not be copied into a future source-native bridge."
+    },
+    {
+      "component_id": "component:legacy-writer-semantics@1",
+      "name": "Legacy writer-owned economic and presentation logic",
+      "lifecycle_state": "compatibility",
+      "authority_level": "compatibility_only",
+      "canonical_owner": "pbi_xbrl.excel_writer_context and dedicated excel_writer modules",
+      "repository_paths": [
+        "pbi_xbrl/excel_writer_context.py",
+        "pbi_xbrl/excel_writer_promise_progress.py",
+        "pbi_xbrl/excel_writer_core.py"
+      ],
+      "producer": "legacy workbook render",
+      "consumers": [
+        "component:legacy-workbook-production@1"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "compatibility_production",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Preserve accepted production output; do not add a second canonical truth engine.",
+      "prohibited_ownership": [
+        "source-native canonical resolution",
+        "new Actual or Progress semantics",
+        "new upstream metric definitions"
+      ],
+      "notes": "Some economics still live here. That is documented debt, not the preferred extension model. Broad exception handling in compatibility writer paths, including excel_writer_core.py, can swallow failures before a direct save; future remediation belongs at typed writer-step diagnostics plus validated atomic publication, not in source-native economics."
+    },
+    {
+      "component_id": "component:source-acquisition@1",
+      "name": "Source acquisition and cache materialization",
+      "lifecycle_state": "active",
+      "authority_level": "operational_production",
+      "canonical_owner": "pbi_xbrl.sec_ingest and source refresh services",
+      "repository_paths": [
+        "pbi_xbrl/sec_ingest.py",
+        "pbi_xbrl/source_material_refresh.py",
+        "pbi_xbrl/market_data/service.py"
+      ],
+      "producer": "operator-invoked acquisition and refresh workflows",
+      "consumers": [
+        "legacy pipeline",
+        "reviewed source-set preparation"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "active_production",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Explicit I/O boundary with reviewed source paths, hashes, overwrite policy and dry-run where available.",
+      "prohibited_ownership": [
+        "economic interpretation",
+        "canonical observation selection",
+        "workbook presentation"
+      ],
+      "notes": "Acquisition is not atomic across every legacy path and remains structurally deferred."
+    },
+    {
+      "component_id": "component:source-native-longitudinal-core@1",
+      "name": "Source-native longitudinal company memory",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "pbi_xbrl.longitudinal_memory",
+      "repository_paths": [
+        "docs/longitudinal_company_memory_contract.md",
+        "docs/longitudinal_company_memory.schema.json",
+        "pbi_xbrl/longitudinal_memory"
+      ],
+      "producer": "accepted C1/C2/C3 builders",
+      "consumers": [
+        "component:promise-progress-product@1",
+        "canonical validation and lineage reports"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Versioned generic domain records, identity contracts, reconciliation and deterministic calculations.",
+      "prohibited_ownership": [
+        "workbook cell destinations",
+        "ticker-specific branches",
+        "legacy workbook facts as source authority"
+      ],
+      "notes": "Accepted semantic foundation. It is workbook-independent."
+    },
+    {
+      "component_id": "component:source-native-adapter@1",
+      "name": "Source-native discovery, extraction and mapping adapter",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "pbi_xbrl.longitudinal_memory.source_adapter",
+      "repository_paths": [
+        "docs/longitudinal_memory_source_adapter_contract.md",
+        "docs/longitudinal_memory_source_adapter_input.schema.json",
+        "pbi_xbrl/longitudinal_memory/source_adapter"
+      ],
+      "producer": "build_source_native_sidecar",
+      "consumers": [
+        "component:source-native-longitudinal-core@1"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Closed source roles, immutable locator replay, reviewed periods and assertion mapping.",
+      "prohibited_ownership": [
+        "product display selection",
+        "workbook writing",
+        "source-order fallback"
+      ],
+      "notes": "Consumes injected immutable source bytes and does not download or write workbooks."
+    },
+    {
+      "component_id": "component:source-native-sector-packs@1",
+      "name": "Reusable sector semantic packs",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "pbi_xbrl.longitudinal_memory.sector_packs",
+      "repository_paths": [
+        "pbi_xbrl/longitudinal_memory/sector_packs/retail.py",
+        "pbi_xbrl/longitudinal_memory/sector_packs/business_services.py"
+      ],
+      "producer": "sector semantic catalogs, parsers and derived requests",
+      "consumers": [
+        "component:source-native-adapter@1",
+        "component:source-native-ticker-profiles@1"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Reusable metric, definition, basis, unit, dimension and sector calculation semantics.",
+      "prohibited_ownership": [
+        "company-specific source paths",
+        "ticker branches in shared runtime",
+        "workbook layout"
+      ],
+      "notes": "Preferred owner for new sector concepts."
+    },
+    {
+      "component_id": "component:source-native-ticker-profiles@1",
+      "name": "Source-native ticker profiles",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "pbi_xbrl.longitudinal_memory.ticker_profiles",
+      "repository_paths": [
+        "pbi_xbrl/longitudinal_memory/ticker_profiles/anf.py",
+        "pbi_xbrl/longitudinal_memory/ticker_profiles/pbi.py"
+      ],
+      "producer": "validated company activation and alias mapping",
+      "consumers": [
+        "component:source-native-adapter@1"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Company/publisher/member aliases, reviewed links, calendar and semantic-binding activation.",
+      "prohibited_ownership": [
+        "reusable sector economics",
+        "shared parser branches",
+        "fabricated facts or assessments"
+      ],
+      "notes": "Conceptually declarative, but adding a ticker currently still requires bounded Python registration."
+    },
+    {
+      "component_id": "component:promise-progress-product@1",
+      "name": "Source-native Promise Progress product",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "PromiseProgressProduct@1",
+      "repository_paths": [
+        "docs/promise_progress_product_contract.md",
+        "docs/promise_progress_shadow_projection.schema.json",
+        "pbi_xbrl/longitudinal_memory/promise_progress_projection.py"
+      ],
+      "producer": "build_promise_progress_product",
+      "consumers": [
+        "deterministic product fixtures",
+        "shadow matrix",
+        "parity and validation reports"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Typed block projections, Actual/Progress/Status, display fields, ordering, lineage and parity.",
+      "prohibited_ownership": [
+        "workbook I/O",
+        "source acquisition",
+        "writer-side economic reselection"
+      ],
+      "notes": "A real current product consumer of longitudinal memory. No workbook bridge exists."
+    },
+    {
+      "component_id": "component:promise-progress-workbook-bridge@1",
+      "name": "Source-native Promise Progress workbook bridge",
+      "lifecycle_state": "target_not_wired",
+      "authority_level": "none",
+      "canonical_owner": "unassigned pending approved shadow-first implementation",
+      "repository_paths": [
+        "docs/promise_progress_product_contract.md"
+      ],
+      "producer": "none",
+      "consumers": [],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "not_implemented",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Future writer may consume product fields and destinations only after separate review and parity acceptance.",
+      "prohibited_ownership": [
+        "new selection logic",
+        "Actual/Progress/Status interpretation",
+        "direct in-place legacy replacement"
+      ],
+      "notes": "Do not describe Promise Progress workbook integration as active."
+    },
+    {
+      "component_id": "component:normalized-package-contract@1",
+      "name": "Normalized company-data package",
+      "lifecycle_state": "transition",
+      "authority_level": "transition_contract",
+      "canonical_owner": "normalized package schema, validation and approved builders",
+      "repository_paths": [
+        "docs/normalized_company_data.schema.json",
+        "pbi_xbrl/normalized_company_data_validation.py",
+        "scripts/generate_normalized_company_data_package.py",
+        "scripts/build_anf_shadow_normalized_package.py"
+      ],
+      "producer": "ticker package builders",
+      "consumers": [
+        "binding planner",
+        "new-engine shadow render"
+      ],
+      "mutable_or_immutable": "mixed",
+      "production_status": "validated_transition",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Validated normalized values/status/source references for the transition engine.",
+      "prohibited_ownership": [
+        "reinterpreting source-native canonical facts",
+        "legacy workbook as upstream fact source for new production",
+        "silent unknown-field ownership"
+      ],
+      "notes": "Not unified with longitudinal memory; the source-native bridge is intentionally deferred."
+    },
+    {
+      "component_id": "component:normalized-frozen-shell-engine@1",
+      "name": "Normalized frozen-shell workbook engine",
+      "lifecycle_state": "transition",
+      "authority_level": "transition_contract",
+      "canonical_owner": "new-engine orchestration and value-only filler",
+      "repository_paths": [
+        "docs/new_engine_operator_workflow.md",
+        "pbi_xbrl/new_engine_orchestration.py",
+        "pbi_xbrl/new_ticker_binding_planner.py",
+        "pbi_xbrl/new_ticker_value_filler.py"
+      ],
+      "producer": "validated shadow workbooks and promotion candidates",
+      "consumers": [
+        "new-engine validation and promotion workflow"
+      ],
+      "mutable_or_immutable": "mixed",
+      "production_status": "validated_transition",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Plan exact values against a frozen shell; preserve all upstream semantics.",
+      "prohibited_ownership": [
+        "canonical source selection",
+        "ticker-specific runtime layouts",
+        "post-render economic repair"
+      ],
+      "notes": "Validated transition path, not universal production and not the Promise Progress bridge."
+    },
+    {
+      "component_id": "component:workbook-binding-contract@1",
+      "name": "Workbook binding contract",
+      "lifecycle_state": "transition",
+      "authority_level": "presentation_contract",
+      "canonical_owner": "workbook binding map and planner",
+      "repository_paths": [
+        "docs/workbook_binding_map.json",
+        "docs/workbook_binding_map.md",
+        "pbi_xbrl/new_ticker_binding_planner.py"
+      ],
+      "producer": "deterministic binding plan",
+      "consumers": [
+        "component:normalized-frozen-shell-engine@1"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "validated_transition",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Map approved normalized/product fields to exact writable destinations without economic selection.",
+      "prohibited_ownership": [
+        "source authority",
+        "economic calculations",
+        "missing-to-zero coercion"
+      ],
+      "notes": "The current source_policy value manual is a planner category. It does not override upstream evidence-backed synthesis lineage."
+    },
+    {
+      "component_id": "component:workbook-style-contract@1",
+      "name": "Frozen shell and workbook style contract",
+      "lifecycle_state": "transition",
+      "authority_level": "presentation_contract",
+      "canonical_owner": "frozen shell, shell manifest and style policy",
+      "repository_paths": [
+        "templates/standard_stock_model_template.xlsx",
+        "docs/standard_template_shell_manifest.json",
+        "docs/standard_template_style_policy.json",
+        "pbi_xbrl/new_ticker_style_planner.py",
+        "pbi_xbrl/new_ticker_style_application.py"
+      ],
+      "producer": "style plan and presentation-only overlays",
+      "consumers": [
+        "component:normalized-frozen-shell-engine@1"
+      ],
+      "mutable_or_immutable": "immutable_artifact",
+      "production_status": "validated_transition",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Layout and style only; value/formula ownership remains protected.",
+      "prohibited_ownership": [
+        "economic selection",
+        "source parsing",
+        "canonical status assessment"
+      ],
+      "notes": "Presentation-only changes require proof that economic values and formulas did not change."
+    },
+    {
+      "component_id": "component:legacy-workbook-oracles@1",
+      "name": "Legacy ANF, PBI and GPRE workbook oracles",
+      "lifecycle_state": "oracle",
+      "authority_level": "parity_oracle",
+      "canonical_owner": "reviewed external workbook artifacts",
+      "repository_paths": [
+        "tests/fixtures/promise_progress/anf_legacy_oracle.v1.json",
+        "docs/workbook_block_architecture.md"
+      ],
+      "producer": "accepted historical workbook production",
+      "consumers": [
+        "visual, behavior and capability parity review"
+      ],
+      "mutable_or_immutable": "immutable_artifact",
+      "production_status": "read_only_reference",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Read-only comparison evidence with explicit parity exceptions.",
+      "prohibited_ownership": [
+        "canonical economic facts",
+        "source authority",
+        "automatic golden acceptance"
+      ],
+      "notes": "Oracle means product/capability reference, not source-native economic authority."
+    },
+    {
+      "component_id": "component:legacy-company-profiles@1",
+      "name": "Legacy company profile and ticker branches",
+      "lifecycle_state": "compatibility",
+      "authority_level": "compatibility_only",
+      "canonical_owner": "pbi_xbrl.company_profiles",
+      "repository_paths": [
+        "pbi_xbrl/company_profiles.py"
+      ],
+      "producer": "legacy workbook configuration",
+      "consumers": [
+        "legacy pipeline and writers"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "compatibility_production",
+      "replacement_or_successor": "component:source-native-ticker-profiles@1",
+      "safe_extension_boundary": "Compatibility-only additions required by existing workbook production.",
+      "prohibited_ownership": [
+        "new reusable sector semantics",
+        "new source-native company branches"
+      ],
+      "notes": "Do not use this as the model for a new source-native ticker."
+    },
+    {
+      "component_id": "component:test-fixtures-and-goldens@1",
+      "name": "Accepted fixtures and deterministic goldens",
+      "lifecycle_state": "test_fixture",
+      "authority_level": "test_evidence",
+      "canonical_owner": "tests and reviewed fixture contracts",
+      "repository_paths": [
+        "tests/fixtures/longitudinal_memory",
+        "tests/fixtures/promise_progress"
+      ],
+      "producer": "reviewed acceptance passes",
+      "consumers": [
+        "semantic, mutation, parity and determinism tests"
+      ],
+      "mutable_or_immutable": "immutable_artifact",
+      "production_status": "test_only",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Change only after independent semantic review and the applicable approval gate.",
+      "prohibited_ownership": [
+        "runtime selection logic",
+        "self-generated acceptance",
+        "unreviewed semantic changes"
+      ],
+      "notes": "Goldens are evidence, not a mechanism for auto-accepting current output."
+    },
+    {
+      "component_id": "component:generated-audit-projections@1",
+      "name": "Generated audit projections and receipts",
+      "lifecycle_state": "generated",
+      "authority_level": "audit_evidence",
+      "canonical_owner": "audit builders and receipt validators",
+      "repository_paths": [
+        "docs/audit_receipts",
+        "docs/workbook_block_architecture.json"
+      ],
+      "producer": "audit/report scripts",
+      "consumers": [
+        "human review and freshness checks"
+      ],
+      "mutable_or_immutable": "immutable_artifact",
+      "production_status": "generated_only",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Regenerate from authoritative inputs; never edit as runtime policy unless the artifact explicitly declares policy ownership.",
+      "prohibited_ownership": [
+        "runtime economics",
+        "canonical architecture",
+        "source facts"
+      ],
+      "notes": "Search results from this surface must be classified as generated before use."
+    },
+    {
+      "component_id": "component:external-machine-readability-audits@1",
+      "name": "External machine-readability audit bundles",
+      "lifecycle_state": "audit_only",
+      "authority_level": "audit_evidence",
+      "canonical_owner": "reviewed external audit manifests",
+      "repository_paths": [
+        "docs/CODEBASE_MAP.md"
+      ],
+      "producer": "read-only audit passes under StockModelData/audit",
+      "consumers": [
+        "documentation remediation and human review"
+      ],
+      "mutable_or_immutable": "immutable_artifact",
+      "production_status": "nonproduction",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Use as evidence only after manifest verification and live-code confirmation.",
+      "prohibited_ownership": [
+        "runtime behavior",
+        "automatic architecture override",
+        "source or workbook mutation"
+      ],
+      "notes": "Audits are subordinate to accepted Git and live closed contracts."
+    }
+  ]
+}

@@ -3,6 +3,32 @@
 ## Purpose
 This map explains which modules own each major stage of the runtime so the handoff between ingest, pipeline assembly, workbook rendering, and validation is easy to follow.
 
+## Select The Lifecycle Before The Files
+
+The repository currently contains three legitimate but different architecture
+surfaces. Do not combine their owners:
+
+| Surface | Lifecycle | Current ownership | Must not be treated as |
+| --- | --- | --- | --- |
+| Legacy workbook production | active / compatibility | `stock_models.py`, pipeline/orchestration, legacy writers, saved-workbook readback | canonical source-native economic authority |
+| Normalized/frozen-shell engine | transition | normalized schema/validation, binding planner, frozen shell, value/style applicators | universal production or the Promise Progress workbook bridge |
+| Source-native longitudinal products | active for accepted in-memory scope | longitudinal contracts, source adapter, sector packs, ticker profiles, typed products | already wired to normalized/workbook production |
+
+Machine-readable routing:
+
+- [`SYSTEM_LIFECYCLE_REGISTRY.json`](SYSTEM_LIFECYCLE_REGISTRY.json) — lifecycle,
+  authority and production status;
+- [`OWNERSHIP_REGISTRY.json`](OWNERSHIP_REGISTRY.json) — canonical and parallel
+  owners;
+- [`EXTENSION_POINTS.md`](EXTENSION_POINTS.md) — task-oriented public extension
+  surfaces;
+- [`CHANGE_IMPACT_REGISTRY.json`](CHANGE_IMPACT_REGISTRY.json) — likely change
+  blast radius;
+- [`APPROVAL_GATES.json`](APPROVAL_GATES.json) — mandatory stop points.
+
+These artifacts are routing metadata. Live code and the referenced closed contracts
+remain behavioral authority.
+
 ## Stage Ownership
 
 ### 1. SEC ingest and cache seeding
@@ -52,7 +78,8 @@ This map explains which modules own each major stage of the runtime so the hando
 - [`pbi_xbrl/longitudinal_memory/`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/longitudinal_memory)
   - Workbook-independent pure domain types, deterministic readable identities, semantic validation, assertion-specific reconciliation, safe QoQ/YoY change derivation, and deterministic JSON serialization.
   - Reuses the strict JSON loader and existing Needs Review issue-ledger projection; it does not reuse lossy latest-row selection.
-  - Remains a validated sidecar linked non-authoritatively to the normalized package. No workbook binding, formula, writer, template, ticker profile, or current product consumer reads it in this pass.
+  - Remains a validated sidecar linked non-authoritatively to the normalized package. No workbook binding, formula, writer, template, or normalized-package producer reads it.
+  - It now has one accepted source-native product consumer: `PromiseProgressProduct@1`. That consumer is in-memory only and does not imply workbook integration.
 
 ### 4b. Source-native longitudinal-memory adapter (isolated C2 path)
 - [`docs/longitudinal_memory_source_adapter_contract.md`](/c:/Users/Jibbe/Aktier/Code/docs/longitudinal_memory_source_adapter_contract.md)
@@ -90,7 +117,40 @@ The C3 path has no production writer, workbook consumer, normalized-package bind
 source acquisition or ModelInterpretation. It exists only as a source-native
 generalization proof over the unchanged C1 sidecar.
 
-### 5. Workbook rendering
+### 4d. Source-native Promise Progress product (active, workbook not wired)
+- [`docs/promise_progress_product_contract.md`](promise_progress_product_contract.md)
+  - Owns the versioned product boundary, four distinct blocks, typed Actual,
+    Progress and Status semantics, dates, ordering, display text, lineage and parity.
+- [`docs/promise_progress_shadow_projection.schema.json`](promise_progress_shadow_projection.schema.json)
+  - Closed shadow-row/field and lineage contract.
+- [`pbi_xbrl/longitudinal_memory/promise_progress_projection.py`](../pbi_xbrl/longitudinal_memory/promise_progress_projection.py)
+  - Builds and deterministically serializes one immutable
+    `PromiseProgressProduct@1` and its shadow/parity reports.
+- [`tests/test_promise_progress_source_native_projection.py`](../tests/test_promise_progress_source_native_projection.py)
+  - Semantic, negative, mutation, parity, schema and determinism acceptance.
+
+This product is active and accepted. The source-native -> workbook bridge is
+`target_not_wired`; the legacy Promise Progress writer is a compatibility/UI owner,
+not a consumer of this projection.
+
+### 4e. Normalized/frozen-shell engine (validated transition)
+- [`docs/normalized_company_data.schema.json`](normalized_company_data.schema.json)
+  - Transition package contract consumed by the new-engine planner; it is not the
+    longitudinal schema and no accepted general bridge joins the two.
+- [`pbi_xbrl/normalized_company_data_validation.py`](../pbi_xbrl/normalized_company_data_validation.py)
+  - Normalized-package semantic validation.
+- [`docs/workbook_binding_map.json`](workbook_binding_map.json) and
+  [`pbi_xbrl/new_ticker_binding_planner.py`](../pbi_xbrl/new_ticker_binding_planner.py)
+  - Exact normalized-field-to-cell planning; no source selection authority.
+- [`templates/standard_stock_model_template.xlsx`](../templates/standard_stock_model_template.xlsx),
+  [`pbi_xbrl/new_ticker_value_filler.py`](../pbi_xbrl/new_ticker_value_filler.py), and
+  [`pbi_xbrl/new_ticker_style_application.py`](../pbi_xbrl/new_ticker_style_application.py)
+  - Frozen presentation shell, value-only execution, and style-only overlays.
+
+This is a validated transition path. It is not universal production and must not be
+described as the implemented Promise Progress workbook bridge.
+
+### 5. Active legacy workbook rendering
 - [`pbi_xbrl/excel_writer_context.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_context.py)
   - Main workbook renderer and the largest concentration of visible product logic.
   - Owns many final write paths for `Valuation`, `Quarter_Notes_UI`, `Promise_Progress_UI`, `Economics_Overlay`, and supporting QA surfaces.
@@ -105,6 +165,8 @@ generalization proof over the unchanged C1 sidecar.
 - [`pbi_xbrl/excel_writer_promise_progress.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_promise_progress.py)
   - Dedicated stage-4 writer surface for the visible `Promise_Progress_UI` sheet.
   - Owns the visible sheet scaffold, Promise Progress block-header rendering, and the final worksheet formatting contract while shared hydration logic stays in `excel_writer_context.py`.
+  - Compatibility owner for the currently delivered legacy workbook; it does not
+    consume or override `PromiseProgressProduct@1`.
 - [`pbi_xbrl/excel_writer.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer.py)
   - Workbook save/readback helpers and export validation entrypoints.
 - Run-scoped writer runtime helpers:
@@ -163,12 +225,26 @@ the diagnostic `Derivative_Crush_Tests` sheet, see
 - [`pbi_xbrl/workbook_gap_audit.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/workbook_gap_audit.py)
   - Workbook comparison helpers against saved artifacts and cache outputs.
 
-## Hand-off Model
+## Hand-off Models
+
+### Active legacy production
 1. SEC and local materials enter through ingest, refresh, and market-data sync.
 2. `pipeline_orchestration` builds reusable stage outputs and final pipeline artifacts.
 3. `pipeline.py` packages those artifacts into `WorkbookInputs`.
 4. `excel_writer_context` coordinates the workbook write and delegates repeated per-export analysis to the writer runtime helpers.
 5. `excel_writer.py` and `stock_models.py` save, reopen, and validate the delivered workbook.
+
+### Source-native accepted scope
+
+`reviewed immutable sources -> source adapter -> longitudinal memory -> canonical resolution/change observations -> PromiseProgressProduct -> product/shadow/parity fixtures`
+
+The flow stops there. No normalized or workbook consumer is connected.
+
+### Normalized/frozen-shell transition
+
+`normalized package -> validation -> binding/style plans -> copied frozen shell -> readback/immutable validation -> separately approved promotion`
+
+This transition flow is not automatically fed by longitudinal memory.
 
 ## What Each Stage Hands To The Next One
 - Ingest / refresh
@@ -185,9 +261,24 @@ the diagnostic `Derivative_Crush_Tests` sheet, see
   - hands the saved workbook path plus readback provenance back to `stock_models.py`, which decides whether the export is accepted.
 
 ## Most Important Files To Read First
-1. [`stock_models.py`](/c:/Users/Jibbe/Aktier/Code/stock_models.py)
-2. [`pbi_xbrl/pipeline_orchestration.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/pipeline_orchestration.py)
-3. [`pbi_xbrl/excel_writer_context.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_context.py)
+1. [`SYSTEM_LIFECYCLE_REGISTRY.json`](SYSTEM_LIFECYCLE_REGISTRY.json)
+2. [`OWNERSHIP_REGISTRY.json`](OWNERSHIP_REGISTRY.json)
+3. [`EXTENSION_POINTS.md`](EXTENSION_POINTS.md)
+4. For active legacy production: [`stock_models.py`](../stock_models.py), [`pbi_xbrl/pipeline_orchestration.py`](../pbi_xbrl/pipeline_orchestration.py), and [`pbi_xbrl/excel_writer_context.py`](../pbi_xbrl/excel_writer_context.py).
+5. For source-native semantics: the applicable longitudinal/source/product contract and owner named by the ownership registry.
+6. For the normalized transition: [`docs/new_engine_operator_workflow.md`](new_engine_operator_workflow.md), the normalized schema, binding map, and shell manifest.
+
+## Terminology Guardrails
+
+- `legacy` means current compatibility/production history, not canonical source truth.
+- `oracle` means read-only product, capability, behavior, or visual reference.
+- `source-native` and `normalized` are distinct current contracts; no general bridge
+  joins them.
+- a product projection owns product economics and display meaning; a workbook writer
+  owns only its declared compatibility/presentation behavior.
+- the binding-map `manual` category allows reviewed input. It does not override
+  upstream evidence lineage; for example, the ANF Investment Case summary is built as
+  reviewed `evidence_backed_synthesis`.
 
 For runtime hotspots, cache layering, and current profiling guidance, see
 [`PERFORMANCE_NOTES.md`](/c:/Users/Jibbe/Aktier/Code/docs/PERFORMANCE_NOTES.md).

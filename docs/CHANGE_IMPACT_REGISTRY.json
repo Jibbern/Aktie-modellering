@@ -1,0 +1,651 @@
+{
+  "registry_id": "registry:change-impact@1",
+  "registry_version": "1.0.0",
+  "checkpoint": "4cd55be61c0007c2d65e4527d912574942e19dd5",
+  "purpose": "Blast-radius routing for important semantic and presentation change classes. This is a review checklist, not an executable dependency graph or acceptance mechanism.",
+  "changes": [
+    {
+      "change_id": "change:canonical-schema-field@1",
+      "name": "Canonical schema field change",
+      "canonical_owner_concept_ids": [
+        "concept:source-document-identity@1",
+        "concept:source-discovery@1",
+        "concept:promise-progress-projection@1",
+        "concept:normalized-package@1"
+      ],
+      "likely_direct_consumers": [
+        "types and builders",
+        "strict serializer",
+        "schema and semantic validators",
+        "all readers of the field"
+      ],
+      "schemas_contracts": [
+        "the exact owning versioned schema, identified before selecting an owner",
+        "longitudinal-memory, source-set, Promise Progress or normalized-package contract as applicable",
+        "identity contract when identity semantics change",
+        "compatibility/migration policy"
+      ],
+      "tests": [
+        "old-fixture compatibility",
+        "new schema validation",
+        "round-trip and identity stability",
+        "consumer-specific tests"
+      ],
+      "goldens": [
+        "new-version canonical package",
+        "affected downstream products only",
+        "retain historical v1 goldens"
+      ],
+      "parity_oracle_artifacts": [
+        "affected product parity capture only when visible semantics change"
+      ],
+      "products": [
+        "every product that selects or serializes the field"
+      ],
+      "workbook_effects": "Only through downstream normalized/product bindings; never rename a workbook cell first.",
+      "migration_requirement": "Classify compatibility, mint a version when required, and provide a deterministic reader/migration before cutover.",
+      "approval_gate_ids": [
+        "gate:schema-compatibility-break@1",
+        "gate:semantic-golden-regeneration@1",
+        "gate:canonical-owner-migration@1"
+      ],
+      "notes": "There is no universal canonical-schema owner. Name the exact schema first, resolve its owner through the lifecycle/ownership registry, and then apply this blast-radius checklist. The repository does not yet have general schema-migration infrastructure; this registry does not claim otherwise."
+    },
+    {
+      "change_id": "change:fiscal-calendar-rule@1",
+      "name": "FiscalCalendar rule change",
+      "canonical_owner_concept_ids": [
+        "concept:fiscal-calendar@1",
+        "concept:period@1"
+      ],
+      "likely_direct_consumers": [
+        "source-adapter period reconciliation",
+        "period compatibility",
+        "ChangeObservation",
+        "guidance/product as-of selection"
+      ],
+      "schemas_contracts": [
+        "longitudinal company-memory contract/schema",
+        "source-adapter input contract/schema",
+        "calendar rule registry"
+      ],
+      "tests": [
+        "calendar rule boundaries",
+        "QoQ/YoY comparability",
+        "missing/unknown rule mutations",
+        "activated ticker adapter tests"
+      ],
+      "goldens": [
+        "only activated source packages/products",
+        "existing calendar goldens remain unchanged"
+      ],
+      "parity_oracle_artifacts": [
+        "product parity only where period display/eligibility changes"
+      ],
+      "products": [
+        "canonical resolutions",
+        "ChangeObservation",
+        "Promise Progress when affected"
+      ],
+      "workbook_effects": "Future consumers may change period labels/order; workbook logic cannot infer the new calendar independently.",
+      "migration_requirement": "Add a versioned rule and explicit profile/source-set activation; never reinterpret an old period ID.",
+      "approval_gate_ids": [
+        "gate:schema-compatibility-break@1",
+        "gate:semantic-golden-regeneration@1"
+      ],
+      "notes": "Ticker branches and month-name inference are prohibited."
+    },
+    {
+      "change_id": "change:source-role@1",
+      "name": "Source role or format change",
+      "canonical_owner_concept_ids": [
+        "concept:source-discovery@1",
+        "concept:source-authority@1",
+        "concept:evidence-occurrence@1"
+      ],
+      "likely_direct_consumers": [
+        "discovery",
+        "assertion permissions",
+        "authority policy",
+        "format locator extraction",
+        "source-set validation"
+      ],
+      "schemas_contracts": [
+        "source-adapter contract",
+        "source-adapter input schema",
+        "closed DocumentRole registry"
+      ],
+      "tests": [
+        "role/discovery validation",
+        "format locator replay",
+        "authority/conflict mutations",
+        "activated ticker adapter tests"
+      ],
+      "goldens": [
+        "activated source-set/package only after reviewed source addition"
+      ],
+      "parity_oracle_artifacts": [],
+      "products": [
+        "none automatically; affected products change only through canonical observations"
+      ],
+      "workbook_effects": "None directly.",
+      "migration_requirement": "Add a closed role/version and explicit assertion eligibility; reclassifying an existing document is a reviewed source-set migration.",
+      "approval_gate_ids": [
+        "gate:authority-order-change@1",
+        "gate:reviewed-source-acquisition@1",
+        "gate:source-overwrite-replacement@1",
+        "gate:semantic-golden-regeneration@1"
+      ],
+      "notes": "Use an existing role when authority/eligibility is unchanged."
+    },
+    {
+      "change_id": "change:metric-definition@1",
+      "name": "Source-native or sector metric/definition change",
+      "canonical_owner_concept_ids": [
+        "concept:metric-identity@1",
+        "concept:definition-basis-unit@1",
+        "concept:dimensions@1"
+      ],
+      "likely_direct_consumers": [
+        "sector semantic binding",
+        "source assertions",
+        "candidate compatibility",
+        "canonical resolution",
+        "derived calculations"
+      ],
+      "schemas_contracts": [
+        "sector-pack catalog",
+        "versioned identity contract",
+        "source-set semantic bindings"
+      ],
+      "tests": [
+        "sector mapping",
+        "definition/basis/unit/dimension incompatibility",
+        "ChangeObservation definition break",
+        "product selection if consumed"
+      ],
+      "goldens": [
+        "activated source package",
+        "downstream product/shadow only when selected"
+      ],
+      "parity_oracle_artifacts": [
+        "visible product parity when labels/values change"
+      ],
+      "products": [
+        "all selectors explicitly matching the changed identity"
+      ],
+      "workbook_effects": "Definition/basis labels and values change only through an approved downstream consumer.",
+      "migration_requirement": "Mint a new identity; preserve old observations; add explicit supersession/comparability rules where supported.",
+      "approval_gate_ids": [
+        "gate:authority-order-change@1",
+        "gate:semantic-golden-regeneration@1",
+        "gate:unsupported-economic-fallback@1",
+        "gate:canonical-owner-migration@1"
+      ],
+      "notes": "Use this route for a new source-native/shared or sector metric identity. A ticker profile activates a reusable definition; it does not own the definition. Existing split-owner FCF and net-debt changes use change:free-cash-flow-definition@1 or change:net-debt-definition@1 instead of inventing a sector-pack owner."
+    },
+    {
+      "change_id": "change:free-cash-flow-definition@1",
+      "name": "Free cash flow definition or calculation change",
+      "canonical_owner_concept_ids": [
+        "concept:free-cash-flow@1",
+        "concept:valuation-economics@1",
+        "concept:capital-allocation-economics@1"
+      ],
+      "likely_direct_consumers": [
+        "signals and quarter-note CFO-less-capex derivations",
+        "legacy workbook core and valuation engine",
+        "Investment Case and Latest Quarter QA",
+        "issuer/company-adjusted FCF capture",
+        "normalized package and standard-template formulas",
+        "source-backed capital-return coverage"
+      ],
+      "schemas_contracts": [
+        "pbi_xbrl/standard_template_formula_contract.py",
+        "docs/normalized_company_data.schema.json",
+        "pbi_xbrl/anf_capital_return_source_adapter.py metric definition",
+        "company-adjusted FCF basis in pbi_xbrl/non_gaap.py"
+      ],
+      "tests": [
+        "signals, quarter-note and valuation FCF calculations",
+        "standard-template formula contract and normalized validation",
+        "ANF capital-return source-adapter lineage and FCF coverage",
+        "Latest Quarter QA distinction between CFO less capex and company-adjusted FCF",
+        "missing, period, unit and definition incompatibility mutations"
+      ],
+      "goldens": [
+        "affected legacy workbook/readback evidence when production output changes",
+        "affected normalized package and transition workbook outputs",
+        "source-native package/product golden only if the changed FCF identity is consumed"
+      ],
+      "parity_oracle_artifacts": [
+        "read-only workbook oracle and affected product parity only when visible FCF output changes"
+      ],
+      "products": [
+        "legacy Valuation and Summary",
+        "Investment Case and Latest Quarter QA",
+        "capital-return projection",
+        "normalized valuation inputs and frozen-shell output"
+      ],
+      "workbook_effects": "FCF values, yields, margins, per-share measures, valuation scenarios and capital-return coverage may change; presentation code must not choose the definition.",
+      "migration_requirement": "Name the exact FCF definition and basis, preserve CFO-less-capex versus issuer-adjusted variants, inventory every active/transition consumer, and require an explicit owner migration before consolidation.",
+      "approval_gate_ids": [
+        "gate:authority-order-change@1",
+        "gate:semantic-golden-regeneration@1",
+        "gate:canonical-owner-migration@1",
+        "gate:unsupported-economic-fallback@1"
+      ],
+      "notes": "FCF has no unified canonical owner across current production and the normalized transition. This route describes blast radius; executable source/formula contracts remain economic authority."
+    },
+    {
+      "change_id": "change:net-debt-definition@1",
+      "name": "Net debt definition or calculation change",
+      "canonical_owner_concept_ids": [
+        "concept:net-debt@1",
+        "concept:valuation-economics@1"
+      ],
+      "likely_direct_consumers": [
+        "legacy pipeline debt-core selection",
+        "legacy workbook core and valuation engine",
+        "Investment Case and Latest Quarter QA",
+        "normalized debt/liquidity fields and standard-template formulas",
+        "source-backed debt scope and projection",
+        "leverage and enterprise-value calculations"
+      ],
+      "schemas_contracts": [
+        "pbi_xbrl/standard_template_formula_contract.py",
+        "docs/normalized_company_data.schema.json",
+        "pbi_xbrl/new_ticker_debt_scope.py",
+        "pbi_xbrl/new_ticker_debt_projection.py",
+        "pbi_xbrl/anf_debt_source_adapter.py source-backed debt basis"
+      ],
+      "tests": [
+        "pipeline core-debt and cash selection",
+        "valuation and leverage calculations",
+        "standard-template formula contract and normalized validation",
+        "debt-scope/projection instrument, facility and liquidity tests",
+        "restricted-cash, lease, revolver, period and missing-input mutations"
+      ],
+      "goldens": [
+        "affected legacy workbook/readback evidence when production output changes",
+        "affected normalized debt/valuation package and transition workbook output",
+        "source-native package/product golden only if the changed net-debt identity is consumed"
+      ],
+      "parity_oracle_artifacts": [
+        "read-only debt/valuation workbook oracle when visible summary output changes"
+      ],
+      "products": [
+        "legacy Valuation, leverage and Investment Case",
+        "Latest Quarter QA",
+        "Debt Detail and Leverage/Liquidity transition projections",
+        "normalized valuation inputs and frozen-shell output"
+      ],
+      "workbook_effects": "Net debt, leverage, enterprise value and related summaries may change. Debt Detail remains source-backed instrument detail and must not be collapsed into the net-debt summary definition.",
+      "migration_requirement": "Name the exact debt and cash basis, keep gross debt, core debt, revolver, restricted cash, leases and net-cash variants distinct, inventory every active/transition consumer, and require an explicit owner migration before consolidation.",
+      "approval_gate_ids": [
+        "gate:authority-order-change@1",
+        "gate:semantic-golden-regeneration@1",
+        "gate:canonical-owner-migration@1",
+        "gate:unsupported-economic-fallback@1"
+      ],
+      "notes": "Net debt has no unified canonical owner across current production and the normalized transition. This route describes blast radius; executable debt/formula contracts remain economic authority."
+    },
+    {
+      "change_id": "change:guidance-rule@1",
+      "name": "Guidance rule or history change",
+      "canonical_owner_concept_ids": [
+        "concept:guidance-series-version@1",
+        "concept:canonical-resolution@1",
+        "concept:publication-knowledge-dates@1"
+      ],
+      "likely_direct_consumers": [
+        "GuidanceSeries/Version builder and validation",
+        "history relationships",
+        "annual/open/timeline product projections"
+      ],
+      "schemas_contracts": [
+        "longitudinal memory schema/contract",
+        "source-set assertions/relations",
+        "Promise Progress block contract when displayed"
+      ],
+      "tests": [
+        "origin/update/reaffirmation/supersession chronology",
+        "knowledge-date leakage",
+        "basis/horizon compatibility",
+        "product timeline/parity"
+      ],
+      "goldens": [
+        "affected source package",
+        "affected Promise Progress product/shadow"
+      ],
+      "parity_oracle_artifacts": [
+        "ANF frozen matrix/bindings if visible guidance output changes"
+      ],
+      "products": [
+        "Promise Progress annual guidance, open guidance and timeline"
+      ],
+      "workbook_effects": "No direct writer rule; future writer consumes product display fields.",
+      "migration_requirement": "Version semantic rules and retain complete historical versions/relationships.",
+      "approval_gate_ids": [
+        "gate:authority-order-change@1",
+        "gate:semantic-golden-regeneration@1",
+        "gate:unsupported-economic-fallback@1",
+        "gate:canonical-owner-migration@1"
+      ],
+      "notes": "Never copy a later version backward to populate a quarter bucket."
+    },
+    {
+      "change_id": "change:promise-status-rule@1",
+      "name": "Promise or Status assessment rule change",
+      "canonical_owner_concept_ids": [
+        "concept:promise-version@1",
+        "concept:actual@1",
+        "concept:progress@1",
+        "concept:status@1"
+      ],
+      "likely_direct_consumers": [
+        "closed Actual/Progress/Status registries",
+        "status replay",
+        "visible labels/explanations",
+        "shadow lineage"
+      ],
+      "schemas_contracts": [
+        "Promise Progress product contract",
+        "shadow schema",
+        "closed rule/role registries"
+      ],
+      "tests": [
+        "rule boundary and incompatibility mutations",
+        "knowledge/as-of eligibility",
+        "ANF/PBI/generic replay",
+        "determinism/parity"
+      ],
+      "goldens": [
+        "affected product and shadow goldens"
+      ],
+      "parity_oracle_artifacts": [
+        "ANF accepted difference bindings if visible status changes"
+      ],
+      "products": [
+        "Promise Progress"
+      ],
+      "workbook_effects": "Visible status label/color only after product change; writer may not reinterpret.",
+      "migration_requirement": "Mint/version a closed rule when meaning changes; do not reinterpret historical assessment IDs.",
+      "approval_gate_ids": [
+        "gate:product-contract-change@1",
+        "gate:semantic-golden-regeneration@1",
+        "gate:unsupported-economic-fallback@1",
+        "gate:canonical-owner-migration@1"
+      ],
+      "notes": "Status palette is presentation metadata, not economic logic."
+    },
+    {
+      "change_id": "change:product-field@1",
+      "name": "Product visible or shadow field change",
+      "canonical_owner_concept_ids": [
+        "concept:promise-progress-projection@1",
+        "concept:product-display-text@1",
+        "concept:product-row-ordering@1"
+      ],
+      "likely_direct_consumers": [
+        "typed block row",
+        "visible field projection",
+        "shadow field",
+        "destination and lineage validation"
+      ],
+      "schemas_contracts": [
+        "product contract/version",
+        "shadow schema",
+        "block field layout and destination contract"
+      ],
+      "tests": [
+        "field/schema/cross-reference mutations",
+        "row and field coverage",
+        "parity",
+        "determinism"
+      ],
+      "goldens": [
+        "ANF/PBI/generic product and shadow where field is in scope"
+      ],
+      "parity_oracle_artifacts": [
+        "ANF legacy capture",
+        "source scope",
+        "row disposition",
+        "accepted field bindings"
+      ],
+      "products": [
+        "Promise Progress or the owning typed product"
+      ],
+      "workbook_effects": "Future writer/template geometry and allowlist only in a separately approved writer pass.",
+      "migration_requirement": "Version the closed product contract or document a reviewed compatible revision.",
+      "approval_gate_ids": [
+        "gate:product-contract-change@1",
+        "gate:semantic-golden-regeneration@1",
+        "gate:legacy-oracle-replacement@1",
+        "gate:workbook-cutover@1"
+      ],
+      "notes": "Calculation belongs in the product, never Excel."
+    },
+    {
+      "change_id": "change:promise-progress-row-block@1",
+      "name": "Promise Progress row or block change",
+      "canonical_owner_concept_ids": [
+        "concept:promise-progress-projection@1",
+        "concept:product-row-ordering@1"
+      ],
+      "likely_direct_consumers": [
+        "four typed block projections",
+        "stable row IDs",
+        "shadow coverage",
+        "parity row-disposition graph"
+      ],
+      "schemas_contracts": [
+        "Promise Progress product contract/version",
+        "shadow schema",
+        "block order/row identity contracts"
+      ],
+      "tests": [
+        "row partition and counterpart replay",
+        "field accounting",
+        "capacity",
+        "parity and determinism"
+      ],
+      "goldens": [
+        "all affected Promise Progress products/shadows"
+      ],
+      "parity_oracle_artifacts": [
+        "frozen legacy capture and source-scope manifests",
+        "row dispositions and structural bindings"
+      ],
+      "products": [
+        "Promise Progress"
+      ],
+      "workbook_effects": "Template capacity/layout implications are future writer scope; overflow must fail closed.",
+      "migration_requirement": "Version row/block identity and review complete parity disposition before any UI cutover.",
+      "approval_gate_ids": [
+        "gate:schema-compatibility-break@1",
+        "gate:product-contract-change@1",
+        "gate:semantic-golden-regeneration@1",
+        "gate:legacy-oracle-replacement@1",
+        "gate:workbook-cutover@1"
+      ],
+      "notes": "Do not coerce all four blocks into one generic row model."
+    },
+    {
+      "change_id": "change:workbook-destination-binding@1",
+      "name": "Workbook destination or binding change",
+      "canonical_owner_concept_ids": [
+        "concept:workbook-binding@1",
+        "concept:workbook-style@1"
+      ],
+      "likely_direct_consumers": [
+        "binding planner",
+        "allowed-cell and merge contracts",
+        "template manifest",
+        "post-fill validation"
+      ],
+      "schemas_contracts": [
+        "workbook binding map/schema",
+        "shell manifest",
+        "module/style contracts",
+        "product shadow destination when applicable"
+      ],
+      "tests": [
+        "binding-plan destination/ownership",
+        "shell identity/manifest",
+        "readback",
+        "structural/visual parity"
+      ],
+      "goldens": [
+        "binding/style/shell plan artifacts",
+        "product shadow only if its declared destination changes"
+      ],
+      "parity_oracle_artifacts": [
+        "reviewed destination remap and workbook structure evidence"
+      ],
+      "products": [
+        "no economic product change unless field semantics also change"
+      ],
+      "workbook_effects": "Exact target cells, merges, capacities, widths or sheet layout may change.",
+      "migration_requirement": "Version/review destination remap; never silently move or broaden a writable range.",
+      "approval_gate_ids": [
+        "gate:workbook-presentation-layout@1",
+        "gate:legacy-oracle-replacement@1",
+        "gate:workbook-cutover@1",
+        "gate:canonical-owner-migration@1"
+      ],
+      "notes": "Binding map owns destinations, not economic meaning."
+    },
+    {
+      "change_id": "change:presentation-style-only@1",
+      "name": "Presentation or style-only workbook change",
+      "canonical_owner_concept_ids": [
+        "concept:workbook-style@1"
+      ],
+      "likely_direct_consumers": [
+        "frozen shell",
+        "style policy/planner/applicator",
+        "render/readback comparison"
+      ],
+      "schemas_contracts": [
+        "shell manifest",
+        "style policy",
+        "block architecture",
+        "binding map only if geometry moves"
+      ],
+      "tests": [
+        "shell identity",
+        "style planner/application",
+        "protected-property invariance",
+        "visual/readback validation"
+      ],
+      "goldens": [
+        "presentation/shell/style artifact only",
+        "economic/product goldens must remain unchanged"
+      ],
+      "parity_oracle_artifacts": [
+        "human-readable visual difference report"
+      ],
+      "products": [
+        "none economically"
+      ],
+      "workbook_effects": "Only the selected visible presentation surface; current output path must be declared first.",
+      "migration_requirement": "Preserve old shell/version and prove value/formula/source invariance.",
+      "approval_gate_ids": [
+        "gate:workbook-presentation-layout@1",
+        "gate:legacy-oracle-replacement@1",
+        "gate:workbook-cutover@1"
+      ],
+      "notes": "Legacy writer and frozen-shell transition paths have different owners."
+    },
+    {
+      "change_id": "change:new-ticker-activation@1",
+      "name": "New ticker activation",
+      "canonical_owner_concept_ids": [
+        "concept:source-discovery@1",
+        "concept:dimensions@1",
+        "concept:fiscal-calendar@1",
+        "concept:metric-identity@1"
+      ],
+      "likely_direct_consumers": [
+        "reviewed source set",
+        "ticker profile",
+        "selected sector pack",
+        "source adapter"
+      ],
+      "schemas_contracts": [
+        "source-adapter input schema/contract",
+        "sector-pack semantic catalog",
+        "calendar rule",
+        "ticker profile"
+      ],
+      "tests": [
+        "source contract and locator replay",
+        "profile/alias/dimension validation",
+        "semantic mapping",
+        "determinism and package golden"
+      ],
+      "goldens": [
+        "new source-native package",
+        "later normalized/product/workbook goldens only when separately activated"
+      ],
+      "parity_oracle_artifacts": [
+        "only if a legacy product oracle is explicitly declared"
+      ],
+      "products": [
+        "none automatically"
+      ],
+      "workbook_effects": "No automatic workbook output; normalized/workbook onboarding is a separate transition/cutover scope.",
+      "migration_requirement": "Additive company/profile identities. Current profile registration still requires bounded Python code; do not add a shared-runtime ticker branch.",
+      "approval_gate_ids": [
+        "gate:reviewed-source-acquisition@1",
+        "gate:source-overwrite-replacement@1",
+        "gate:ticker-production-activation@1",
+        "gate:semantic-golden-regeneration@1",
+        "gate:workbook-cutover@1"
+      ],
+      "notes": "Preferred direction remains shared engine -> sector pack -> ticker profile."
+    },
+    {
+      "change_id": "change:new-sector-concept@1",
+      "name": "New sector-pack concept",
+      "canonical_owner_concept_ids": [
+        "concept:metric-identity@1",
+        "concept:definition-basis-unit@1",
+        "concept:dimensions@1"
+      ],
+      "likely_direct_consumers": [
+        "sector semantic registry",
+        "parser or derived request",
+        "ticker profile activation",
+        "source assertions"
+      ],
+      "schemas_contracts": [
+        "sector-pack catalog",
+        "longitudinal semantic identities",
+        "source-set binding activation"
+      ],
+      "tests": [
+        "sector mapping and parser",
+        "unit/basis/dimension mutations",
+        "no ticker branch",
+        "activated package replay"
+      ],
+      "goldens": [
+        "activated source package only",
+        "future product golden when selected"
+      ],
+      "parity_oracle_artifacts": [],
+      "products": [
+        "future products after explicit selection contract"
+      ],
+      "workbook_effects": "None until a product/normalized binding is separately approved.",
+      "migration_requirement": "Add versioned reusable identities; ticker profiles only activate and map company aliases/members.",
+      "approval_gate_ids": [
+        "gate:semantic-golden-regeneration@1",
+        "gate:unsupported-economic-fallback@1"
+      ],
+      "notes": "Do not put reusable sector economics in a ticker profile or workbook."
+    }
+  ]
+}
