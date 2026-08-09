@@ -9,6 +9,7 @@ from pbi_xbrl.longitudinal_memory.source_adapter.types import MappingError, Sour
 
 
 PROFILE_ID = "ticker-profile:anf:source-native@1"
+PROFILE_ID_V2 = "ticker-profile:anf:source-native@2"
 
 
 @dataclass(frozen=True)
@@ -58,8 +59,8 @@ class AnfTickerProfile:
         return next(iter(matches), None)
 
 
-def load_anf_profile(source_set: SourceSet) -> AnfTickerProfile:
-    if source_set.ticker_profile_id != PROFILE_ID:
+def _load_anf_profile(source_set: SourceSet, *, expected_profile_id: str) -> AnfTickerProfile:
+    if source_set.ticker_profile_id != expected_profile_id:
         raise MappingError(
             f"ANF profile module cannot load {source_set.ticker_profile_id!r}."
         )
@@ -91,3 +92,15 @@ def load_anf_profile(source_set: SourceSet) -> AnfTickerProfile:
         calendar_hint=str(profile["calendar_hint"]),
         reviewed_links=tuple(source_set.reviewed_links),
     )
+
+
+def load_anf_profile(source_set: SourceSet) -> AnfTickerProfile:
+    """Load the immutable accepted Product@1 ANF activation profile."""
+
+    return _load_anf_profile(source_set, expected_profile_id=PROFILE_ID)
+
+
+def load_anf_profile_v2(source_set: SourceSet) -> AnfTickerProfile:
+    """Load the versioned Product@2 ANF candidate activation profile."""
+
+    return _load_anf_profile(source_set, expected_profile_id=PROFILE_ID_V2)

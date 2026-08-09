@@ -821,7 +821,13 @@ def _project(
                 raise MappingError(
                     f"Guidance {candidate.assertion_key!r} supersedes an unknown or cross-series assertion."
                 )
-            if dict(candidate.metadata["previous_value"] or {}) != dict(predecessor.value or {}):
+            previous_value = candidate.metadata["previous_value"]
+            if previous_value is None:
+                if candidate.metadata.get("replacement_evidence_kind") != "explicit-replaces-wording":
+                    raise MappingError(
+                        f"Guidance {candidate.assertion_key!r} lacks replayable predecessor evidence."
+                    )
+            elif dict(previous_value) != dict(predecessor.value or {}):
                 raise MappingError(
                     f"Guidance previous column for {candidate.assertion_key!r} does not replay its predecessor."
                 )

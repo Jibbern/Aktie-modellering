@@ -157,14 +157,30 @@ def map_candidates(
                     raise MappingError(
                         "Supersession requires a replacement version and explicit replacement evidence."
                     )
-                if extracted.comparison_text is None:
-                    raise MappingError(f"Replacement guidance {assertion_key!r} lacks a previous value column.")
-                if replacement_evidence == "explicit-replaces-wording" and (
-                    "replaces all previous" not in extracted.excerpt.casefold()
+                if (
+                    extracted.comparison_text is None
+                    and replacement_evidence != "explicit-replaces-wording"
                 ):
-                    raise MappingError(
-                        f"Replacement guidance {assertion_key!r} lacks explicit replacement wording."
+                    raise MappingError(f"Replacement guidance {assertion_key!r} lacks a previous value column.")
+                if replacement_evidence == "explicit-replaces-wording":
+                    locator = assertion["locator"]
+                    replacement_header = str(
+                        locator.get("replacement_header_fingerprint") or extracted.excerpt
                     )
+                    ancestors = {
+                        " ".join(str(value).split()).casefold()
+                        for value in locator.get("ancestor_fingerprints", ())
+                    }
+                    if (
+                        "replaces all previous" not in replacement_header.casefold()
+                        or (
+                            locator.get("replacement_header_fingerprint") is not None
+                            and " ".join(replacement_header.split()).casefold() not in ancestors
+                        )
+                    ):
+                        raise MappingError(
+                            f"Replacement guidance {assertion_key!r} lacks explicit replacement wording."
+                        )
                 if replacement_evidence == "current-previous-columns":
                     header = str(
                         assertion["locator"].get("column_header_fingerprint")
@@ -188,9 +204,10 @@ def map_candidates(
                         raise MappingError(
                             f"Replacement guidance {assertion_key!r} lacks reproducible current/previous columns."
                         )
-                previous_value = sector_pack.parse_value(
-                    str(assertion["value_parser_id"]), extracted.comparison_text
-                )
+                if extracted.comparison_text is not None:
+                    previous_value = sector_pack.parse_value(
+                        str(assertion["value_parser_id"]), extracted.comparison_text
+                    )
             elif replacement_evidence is not None or assertion["version_kind"] == "replacement":
                 raise MappingError(
                     "Replacement guidance requires one explicit predecessor; chronology is insufficient."

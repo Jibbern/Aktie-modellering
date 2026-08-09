@@ -253,7 +253,7 @@
         "period_id": {"$ref": "#/$defs/semanticId"},
         "fiscal_year": {"type": "integer", "minimum": 1900},
         "fiscal_quarter": {"type": ["integer", "null"], "minimum": 1, "maximum": 4},
-        "period_type": {"enum": ["quarter", "annual", "month"]},
+        "period_type": {"enum": ["quarter", "ytd", "annual", "month"]},
         "start_date": {"$ref": "#/$defs/nullableDate"},
         "end_date": {"$ref": "#/$defs/date"},
         "week_count": {"type": ["integer", "null"], "minimum": 1},

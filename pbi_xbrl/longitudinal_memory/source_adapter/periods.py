@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import calendar
+import itertools
 import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -194,9 +195,9 @@ def _ordinal_for(
     fiscal_quarter: int | None,
 ) -> int:
     quarters_per_year = int(rule["quarters_per_year"])
-    if period_type == "fiscal_quarter":
+    if period_type in {"fiscal_quarter", "fiscal_ytd"}:
         if fiscal_quarter is None:
-            raise MappingError("Fiscal-quarter ordinal derivation requires an explicit quarter.")
+            raise MappingError("Fiscal quarter/YTD ordinal derivation requires an explicit quarter.")
         ordinal_quarter = fiscal_quarter
     elif period_type in {"fiscal_year", "trailing_four_quarters"}:
         ordinal_quarter = quarters_per_year
@@ -575,6 +576,19 @@ def _reconcile_atomic_fiscal_tuple(
         duration_class: FiscalDurationClass = "fiscal_quarter_duration"
         raw_period_type = "quarter"
         permitted_weeks = {int(value) for value in rule["quarter_week_counts"]}
+    elif period_type == "fiscal_ytd":
+        if quarters:
+            raise _atomic_error(raw, "combines YTD and quarter label semantics")
+        fiscal_quarter = raw.get("fiscal_quarter")
+        if fiscal_quarter not in {1, 2, 3}:
+            raise _atomic_error(raw, "does not declare one compatible YTD fiscal quarter")
+        duration_class = "fiscal_ytd_duration"
+        raw_period_type = "ytd"
+        quarter_week_counts = tuple(int(value) for value in rule["quarter_week_counts"])
+        permitted_weeks = {
+            sum(values)
+            for values in itertools.product(quarter_week_counts, repeat=int(fiscal_quarter))
+        }
     elif period_type == "fiscal_year":
         if quarters:
             raise _atomic_error(raw, "combines annual and quarter label semantics")
@@ -865,9 +879,11 @@ def reconcile_periods(
         if fiscal_tuple is not None:
             output_fiscal_year = fiscal_tuple.fiscal_year
             output_fiscal_quarter = fiscal_tuple.fiscal_quarter
-            output_period_type = (
-                "quarter" if fiscal_tuple.period_type == "fiscal_quarter" else "annual"
-            )
+            output_period_type = {
+                "fiscal_quarter": "quarter",
+                "fiscal_ytd": "ytd",
+                "fiscal_year": "annual",
+            }[fiscal_tuple.period_type]
             output_start = fiscal_tuple.start_date
             output_end = fiscal_tuple.end_date
             output_day_count = fiscal_tuple.duration_days
