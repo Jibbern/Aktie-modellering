@@ -18,8 +18,8 @@ import re
 import tempfile
 from collections import Counter
 from dataclasses import dataclass
-from datetime import date
-from decimal import Decimal
+from datetime import date, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
@@ -49,8 +49,11 @@ from pbi_xbrl.longitudinal_memory.promise_progress_product_v2 import (
     OPEN_BLOCK_ID as PRODUCT_V2_OPEN_BLOCK_ID,
     PROGRESSION_BLOCK_ID as PRODUCT_V2_PROGRESSION_BLOCK_ID,
     TIMELINE_BLOCK_ID as PRODUCT_V2_TIMELINE_BLOCK_ID,
+    PRODUCT_VERSION as PRODUCT_V2_GOLDEN_VERSION,
+    SUCCESSOR_PRODUCT_VERSION,
     PromiseProgressProductV2,
     ProductRowV2,
+    display_value as display_product_v2_value,
     promise_progress_product_v2_sha256,
 )
 
@@ -1475,6 +1478,14 @@ def _write_inline_string(cell: ET.Element, value: str) -> None:
     text.text = value
 
 
+def _write_numeric_value(cell: ET.Element, value: str) -> None:
+    _clear_cell(cell)
+    Decimal(value)  # fail closed before mutating the cell representation
+    cell.set("t", "n")
+    node = ET.SubElement(cell, f"{{{_MAIN_NS}}}v")
+    node.text = value
+
+
 def _get_or_create_cell(root: ET.Element, cell_ref: str) -> ET.Element:
     cells = _worksheet_cell_map(root)
     existing = cells.get(cell_ref)
@@ -1544,6 +1555,29 @@ def _style_palette(archive: ZipFile) -> dict[int, str | None]:
                 color = "#" + str(foreground.get("rgb"))[-6:].upper()
         palette[index] = color
     return palette
+
+
+def _style_font_properties(archive: ZipFile) -> dict[int, dict[str, Any]]:
+    root = _parse_xml(archive.read("xl/styles.xml"))
+    fonts_node = root.find(f"{{{_MAIN_NS}}}fonts")
+    cell_xfs_node = root.find(f"{{{_MAIN_NS}}}cellXfs")
+    fonts = [] if fonts_node is None else list(fonts_node)
+    cell_xfs = [] if cell_xfs_node is None else list(cell_xfs_node)
+    result: dict[int, dict[str, Any]] = {}
+    for index, xf in enumerate(cell_xfs):
+        font_id = int(xf.get("fontId", "0"))
+        font = fonts[font_id] if 0 <= font_id < len(fonts) else None
+        color = None if font is None else font.find(f"{{{_MAIN_NS}}}color")
+        result[index] = {
+            "font_id": font_id,
+            "bold": font is not None and font.find(f"{{{_MAIN_NS}}}b") is not None,
+            "rgb": (
+                None
+                if color is None or color.get("rgb") is None
+                else "#" + str(color.get("rgb"))[-6:].upper()
+            ),
+        }
+    return result
 
 
 def _resolve_status_styles(
@@ -1928,12 +1962,105 @@ def canonical_workbook_content_sha256(workbook_path: Path) -> str:
     return digest.hexdigest()
 
 
+_BUILTIN_NUMBER_FORMAT_CODES: Mapping[int, str] = {
+    0: "General",
+    1: "0",
+    2: "0.00",
+    9: "0%",
+    10: "0.00%",
+    14: "m/d/yy",
+}
+
+
+def _style_number_format_map(archive: ZipFile) -> dict[int, tuple[int, str]]:
+    """Resolve each cell style to the actual OOXML number-format identity."""
+
+    root = _parse_xml(archive.read("xl/styles.xml"))
+    custom = {
+        int(node.get("numFmtId", "0")): str(node.get("formatCode", "General"))
+        for node in root.findall(f".//{{{_MAIN_NS}}}numFmt")
+    }
+    cell_xfs = root.find(f"{{{_MAIN_NS}}}cellXfs")
+    if cell_xfs is None:
+        raise PromiseProgressWorkbookPreviewError("workbook styles have no cellXfs collection")
+    result: dict[int, tuple[int, str]] = {}
+    for style_id, xf in enumerate(list(cell_xfs)):
+        number_format_id = int(xf.get("numFmtId", "0"))
+        format_code = custom.get(
+            number_format_id,
+            _BUILTIN_NUMBER_FORMAT_CODES.get(number_format_id, f"builtin:{number_format_id}"),
+        )
+        result[style_id] = (number_format_id, format_code)
+    return result
+
+
+def _excel_format_literal(value: str) -> str:
+    result: list[str] = []
+    quoted = False
+    escaped = False
+    for character in value:
+        if escaped:
+            result.append(character)
+            escaped = False
+        elif character == "\\":
+            escaped = True
+        elif character == '"':
+            quoted = not quoted
+        elif quoted or character not in {"_", "*"}:
+            result.append(character)
+    if quoted or escaped:
+        raise PromiseProgressWorkbookPreviewError(
+            f"unsupported unterminated Excel number format {value!r}"
+        )
+    return "".join(result)
+
+
+def replay_ooxml_numeric_display(stored_value: str, format_code: str) -> str:
+    """Replay the closed Product@2 scalar/date formats from actual OOXML metadata."""
+
+    if format_code == "yyyy-mm-dd":
+        serial = Decimal(str(stored_value))
+        if serial != serial.to_integral_value():
+            raise PromiseProgressWorkbookPreviewError(
+                f"date serial is not integral: {stored_value!r}"
+            )
+        return (date(1899, 12, 30) + timedelta(days=int(serial))).isoformat()
+
+    match = re.search(r"0(?:\.[0#]+)?", format_code)
+    if match is None:
+        raise PromiseProgressWorkbookPreviewError(
+            f"unsupported Product@2 Excel number format {format_code!r}"
+        )
+    prefix = _excel_format_literal(format_code[: match.start()])
+    suffix = _excel_format_literal(format_code[match.end() :])
+    pattern = match.group(0)
+    decimal_pattern = pattern.split(".", 1)[1] if "." in pattern else ""
+    required_places = decimal_pattern.count("0")
+    total_places = len(decimal_pattern)
+    number = Decimal(str(stored_value))
+    if "%" in prefix + suffix:
+        number *= Decimal("100")
+    quantum = Decimal("1").scaleb(-total_places)
+    rounded = number.quantize(quantum, rounding=ROUND_HALF_UP)
+    if rounded == 0:
+        rounded = abs(rounded)
+    rendered = f"{rounded:.{total_places}f}"
+    if total_places > required_places:
+        integer, fractional = rendered.split(".", 1)
+        fractional = fractional.rstrip("0")
+        if len(fractional) < required_places:
+            fractional += "0" * (required_places - len(fractional))
+        rendered = integer if not fractional else f"{integer}.{fractional}"
+    return f"{prefix}{rendered}{suffix}"
+
+
 def _workbook_sheet_snapshot(workbook_path: Path, sheet_name: str) -> tuple[dict[str, Any], str]:
     with ZipFile(workbook_path, "r") as archive:
         position, part = _resolve_target_sheet(archive, sheet_name)
         root = _parse_xml(archive.read(part))
         shared = _shared_strings(archive)
         cells = _worksheet_cell_map(root)
+        style_number_formats = _style_number_format_map(archive)
         snapshot = {
             "sheet_name": sheet_name,
             "position_1_based": position,
@@ -1941,7 +2068,14 @@ def _workbook_sheet_snapshot(workbook_path: Path, sheet_name: str) -> tuple[dict
             "cells": {
                 ref: {
                     "value": _cell_text(cell, shared),
+                    "cell_type": cell.get("t"),
                     "style_id": int(cell.get("s", "0")),
+                    "number_format_id": style_number_formats.get(
+                        int(cell.get("s", "0")), (0, "General")
+                    )[0],
+                    "number_format_code": style_number_formats.get(
+                        int(cell.get("s", "0")), (0, "General")
+                    )[1],
                     "formula": (
                         cell.find(f"{{{_MAIN_NS}}}f").text
                         if cell.find(f"{{{_MAIN_NS}}}f") is not None
@@ -2747,6 +2881,24 @@ PRODUCT_V2_WORKBOOK_TRACE_SCHEMA_ID = "trace:promise-progress-workbook-preview@7
 PRODUCT_V2_STRUCTURAL_VALIDATION_SCHEMA_ID = "validation:promise-progress-workbook-structure@7"
 PRODUCT_V2_SEMANTIC_VALIDATION_SCHEMA_ID = "validation:promise-progress-workbook-semantics@7"
 PRODUCT_V2_VISUAL_VALIDATION_SCHEMA_ID = "validation:promise-progress-workbook-visual@7"
+SUCCESSOR_PRODUCT_V2_BINDING_PLAN_SCHEMA_ID = (
+    "contract:promise-progress-workbook-binding-plan@8"
+)
+SUCCESSOR_PRODUCT_V2_PRESENTATION_CONTRACT_ID = (
+    "contract:promise-progress-workbook-presentation@8"
+)
+SUCCESSOR_PRODUCT_V2_WORKBOOK_TRACE_SCHEMA_ID = (
+    "trace:promise-progress-workbook-preview@8"
+)
+SUCCESSOR_PRODUCT_V2_STRUCTURAL_VALIDATION_SCHEMA_ID = (
+    "validation:promise-progress-workbook-structure@8"
+)
+SUCCESSOR_PRODUCT_V2_SEMANTIC_VALIDATION_SCHEMA_ID = (
+    "validation:promise-progress-workbook-semantics@8"
+)
+SUCCESSOR_PRODUCT_V2_VISUAL_VALIDATION_SCHEMA_ID = (
+    "validation:promise-progress-workbook-visual@8"
+)
 PRODUCT_V2_EVENT_SOURCE_TRANSFORM_ID = "event-source-first@1"
 PRODUCT_V2_REVIEW_NOTE_TRANSFORM_ID = "review-note-summary@1"
 PRODUCT_V2_COMPACT_CHANGE_TRANSFORM_ID = "compact-change-label@1"
@@ -2925,6 +3077,22 @@ class PromiseProgressWorkbookDynamicPresentationContract:
             "rgb": "9FBAD0",
             "scope": "every visible timeline field at the first row of a disclosure_event_id",
         }
+        if self.contract_id == SUCCESSOR_PRODUCT_V2_PRESENTATION_CONTRACT_ID:
+            result["timeline_event_header_role"] = {
+                "style_role": "TimelineEventHeader",
+                "legacy_style_source": "Promise_Progress_UI!A59",
+                "fill_rgb": "5B9BD5",
+                "font_rgb": "FFFFFF",
+                "font_bold": True,
+                "span": "A:J",
+                "economics_authority": "none",
+            }
+            result["numeric_cell_storage"] = {
+                "exact_scalars": "numeric-with-closed-number-format",
+                "source_dates": "excel-date-serial-with-yyyy-mm-dd",
+                "ranges_approximate_composites": "intentional-inline-string",
+                "ignored_error_scope": "none",
+            }
         result["economics_authority"] = "none-presentation-only"
         result["vertical_allocation"] = (
             "product-owned-block-and-row-order; dynamic physical rows; one spacer between blocks"
@@ -2992,9 +3160,39 @@ class ProductV2WorkbookBinding:
     lineage_digest: str
     parity_locator: str | None
     fit_measurement: Mapping[str, Any]
+    storage_kind: str | None = None
+    stored_numeric_value: str | None = None
+    number_format_code: str | None = None
+    semantic_row_kind: str | None = None
+    status_target_guidance_version_id: str | None = None
+    status_actual_candidate_record_ids: tuple[str, ...] = ()
+    status_actual_period_id: str | None = None
+    status_actual_knowledge_date: str | None = None
+    status_actual_source_document_ids: tuple[str, ...] = ()
+    status_actual_basis_id: str | None = None
+    status_actual_unit_id: str | None = None
+    status_rule_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return _canonical(dataclasses.asdict(self))
+        result = _canonical(dataclasses.asdict(self))
+        if self.storage_kind is None:
+            result.pop("storage_kind", None)
+            result.pop("stored_numeric_value", None)
+            result.pop("number_format_code", None)
+        if self.product_version == PRODUCT_V2_GOLDEN_VERSION:
+            for key in (
+                "semantic_row_kind",
+                "status_target_guidance_version_id",
+                "status_actual_candidate_record_ids",
+                "status_actual_period_id",
+                "status_actual_knowledge_date",
+                "status_actual_source_document_ids",
+                "status_actual_basis_id",
+                "status_actual_unit_id",
+                "status_rule_id",
+            ):
+                result.pop(key, None)
+        return result
 
 
 @dataclass(frozen=True)
@@ -3049,13 +3247,24 @@ class PromiseProgressWorkbookBindingPlanV2:
         return {**self.payload_without_digest(), "lineage_digest": self.lineage_digest}
 
 
-def product_v2_presentation_contract() -> PromiseProgressWorkbookDynamicPresentationContract:
+def product_v2_presentation_contract(
+    product_version: str = PRODUCT_V2_GOLDEN_VERSION,
+) -> PromiseProgressWorkbookDynamicPresentationContract:
     layouts = tuple(
         PresentationFieldLayout(block_id, *row)
         for block_id, rows in _PRODUCT_V2_LAYOUTS.items()
         for row in rows
     )
-    contract = PromiseProgressWorkbookDynamicPresentationContract(field_layouts=layouts)
+    contract_id = (
+        PRODUCT_V2_PRESENTATION_CONTRACT_ID
+        if product_version == PRODUCT_V2_GOLDEN_VERSION
+        else SUCCESSOR_PRODUCT_V2_PRESENTATION_CONTRACT_ID
+        if product_version == SUCCESSOR_PRODUCT_VERSION
+        else ""
+    )
+    contract = PromiseProgressWorkbookDynamicPresentationContract(
+        field_layouts=layouts, contract_id=contract_id
+    )
     _validate_product_v2_presentation_contract(contract)
     return contract
 
@@ -3063,7 +3272,10 @@ def product_v2_presentation_contract() -> PromiseProgressWorkbookDynamicPresenta
 def _validate_product_v2_presentation_contract(
     contract: PromiseProgressWorkbookDynamicPresentationContract,
 ) -> None:
-    if contract.contract_id != PRODUCT_V2_PRESENTATION_CONTRACT_ID:
+    if contract.contract_id not in {
+        PRODUCT_V2_PRESENTATION_CONTRACT_ID,
+        SUCCESSOR_PRODUCT_V2_PRESENTATION_CONTRACT_ID,
+    }:
         raise PromiseProgressWorkbookPreviewError("unsupported Product@2 presentation contract")
     if contract.visible_columns != tuple("ABCDEFGHIJ"):
         raise PromiseProgressWorkbookPreviewError("Product@2 presentation must use the exact A:J grid")
@@ -3254,12 +3466,20 @@ def _product_v2_row_plan(product: PromiseProgressProductV2) -> tuple[ProductV2Pr
                     )
                 )
                 next_row += 1
-                dates = sorted(
-                    {
-                        value.publication_date
-                        for product_row in group_rows
-                        for value in product_row.progression_values
-                    }
+                explicit_group_slots = all(
+                    all(value.progression_slot is not None for value in product_row.progression_values)
+                    for product_row in group_rows
+                )
+                dates = (
+                    []
+                    if explicit_group_slots
+                    else sorted(
+                        {
+                            value.publication_date
+                            for product_row in group_rows
+                            for value in product_row.progression_values
+                        }
+                    )
                 )
                 if len(dates) > 5:
                     raise PromiseProgressWorkbookPreviewError(
@@ -3329,7 +3549,11 @@ def _product_v2_row_plan(product: PromiseProgressProductV2) -> tuple[ProductV2Pr
                         block.block_id,
                         None,
                         event_id,
-                        f"{stated_in_display} revisions",
+                        (
+                            f"{stated_in_display} disclosures"
+                            if product.product_version == SUCCESSOR_PRODUCT_VERSION
+                            else f"{stated_in_display} revisions"
+                        ),
                     )
                 )
                 next_row += 1
@@ -3398,13 +3622,32 @@ def _product_v2_role_values(
                 empty_sources,
             ),
         }
-        ordered_dates = [
-            value
-            for key, value in presentation_row.header_labels
-            if key.startswith("date_slot_")
-        ]
+        explicit_slots = {
+            value.progression_slot: value
+            for value in row.progression_values
+            if value.progression_slot is not None
+        }
+        if explicit_slots and len(explicit_slots) != len(row.progression_values):
+            raise PromiseProgressWorkbookPreviewError(
+                "A progression row cannot mix explicit and inferred update slots"
+            )
+        if explicit_slots:
+            slot_order = ("initial", "q1", "q2", "q3", "q4")
+            ordered_versions = [explicit_slots.get(slot) for slot in slot_order]
+        else:
+            ordered_dates = [
+                value
+                for key, value in presentation_row.header_labels
+                if key.startswith("date_slot_")
+            ]
+            ordered_versions = [
+                version_by_date.get(ordered_dates[index])
+                if index < len(ordered_dates)
+                else None
+                for index in range(5)
+            ]
         for index in range(1, 6):
-            version = version_by_date.get(ordered_dates[index - 1]) if index <= len(ordered_dates) else None
+            version = ordered_versions[index - 1]
             result[f"version_{index}"] = (
                 "" if version is None else version.display_text,
                 None if version is None else dict(version.canonical_value),
@@ -3415,7 +3658,14 @@ def _product_v2_role_values(
     if row.block_id == PRODUCT_V2_TIMELINE_BLOCK_ID:
         return {
             "metric": (row.metric_label, row.metric_id, current_sources, predecessor_sources),
-            "previous_guide": (row.previous_display, row.previous_display, current_sources, predecessor_sources),
+            "previous_guide": (
+                row.previous_display,
+                row.previous_value
+                if row.previous_value is not None
+                else row.previous_display,
+                current_sources,
+                predecessor_sources,
+            ),
             "current_guide": (row.current_display, row.current_value, current_sources, predecessor_sources),
             "change_type": (row.change_type or "", row.comparison_reason_code, current_sources, predecessor_sources),
             "actual": (row.actual_display, row.actual_value, current_sources, predecessor_sources),
@@ -3478,6 +3728,121 @@ def _product_v2_wrap(
     raise PromiseProgressWorkbookPreviewError(f"unknown Product@2 wrap mode {layout.wrap_mode!r}")
 
 
+_PRODUCT_V2_NUMERIC_FORMAT_BY_UNIT: Mapping[str, tuple[str, Decimal]] = {
+    "unit:core:percent@1": ("0.###%", Decimal("0.01")),
+    "unit:core:currency-per-share@1": ('"$"0.00', Decimal("1")),
+    "unit:core:currency-million@1": ('"$"0.###"m"', Decimal("1")),
+    "unit:core:shares-million@1": ('0.###"m shares"', Decimal("1")),
+    "unit:core:count@1": ("0", Decimal("1")),
+}
+
+
+def _ooxml_decimal(value: Decimal) -> str:
+    rendered = format(value, "f")
+    if "." in rendered:
+        rendered = rendered.rstrip("0").rstrip(".")
+    return "0" if rendered in {"", "-0"} else rendered
+
+
+def _exact_scalar_number_format(
+    *, unit_id: str, machine_value: Mapping[str, Any]
+) -> str | None:
+    """Choose a deterministic format from semantic display-precision metadata."""
+
+    if machine_value.get("kind") != "exact":
+        return None
+    semantic_value = Decimal(str(machine_value["value"]))
+    explicit_places = machine_value.get("display_decimals")
+    if explicit_places is not None:
+        places = int(explicit_places)
+        if places < 0:
+            raise PromiseProgressWorkbookPreviewError(
+                f"negative display precision {places!r} is invalid"
+            )
+        decimal_pattern = "" if places == 0 else "." + ("0" * places)
+    elif semantic_value == semantic_value.to_integral_value():
+        decimal_pattern = ""
+    else:
+        places = max(3, max(0, -semantic_value.normalize().as_tuple().exponent))
+        decimal_pattern = "." + ("#" * places)
+
+    if unit_id == "unit:core:percent@1":
+        return f"0{decimal_pattern}%"
+    if unit_id == "unit:core:currency-per-share@1":
+        return '"$"0.00'
+    if unit_id == "unit:core:currency-million@1":
+        return f'"$"0{decimal_pattern}"m"'
+    if unit_id == "unit:core:shares-million@1":
+        return f'0{decimal_pattern}"m shares"'
+    if unit_id == "unit:core:count@1":
+        return f"0{decimal_pattern}"
+    return None
+
+
+def _product_v2_storage_spec(
+    *,
+    product: PromiseProgressProductV2,
+    product_row: ProductRowV2 | None,
+    field_role: str,
+    presentation_text: str,
+    machine_value: Any,
+) -> tuple[str | None, str | None, str | None]:
+    """Return a closed successor-only OOXML storage plan.
+
+    Exact product scalars become numeric cells only when the closed number format
+    replays the exact approved display.  Ranges, approximate values, composites,
+    qualitative values, and progress labels such as ``YTD:`` remain intentional
+    text; no error-ignore blanket is emitted.
+    """
+
+    if product.product_version != SUCCESSOR_PRODUCT_VERSION:
+        return None, None, None
+    if field_role == "source_date" and isinstance(machine_value, str):
+        try:
+            source_day = date.fromisoformat(machine_value)
+        except ValueError:
+            return None, None, None
+        if presentation_text != machine_value:
+            return None, None, None
+        serial = (source_day - date(1899, 12, 30)).days
+        return "date", str(serial), "yyyy-mm-dd"
+    if (
+        product_row is None
+        or product_row.unit_id is None
+        or not isinstance(machine_value, Mapping)
+        or machine_value.get("kind") != "exact"
+        or field_role
+        not in {
+            "current_guide",
+            "previous_guide",
+            "version_1",
+            "version_2",
+            "version_3",
+            "version_4",
+            "version_5",
+            "actual",
+            "progress",
+        }
+    ):
+        return None, None, None
+    format_spec = _PRODUCT_V2_NUMERIC_FORMAT_BY_UNIT.get(product_row.unit_id)
+    if format_spec is None:
+        return None, None, None
+    if presentation_text != display_product_v2_value(
+        machine_value, unit_id=product_row.unit_id
+    ):
+        return None, None, None
+    _, factor = format_spec
+    semantic_value = Decimal(str(machine_value["value"]))
+    format_code = _exact_scalar_number_format(
+        unit_id=product_row.unit_id, machine_value=machine_value
+    )
+    if format_code is None:
+        return None, None, None
+    stored = semantic_value * factor
+    return "numeric", _ooxml_decimal(stored), format_code
+
+
 def _product_v2_binding(
     *,
     product: PromiseProgressProductV2,
@@ -3504,15 +3869,28 @@ def _product_v2_binding(
     style_role = None
     if field_role == "status" and product_row is not None:
         status_code = product_row.status_code_at_update
-        if status_code is None:
+        if status_code is None and text:
             raise PromiseProgressWorkbookPreviewError(
                 "A visible Product@2 outcome Status lacks a typed status code"
             )
-        style_role = f"status:{status_code}"
+        if status_code is not None:
+            style_role = f"status:{status_code}"
     elif field_role == "assessment_state" and version_state == "Needs Review":
         status_code = "needs_review"
         style_role = "outcome-review:needs-review"
+    elif (
+        binding_kind == "event_group"
+        and product.product_version == SUCCESSOR_PRODUCT_VERSION
+    ):
+        style_role = "TimelineEventHeader"
     canonical_display_text = text if canonical_text is None else canonical_text
+    storage_kind, stored_numeric_value, number_format_code = _product_v2_storage_spec(
+        product=product,
+        product_row=product_row,
+        field_role=field_role,
+        presentation_text=text,
+        machine_value=machine_value,
+    )
     semantic_owner = (
         f"{product.product_id}|structure={binding_kind}|row={presentation_row.row_number}|role={field_role}"
         if product_row is None
@@ -3546,6 +3924,75 @@ def _product_v2_binding(
         "progress_knowledge_date": None if product_row is None else product_row.progress_knowledge_date,
         "progress_source_document_ids": [] if product_row is None else list(product_row.progress_source_document_ids),
     }
+    if product.product_version == SUCCESSOR_PRODUCT_VERSION:
+        lineage.update(
+            {
+                "semantic_row_kind": None if product_row is None else product_row.row_kind,
+                "status_target_guidance_version_id": (
+                    None
+                    if product_row is None
+                    else product_row.status_target_guidance_version_id
+                ),
+                "status_actual_candidate_record_ids": (
+                    []
+                    if product_row is None
+                    else list(product_row.status_actual_candidate_record_ids)
+                ),
+                "status_actual_period_id": (
+                    None if product_row is None else product_row.status_actual_period_id
+                ),
+                "status_actual_knowledge_date": (
+                    None
+                    if product_row is None
+                    else product_row.status_actual_knowledge_date
+                ),
+                "status_actual_source_document_ids": (
+                    []
+                    if product_row is None
+                    else list(product_row.status_actual_source_document_ids)
+                ),
+                "status_actual_basis_id": (
+                    None if product_row is None else product_row.status_actual_basis_id
+                ),
+                "status_actual_unit_id": (
+                    None if product_row is None else product_row.status_actual_unit_id
+                ),
+                "status_rule_id": None if product_row is None else product_row.status_rule_id,
+                "actual_derivation_rule_id": (
+                    None if product_row is None else product_row.actual_derivation_rule_id
+                ),
+                "actual_derivation_input_record_ids": (
+                    []
+                    if product_row is None
+                    else list(product_row.actual_derivation_input_record_ids)
+                ),
+                "actual_derivation_support_record_ids": (
+                    []
+                    if product_row is None
+                    else list(product_row.actual_derivation_support_record_ids)
+                ),
+                "progress_derivation_rule_id": (
+                    None if product_row is None else product_row.progress_derivation_rule_id
+                ),
+                "progress_derivation_input_record_ids": (
+                    []
+                    if product_row is None
+                    else list(product_row.progress_derivation_input_record_ids)
+                ),
+                "progress_derivation_support_record_ids": (
+                    []
+                    if product_row is None
+                    else list(product_row.progress_derivation_support_record_ids)
+                ),
+            }
+        )
+    if storage_kind is not None:
+        lineage["workbook_storage"] = {
+            "storage_kind": storage_kind,
+            "stored_numeric_value": stored_numeric_value,
+            "number_format_code": number_format_code,
+            "presentation_text": text,
+        }
     return ProductV2WorkbookBinding(
         binding_id=f"binding:promise-progress-product-v2:{_sha256_bytes(semantic_owner.encode('utf-8'))[:24]}@1",
         binding_kind=binding_kind,
@@ -3597,6 +4044,32 @@ def _product_v2_binding(
         lineage_digest=_sha256_bytes(canonical_json_bytes(lineage)),
         parity_locator=None if product_row is None else product_row.parity_locator,
         fit_measurement=measurement,
+        storage_kind=storage_kind,
+        stored_numeric_value=stored_numeric_value,
+        number_format_code=number_format_code,
+        semantic_row_kind=None if product_row is None else product_row.row_kind,
+        status_target_guidance_version_id=(
+            None if product_row is None else product_row.status_target_guidance_version_id
+        ),
+        status_actual_candidate_record_ids=(
+            () if product_row is None else tuple(product_row.status_actual_candidate_record_ids)
+        ),
+        status_actual_period_id=(
+            None if product_row is None else product_row.status_actual_period_id
+        ),
+        status_actual_knowledge_date=(
+            None if product_row is None else product_row.status_actual_knowledge_date
+        ),
+        status_actual_source_document_ids=(
+            () if product_row is None else tuple(product_row.status_actual_source_document_ids)
+        ),
+        status_actual_basis_id=(
+            None if product_row is None else product_row.status_actual_basis_id
+        ),
+        status_actual_unit_id=(
+            None if product_row is None else product_row.status_actual_unit_id
+        ),
+        status_rule_id=None if product_row is None else product_row.status_rule_id,
     )
 
 
@@ -3684,7 +4157,7 @@ def build_promise_progress_workbook_binding_plan_v2(
     *,
     design_lock_root: Path,
 ) -> PromiseProgressWorkbookBindingPlanV2:
-    contract = product_v2_presentation_contract()
+    contract = product_v2_presentation_contract(product.product_version)
     design_lock = verify_design_lock(design_lock_root)
     structural = load_json_strict(
         design_lock_root / "promise_progress_structural_parity_contract.json"
@@ -3709,7 +4182,11 @@ def build_promise_progress_workbook_binding_plan_v2(
                 "product_metadata": "A2",
                 "block_title": "A3",
                 "group_title": "A11",
-                "event_group": "A12",
+                "event_group": (
+                    "A59"
+                    if product.product_version == SUCCESSOR_PRODUCT_VERSION
+                    else "A12"
+                ),
             }[presentation_row.row_kind]
             bindings.append(
                 _product_v2_binding(
@@ -3866,6 +4343,11 @@ def build_promise_progress_workbook_binding_plan_v2(
         bindings=finalized,
         permitted_merges=merges,
         row_heights=row_heights,
+        schema_id=(
+            PRODUCT_V2_BINDING_PLAN_SCHEMA_ID
+            if product.product_version == PRODUCT_V2_GOLDEN_VERSION
+            else SUCCESSOR_PRODUCT_V2_BINDING_PLAN_SCHEMA_ID
+        ),
     )
     validate_promise_progress_workbook_binding_plan_v2(
         product, plan, design_lock_root=design_lock_root
@@ -3879,9 +4361,14 @@ def validate_promise_progress_workbook_binding_plan_v2(
     *,
     design_lock_root: Path,
 ) -> None:
-    contract = product_v2_presentation_contract()
+    contract = product_v2_presentation_contract(product.product_version)
     verify_design_lock(design_lock_root)
-    if plan.schema_id != PRODUCT_V2_BINDING_PLAN_SCHEMA_ID:
+    expected_schema_id = (
+        PRODUCT_V2_BINDING_PLAN_SCHEMA_ID
+        if product.product_version == PRODUCT_V2_GOLDEN_VERSION
+        else SUCCESSOR_PRODUCT_V2_BINDING_PLAN_SCHEMA_ID
+    )
+    if plan.schema_id != expected_schema_id:
         raise PromiseProgressWorkbookPreviewError("unsupported Product@2 binding-plan contract")
     if plan.presentation_contract.to_dict() != contract.to_dict():
         raise PromiseProgressWorkbookPreviewError("Product@2 binding plan changed its presentation contract")
@@ -3969,8 +4456,11 @@ def validate_promise_progress_workbook_binding_plan_v2(
     timeline_product_rows = next(
         block.rows for block in product.blocks if block.block_id == PRODUCT_V2_TIMELINE_BLOCK_ID
     )
+    event_group_suffix = (
+        "disclosures" if product.product_version == SUCCESSOR_PRODUCT_VERSION else "revisions"
+    )
     expected_event_groups = [
-        (event_id, f"{event_rows[0].stated_in_display} revisions")
+        (event_id, f"{event_rows[0].stated_in_display} {event_group_suffix}")
         for event_id, event_rows in _group_contiguous_product_rows(timeline_product_rows)
     ]
     actual_event_groups = [
@@ -4006,6 +4496,31 @@ def validate_promise_progress_workbook_binding_plan_v2(
                 raise PromiseProgressWorkbookPreviewError(
                     "Product@2 compact change transform is not the closed reviewed mapping"
                 )
+        if product.product_version == PRODUCT_V2_GOLDEN_VERSION:
+            if any(
+                value is not None
+                for value in (
+                    binding.storage_kind,
+                    binding.stored_numeric_value,
+                    binding.number_format_code,
+                )
+            ):
+                raise PromiseProgressWorkbookPreviewError(
+                    "The immutable Product@2 2.0 plan acquired successor storage metadata"
+                )
+        elif binding.storage_kind is None:
+            if binding.stored_numeric_value is not None or binding.number_format_code is not None:
+                raise PromiseProgressWorkbookPreviewError(
+                    "An intentional text binding carries partial numeric storage metadata"
+                )
+        elif (
+            binding.storage_kind not in {"numeric", "date"}
+            or binding.stored_numeric_value is None
+            or binding.number_format_code is None
+        ):
+            raise PromiseProgressWorkbookPreviewError(
+                "A successor numeric binding lacks its closed storage plan"
+            )
         if not binding.fit_measurement.get("fit", False):
             raise PromiseProgressWorkbookPreviewError(
                 f"layout_capacity_exceeded: Product@2 binding {binding.binding_id} does not fit"
@@ -4040,6 +4555,19 @@ def validate_promise_progress_workbook_binding_plan_v2(
             or binding.progress_period_id != source_row.progress_period_id
             or binding.progress_knowledge_date != source_row.progress_knowledge_date
             or binding.progress_source_document_ids != source_row.progress_source_document_ids
+            or binding.semantic_row_kind != source_row.row_kind
+            or binding.status_target_guidance_version_id
+            != source_row.status_target_guidance_version_id
+            or binding.status_actual_candidate_record_ids
+            != source_row.status_actual_candidate_record_ids
+            or binding.status_actual_period_id != source_row.status_actual_period_id
+            or binding.status_actual_knowledge_date
+            != source_row.status_actual_knowledge_date
+            or binding.status_actual_source_document_ids
+            != source_row.status_actual_source_document_ids
+            or binding.status_actual_basis_id != source_row.status_actual_basis_id
+            or binding.status_actual_unit_id != source_row.status_actual_unit_id
+            or binding.status_rule_id != source_row.status_rule_id
         ):
             raise PromiseProgressWorkbookPreviewError(
                 "Product@2 trace metadata differs from its semantic row"
@@ -4047,10 +4575,15 @@ def validate_promise_progress_workbook_binding_plan_v2(
         if binding.predecessor_source_document_ids and source_row.block_id != PRODUCT_V2_TIMELINE_BLOCK_ID:
             raise PromiseProgressWorkbookPreviewError("predecessor evidence leaked outside the timeline trace")
         if binding.field_role == "status":
+            expected_style_role = (
+                None
+                if source_row.status_code_at_update is None
+                else f"status:{source_row.status_code_at_update}"
+            )
             if (
                 binding.status_code != source_row.status_code_at_update
-                or binding.presentation_text != source_row.status_at_update
-                or binding.style_role != f"status:{source_row.status_code_at_update}"
+                or binding.presentation_text != (source_row.status_at_update or "")
+                or binding.style_role != expected_style_role
             ):
                 raise PromiseProgressWorkbookPreviewError(
                     "Visible outcome Status differs from the Product@2 status assessment"
@@ -4128,6 +4661,56 @@ def _fill_variant(styles_root: ET.Element, base_style_id: int, rgb: str) -> int:
     cell_xfs.append(variant)
     cell_xfs.set("count", str(len(existing) + 1))
     return len(existing)
+
+
+def _number_format_variant(
+    styles_root: ET.Element, base_style_id: int, format_code: str
+) -> int:
+    """Append/reuse one custom numeric format without mutating legacy styles."""
+
+    cell_xfs = styles_root.find(f"{{{_MAIN_NS}}}cellXfs")
+    if cell_xfs is None:
+        raise PromiseProgressWorkbookPreviewError("workbook styles have no cellXfs collection")
+    xfs = list(cell_xfs)
+    if base_style_id < 0 or base_style_id >= len(xfs):
+        raise PromiseProgressWorkbookPreviewError(f"base style {base_style_id} does not exist")
+    num_fmts = styles_root.find(f"{{{_MAIN_NS}}}numFmts")
+    if num_fmts is None:
+        num_fmts = ET.Element(f"{{{_MAIN_NS}}}numFmts", {"count": "0"})
+        fonts = styles_root.find(f"{{{_MAIN_NS}}}fonts")
+        styles_root.insert(0 if fonts is None else list(styles_root).index(fonts), num_fmts)
+    existing_formats = list(num_fmts)
+    matching = [
+        int(node.get("numFmtId", "0"))
+        for node in existing_formats
+        if node.get("formatCode") == format_code
+    ]
+    if len(matching) > 1:
+        raise PromiseProgressWorkbookPreviewError(
+            f"number format {format_code!r} is duplicated in the style table"
+        )
+    if matching:
+        format_id = matching[0]
+    else:
+        used_ids = {int(node.get("numFmtId", "0")) for node in existing_formats}
+        format_id = max({163, *used_ids}) + 1
+        num_fmts.append(
+            ET.Element(
+                f"{{{_MAIN_NS}}}numFmt",
+                {"numFmtId": str(format_id), "formatCode": format_code},
+            )
+        )
+        num_fmts.set("count", str(len(existing_formats) + 1))
+    variant = copy.deepcopy(xfs[base_style_id])
+    variant.set("numFmtId", str(format_id))
+    variant.set("applyNumberFormat", "1")
+    serialized = ET.tostring(variant, encoding="utf-8")
+    for index, candidate in enumerate(xfs):
+        if ET.tostring(candidate, encoding="utf-8") == serialized:
+            return index
+    cell_xfs.append(variant)
+    cell_xfs.set("count", str(len(xfs) + 1))
+    return len(xfs)
 
 
 def _top_border_variant(
@@ -4213,6 +4796,10 @@ def _product_v2_binding_style_id(
         horizontal=binding.horizontal_alignment,
         vertical=binding.vertical_alignment,
     )
+    if binding.number_format_code is not None:
+        styled = _number_format_variant(
+            styles_root, styled, binding.number_format_code
+        )
     if binding.event_start and binding.block_id == PRODUCT_V2_TIMELINE_BLOCK_ID:
         styled = _top_border_variant(styles_root, styled)
     return styled
@@ -4281,7 +4868,14 @@ def materialize_promise_progress_preview_v2(
             _set_row_height(sheet_root, row_number, height_points)
         for binding in plan.bindings:
             cell = _get_or_create_cell(sheet_root, binding.anchor_cell)
-            _write_inline_string(cell, binding.presentation_text)
+            if binding.storage_kind in {"numeric", "date"}:
+                if binding.stored_numeric_value is None or binding.number_format_code is None:
+                    raise PromiseProgressWorkbookPreviewError(
+                        "A numeric Product@2 binding lacks its closed storage metadata."
+                    )
+                _write_numeric_value(cell, binding.stored_numeric_value)
+            else:
+                _write_inline_string(cell, binding.presentation_text)
             style_id = _product_v2_binding_style_id(
                 binding,
                 styles_root=styles_root,
@@ -4377,6 +4971,7 @@ def validate_preview_structure_v2(
         shared = _shared_strings(preview)
         cells = _worksheet_cell_map(preview_root)
         style_palette = _style_palette(preview)
+        style_fonts = _style_font_properties(preview)
         top_borders = _style_top_border_map(preview)
         legacy_styles = _parse_xml(legacy_members["xl/styles.xml"])
         preview_styles = _parse_xml(preview_members["xl/styles.xml"])
@@ -4482,6 +5077,24 @@ def validate_preview_structure_v2(
             )
             for binding in event_start_bindings
         }
+        event_header_bindings = [
+            binding
+            for binding in plan.bindings
+            if binding.binding_kind == "event_group"
+        ]
+        event_header_styles = {
+            binding.binding_id: {
+                "destination": binding.anchor_cell,
+                "style_role": binding.style_role,
+                "fill": style_palette.get(
+                    int(cells[binding.anchor_cell].get("s", "0"))
+                ),
+                "font": style_fonts.get(
+                    int(cells[binding.anchor_cell].get("s", "0")), {}
+                ),
+            }
+            for binding in event_header_bindings
+        }
         validations = {
             "sheet_identity": (
                 legacy_position == preview_position == plan.sheet_position_1_based
@@ -4510,8 +5123,15 @@ def validate_preview_structure_v2(
             "no_formulas": _feature_counts(preview_root)["formulas"] == 0,
             "lifecycle_state_not_in_investor_cells": not lifecycle_bindings,
             "outcome_status_roles_are_typed": all(
-                binding.status_code is not None
-                and binding.style_role == f"status:{binding.status_code}"
+                (
+                    binding.presentation_text == ""
+                    and binding.status_code is None
+                    and binding.style_role is None
+                )
+                or (
+                    binding.status_code is not None
+                    and binding.style_role == f"status:{binding.status_code}"
+                )
                 for binding in plan.bindings
                 if binding.binding_kind == "product_field" and binding.field_role == "status"
             ),
@@ -4521,8 +5141,37 @@ def validate_preview_structure_v2(
                 for row in event_start_borders.values()
             ),
         }
+        if plan.product_version == SUCCESSOR_PRODUCT_VERSION:
+            validations.update(
+                {
+                    "timeline_event_header_role": bool(event_header_styles)
+                    and all(
+                        row["style_role"] == "TimelineEventHeader"
+                        and row["fill"] == "#5B9BD5"
+                        and row["font"].get("bold") is True
+                        and row["font"].get("rgb") == "#FFFFFF"
+                        for row in event_header_styles.values()
+                    ),
+                    "numeric_storage_is_scoped": all(
+                        (
+                            cell.get("t") == "n"
+                            if binding.storage_kind in {"numeric", "date"}
+                            else cell.get("t") in {None, "inlineStr"}
+                        )
+                        for binding in plan.bindings
+                        if (cell := cells.get(binding.anchor_cell)) is not None
+                    ),
+                    "no_ignored_error_suppression": not preview_root.findall(
+                        f".//{{{_MAIN_NS}}}ignoredErrors"
+                    ),
+                }
+            )
     result = {
-        "schema_id": PRODUCT_V2_STRUCTURAL_VALIDATION_SCHEMA_ID,
+        "schema_id": (
+            PRODUCT_V2_STRUCTURAL_VALIDATION_SCHEMA_ID
+            if plan.product_version == PRODUCT_V2_GOLDEN_VERSION
+            else SUCCESSOR_PRODUCT_V2_STRUCTURAL_VALIDATION_SCHEMA_ID
+        ),
         "legacy_workbook_sha256": sha256_file(legacy_workbook),
         "preview_workbook_sha256": sha256_file(preview_workbook),
         "changed_ooxml_parts": changed_parts,
@@ -4542,6 +5191,8 @@ def validate_preview_structure_v2(
         "validations": validations,
         "passed": all(validations.values()),
     }
+    if plan.product_version == SUCCESSOR_PRODUCT_VERSION:
+        result["timeline_event_header_styles"] = event_header_styles
     result["validation_digest"] = _sha256_bytes(canonical_json_bytes(result))
     return result
 
@@ -4555,9 +5206,36 @@ def validate_preview_semantics_v2(
     snapshot, _ = _workbook_sheet_snapshot(preview_workbook, plan.sheet_name)
     results = []
     for binding in plan.bindings:
-        actual = snapshot["cells"].get(binding.anchor_cell, {}).get("value", "")
-        results.append(
-            {
+        cell_snapshot = snapshot["cells"].get(binding.anchor_cell, {})
+        stored_value = cell_snapshot.get("value", "")
+        cell_type = cell_snapshot.get("cell_type")
+        actual_number_format_code = cell_snapshot.get("number_format_code")
+        actual_number_format_id = cell_snapshot.get("number_format_id")
+        if binding.storage_kind in {"numeric", "date"}:
+            storage_pass = (
+                cell_type == "n"
+                and binding.stored_numeric_value is not None
+                and Decimal(str(stored_value))
+                == Decimal(binding.stored_numeric_value)
+            )
+            format_pass = (
+                binding.number_format_code is not None
+                and actual_number_format_code == binding.number_format_code
+            )
+            try:
+                actual = replay_ooxml_numeric_display(
+                    str(stored_value), str(actual_number_format_code)
+                )
+                format_replay_pass = True
+            except (ArithmeticError, ValueError, PromiseProgressWorkbookPreviewError):
+                actual = str(stored_value)
+                format_replay_pass = False
+        else:
+            storage_pass = cell_type in {None, "inlineStr"}
+            format_pass = True
+            format_replay_pass = True
+            actual = str(stored_value)
+        entry = {
                 "binding_id": binding.binding_id,
                 "binding_kind": binding.binding_kind,
                 "source_row_id": binding.source_row_id,
@@ -4586,9 +5264,44 @@ def validate_preview_semantics_v2(
                 "progress_period_id": binding.progress_period_id,
                 "progress_knowledge_date": binding.progress_knowledge_date,
                 "progress_source_document_ids": list(binding.progress_source_document_ids),
-                "pass": actual == binding.presentation_text,
+                "semantic_row_kind": binding.semantic_row_kind,
+                "status_target_guidance_version_id": (
+                    binding.status_target_guidance_version_id
+                ),
+                "status_actual_candidate_record_ids": list(
+                    binding.status_actual_candidate_record_ids
+                ),
+                "status_actual_period_id": binding.status_actual_period_id,
+                "status_actual_knowledge_date": binding.status_actual_knowledge_date,
+                "status_actual_source_document_ids": list(
+                    binding.status_actual_source_document_ids
+                ),
+                "status_actual_basis_id": binding.status_actual_basis_id,
+                "status_actual_unit_id": binding.status_actual_unit_id,
+                "status_rule_id": binding.status_rule_id,
+                "pass": (
+                    storage_pass
+                    and format_pass
+                    and format_replay_pass
+                    and actual == binding.presentation_text
+                ),
             }
-        )
+        if product.product_version == SUCCESSOR_PRODUCT_VERSION:
+            entry.update(
+                {
+                    "stored_cell_value": stored_value,
+                    "stored_cell_type": cell_type,
+                    "storage_kind": binding.storage_kind,
+                    "number_format_code": binding.number_format_code,
+                    "planned_number_format_code": binding.number_format_code,
+                    "actual_number_format_id": actual_number_format_id,
+                    "actual_number_format_code": actual_number_format_code,
+                    "independently_replayed_display": actual,
+                    "number_format_identity_pass": format_pass,
+                    "number_format_replay_pass": format_replay_pass,
+                }
+            )
+        results.append(entry)
     product_rows = [row for block in product.blocks for row in block.rows]
     trace_rows = [row for row in results if row["binding_kind"] == "row_trace"]
     visible_text = " ".join(
@@ -4679,7 +5392,11 @@ def validate_preview_semantics_v2(
         ),
     }
     result = {
-        "schema_id": PRODUCT_V2_SEMANTIC_VALIDATION_SCHEMA_ID,
+        "schema_id": (
+            PRODUCT_V2_SEMANTIC_VALIDATION_SCHEMA_ID
+            if product.product_version == PRODUCT_V2_GOLDEN_VERSION
+            else SUCCESSOR_PRODUCT_V2_SEMANTIC_VALIDATION_SCHEMA_ID
+        ),
         "product_id": product.product_id,
         "product_sha256": promise_progress_product_v2_sha256(product),
         "binding_plan_sha256": plan.lineage_digest,
@@ -4718,8 +5435,13 @@ def validate_preview_visual_fit_v2(
             style_id = 0 if cell is None else int(cell.get("s", "0"))
             alignment = alignments.get(style_id, {})
             height = int(float(row_nodes[row_number].get("ht", "0")))
+            rendered_text = (
+                binding.presentation_text
+                if binding.storage_kind in {"numeric", "date"}
+                else _cell_text(cell, shared)
+            )
             measurement = measure_presentation_text(
-                _cell_text(cell, shared),
+                rendered_text,
                 span_width=_column_number(end_column) - _column_number(column) + 1,
                 wrap_text=bool(alignment.get("wrap_text", False)),
                 allocated_height_points=height,
@@ -4764,7 +5486,11 @@ def validate_preview_visual_fit_v2(
         "all_records_pass": all(row["pass"] for row in records),
     }
     result = {
-        "schema_id": PRODUCT_V2_VISUAL_VALIDATION_SCHEMA_ID,
+        "schema_id": (
+            PRODUCT_V2_VISUAL_VALIDATION_SCHEMA_ID
+            if plan.product_version == PRODUCT_V2_GOLDEN_VERSION
+            else SUCCESSOR_PRODUCT_V2_VISUAL_VALIDATION_SCHEMA_ID
+        ),
         "preview_workbook_sha256": sha256_file(preview_workbook),
         "binding_plan_sha256": plan.lineage_digest,
         "record_count": len(records),
@@ -4786,23 +5512,73 @@ def build_workbook_trace_v2(
 ) -> dict[str, Any]:
     snapshot, _ = _workbook_sheet_snapshot(preview_workbook, plan.sheet_name)
     height_by_row = dict(plan.row_heights)
-    records = [
-        {
+    product_rows = {
+        row.row_id: row for block in product.blocks for row in block.rows
+    }
+    product_sha256 = promise_progress_product_v2_sha256(product)
+    binding_plan_sha256 = plan.lineage_digest
+    records = []
+    for binding in plan.bindings:
+        cell = snapshot["cells"].get(binding.anchor_cell, {})
+        raw_value = cell.get("value", "")
+        record = {
             **binding.to_dict(),
-            "product_sha256": promise_progress_product_v2_sha256(product),
-            "binding_plan_sha256": plan.lineage_digest,
+            "product_sha256": product_sha256,
+            "binding_plan_sha256": binding_plan_sha256,
             "physical_row": _cell_parts(binding.anchor_cell)[1],
             "row_height_points": height_by_row[_cell_parts(binding.anchor_cell)[1]],
-            "written_display_value": snapshot["cells"].get(binding.anchor_cell, {}).get("value", ""),
-            "written_style_id": snapshot["cells"].get(binding.anchor_cell, {}).get("style_id", 0),
+            "written_display_value": (
+                binding.presentation_text
+                if binding.storage_kind in {"numeric", "date"}
+                else raw_value
+            ),
+            "written_style_id": cell.get("style_id", 0),
         }
-        for binding in plan.bindings
-    ]
+        if product.product_version == SUCCESSOR_PRODUCT_VERSION:
+            source_row = product_rows.get(str(binding.source_row_id))
+            record.update(
+                {
+                    "stored_cell_value": raw_value,
+                    "stored_cell_type": cell.get("cell_type"),
+                    "product_unit_id": None if source_row is None else source_row.unit_id,
+                    "actual_derivation_rule_id": (
+                        None if source_row is None else source_row.actual_derivation_rule_id
+                    ),
+                    "actual_derivation_input_record_ids": (
+                        []
+                        if source_row is None
+                        else list(source_row.actual_derivation_input_record_ids)
+                    ),
+                    "actual_derivation_support_record_ids": (
+                        []
+                        if source_row is None
+                        else list(source_row.actual_derivation_support_record_ids)
+                    ),
+                    "progress_derivation_rule_id": (
+                        None if source_row is None else source_row.progress_derivation_rule_id
+                    ),
+                    "progress_derivation_input_record_ids": (
+                        []
+                        if source_row is None
+                        else list(source_row.progress_derivation_input_record_ids)
+                    ),
+                    "progress_derivation_support_record_ids": (
+                        []
+                        if source_row is None
+                        else list(source_row.progress_derivation_support_record_ids)
+                    ),
+                }
+            )
+        records.append(record)
     result = {
-        "schema_id": PRODUCT_V2_WORKBOOK_TRACE_SCHEMA_ID,
+        "schema_id": (
+            PRODUCT_V2_WORKBOOK_TRACE_SCHEMA_ID
+            if product.product_version == PRODUCT_V2_GOLDEN_VERSION
+            else SUCCESSOR_PRODUCT_V2_WORKBOOK_TRACE_SCHEMA_ID
+        ),
         "product_id": product.product_id,
-        "product_sha256": promise_progress_product_v2_sha256(product),
-        "binding_plan_sha256": plan.lineage_digest,
+        "product_sha256": product_sha256,
+        "binding_plan_sha256": binding_plan_sha256,
         "preview_workbook_sha256": sha256_file(preview_workbook),
         "record_count": len(records),
         "records": records,

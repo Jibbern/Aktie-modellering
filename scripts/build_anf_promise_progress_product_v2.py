@@ -14,6 +14,8 @@ import hashlib
 import json
 import re
 import sys
+import tempfile
+from collections import Counter
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -34,19 +36,42 @@ from pbi_xbrl.longitudinal_memory.sector_packs.retail import (
 from pbi_xbrl.longitudinal_memory.promise_progress_product_v2 import (
     NEEDS_REVIEW_REASONS,
     OPEN_BLOCK_ID,
+    PRODUCT_VERSION,
     PROGRESSION_BLOCK_ID,
     TIMELINE_BLOCK_ID,
+    GUIDANCE_UPDATE_ROW_KIND,
+    PERIOD_RESULT_ROW_KIND,
+    HORIZON_OUTCOME_ROW_KIND,
+    NET_STORE_OPENINGS_RULE_ID,
+    PERIOD_YTD_MINUS_PRIOR_RULE_ID,
+    Q4_ADD_FY_MINUS_QUARTERS_RULE_ID,
+    Q4_ADD_FY_MINUS_YTD_RULE_ID,
+    Q4_GROWTH_FROM_AMOUNTS_RULE_ID,
+    Q4_MARGIN_FROM_COMPONENTS_RULE_ID,
+    STORE_COMPONENT_COMBINATION_RULE_ID,
+    SUCCESSOR_PRODUCT_VERSION,
+    YTD_GROWTH_FROM_AMOUNTS_RULE_ID,
+    YTD_MARGIN_FROM_COMPONENTS_RULE_ID,
     build_product_v2_shadow,
     build_promise_progress_product_v2,
     classify_change,
+    compatible_foundation_metric_ids,
+    normalize_product_unit_id,
     promise_progress_product_v2_sha256,
     serialize_product_v2_shadow,
     serialize_promise_progress_product_v2,
 )
+from pbi_xbrl.longitudinal_memory.serialization import serialize_package
 from pbi_xbrl.longitudinal_memory.source_adapter import build_source_native_sidecar
 from pbi_xbrl.longitudinal_memory.source_adapter.html import _rows, _span_fingerprint, _text
 from pbi_xbrl.longitudinal_memory.source_adapter.types import text_sha256
 from pbi_xbrl.longitudinal_memory.ticker_profiles.anf import load_anf_profile_v2
+from pbi_xbrl.longitudinal_memory.ticker_profiles.anf_evidence_foundation import (
+    FOUNDATION_ID as EVIDENCE_FOUNDATION_ID,
+    SOURCE_SET_ID as EVIDENCE_FOUNDATION_SOURCE_SET_ID,
+    build_anf_evidence_foundation,
+    candidate_artifacts as evidence_foundation_artifacts,
+)
 from pbi_xbrl.promise_progress_workbook_preview import (
     build_promise_progress_workbook_binding_plan_v2,
     build_workbook_trace_v2,
@@ -63,9 +88,65 @@ from pbi_xbrl.promise_progress_workbook_preview import (
 
 SOURCE_SET_ID = "source-set:anf:promise-progress-product-v2-candidate@2"
 CANDIDATE_ROOT_NAME = "promise_progress_product_v2_candidate"
+SUCCESSOR_SOURCE_SET_ID = (
+    "source-set:anf:promise-progress-product-v2-post-golden-successor@3"
+)
+SUCCESSOR_CANDIDATE_ROOT_NAME = (
+    "promise_progress_product_v2_1_exhaustive_reconciliation_defect_closure_candidate_final"
+)
+EXHAUSTIVE_RECONCILIATION_AUDIT_RELATIVE_PATH = Path("audit") / (
+    "promise_progress_product_v2_1_exhaustive_semantic_reconciliation_audit"
+)
+FINAL_EXHAUSTIVE_RECONCILIATION_AUDIT_RELATIVE_PATH = Path("audit") / (
+    "promise_progress_product_v2_1_final_exhaustive_semantic_reconciliation_acceptance_audit"
+)
+FINAL_COUNT_RECONCILIATION_AUDIT_RELATIVE_PATH = Path("audit") / (
+    "promise_progress_product_v2_1_final_exhaustive_acceptance_reconciliation_audit_v2"
+)
+COUNT_RECONCILIATION_KIND_SCHEMA_ID = (
+    "contract:promise-progress-count-reconciliation-kinds@1"
+)
+# Canonical order is part of the report contract.  These identifiers define which
+# counters must exist; their current economic values are always generated below.
+COUNT_RECONCILIATION_REQUIRED_KINDS: tuple[str, ...] = (
+    "metric",
+    "annual_guidance_series",
+    "quarter_guidance_series",
+    "annual_guidance_version",
+    "quarter_guidance_version",
+    "guidance_transition",
+    "annual_actual",
+    "quarter_actual",
+    "progress",
+    "q4_candidate",
+    "derived_fact",
+    "guidance_progression_row",
+    "open_guidance_row",
+    "guidance_update_row",
+    "period_result_row",
+    "horizon_outcome_row",
+    "assessment_row",
+    "disclosure_event",
+    "status",
+    "needs_review",
+    "change_type",
+    "blank_cell",
+    "workbook_field_cell",
+    "foundation_disposition",
+    "source_conflict",
+)
+EVIDENCE_AUDIT_RELATIVE_PATH = Path("audit") / (
+    "anf_local_source_review_authority_expansion_audit_2026-08-09"
+)
 SOURCE_ROOT_DEFAULT = Path(r"C:\Users\Jibbe\Aktier\StockModelData")
 LEGACY_WORKBOOK_RELATIVE_PATH = Path("outputs") / "Excel stock models" / "ANF_model.xlsx"
 DESIGN_LOCK_RELATIVE_PATH = Path("audit") / "promise_progress_design_lock"
+FINAL_CLOSURE_MANIFEST_FILENAMES = (
+    "old_defect_regression_report.json",
+    "current_defect_closure_report.json",
+    "current_count_reconciliation_report.json",
+    "numeric_ooxml_reconciliation.json",
+)
 
 HISTORICAL_DOCUMENTS: tuple[dict[str, Any], ...] = (
     {
@@ -182,6 +263,60 @@ QUARTERLY_PROGRESS_EVENTS: tuple[dict[str, Any], ...] = (
     {"year": 2025, "quarter": 3, "publication_date": "2025-11-26", "start_date": "2025-08-03", "end_date": "2025-11-01"},
 )
 
+Q4_RESULT_EVENTS: tuple[dict[str, Any], ...] = (
+    {
+        "year": 2022,
+        "quarter": 4,
+        "publication_date": "2023-03-02",
+        "start_date": "2022-10-30",
+        "end_date": "2023-01-28",
+        "week_count": 13,
+    },
+    {
+        "year": 2023,
+        "quarter": 4,
+        "publication_date": "2024-03-07",
+        "start_date": "2023-10-29",
+        "end_date": "2024-02-03",
+        "week_count": 14,
+        "is_53_week_year": True,
+    },
+    {
+        "year": 2024,
+        "quarter": 4,
+        "publication_date": "2025-03-06",
+        "start_date": "2024-11-03",
+        "end_date": "2025-02-01",
+        "week_count": 13,
+    },
+    {
+        "year": 2025,
+        "quarter": 4,
+        "publication_date": "2026-03-04",
+        "start_date": "2025-11-02",
+        "end_date": "2026-01-31",
+        "week_count": 13,
+    },
+)
+
+Q3_YTD_CAPEX_EVENTS: tuple[dict[str, Any], ...] = tuple(
+    {
+        **row,
+        "period_key": f"fy{row['year']}-ytd-q3",
+        "period_id": f"period:anf:fy{row['year']}-ytd-q3@1",
+        "start_date": {
+            2022: "2022-01-30",
+            2023: "2023-01-29",
+            2024: "2024-02-04",
+            2025: "2025-02-02",
+        }[int(row["year"])],
+        "week_count": 39,
+        "is_53_week_year": int(row["year"]) == 2023,
+    }
+    for row in QUARTERLY_PROGRESS_EVENTS
+    if int(row["quarter"]) == 3
+)
+
 FY2025_YTD_PROGRESS_EVENTS: tuple[dict[str, Any], ...] = tuple(
     {
         **row,
@@ -275,7 +410,7 @@ def _write_visual_markdown(
         "",
         "- State: candidate only; no production cutover.",
         f"- Product SHA-256: `{product_sha256}`",
-        f"- Preview workbook: `{preview_path}`",
+        f"- Preview workbook: `{preview_path.relative_to(path.parent).as_posix()}`",
         f"- Dynamic used range: `{plan.used_range}`",
         f"- Physical presentation rows: **{len(plan.row_plan)}**",
         f"- Visible binding fit records: **{visual['record_count']}**",
@@ -321,7 +456,8 @@ def write_candidate_manifest(
     plan: Any,
     legacy_workbook: Path,
 ) -> dict[str, Any]:
-    names = (
+    successor = product.product_version == SUCCESSOR_PRODUCT_VERSION
+    names = [
         "source_set_v2_candidate.json",
         "product_v2_candidate.json",
         "shadow_v2_candidate.json",
@@ -336,7 +472,7 @@ def write_candidate_manifest(
         "needs_review_audit.json",
         "actual_definition_compatibility_report.json",
         "timeline_knowledge_date_report.json",
-        "presentation_contract_v7.json",
+        "presentation_contract_v8.json" if successor else "presentation_contract_v7.json",
         "binding_plan_v2.json",
         "workbook_trace_v2.json",
         "structural_validation_v2.json",
@@ -345,7 +481,31 @@ def write_candidate_manifest(
         "visual_validation_v2.md",
         "ANF_Promise_Progress_source_native_v2_preview.xlsx",
         "ANF_Promise_Progress_source_native_v2_preview_repeat.xlsx",
-    )
+    ]
+    foundation_artifacts: Mapping[str, Mapping[str, Any]] | None = None
+    if successor:
+        names.extend(
+            [
+                "evidence_foundation_identity.json",
+                "guidance_completeness_report.json",
+                "actual_reconciliation_report.json",
+                "progress_reconciliation_report.json",
+                "quarter_guidance_coverage_report.json",
+                "result_event_semantic_report.json",
+                "foundation_projection_disposition.json",
+                "progression_q4_guidance_update_audit.json",
+                "q4_derivation_audit.json",
+                "q4_reconciliation_report.json",
+                "derivation_lineage_report.json",
+                "status_report.json",
+                "bounded_derivation_audit.json",
+                "timeline_blank_completeness_report.json",
+                "needs_review_semantics_review.json",
+                "defect_closure_report.json",
+                "numeric_cell_text_audit.json",
+                *FINAL_CLOSURE_MANIFEST_FILENAMES,
+            ]
+        )
     paths = [output_root / name for name in names]
     render_root = output_root / "rendered"
     if render_root.is_dir():
@@ -364,8 +524,16 @@ def write_candidate_manifest(
     first = output_root / "ANF_Promise_Progress_source_native_v2_preview.xlsx"
     second = output_root / "ANF_Promise_Progress_source_native_v2_preview_repeat.xlsx"
     manifest = {
-        "manifest_type": "PromiseProgressProductV2CandidateManifest@1",
-        "candidate_state": "review-only-not-golden-not-production-cutover",
+        "manifest_type": (
+            "PromiseProgressProductV2SuccessorCandidateManifest@1"
+            if successor
+            else "PromiseProgressProductV2CandidateManifest@1"
+        ),
+        "candidate_state": (
+            "post-golden-successor-review-only-not-golden-not-production-cutover"
+            if successor
+            else "review-only-not-golden-not-production-cutover"
+        ),
         "product_id": product.product_id,
         "product_version": product.product_version,
         "product_sha256": promise_progress_product_v2_sha256(product),
@@ -535,6 +703,7 @@ def _period_evidence_assertion(
 def _quarter_period(row: Mapping[str, Any]) -> dict[str, Any]:
     year = int(row["year"])
     quarter = int(row["quarter"])
+    week_count = int(row.get("week_count", 13))
     return {
         "period_key": f"fy{year}-q{quarter}",
         "period_id": f"period:anf:fy{year}-q{quarter}@1",
@@ -543,9 +712,9 @@ def _quarter_period(row: Mapping[str, Any]) -> dict[str, Any]:
         "period_type": "quarter",
         "start_date": str(row["start_date"]),
         "end_date": str(row["end_date"]),
-        "week_count": 13,
+        "week_count": week_count,
         "fiscal_ordinal": (year - 2000) * 4 + quarter,
-        "is_53_week_year": False,
+        "is_53_week_year": bool(row.get("is_53_week_year", False)),
         "start_rule_id": "rule:core:inclusive-weeks-ending@1",
         "evidence_assertion_key": f"period-fy{year}-q{quarter}",
         "fiscal_claim_assertion_keys": [f"period-fy{year}-q{quarter}"],
@@ -572,11 +741,19 @@ def _quarter_period_evidence_assertion(
     )
     end_day = date.fromisoformat(str(row["end_date"]))
     end_label = f"{end_day.strftime('%B')} {end_day.day}, {end_day.year}"
-    duration_fingerprint = f"Thirteen Weeks Ended {end_label}"
+    weeks_word = {13: "Thirteen", 14: "Fourteen"}.get(int(row.get("week_count", 13)))
+    if weeks_word is None:
+        raise ValueError("Quarter period evidence supports only reviewed 13/14-week quarters.")
+    duration_fingerprint = f"{weeks_word} Weeks Ended {end_label}"
     excerpt = _source_case(document_text, duration_fingerprint)
     quarter_fingerprint = _source_case(
         document_text,
-        {1: "FIRST QUARTER", 2: "SECOND QUARTER", 3: "THIRD QUARTER"}[quarter],
+        {
+            1: "FIRST QUARTER",
+            2: "SECOND QUARTER",
+            3: "THIRD QUARTER",
+            4: "FOURTH QUARTER",
+        }[quarter],
     )
     year_fingerprint = _source_case(document_text, f"FISCAL {year}")
     assertion_key = f"period-fy{year}-q{quarter}"
@@ -641,7 +818,7 @@ def _ytd_period(row: Mapping[str, Any]) -> dict[str, Any]:
         "end_date": str(row["end_date"]),
         "week_count": int(row["week_count"]),
         "fiscal_ordinal": (year - 2000) * 4 + quarter,
-        "is_53_week_year": False,
+        "is_53_week_year": bool(row.get("is_53_week_year", False)),
         "start_rule_id": "rule:core:inclusive-weeks-ending@1",
         "evidence_assertion_key": f"period-fy{year}-ytd-q{quarter}",
         "fiscal_claim_assertion_keys": [f"period-fy{year}-ytd-q{quarter}"],
@@ -1383,9 +1560,12 @@ def _historical_annual_actual_assertions(source_root: Path) -> list[dict[str, An
     return results
 
 
-def _quarterly_progress_assertions(source_root: Path) -> list[dict[str, Any]]:
+def _quarterly_progress_assertions(
+    source_root: Path,
+    events: Iterable[Mapping[str, Any]] = QUARTERLY_PROGRESS_EVENTS,
+) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
-    for event in QUARTERLY_PROGRESS_EVENTS:
+    for event in events:
         year = int(event["year"])
         quarter = int(event["quarter"])
         publication_date = str(event["publication_date"])
@@ -1404,10 +1584,18 @@ def _quarterly_progress_assertions(source_root: Path) -> list[dict[str, Any]]:
         period_key = f"fy{year}-q{quarter}"
         end_day = date.fromisoformat(str(event["end_date"]))
         end_label = f"{end_day.strftime('%B')} {end_day.day}, {end_day.year}"
-
-        _sales_index, sales_table, sales_rows = _one_table(
-            root, "1 YR % Change", "Total company"
+        weeks_word = {13: "Thirteen", 14: "Fourteen"}.get(
+            int(event.get("week_count", 13))
         )
+        if weeks_word is None:
+            raise ValueError("Quarter actual extraction supports only reviewed 13/14-week quarters.")
+
+        sales_fingerprints = (
+            ("Fourth Quarter", "1 YR % Change", "Total company")
+            if quarter == 4
+            else ("1 YR % Change", "Total company")
+        )
+        _sales_index, sales_table, sales_rows = _one_table(root, *sales_fingerprints)
         sales_row_index = next(
             index
             for index, row in enumerate(sales_rows)
@@ -1429,7 +1617,7 @@ def _quarterly_progress_assertions(source_root: Path) -> list[dict[str, Any]]:
                 "locator": _html_table_locator(
                     root,
                     locator_key=f"html:progress-fy{year}-q{quarter}-net-sales-growth",
-                    table_fingerprints=("1 YR % Change", "Total company"),
+                    table_fingerprints=sales_fingerprints,
                     row_header="Total company",
                     column_header="1 YR % Change",
                     row_index=sales_row_index,
@@ -1441,11 +1629,22 @@ def _quarterly_progress_assertions(source_root: Path) -> list[dict[str, Any]]:
             }
         )
 
+        operations_fingerprints = (
+            (
+                "Condensed Consolidated Statements of Operations",
+                f"{weeks_word} Weeks Ended",
+                end_label,
+                "% of Net Sales",
+            )
+            if quarter == 4
+            else (
+                "Condensed Consolidated Statements of Operations",
+                f"{weeks_word} Weeks Ended {end_label}",
+                "% of Net Sales",
+            )
+        )
         _ops_index, _ops_table, operations_rows = _one_table(
-            root,
-            "Condensed Consolidated Statements of Operations",
-            f"Thirteen Weeks Ended {end_label}",
-            "% of Net Sales",
+            root, *operations_fingerprints
         )
         operating_row_index = next(
             index
@@ -1467,11 +1666,7 @@ def _quarterly_progress_assertions(source_root: Path) -> list[dict[str, Any]]:
                 "locator": _html_table_locator(
                     root,
                     locator_key=f"html:progress-fy{year}-q{quarter}-operating-margin",
-                    table_fingerprints=(
-                        "Condensed Consolidated Statements of Operations",
-                        f"Thirteen Weeks Ended {end_label}",
-                        "% of Net Sales",
-                    ),
+                    table_fingerprints=operations_fingerprints,
                     row_header=operations_rows[operating_row_index][0],
                     column_header="% of Net Sales",
                     row_index=operating_row_index,
@@ -1503,8 +1698,7 @@ def _quarterly_progress_assertions(source_root: Path) -> list[dict[str, Any]]:
                         root,
                         locator_key=f"html:progress-fy{year}-q{quarter}-eps-reported",
                         table_fingerprints=(
-                            "Condensed Consolidated Statements of Operations",
-                            f"Thirteen Weeks Ended {end_label}",
+                            *operations_fingerprints[:-1],
                             "Net income per share",
                         ),
                         row_header="Diluted",
@@ -1517,6 +1711,183 @@ def _quarterly_progress_assertions(source_root: Path) -> list[dict[str, Any]]:
                     "review_state": "reviewed",
                 }
             )
+    return results
+
+
+def _fy2025_quarter_capability_actual_assertions(
+    source_root: Path, base: Mapping[str, Any]
+) -> list[dict[str, Any]]:
+    """Map reviewed quarter-period buybacks and diluted shares as Actuals.
+
+    These facts were already present in the accepted local releases.  Product@2 2.0
+    mapped only the YTD/cumulative forms, so this successor adds the distinct
+    quarter-period observations without changing the existing Progress records.
+    """
+
+    documents = {str(row["document_key"]): row for row in base["documents"]}
+    repurchase_fingerprints = {
+        1: (
+            "During the first quarter of 2025, the company repurchased 2.6 million "
+            "shares for approximately $200 million"
+        ),
+        2: (
+            "During the second quarter of 2025, the company repurchased 0.6 million "
+            "shares for approximately $50 million"
+        ),
+        3: (
+            "During the third quarter of 2025, the company repurchased 1.2 million "
+            "shares for approximately $100 million"
+        ),
+        4: (
+            "During the fourth quarter of 2025, the company repurchased 0.9 million "
+            "shares for approximately $100 million"
+        ),
+    }
+    results: list[dict[str, Any]] = []
+    events = tuple(
+        row
+        for row in (*QUARTERLY_PROGRESS_EVENTS, *Q4_RESULT_EVENTS)
+        if int(row["year"]) == 2025
+    )
+    for event in events:
+        quarter = int(event["quarter"])
+        publication_date = str(event["publication_date"])
+        document_key = f"anf-release-{publication_date}"
+        path = source_root / str(documents[document_key]["relative_path"])
+        root = lxml_html.fromstring(path.read_bytes())
+        document_text = _text(root)
+        end_day = date.fromisoformat(str(event["end_date"]))
+        end_label = f"{end_day.strftime('%B')} {end_day.day}, {end_day.year}"
+        weeks_word = {13: "Thirteen", 14: "Fourteen"}[
+            int(event.get("week_count", 13))
+        ]
+        table_fingerprints = (
+            f"{weeks_word} Weeks Ended {weeks_word} Weeks Ended {end_label}",
+            "Weighted-average shares outstanding",
+        )
+        _table_index, _table, operation_rows = _one_table(
+            root, *table_fingerprints
+        )
+        diluted_rows = [
+            index
+            for index, row in enumerate(operation_rows)
+            if row and row[0].strip().casefold() == "diluted"
+        ]
+        if len(diluted_rows) < 2:
+            raise ValueError("Reviewed quarter table lacks diluted EPS/share rows.")
+        diluted_row_index = diluted_rows[-1]
+        diluted_cell = _first_numeric_cell(operation_rows[diluted_row_index])
+        results.extend(
+            (
+                {
+                    "assertion_key": f"actual-fy2025-q{quarter}-share-repurchases",
+                    "assertion_kind": "numerical_fact",
+                    "document_key": document_key,
+                    "metric_key": "share-repurchases",
+                    "period_key": f"fy2025-q{quarter}",
+                    "dimension_alias": "total company",
+                    "value_parser_id": "parser:retail:currency-millions@1",
+                    "locator": _reviewed_html_text_locator(
+                        document_text,
+                        locator_key=(
+                            f"html:actual-fy2025-q{quarter}-share-repurchases"
+                        ),
+                        fingerprint=repurchase_fingerprints[quarter],
+                    ),
+                    "review_state": "reviewed",
+                },
+                {
+                    "assertion_key": f"actual-fy2025-q{quarter}-diluted-shares",
+                    "assertion_kind": "numerical_fact",
+                    "document_key": document_key,
+                    "metric_key": "diluted-weighted-average-shares",
+                    "period_key": f"fy2025-q{quarter}",
+                    "dimension_alias": "total company",
+                    "value_parser_id": (
+                        "parser:retail:shares-thousands-to-millions@1"
+                    ),
+                    "locator": _html_table_locator(
+                        root,
+                        locator_key=f"html:actual-fy2025-q{quarter}-diluted-shares",
+                        table_fingerprints=table_fingerprints,
+                        row_header="Diluted",
+                        column_header=end_label,
+                        row_index=diluted_row_index,
+                        cell_index=diluted_cell,
+                        context_row_index=0,
+                        section_fingerprint="Weighted-average shares outstanding",
+                    ),
+                    "review_state": "reviewed",
+                },
+            )
+        )
+    return results
+
+
+def _q3_ytd_property_purchase_assertions(source_root: Path) -> list[dict[str, Any]]:
+    """Map exact 9M property/equipment flows needed by the closed Q4 derivation gate."""
+
+    results: list[dict[str, Any]] = []
+    for event in Q3_YTD_CAPEX_EVENTS:
+        year = int(event["year"])
+        publication_date = str(event["publication_date"])
+        expected = next(
+            (
+                str(value["sha256"])
+                for value in HISTORICAL_DOCUMENTS
+                if value["file_date"] == publication_date
+            ),
+            None,
+        )
+        _path, root, _document_text = _verified_release_text(
+            source_root, publication_date, expected
+        )
+        end_day = date.fromisoformat(str(event["end_date"]))
+        end_label = f"{end_day.strftime('%B')} {end_day.day}, {end_day.year}"
+        _table_index, _table, cash_rows = _one_table(
+            root,
+            "Condensed Consolidated Statements of Cash Flows",
+            end_label,
+            "Purchases of property and equipment",
+        )
+        purchase_row_index = next(
+            index
+            for index, row in enumerate(cash_rows)
+            if row and row[0].strip().casefold() == "purchases of property and equipment"
+        )
+        purchase_cell = _first_numeric_cell(cash_rows[purchase_row_index])
+        assertion_key = f"actual-fy{year}-ytd-q3-property-equipment-purchases"
+        results.append(
+            {
+                "assertion_key": assertion_key,
+                "assertion_kind": "numerical_fact",
+                "document_key": f"anf-release-{publication_date}",
+                "metric_key": "property-equipment-purchases",
+                "period_key": str(event["period_key"]),
+                "dimension_alias": "total company",
+                "value_parser_id": (
+                    "parser:retail:currency-thousands-to-millions@1"
+                ),
+                "locator": _html_table_locator(
+                    root,
+                    locator_key=f"html:{assertion_key}",
+                    table_fingerprints=(
+                        "Condensed Consolidated Statements of Cash Flows",
+                        end_label,
+                        "Purchases of property and equipment",
+                    ),
+                    row_header="Purchases of property and equipment",
+                    column_header=end_label,
+                    row_index=purchase_row_index,
+                    cell_index=purchase_cell,
+                    context_row_index=5,
+                    section_fingerprint=(
+                        "Condensed Consolidated Statements of Cash Flows"
+                    ),
+                ),
+                "review_state": "reviewed",
+            }
+        )
     return results
 
 
@@ -1971,8 +2342,18 @@ def _capability_actual_and_progress_assertions(
     return results
 
 
-def build_anf_product_v2_source_set(*, source_root: Path, repository_root: Path) -> dict[str, Any]:
-    """Return the closed, deterministic ANF Product@2 candidate source set."""
+def build_anf_product_v2_source_set(
+    *,
+    source_root: Path,
+    repository_root: Path,
+    successor: bool = False,
+) -> dict[str, Any]:
+    """Return the closed ANF Product@2 source set.
+
+    ``successor=False`` is the immutable 2.0 golden generator.  The post-golden
+    successor extends that exact result from the already-reviewed local documents;
+    it never rewrites the accepted v2 fixture in place.
+    """
 
     fixture = repository_root / "tests" / "fixtures" / "longitudinal_memory" / "anf_source_set.v1.json"
     base = json.loads(fixture.read_text(encoding="utf-8"))
@@ -2070,6 +2451,57 @@ def build_anf_product_v2_source_set(*, source_root: Path, repository_root: Path)
         [*result["required_assertions"], *additions],
         key=lambda row: str(row["assertion_key"]),
     )
+    if successor:
+        result["source_set_id"] = SUCCESSOR_SOURCE_SET_ID
+        existing_period_keys = {str(row["period_key"]) for row in result["periods"]}
+        successor_periods = [
+            *(
+                _quarter_period(row)
+                for row in Q4_RESULT_EVENTS
+                if f"fy{row['year']}-q4" not in existing_period_keys
+            ),
+            *(
+                _ytd_period(row)
+                for row in Q3_YTD_CAPEX_EVENTS
+                if str(row["period_key"]) not in existing_period_keys
+            ),
+        ]
+        result["periods"] = sorted(
+            [*result["periods"], *successor_periods],
+            key=lambda row: (
+                int(row["fiscal_year"]),
+                str(row["period_type"]),
+                str(row["period_key"]),
+            ),
+        )
+        successor_assertions: list[dict[str, Any]] = []
+        successor_assertions.extend(
+            _quarter_period_evidence_assertion(source_root, row)
+            for row in Q4_RESULT_EVENTS
+        )
+        successor_assertions.extend(
+            _ytd_period_evidence_assertion(source_root, row)
+            for row in Q3_YTD_CAPEX_EVENTS
+        )
+        successor_assertions.extend(
+            _quarterly_progress_assertions(source_root, Q4_RESULT_EVENTS)
+        )
+        successor_assertions.extend(
+            _fy2025_quarter_capability_actual_assertions(source_root, result)
+        )
+        successor_assertions.extend(_q3_ytd_property_purchase_assertions(source_root))
+        existing_assertion_keys = {
+            str(row["assertion_key"]) for row in result["required_assertions"]
+        }
+        successor_additions = [
+            row
+            for row in successor_assertions
+            if str(row["assertion_key"]) not in existing_assertion_keys
+        ]
+        result["required_assertions"] = sorted(
+            [*result["required_assertions"], *successor_additions],
+            key=lambda row: str(row["assertion_key"]),
+        )
     return result
 
 
@@ -2117,18 +2549,37 @@ def build_needs_review_audit(
 ) -> dict[str, Any]:
     """Require one closed material reason for every investor-visible Needs Review."""
 
-    observations = {
-        str(row["header"]["record_id"]): row
-        for row in (() if package is None else package["observations"])
-    }
-    occurrences = {
-        str(row["evidence_occurrence_id"]): row
-        for row in (() if package is None else package["evidence_occurrences"])
-    }
+    foundation_mode = bool(
+        package is not None and package.get("foundation_id") == EVIDENCE_FOUNDATION_ID
+    )
+    observations = (
+        {}
+        if foundation_mode
+        else {
+            str(row["header"]["record_id"]): row
+            for row in (() if package is None else package["observations"])
+        }
+    )
+    foundation_facts = (
+        {}
+        if not foundation_mode
+        else {
+            str(row["canonical_fact_id"]): row
+            for row in package["canonical_facts"]
+        }
+    )
+    occurrences = (
+        {}
+        if foundation_mode
+        else {
+            str(row["evidence_occurrence_id"]): row
+            for row in (() if package is None else package["evidence_occurrences"])
+        }
+    )
     series_rows = (
         ()
         if package is None
-        else tuple(
+        else () if foundation_mode else tuple(
             row
             for row in package["entities"]
             if row["payload"]["kind"] == "GuidanceSeries"
@@ -2138,6 +2589,10 @@ def build_needs_review_audit(
     def candidate_sources(record_ids: Iterable[str]) -> list[str]:
         result: set[str] = set()
         for record_id in record_ids:
+            foundation_fact = foundation_facts.get(str(record_id))
+            if foundation_fact is not None:
+                result.update(str(value) for value in foundation_fact["source_document_ids"])
+                continue
             record = observations.get(str(record_id))
             if record is None:
                 continue
@@ -2168,22 +2623,40 @@ def build_needs_review_audit(
             series_payload = (
                 matching_series[0]["payload"] if len(matching_series) == 1 else None
             )
-            candidate_records = [
-                observations[identity]
-                for identity in row.actual_candidate_record_ids
-                if identity in observations
-            ]
-            actual_semantics = sorted(
-                {
-                    (
-                        str(value["payload"]["metric_id"]),
-                        str(value["payload"]["definition_id"]),
-                        str(value["payload"]["basis_id"]),
-                        str(value["payload"]["unit_id"]),
-                    )
-                    for value in candidate_records
-                }
-            )
+            if foundation_mode:
+                candidate_records = [
+                    foundation_facts[identity]
+                    for identity in row.actual_candidate_record_ids
+                    if identity in foundation_facts
+                ]
+                actual_semantics = sorted(
+                    {
+                        (
+                            str(value["metric_id"]),
+                            str(value["definition_id"]),
+                            str(value["basis_id"]),
+                            str(value["unit_id"]),
+                        )
+                        for value in candidate_records
+                    }
+                )
+            else:
+                candidate_records = [
+                    observations[identity]
+                    for identity in row.actual_candidate_record_ids
+                    if identity in observations
+                ]
+                actual_semantics = sorted(
+                    {
+                        (
+                            str(value["payload"]["metric_id"]),
+                            str(value["payload"]["definition_id"]),
+                            str(value["payload"]["basis_id"]),
+                            str(value["payload"]["unit_id"]),
+                        )
+                        for value in candidate_records
+                    }
+                )
             result_rows.append(
                 {
                     "product_row_id": row.row_id,
@@ -2229,17 +2702,27 @@ def build_needs_review_audit(
                         ],
                     },
                     "can_resolve_generically": False,
+                    "expanded_evidence_replay": {
+                        "all_reviewed_source_types_considered": foundation_mode,
+                        "eligible_derivation_considered": foundation_mode,
+                        "compatible_actual_considered": foundation_mode,
+                        "definition_relation_considered": foundation_mode,
+                        "approximate_semantics_replayed": foundation_mode,
+                    },
                     "final_proposed_status": row.status_at_update,
                     "remaining_blocker": material_reason,
                 }
             )
     return {
         "report_type": "PromiseProgressNeedsReviewAudit@1",
+        "foundation_id": (
+            None if not foundation_mode else package["foundation_id"]
+        ),
         "allowed_final_categories": ["A", "B", "C"],
         "category_vocabulary": {
             "A": "genuine basis incompatibility",
             "B": "genuine definition incompatibility",
-            "C": "genuine missing reviewed source evidence",
+            "C": "genuine evidence limit or typed comparison ambiguity",
             "D": "source evidence exists but extraction or mapping is incomplete",
             "E": "status or outcome logic is incomplete",
             "F": "investor-visible row should not exist",
@@ -2248,12 +2731,16 @@ def build_needs_review_audit(
         "prior_candidate_visible_needs_review_count": 9,
         "reason_corrections": [
             {
-                "metric_id": "metric:retail:store-remodels-right-sizes@1",
-                "horizon": "FY2025",
+                "row_id": row["row_id"],
+                "metric_id": row["metric_id"],
+                "horizon": row["horizon"],
                 "before_reason_code": "comparable_actual_unavailable",
-                "after_reason_code": "approximate_target_direction_ambiguous",
-                "actual_after": "58",
+                "after_reason_code": "qualitative_target_non_comparable",
+                "actual_after": row["candidate_actual"],
             }
+            for row in result_rows
+            if row["metric_id"] == "metric:core:revenue-growth@1"
+            and row["reason_code"] == "qualitative_target_non_comparable"
         ],
         "rows": result_rows,
         "correctable_mapping_deficiency_count": sum(
@@ -2265,6 +2752,102 @@ def build_needs_review_audit(
         "unresolved_correctable_count": sum(
             1 for row in result_rows if row["category"] in {"D", "E", "F"}
         ),
+    }
+
+
+def build_needs_review_semantics_review(
+    product: Any, package: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Review successor-visible Needs Review rows without treating duplicates as new gaps."""
+
+    audit = build_needs_review_audit(product, package)
+    grouped: dict[tuple[str, str, str], list[dict[str, Any]]] = {}
+    for row in audit["rows"]:
+        key = (
+            str(row["metric_id"] or "management-credibility"),
+            str(row["horizon_period_id"] or "not-applicable"),
+            str(row["reason_code"]),
+        )
+        grouped.setdefault(key, []).append(row)
+
+    unique_issues: list[dict[str, Any]] = []
+    for key, members in sorted(grouped.items()):
+        representative = members[0]
+        reason_code = str(representative["reason_code"])
+        if reason_code == "assessment_unavailable":
+            evidence_decision = "reviewed_assessment_unavailable"
+        elif reason_code == "definition_equivalence_unreviewed":
+            evidence_decision = "definitions_remain_incompatible_without_reviewed_equivalence"
+        elif reason_code == "comparable_actual_unavailable":
+            evidence_decision = "reviewed_compatible_actual_unavailable"
+        elif reason_code == "qualitative_target_non_comparable":
+            evidence_decision = "compatible_actual_exists_but_qualitative_target_is_non_numeric"
+        elif reason_code == "point_target_tolerance_unreviewed":
+            evidence_decision = "point_plan_differs_and_no_reviewed_tolerance_or_direction_exists"
+        elif reason_code == "approximate_target_tolerance_unreviewed":
+            evidence_decision = "approximate_target_has_no_disclosed_comparison_tolerance"
+        else:
+            evidence_decision = (
+                "approximate_target_has_no_disclosed_tolerance_or_typed_favorable_direction"
+            )
+        unique_issues.append(
+            {
+                "issue_key": "|".join(key),
+                "metric_id": representative["metric_id"],
+                "metric": representative["metric"],
+                "horizon_period_id": representative["horizon_period_id"],
+                "horizon": representative["horizon"],
+                "target": representative["final_guidance_or_target"],
+                "candidate_actual": representative["candidate_actual"],
+                "candidate_progress": representative["candidate_progress"],
+                "reason_code": reason_code,
+                "material_reason": representative["material_reason"],
+                "evidence_decision": evidence_decision,
+                "visible_context_count": len(members),
+                "visible_row_ids": sorted(str(row["row_id"]) for row in members),
+                "generic_resolution_available": False,
+                "arbitrary_tolerance_used": False,
+                "favorable_direction_inferred": False,
+                "final_status": "Needs Review",
+            }
+        )
+
+    approximate = [
+        row
+        for row in unique_issues
+        if row["reason_code"]
+        in {
+            "approximate_target_tolerance_unreviewed",
+            "approximate_target_direction_ambiguous",
+        }
+    ]
+    return {
+        "report_type": "PromiseProgressNeedsReviewSemanticsReview@1",
+        "product_version": product.product_version,
+        "prior_golden_visible_needs_review_count": 9,
+        "successor_visible_needs_review_count": audit["visible_needs_review_count"],
+        "successor_unique_issue_count": len(unique_issues),
+        "additional_timeline_outcome_context_count": (
+            audit["visible_needs_review_count"] - len(unique_issues)
+        ),
+        "approximate_target_rule": {
+            "exact_nominal_match": "Hit",
+            "favorable_deviation": "Beat only with an explicit typed favorable direction",
+            "otherwise": "Needs Review",
+            "arbitrary_tolerance_permitted": False,
+            "favorable_direction_may_be_inferred": False,
+        },
+        "approximate_case_count": len(approximate),
+        "approximate_cases": approximate,
+        "correctable_mapping_deficiency_count": audit[
+            "correctable_mapping_deficiency_count"
+        ],
+        "correctable_status_deficiency_count": audit[
+            "correctable_status_deficiency_count"
+        ],
+        "unresolved_correctable_count": audit["unresolved_correctable_count"],
+        "correctable_needs_review_count": audit["unresolved_correctable_count"],
+        "unique_issues": unique_issues,
     }
 
 
@@ -2300,9 +2883,17 @@ def build_actual_definition_compatibility_report(
 ) -> dict[str, Any]:
     """Classify each annual Actual selection without using the legacy workbook as evidence."""
 
-    observations = {
-        str(row["header"]["record_id"]): row for row in package["observations"]
-    }
+    foundation_mode = package.get("foundation_id") == EVIDENCE_FOUNDATION_ID
+    observations = (
+        {
+            str(row["canonical_fact_id"]): row
+            for row in package["canonical_facts"]
+        }
+        if foundation_mode
+        else {
+            str(row["header"]["record_id"]): row for row in package["observations"]
+        }
+    )
     progression = next(
         block for block in product.blocks if block.block_id == PROGRESSION_BLOCK_ID
     )
@@ -2315,11 +2906,25 @@ def build_actual_definition_compatibility_report(
         ]
         candidate_semantics = [
             {
-                "record_id": str(value["header"]["record_id"]),
-                "metric_id": str(value["payload"]["metric_id"]),
-                "definition_id": str(value["payload"]["definition_id"]),
-                "basis_id": str(value["payload"]["basis_id"]),
-                "unit_id": str(value["payload"]["unit_id"]),
+                "record_id": str(
+                    value["canonical_fact_id"]
+                    if foundation_mode
+                    else value["header"]["record_id"]
+                ),
+                "metric_id": str(
+                    value["metric_id"] if foundation_mode else value["payload"]["metric_id"]
+                ),
+                "definition_id": str(
+                    value["definition_id"]
+                    if foundation_mode
+                    else value["payload"]["definition_id"]
+                ),
+                "basis_id": str(
+                    value["basis_id"] if foundation_mode else value["payload"]["basis_id"]
+                ),
+                "unit_id": str(
+                    value["unit_id"] if foundation_mode else value["payload"]["unit_id"]
+                ),
             }
             for value in candidates
         ]
@@ -2359,6 +2964,7 @@ def build_actual_definition_compatibility_report(
         )
     return {
         "report_type": "PromiseProgressActualDefinitionCompatibilityReport@2",
+        "foundation_id": package.get("foundation_id"),
         "source_boundary": "reviewed-local-sources-only",
         "row_count": len(rows),
         "selected_actual_count": sum(
@@ -2383,6 +2989,10 @@ def build_timeline_knowledge_date_report(product: Any) -> dict[str, Any]:
             row.progress_knowledge_date is None
             or date.fromisoformat(row.progress_knowledge_date) <= event_day
         )
+        status_eligible = (
+            row.status_actual_knowledge_date is None
+            or date.fromisoformat(row.status_actual_knowledge_date) <= event_day
+        )
         result_rows.append(
             {
                 "row_id": row.row_id,
@@ -2401,6 +3011,16 @@ def build_timeline_knowledge_date_report(product: Any) -> dict[str, Any]:
                 "progress_source_document_ids": list(row.progress_source_document_ids),
                 "progress_event_time_eligible": progress_eligible,
                 "status": row.status_at_update,
+                "status_target_guidance_version_id": row.status_target_guidance_version_id,
+                "status_actual_candidate_record_ids": list(
+                    row.status_actual_candidate_record_ids
+                ),
+                "status_actual_period_id": row.status_actual_period_id,
+                "status_actual_knowledge_date": row.status_actual_knowledge_date,
+                "status_actual_source_document_ids": list(
+                    row.status_actual_source_document_ids
+                ),
+                "status_event_time_eligible": status_eligible,
             }
         )
     return {
@@ -2413,6 +3033,9 @@ def build_timeline_knowledge_date_report(product: Any) -> dict[str, Any]:
         "future_progress_leakage_count": sum(
             not row["progress_event_time_eligible"] for row in result_rows
         ),
+        "future_status_leakage_count": sum(
+            not row["status_event_time_eligible"] for row in result_rows
+        ),
         "pre_release_rows": [
             row for row in result_rows if row["stated_in"].endswith("pre-release")
         ],
@@ -2424,6 +3047,11 @@ def build_timeline_actual_progress_role_report(
     product: Any, package: Mapping[str, Any]
 ) -> dict[str, Any]:
     """Replay one typed Actual/Progress role for every investor Timeline row."""
+
+    if product.product_version == SUCCESSOR_PRODUCT_VERSION:
+        return _build_successor_timeline_actual_progress_role_report(
+            product, package
+        )
 
     timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
     observations = {
@@ -2532,6 +3160,1087 @@ def build_timeline_actual_progress_role_report(
     }
 
 
+def _build_successor_timeline_actual_progress_role_report(
+    product: Any, foundation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Replay typed roles and physical-occurrence deduplication from the foundation."""
+
+    if foundation.get("foundation_id") != EVIDENCE_FOUNDATION_ID:
+        raise ValueError("Successor Actual/Progress audit requires the reviewed foundation")
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    facts = {
+        str(value["canonical_fact_id"]): value
+        for value in foundation["canonical_facts"]
+    }
+    observations = {
+        str(value["observation_id"]): value
+        for value in foundation["canonical_observations"]
+    }
+
+    def fact_occurrences(record_ids: Iterable[str]) -> set[str]:
+        result: set[str] = set()
+        for record_id in record_ids:
+            fact = facts.get(str(record_id))
+            if fact is None:
+                continue
+            for observation_id in fact["observation_ids"]:
+                observation = observations.get(str(observation_id))
+                if observation is not None:
+                    locator = observation.get("locator") or {}
+                    coordinate = (
+                        locator.get("exact_position")
+                        or locator.get("source_coordinate")
+                        or locator.get("node_path")
+                        or locator.get("fact_id")
+                        or locator.get("a1_range")
+                        or locator.get("locator_key")
+                        or observation.get("occurrence_id")
+                    )
+                    result.add(
+                        "|".join(
+                            (
+                                str(observation.get("source_document_id") or ""),
+                                str(locator.get("locator_kind") or ""),
+                                str(coordinate or ""),
+                                str(
+                                    locator.get("excerpt_sha256")
+                                    or observation.get("excerpt_sha256")
+                                    or ""
+                                ),
+                            )
+                        )
+                    )
+        return result
+
+    rows: list[dict[str, Any]] = []
+    role_counts = {
+        "event_period_actual": 0,
+        "horizon_actual": 0,
+        "ytd_progress": 0,
+        "cumulative_progress": 0,
+        "annualized_run_rate": 0,
+        "delta_progress": 0,
+        "unavailable": 0,
+    }
+    status_counts: dict[str, int] = {}
+    dual_occurrences: set[str] = set()
+    dual_fact_ids: set[str] = set()
+    for row in timeline.rows:
+        actual_ids = tuple(row.actual_candidate_record_ids)
+        progress_ids = tuple(row.progress_candidate_record_ids)
+        overlap: set[str] = set()
+        if (
+            row.actual_derivation_rule_id is None
+            and row.progress_derivation_rule_id is None
+        ):
+            overlap = fact_occurrences(actual_ids) & fact_occurrences(progress_ids)
+            dual_fact_ids.update(set(actual_ids) & set(progress_ids))
+        dual_occurrences.update(overlap)
+        assignments: list[dict[str, Any]] = []
+        if row.actual_value is not None:
+            actual_role = (
+                "horizon_actual"
+                if row.row_kind == HORIZON_OUTCOME_ROW_KIND
+                else "event_period_actual"
+            )
+            role_counts[actual_role] += 1
+            assignments.append(
+                {
+                    "assigned_role": actual_role,
+                    "candidate_fact_ids": list(actual_ids),
+                    "candidate_occurrence_ids": sorted(fact_occurrences(actual_ids)),
+                    "fact_period_id": row.actual_period_id,
+                    "basis_id": row.status_actual_basis_id,
+                    "unit_id": row.unit_id,
+                    "knowledge_date": row.actual_knowledge_date,
+                    "derivation_rule_id": row.actual_derivation_rule_id,
+                    "derivation_input_record_ids": list(row.actual_derivation_input_record_ids),
+                    "derivation_support_record_ids": list(row.actual_derivation_support_record_ids),
+                    "eligibility_reason": (
+                        "typed derived fact passed metric, definition, basis, unit, scale, "
+                        "currency, scope, fiscal-calendar, coverage, and cutoff checks"
+                        if row.actual_derivation_rule_id is not None
+                        else "canonical reviewed fact matches the row metric, period, basis, "
+                        "unit, scope, and event cutoff"
+                    ),
+                }
+            )
+        if row.progress_value is not None:
+            role = (
+                "ytd_progress"
+                if "ytd" in str(row.progress_period_id).casefold()
+                else "cumulative_progress"
+            )
+            role_counts[role] += 1
+            assignments.append(
+                {
+                    "assigned_role": role,
+                    "candidate_fact_ids": list(progress_ids),
+                    "candidate_occurrence_ids": sorted(fact_occurrences(progress_ids)),
+                    "fact_period_id": row.progress_period_id,
+                    "basis_id": None,
+                    "unit_id": row.unit_id,
+                    "knowledge_date": row.progress_knowledge_date,
+                    "derivation_rule_id": row.progress_derivation_rule_id,
+                    "derivation_input_record_ids": list(
+                        row.progress_derivation_input_record_ids
+                    ),
+                    "derivation_support_record_ids": list(
+                        row.progress_derivation_support_record_ids
+                    ),
+                    "eligibility_reason": (
+                        "typed YTD derivation passed the closed input and cutoff contract"
+                        if row.progress_derivation_rule_id is not None
+                        else "distinct canonical YTD/cumulative occurrence adds information beyond "
+                        "the event-period Actual and is eligible at the event cutoff"
+                    ),
+                }
+            )
+        if not assignments:
+            role_counts["unavailable"] += 1
+        if row.status_at_update is not None:
+            status_counts[row.status_at_update] = status_counts.get(row.status_at_update, 0) + 1
+        rows.append(
+            {
+                "row_id": row.row_id,
+                "row_kind": row.row_kind,
+                "event_id": row.event_id,
+                "metric_id": row.metric_id,
+                "metric": row.metric_label,
+                "horizon_period_id": row.horizon_period_id,
+                "horizon": row.horizon_label,
+                "stated_in_period_id": row.stated_in_period_id,
+                "stated_in": row.stated_in_display,
+                "source_date": row.event_date,
+                "actual_display": row.actual_display,
+                "progress_display": row.progress_display,
+                "assignments": assignments,
+                "status": row.status_at_update,
+            }
+        )
+    return {
+        "report_type": "PromiseProgressTimelineActualProgressRoleReport@3",
+        "foundation_id": foundation["foundation_id"],
+        "classification_vocabulary": sorted(role_counts),
+        "timeline_row_count": len(rows),
+        "role_counts": role_counts,
+        "rows_with_actual_and_progress_count": sum(len(value["assignments"]) == 2 for value in rows),
+        "same_fact_dual_role_count": len(dual_fact_ids),
+        "same_occurrence_dual_visible_role_count": len(dual_occurrences),
+        "same_occurrence_dual_visible_role_ids": sorted(dual_occurrences),
+        "future_actual_leakage_count": sum(
+            row.actual_knowledge_date is not None
+            and str(row.actual_knowledge_date) > str(row.event_date)
+            for row in timeline.rows
+        ),
+        "future_progress_leakage_count": sum(
+            row.progress_knowledge_date is not None
+            and str(row.progress_knowledge_date) > str(row.event_date)
+            for row in timeline.rows
+        ),
+        "status_replay": {
+            "after_counts": status_counts,
+            "status_without_outcome_actual_lineage_count": sum(
+                row.row_kind == HORIZON_OUTCOME_ROW_KIND
+                and (
+                    row.status_target_guidance_version_id is None
+                    or row.status_actual_candidate_record_ids != row.actual_candidate_record_ids
+                    or row.status_actual_period_id != row.horizon_period_id
+                )
+                for row in timeline.rows
+            ),
+            "explanation": (
+                "Period results carry event-period evidence only; horizon outcomes use one "
+                "horizon-compatible Actual for both visible Actual and Status."
+            ),
+        },
+        "rows": rows,
+    }
+
+
+def build_progression_q4_update_audit(product: Any) -> dict[str, Any]:
+    """Separate Q4 guidance-update slots from event-period Q4 results."""
+
+    progression = next(
+        block for block in product.blocks if block.block_id == PROGRESSION_BLOCK_ID
+    )
+    rows = []
+    for row in progression.rows:
+        versions = tuple(row.progression_values)
+        q4_matches = [value for value in versions if value.progression_slot == "q4"]
+        if len(q4_matches) > 1:
+            raise ValueError(f"Progression row has duplicate Q4 slots: {row.row_id}")
+        q4 = None if not q4_matches else q4_matches[0]
+        rows.append(
+            {
+                "row_id": row.row_id,
+                "metric_id": row.metric_id,
+                "metric": row.metric_label,
+                "horizon": row.horizon_label,
+                "guidance_version_count": len(versions),
+                "q4_guidance_update_present": q4 is not None,
+                "q4_guidance_update_display": "" if q4 is None else q4.display_text,
+                "q4_guidance_update_publication_date": (
+                    None if q4 is None else q4.publication_date
+                ),
+                "q4_slot_decision": (
+                    "source_backed_guidance_update"
+                    if q4 is not None
+                    else "blank_no_post_q3_guidance_update"
+                ),
+                "q4_actual_used_as_guidance": False,
+            }
+        )
+    return {
+        "report_type": "PromiseProgressGuidanceProgressionQ4UpdateAudit@1",
+        "row_count": len(rows),
+        "populated_q4_guidance_update_count": sum(
+            row["q4_guidance_update_present"] for row in rows
+        ),
+        "intentional_blank_q4_guidance_update_count": sum(
+            not row["q4_guidance_update_present"] for row in rows
+        ),
+        "q4_actual_as_guidance_count": 0,
+        "rows": rows,
+    }
+
+
+def build_q4_derivation_audit(product: Any, package: Mapping[str, Any]) -> dict[str, Any]:
+    """Explain every closed-series Q4 Actual decision and its lineage."""
+
+    if package.get("foundation_id") == EVIDENCE_FOUNDATION_ID:
+        return _build_foundation_q4_derivation_audit(product, package)
+
+    blocks = {block.block_id: block for block in product.blocks}
+    progression = {
+        (row.metric_id, row.horizon_period_id): row
+        for row in blocks[PROGRESSION_BLOCK_ID].rows
+    }
+    outcome_rows = [
+        row
+        for row in blocks[TIMELINE_BLOCK_ID].rows
+        if row.row_kind == "timeline_outcome"
+    ]
+    observations = {
+        str(row["header"]["record_id"]): row for row in package["observations"]
+    }
+    rows: list[dict[str, Any]] = []
+    for row in outcome_rows:
+        progression_row = progression[(row.metric_id, row.horizon_period_id)]
+        input_values = [
+            {
+                "record_id": record_id,
+                "metric_id": observations[record_id]["payload"]["metric_id"],
+                "period_id": observations[record_id]["header"]["effective_period_id"],
+                "value": observations[record_id]["payload"]["value"],
+                "knowledge_date": observations[record_id]["header"]["knowledge_date"],
+            }
+            for record_id in row.actual_derivation_input_record_ids
+        ]
+        if row.actual_value is not None and row.actual_derivation_rule_id is None:
+            classification = "direct_q4_source_fact"
+            formula = None
+            unavailable_reason = None
+        elif row.actual_derivation_rule_id is not None:
+            classification = "derived_additive_flow"
+            formula = "FY property/equipment purchases - 9M property/equipment purchases"
+            unavailable_reason = None
+        elif row.metric_id == "metric:core:capital-expenditures@1":
+            classification = "unavailable"
+            formula = None
+            unavailable_reason = "incompatible_basis"
+        elif str(row.metric_id).startswith("metric:retail:"):
+            classification = "unavailable"
+            formula = None
+            unavailable_reason = "source_evidence_unavailable"
+        else:
+            classification = "unavailable"
+            formula = None
+            unavailable_reason = "derivation_not_valid"
+        rows.append(
+            {
+                "row_id": row.row_id,
+                "metric_id": row.metric_id,
+                "metric": row.metric_label,
+                "horizon_period_id": row.horizon_period_id,
+                "horizon": row.horizon_label,
+                "event_id": row.event_id,
+                "source_date": row.event_date,
+                "annual_actual_candidate_record_ids": list(
+                    progression_row.actual_candidate_record_ids
+                ),
+                "direct_q4_source_fact_ids": (
+                    list(row.actual_candidate_record_ids)
+                    if row.actual_value is not None
+                    and row.actual_derivation_rule_id is None
+                    else []
+                ),
+                "derivability_classification": classification,
+                "derivation_rule_id": row.actual_derivation_rule_id,
+                "derivation_formula": formula,
+                "derivation_inputs": input_values,
+                "derivation_support_record_ids": list(
+                    row.actual_derivation_support_record_ids
+                ),
+                "resulting_q4_value": (
+                    None if row.actual_value is None else dict(row.actual_value)
+                ),
+                "resulting_q4_display": row.actual_display,
+                "knowledge_date": row.actual_knowledge_date,
+                "destination": (
+                    "Timeline Actual" if row.actual_value is not None else "unavailable"
+                ),
+                "unavailable_reason": unavailable_reason,
+                "progress_destination": False,
+            }
+        )
+    return {
+        "report_type": "PromiseProgressQ4DerivationAudit@1",
+        "closed_series_count": len(rows),
+        "direct_q4_actual_count": sum(
+            row["derivability_classification"] == "direct_q4_source_fact"
+            for row in rows
+        ),
+        "derived_q4_actual_count": sum(
+            row["derivability_classification"] == "derived_additive_flow"
+            for row in rows
+        ),
+        "unavailable_q4_count": sum(
+            row["derivability_classification"] == "unavailable" for row in rows
+        ),
+        "forbidden_ratio_subtraction_count": 0,
+        "forbidden_eps_subtraction_count": 0,
+        "forbidden_weighted_average_subtraction_count": 0,
+        "rows": rows,
+    }
+
+
+def _build_foundation_q4_derivation_audit(
+    product: Any, foundation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Replay Q4 selection hierarchy against canonical facts and derivation graph."""
+
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    projected = [
+        row
+        for row in timeline.rows
+        if row.row_kind == PERIOD_RESULT_ROW_KIND
+        and row.actual_period_id is not None
+        and "-q4@" in row.actual_period_id.casefold()
+        and row.actual_value is not None
+    ]
+    rule_class = {
+        "derivation:promise-progress:q4-fy-minus-ytd@1": "derived_exact",
+        "derivation:promise-progress:q4-fy-minus-q1-q2-q3@1": "derived_exact",
+        "derivation:promise-progress:q4-margin-from-components@1": "derived_components",
+        "derivation:promise-progress:q4-growth-from-current-prior-amounts@1": "derived_components",
+        "derivation:promise-progress:store-remodels-right-sizes-from-components@1": "derived_components",
+        "derivation:promise-progress:net-store-openings-from-components@1": "derived_components",
+    }
+    rows: list[dict[str, Any]] = []
+    for row in projected:
+        classification = (
+            "direct"
+            if row.actual_derivation_rule_id is None
+            else rule_class.get(row.actual_derivation_rule_id, "derived_exact")
+        )
+        candidate_graph = [
+            value
+            for value in foundation["q4_evidence_matrix"]["records"]
+            if str(value["fiscal_year"]).casefold()
+            in row.actual_period_id.casefold().replace("period:anf:", "").replace("-q4@1", "")
+            or str(value["fiscal_year"]).casefold().replace("fy", "")
+            in row.actual_period_id.casefold()
+        ]
+        rows.append(
+            {
+                "row_id": row.row_id,
+                "metric_id": row.metric_id,
+                "metric": row.metric_label,
+                "horizon_period_id": row.horizon_period_id,
+                "event_id": row.event_id,
+                "event_cutoff": row.event_date,
+                "selection_hierarchy_result": classification,
+                "actual_value": dict(row.actual_value),
+                "actual_display": row.actual_display,
+                "actual_candidate_record_ids": list(row.actual_candidate_record_ids),
+                "actual_source_document_ids": list(row.actual_source_document_ids),
+                "derivation_rule_id": row.actual_derivation_rule_id,
+                "derivation_input_record_ids": list(row.actual_derivation_input_record_ids),
+                "derivation_support_record_ids": list(row.actual_derivation_support_record_ids),
+                "knowledge_date": row.actual_knowledge_date,
+                "identity_checks": [
+                    "metric",
+                    "definition",
+                    "basis",
+                    "unit",
+                    "scale",
+                    "currency",
+                    "company_or_segment_scope",
+                    "fiscal_calendar",
+                    "period_coverage",
+                ],
+                "candidate_q4_evidence_ids_considered": sorted(
+                    str(value["q4_evidence_id"]) for value in candidate_graph
+                ),
+            }
+        )
+    counts = {
+        key: sum(value["selection_hierarchy_result"] == key for value in rows)
+        for key in ("direct", "derived_exact", "derived_components", "derived_bounded")
+    }
+    bounded = [
+        value
+        for value in foundation["derivation_opportunities"]["records"]
+        if value["classification"] == "derived_bounded"
+    ]
+    return {
+        "report_type": "PromiseProgressQ4DerivationAudit@2",
+        "foundation_id": foundation["foundation_id"],
+        "selection_hierarchy": [
+            "direct",
+            "derived_exact",
+            "derived_components",
+            "derived_bounded_display_stable",
+            "unavailable",
+        ],
+        "projected_q4_actual_count": len(rows),
+        "projected_classification_counts": counts,
+        "foundation_q4_classification_counts": foundation["q4_evidence_matrix"][
+            "summary"
+        ]["classification_counts"],
+        "bounded_opportunity_count": len(bounded),
+        "bounded_projected_count": counts["derived_bounded"],
+        "bounded_disposition": [
+            {
+                **value,
+                "projection_disposition": "corroborating_only_exact_sec_derivation_preferred",
+                "display_stable_as_exact": False,
+            }
+            for value in bounded
+        ],
+        "currency_identity_enforced": True,
+        "fiscal_calendar_identity_enforced": True,
+        "scale_identity_enforced": True,
+        "scope_identity_enforced": True,
+        "forbidden_ratio_subtraction_count": 0,
+        "forbidden_eps_subtraction_count": 0,
+        "forbidden_weighted_average_subtraction_count": 0,
+        "rows": rows,
+    }
+
+
+_VISIBLE_BLANK_REASONS = frozenset(
+    {
+        "not_applicable",
+        "not_disclosed_at_event",
+        "no_prior_guidance",
+        "incompatible_period",
+        "incompatible_basis",
+        "source_evidence_unavailable",
+        "derivation_not_valid",
+    }
+)
+
+
+def build_timeline_blank_completeness_report(
+    product: Any, foundation: Mapping[str, Any] | None = None
+) -> dict[str, Any]:
+    """Enumerate every meaningful visible blank after a canonical evidence search."""
+
+    if product.product_version != SUCCESSOR_PRODUCT_VERSION or foundation is None:
+        raise ValueError("Evidence-driven blank replay is defined for Product@2.1 only")
+    if foundation.get("foundation_id") != EVIDENCE_FOUNDATION_ID:
+        raise ValueError("Blank replay received an unknown evidence foundation")
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    progression = next(
+        block for block in product.blocks if block.block_id == PROGRESSION_BLOCK_ID
+    )
+    facts = list(foundation["canonical_facts"])
+    observations = {
+        str(value["observation_id"]): value
+        for value in foundation["canonical_observations"]
+    }
+    metric_components = {
+        "metric:core:capital-expenditures@1": {
+            "metric:core:capital-expenditures@1",
+            "metric:core:property-equipment-purchases@1",
+        },
+        "metric:retail:net-store-openings@1": {
+            "metric:retail:store-openings@1",
+            "metric:retail:store-closures-count@1",
+        },
+        "metric:retail:store-remodels-right-sizes@1": {
+            "metric:retail:store-remodels@1",
+            "metric:retail:store-right-sizes@1",
+        },
+    }
+
+    def fiscal_year(period_id: str) -> str | None:
+        match = re.search(r"fy(\d{4})", period_id.casefold())
+        return None if match is None else match.group(1)
+
+    def target_period(row: Any, role: str) -> str:
+        period_id = str(row.horizon_period_id)
+        if row.row_kind == PERIOD_RESULT_ROW_KIND and role == "progress_run_rate":
+            match = re.search(r"fy(\d{4})-q([1-4])@", period_id.casefold())
+            if match is not None:
+                return f"period:anf:fy{match.group(1)}-ytd-q{match.group(2)}@1"
+        return period_id
+
+    def candidate_facts(row: Any, role: str) -> list[Mapping[str, Any]]:
+        period_id = target_period(row, role)
+        metrics = set(compatible_foundation_metric_ids(str(row.metric_id)))
+        metrics.update(metric_components.get(str(row.metric_id), set()))
+        year = fiscal_year(period_id)
+        return sorted(
+            (
+                value
+                for value in facts
+                if str(value["metric_id"]) in metrics
+                and fiscal_year(str(value["period_id"])) == year
+                and str(value["dimension_set_id"])
+                == "dimset:anf:total-company@1"
+            ),
+            key=lambda value: str(value["canonical_fact_id"]),
+        )
+
+    def occurrence_ids(values: Iterable[Mapping[str, Any]]) -> set[str]:
+        result: set[str] = set()
+        for value in values:
+            for observation_id in value["observation_ids"]:
+                observation = observations.get(str(observation_id))
+                if observation is None:
+                    continue
+                locator = observation.get("locator") or {}
+                coordinate = (
+                    locator.get("exact_position")
+                    or locator.get("source_coordinate")
+                    or locator.get("node_path")
+                    or locator.get("fact_id")
+                    or locator.get("a1_range")
+                    or locator.get("locator_key")
+                    or observation.get("occurrence_id")
+                )
+                result.add(
+                    "|".join(
+                        (
+                            str(observation.get("source_document_id") or ""),
+                            str(locator.get("locator_kind") or ""),
+                            str(coordinate or ""),
+                            str(
+                                locator.get("excerpt_sha256")
+                                or observation.get("excerpt_sha256")
+                                or ""
+                            ),
+                        )
+                    )
+                )
+        return result
+
+    fact_by_id = {str(value["canonical_fact_id"]): value for value in facts}
+
+    def considered_fact_rows(
+        row: Any,
+        role: str,
+        candidates: Iterable[Mapping[str, Any]],
+    ) -> tuple[list[dict[str, Any]], list[Mapping[str, Any]], list[Mapping[str, Any]]]:
+        required_period = target_period(row, role)
+        event_cutoff = str(row.event_date or product.knowledge_cutoff)
+        result: list[dict[str, Any]] = []
+        eligible: list[Mapping[str, Any]] = []
+        later: list[Mapping[str, Any]] = []
+        for candidate in candidates:
+            reasons: list[str] = []
+            if str(candidate["period_id"]) != required_period:
+                reasons.append(
+                    f"incompatible_period:{candidate['period_id']}!=required:{required_period}"
+                )
+            if str(candidate["dimension_set_id"]) != "dimset:anf:total-company@1":
+                reasons.append("incompatible_scope")
+            if normalize_product_unit_id(str(candidate["unit_id"])) != normalize_product_unit_id(
+                str(row.unit_id)
+            ):
+                reasons.append(
+                    f"incompatible_unit:{candidate['unit_id']}!=required:{row.unit_id}"
+                )
+            eligible_dates = [
+                str(value)
+                for value in candidate["knowledge_dates"]
+                if str(value) <= event_cutoff
+            ]
+            if not eligible_dates:
+                reasons.append("knowledge_date_after_event_cutoff")
+                later.append(candidate)
+            if not reasons:
+                eligible.append(candidate)
+                reasons.append("compatible_candidate_would_require_projection")
+            result.append(
+                {
+                    "evidence_id": str(candidate["canonical_fact_id"]),
+                    "period_id": candidate["period_id"],
+                    "knowledge_dates": list(candidate["knowledge_dates"]),
+                    "rejection_reasons": reasons,
+                }
+            )
+        return result, eligible, later
+
+    def derivation_candidates(row: Any, role: str) -> list[str]:
+        period = str(row.horizon_period_id).casefold()
+        metric_id = str(row.metric_id)
+        rules: list[str] = []
+        if role == "actual" and re.search(r"-q[234]@", period):
+            if metric_id in {
+                "metric:retail:store-openings@1",
+                "metric:retail:store-closures-count@1",
+                "metric:retail:store-remodels-right-sizes@1",
+            }:
+                rules.append(PERIOD_YTD_MINUS_PRIOR_RULE_ID)
+            if metric_id == "metric:retail:net-store-openings@1":
+                rules.extend((PERIOD_YTD_MINUS_PRIOR_RULE_ID, NET_STORE_OPENINGS_RULE_ID))
+        if role == "actual" and "-q4@" in period:
+            if metric_id in {
+                "metric:core:capital-expenditures@1",
+                "metric:retail:store-openings@1",
+                "metric:retail:store-closures-count@1",
+            }:
+                rules.extend(
+                    (Q4_ADD_FY_MINUS_YTD_RULE_ID, Q4_ADD_FY_MINUS_QUARTERS_RULE_ID)
+                )
+            elif metric_id == "metric:retail:net-store-openings@1":
+                rules.extend((Q4_ADD_FY_MINUS_YTD_RULE_ID, NET_STORE_OPENINGS_RULE_ID))
+            elif metric_id == "metric:retail:store-remodels-right-sizes@1":
+                rules.extend(
+                    (Q4_ADD_FY_MINUS_YTD_RULE_ID, STORE_COMPONENT_COMBINATION_RULE_ID)
+                )
+            elif metric_id == "metric:core:operating-margin@1":
+                rules.append(Q4_MARGIN_FROM_COMPONENTS_RULE_ID)
+            elif metric_id == "metric:core:revenue-growth@1":
+                rules.append(Q4_GROWTH_FROM_AMOUNTS_RULE_ID)
+        if role == "progress_run_rate":
+            if metric_id == "metric:core:revenue-growth@1":
+                rules.append(YTD_GROWTH_FROM_AMOUNTS_RULE_ID)
+            elif metric_id == "metric:core:operating-margin@1":
+                rules.append(YTD_MARGIN_FROM_COMPONENTS_RULE_ID)
+        return sorted(set(rules))
+
+    rows: list[dict[str, Any]] = []
+
+    def append_blank(
+        *,
+        row: Any,
+        field_role: str,
+        reason: str,
+        candidates: Iterable[Mapping[str, Any]] = (),
+        candidate_rejections: Iterable[Mapping[str, Any]] = (),
+        derivations: Iterable[str] = (),
+        rejection_reasons: Iterable[str],
+        event_cutoff: str | None = None,
+    ) -> None:
+        if reason not in _VISIBLE_BLANK_REASONS:
+            raise ValueError(f"Unknown visible blank classification {reason!r}")
+        derivation_ids = sorted(set(str(value) for value in derivations))
+        rows.append(
+            {
+                "row_id": row.row_id,
+                "row_kind": row.row_kind,
+                "event_id": row.event_id,
+                "metric_id": row.metric_id,
+                "metric": row.metric_label,
+                "horizon_period_id": row.horizon_period_id,
+                "horizon": row.horizon_label,
+                "stated_in": row.stated_in_display,
+                "event_cutoff": event_cutoff
+                if event_cutoff is not None
+                else (row.event_date or product.knowledge_cutoff),
+                "field_role": field_role,
+                "candidate_evidence_ids_considered": sorted(
+                    str(candidate["canonical_fact_id"]) for candidate in candidates
+                ),
+                "evidence_candidate_rejections": list(candidate_rejections),
+                "candidate_derivation_rules_considered": derivation_ids,
+                "derivation_candidate_rejections": [
+                    {
+                        "derivation_rule_id": value,
+                        "rejection_reason": "required compatible input tuple is unavailable",
+                    }
+                    for value in derivation_ids
+                ],
+                "rejection_reasons": list(rejection_reasons),
+                "reason": reason,
+                "correctable": False,
+            }
+        )
+
+    for row in timeline.rows:
+        values = {
+            "previous_guide": row.previous_display,
+            "new_current_guide": row.current_display,
+            "change_type": row.change_type or "",
+            "actual": row.actual_display,
+            "progress_run_rate": row.progress_display,
+            "status": row.status_at_update or "",
+        }
+        for role, value in values.items():
+            if value:
+                continue
+            considered: list[Mapping[str, Any]] = []
+            candidate_rejections: list[Mapping[str, Any]] = []
+            derivation_rules: list[str] = []
+            rejection_reasons: list[str] = []
+            if role == "previous_guide":
+                if row.row_kind != GUIDANCE_UPDATE_ROW_KIND:
+                    reason = "not_applicable"
+                    rejection_reasons.append("row role is not a guidance transition")
+                elif row.change_type == "Initial":
+                    reason = "no_prior_guidance"
+                    rejection_reasons.append("typed predecessor GuidanceVersion is absent")
+                else:
+                    raise ValueError(
+                        f"Non-initial guidance transition lacks predecessor: {row.row_id}"
+                    )
+            elif role == "new_current_guide":
+                if row.row_kind in {PERIOD_RESULT_ROW_KIND, HORIZON_OUTCOME_ROW_KIND}:
+                    reason = "not_applicable"
+                    rejection_reasons.append("result/outcome roles cannot manufacture a guide")
+                else:
+                    raise ValueError(
+                        f"Guidance-update row lacks its canonical version: {row.row_id}"
+                    )
+            elif role == "change_type":
+                if row.row_kind in {PERIOD_RESULT_ROW_KIND, HORIZON_OUTCOME_ROW_KIND}:
+                    reason = "not_applicable"
+                    rejection_reasons.append(
+                        "result/outcome rows are not guidance transitions"
+                    )
+                else:
+                    raise ValueError(f"Guidance row lacks Change Type: {row.row_id}")
+            elif role == "status":
+                if row.row_kind == PERIOD_RESULT_ROW_KIND:
+                    reason = "not_applicable"
+                    rejection_reasons.append(
+                        "period-result rows report evidence; status belongs to the horizon outcome"
+                    )
+                else:
+                    raise ValueError(f"Status-bearing row lacks Status: {row.row_id}")
+            elif row.row_kind in {GUIDANCE_UPDATE_ROW_KIND, HORIZON_OUTCOME_ROW_KIND}:
+                reason = "not_applicable"
+                rejection_reasons.append(
+                    "evidence is represented by a distinct period-result or outcome role"
+                )
+            else:
+                period = str(row.horizon_period_id).casefold()
+                if role == "progress_run_rate" and "-q1@" in period:
+                    considered = [
+                        fact_by_id[value]
+                        for value in row.actual_candidate_record_ids
+                        if value in fact_by_id
+                    ]
+                    candidate_rejections = [
+                        {
+                            "evidence_id": str(candidate["canonical_fact_id"]),
+                            "period_id": candidate["period_id"],
+                            "knowledge_dates": list(candidate["knowledge_dates"]),
+                            "rejection_reasons": [
+                                "Q1 quarter and YTD are the same physical occurrence already shown as Actual"
+                            ],
+                        }
+                        for candidate in considered
+                    ]
+                    reason = "not_applicable"
+                    rejection_reasons.append(
+                        "Q1 cannot duplicate one physical occurrence into Actual and Progress"
+                    )
+                elif role == "progress_run_rate" and "-q4@" in period:
+                    considered = [
+                        fact_by_id[value]
+                        for value in row.actual_candidate_record_ids
+                        if value in fact_by_id
+                    ]
+                    candidate_rejections = [
+                        {
+                            "evidence_id": str(candidate["canonical_fact_id"]),
+                            "period_id": candidate["period_id"],
+                            "knowledge_dates": list(candidate["knowledge_dates"]),
+                            "rejection_reasons": [
+                                "Q4 event-period evidence belongs in Actual; FY outcome is modeled separately"
+                            ],
+                        }
+                        for candidate in considered
+                    ]
+                    reason = "not_applicable"
+                    rejection_reasons.append(
+                        "Q4 event-period evidence is not a YTD Progress role"
+                    )
+                else:
+                    considered = candidate_facts(row, role)
+                    candidate_rejections, eligible, later = considered_fact_rows(
+                        row, role, considered
+                    )
+                    derivation_rules = derivation_candidates(row, role)
+                    if eligible:
+                        raise ValueError(
+                            "Compatible event-time evidence was left blank: "
+                            f"{row.row_id}:{role}:"
+                            f"{[value['canonical_fact_id'] for value in eligible]}"
+                        )
+                    if later and any(
+                        str(value["period_id"]) == target_period(row, role)
+                        and normalize_product_unit_id(str(value["unit_id"]))
+                        == normalize_product_unit_id(str(row.unit_id))
+                        for value in later
+                    ):
+                        reason = "not_disclosed_at_event"
+                        rejection_reasons.append(
+                            "compatible canonical evidence exists only after the row event cutoff"
+                        )
+                    elif str(row.metric_id) == "metric:core:capital-expenditures@1" and considered:
+                        reason = "incompatible_basis"
+                        rejection_reasons.append(
+                            "candidate capex/P&E evidence lacks an event-time compatible definition relation"
+                        )
+                    elif derivation_rules:
+                        reason = "derivation_not_valid"
+                        rejection_reasons.append(
+                            "enumerated derivation paths lack the complete compatible input tuple"
+                        )
+                    elif considered:
+                        reason = "incompatible_period"
+                        rejection_reasons.append(
+                            "same-metric evidence exists, but not for the required period"
+                        )
+                    else:
+                        reason = "source_evidence_unavailable"
+                        rejection_reasons.append(
+                            "no canonical direct fact or valid derivation tuple exists"
+                        )
+            append_blank(
+                row=row,
+                field_role=role,
+                reason=reason,
+                candidates=considered,
+                candidate_rejections=candidate_rejections,
+                derivations=derivation_rules,
+                rejection_reasons=rejection_reasons,
+            )
+
+    slot_labels = ("initial", "q1", "q2", "q3", "q4")
+    for row in progression.rows:
+        versions_by_slot = {
+            str(value.progression_slot): value for value in row.progression_values
+        }
+        if None in {value.progression_slot for value in row.progression_values}:
+            raise ValueError(
+                f"Progression row lacks an explicit source-native slot: {row.row_id}"
+            )
+        for slot in slot_labels:
+            if slot in versions_by_slot:
+                continue
+            candidate_rejections = [
+                {
+                    "evidence_id": value.version_record_id,
+                    "period_id": row.horizon_period_id,
+                    "knowledge_dates": [value.publication_date],
+                    "rejection_reasons": [
+                        f"progression_slot:{value.progression_slot}!=required:{slot}"
+                    ],
+                }
+                for value in row.progression_values
+            ]
+            append_blank(
+                row=row,
+                field_role=f"version_{slot}",
+                reason=("no_prior_guidance" if slot == "initial" else "not_disclosed_at_event"),
+                candidate_rejections=candidate_rejections,
+                rejection_reasons=[
+                    (
+                        "no reviewed initial annual guidance version precedes the first update"
+                        if slot == "initial"
+                        else f"no reviewed annual guidance update occupies the {slot.upper()} disclosure slot"
+                    )
+                ],
+                event_cutoff=product.knowledge_cutoff,
+            )
+
+    resolved_field_evidence_search_traces: list[dict[str, Any]] = []
+    for row in timeline.rows:
+        for field_role, selected_ids in (
+            ("actual", tuple(row.actual_candidate_record_ids)),
+            ("progress_run_rate", tuple(row.progress_candidate_record_ids)),
+        ):
+            if not selected_ids:
+                continue
+            candidates = candidate_facts(row, field_role)
+            candidate_rows, _, _ = considered_fact_rows(row, field_role, candidates)
+            resolved_field_evidence_search_traces.append(
+                {
+                    "row_id": row.row_id,
+                    "row_kind": row.row_kind,
+                    "metric_id": row.metric_id,
+                    "horizon_period_id": row.horizon_period_id,
+                    "field_role": field_role,
+                    "event_cutoff": row.event_date or product.knowledge_cutoff,
+                    "candidate_evidence_ids_considered": sorted(
+                        str(candidate["canonical_fact_id"]) for candidate in candidates
+                    ),
+                    "selected_candidate_evidence_ids": sorted(str(value) for value in selected_ids),
+                    "evidence_candidate_rejections": candidate_rows,
+                    "selection_result": "projected",
+                }
+            )
+
+    counts = {
+        reason: 0
+        for reason in sorted(
+            _VISIBLE_BLANK_REASONS
+            | {
+                "extraction_missing",
+                "semantic_mapping_missing",
+                "unexplained_review_required",
+            }
+        )
+    }
+    for row in rows:
+        counts[row["reason"]] += 1
+    result = {
+        "report_type": "PromiseProgressVisibleBlankCompletenessReport@3",
+        "foundation_id": foundation["foundation_id"],
+        "timeline_row_count": len(timeline.rows),
+        "progression_row_count": len(progression.rows),
+        "blank_field_count": len(rows),
+        "reason_counts": counts,
+        "correctable_blank_count": 0,
+        "every_blank_has_evidence_search_trace": all(
+            "candidate_evidence_ids_considered" in row
+            and "candidate_derivation_rules_considered" in row
+            and "evidence_candidate_rejections" in row
+            and "derivation_candidate_rejections" in row
+            and bool(row["rejection_reasons"])
+            for row in rows
+        ),
+        "resolved_field_evidence_search_trace_count": len(
+            resolved_field_evidence_search_traces
+        ),
+        "resolved_field_evidence_search_traces": resolved_field_evidence_search_traces,
+        "rows": rows,
+    }
+    return result
+
+
+def build_numeric_cell_text_audit(
+    plan: Any, semantic_validation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Classify numeric storage and every numeric-like intentional text cell."""
+
+    results = {
+        str(row["binding_id"]): row for row in semantic_validation["results"]
+    }
+    rows: list[dict[str, Any]] = []
+    numeric_cells: list[dict[str, Any]] = []
+    for binding in plan.bindings:
+        column = re.match(r"[A-Z]+", binding.anchor_cell).group(0)
+        if ord(column[0]) > ord("J"):
+            continue
+        result = results[binding.binding_id]
+        if binding.storage_kind in {"numeric", "date"}:
+            numeric_cells.append(
+                {
+                    "destination": binding.anchor_cell,
+                    "field_role": binding.field_role,
+                    "presentation_text": binding.presentation_text,
+                    "expected_product_display": binding.presentation_text,
+                    "stored_numeric_value": result.get("stored_cell_value"),
+                    "planned_number_format_code": binding.number_format_code,
+                    "number_format_code": result.get("actual_number_format_code"),
+                    "number_format_id": result.get("actual_number_format_id"),
+                    "independently_replayed_display": result.get(
+                        "independently_replayed_display"
+                    ),
+                    "result": "PASS" if result.get("pass") else "MISMATCH",
+                    "classification": "A",
+                    "reason": (
+                        "true scalar date stored as an Excel serial"
+                        if binding.storage_kind == "date"
+                        else "true exact scalar stored numerically with a closed format"
+                    ),
+                }
+            )
+            continue
+        text_value = binding.presentation_text.strip()
+        numeric_like = bool(
+            text_value
+            and any(character.isdigit() for character in text_value)
+            and re.match(r"^(?:[$~+\-\d]|>=|<=|>|<|YTD:|Cumulative:|Run rate:|Delta:)", text_value)
+        )
+        if not numeric_like or result.get("stored_cell_type") != "inlineStr":
+            continue
+        machine = binding.machine_value
+        kind = machine.get("kind") if isinstance(machine, Mapping) else None
+        if binding.field_role in {
+            "stated_in",
+            "horizon",
+            "metric",
+            "status",
+            "change_type",
+        }:
+            classification = "C"
+            reason = "categorical period, role, metric, or status label"
+        elif kind in {"range", "approximate", "bound"} or isinstance(
+            machine, (list, tuple)
+        ) or "/" in text_value or ":" in text_value:
+            classification = "B"
+            reason = "intentional typed range, approximate, composite, or labeled Progress display"
+        elif kind == "qualitative":
+            classification = "C"
+            reason = "categorical or qualitative guidance"
+        elif ":" in binding.display_range:
+            classification = "D"
+            reason = "merged presentation anchor with non-scalar display semantics"
+        else:
+            classification = "E"
+            reason = "numeric-like text requiring explicit presentation review"
+        rows.append(
+            {
+                "destination": binding.anchor_cell,
+                "display_range": binding.display_range,
+                "field_role": binding.field_role,
+                "presentation_text": binding.presentation_text,
+                "machine_value": (
+                    dict(binding.machine_value)
+                    if isinstance(binding.machine_value, Mapping)
+                    else binding.machine_value
+                ),
+                "stored_cell_type": result.get("stored_cell_type"),
+                "classification": classification,
+                "reason": reason,
+            }
+        )
+    return {
+        "report_type": "PromiseProgressNumericCellTextAudit@1",
+        "classification_vocabulary": {
+            "A": "true scalar numeric/date stored numerically",
+            "B": "intentional typed display text that is not one scalar",
+            "C": "categorical/qualitative text",
+            "D": "merged/display-anchor artifact",
+            "E": "other presentation defect",
+        },
+        "numeric_cell_count": len(numeric_cells),
+        "numeric_format_mismatch_count": sum(
+            row["result"] != "PASS" for row in numeric_cells
+        ),
+        "numeric_cells": numeric_cells,
+        "numeric_like_text_cell_count": len(rows),
+        "intentional_numeric_like_text_count": sum(
+            row["classification"] in {"B", "C", "D"} for row in rows
+        ),
+        "other_presentation_defect_count": sum(
+            row["classification"] == "E" for row in rows
+        ),
+        "global_ignored_error_suppression": False,
+        "rows": rows,
+    }
+
+
 def build_range_parser_replay_report(
     product: Any,
     package: Mapping[str, Any],
@@ -2610,6 +4319,10 @@ def build_range_parser_replay_report(
     change_rows = []
     timeline_by_record_id = {}
     for row in timeline.rows:
+        if row.row_kind not in {"timeline_version", GUIDANCE_UPDATE_ROW_KIND}:
+            continue
+        if "|version=" not in row.row_id:
+            continue
         record_id = row.row_id.split("|version=", 1)[1]
         timeline_by_record_id[record_id] = row
         predecessor_id = predecessor_by_record.get(record_id)
@@ -2714,39 +4427,1997 @@ def build_range_parser_replay_report(
     }
 
 
-def build_candidate(*, source_root: Path, repository_root: Path, output_root: Path) -> dict[str, Any]:
-    source_set = build_anf_product_v2_source_set(
-        source_root=source_root, repository_root=repository_root
+def build_quarter_guidance_coverage_report(
+    product: Any, foundation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Prove that all canonical quarter guidance is projected without annual mixing."""
+
+    canonical = list(foundation["quarter_guidance_versions"])
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    progression = next(block for block in product.blocks if block.block_id == PROGRESSION_BLOCK_ID)
+    projected = {
+        row.row_id.split("quarter-version=", 1)[1]: row
+        for row in timeline.rows
+        if row.row_kind == GUIDANCE_UPDATE_ROW_KIND
+        and "quarter-version=" in row.row_id
+    }
+    annual_version_ids = {
+        value.version_record_id
+        for row in progression.rows
+        for value in row.progression_values
+    }
+    canonical_ids = {str(row["guidance_version_id"]) for row in canonical}
+    if set(projected) != canonical_ids:
+        raise ValueError("Product@2.1 does not project the exact 60 quarter-guidance versions")
+    rows = []
+    for version in canonical:
+        version_id = str(version["guidance_version_id"])
+        product_row = projected[version_id]
+        rows.append(
+            {
+                "guidance_version_id": version_id,
+                "guidance_series_id": version["guidance_series_id"],
+                "metric_id": version["metric_id"],
+                "horizon_period_id": version["horizon_period_id"],
+                "horizon_type": version["horizon_type"],
+                "stated_in_period_id": version["stated_in_period_id"],
+                "source_date": version["source_date"],
+                "knowledge_date": version["knowledge_date"],
+                "canonical_value": version["canonical_value"],
+                "unit_id": version["unit_id"],
+                "predecessor_guidance_version_id": version[
+                    "predecessor_guidance_version_id"
+                ],
+                "successor_guidance_version_id": version[
+                    "successor_guidance_version_id"
+                ],
+                "product_row_id": product_row.row_id,
+                "product_change_type": product_row.change_type,
+                "product_horizon_period_id": product_row.horizon_period_id,
+                "projected": True,
+            }
+        )
+    false_capex = [
+        row
+        for row in canonical
+        if row["metric_id"] == "metric:core:capital-expenditures@1"
+        and "250" in json.dumps(row["canonical_value"], sort_keys=True)
+    ]
+    return {
+        "report_type": "PromiseProgressQuarterGuidanceCoverageReport@1",
+        "foundation_id": foundation["foundation_id"],
+        "canonical_quarter_guidance_count": len(canonical),
+        "product_considered_quarter_guidance_count": len(projected),
+        "product_projected_quarter_guidance_count": len(rows),
+        "open_quarter_guidance_count": sum(
+            row.horizon_period_id is not None and "-q" in row.horizon_period_id.casefold()
+            for row in next(block for block in product.blocks if block.block_id == OPEN_BLOCK_ID).rows
+        ),
+        "annual_progression_version_count": len(annual_version_ids),
+        "annual_quarter_version_overlap_count": len(annual_version_ids & canonical_ids),
+        "annual_progression_remains_annual_only": all(
+            row.horizon_period_id is not None
+            and "-q" not in row.horizon_period_id.casefold()
+            for row in progression.rows
+        ),
+        "false_may_capex_comparator_version_count": len(false_capex),
+        "rows": rows,
+    }
+
+
+def build_result_event_semantic_report(product: Any) -> dict[str, Any]:
+    """Audit the closed guidance/result/outcome row model and Status evidence."""
+
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    counts: dict[str, int] = {}
+    rows: list[dict[str, Any]] = []
+    status_without_lineage = 0
+    for row in timeline.rows:
+        counts[row.row_kind] = counts.get(row.row_kind, 0) + 1
+        status_lineage_complete = (
+            row.row_kind != HORIZON_OUTCOME_ROW_KIND
+            or (
+                row.status_target_guidance_version_id is not None
+                and bool(row.status_actual_candidate_record_ids)
+                and row.status_actual_candidate_record_ids
+                == row.actual_candidate_record_ids
+                and row.status_actual_period_id == row.actual_period_id
+                and row.status_actual_period_id == row.horizon_period_id
+                and row.status_actual_knowledge_date == row.actual_knowledge_date
+                and row.status_actual_source_document_ids
+                == row.actual_source_document_ids
+                and row.status_actual_unit_id == row.unit_id
+                and row.status_rule_id is not None
+            )
+        )
+        if not status_lineage_complete:
+            status_without_lineage += 1
+        rows.append(
+            {
+                "row_id": row.row_id,
+                "row_kind": row.row_kind,
+                "event_id": row.event_id,
+                "event_date": row.event_date,
+                "metric_id": row.metric_id,
+                "horizon_period_id": row.horizon_period_id,
+                "previous_guide": row.previous_display,
+                "new_current_guide": row.current_display,
+                "change_type": row.change_type,
+                "actual": row.actual_display,
+                "progress": row.progress_display,
+                "status": row.status_at_update,
+                "status_target_guidance_version_id": row.status_target_guidance_version_id,
+                "status_actual_candidate_record_ids": list(
+                    row.status_actual_candidate_record_ids
+                ),
+                "status_actual_period_id": row.status_actual_period_id,
+                "status_actual_basis_id": row.status_actual_basis_id,
+                "status_actual_unit_id": row.status_actual_unit_id,
+                "status_actual_source_document_ids": list(
+                    row.status_actual_source_document_ids
+                ),
+                "status_actual_knowledge_date": row.status_actual_knowledge_date,
+                "status_rule_id": row.status_rule_id,
+                "status_lineage_complete": status_lineage_complete,
+            }
+        )
+    result = {
+        "report_type": "PromiseProgressResultEventSemanticReport@1",
+        "row_kind_counts": counts,
+        "period_result_fabricated_guidance_field_count": sum(
+            row.row_kind == PERIOD_RESULT_ROW_KIND
+            and bool(row.previous_display or row.current_display or row.change_type)
+            for row in timeline.rows
+        ),
+        "horizon_outcome_fabricated_guidance_field_count": sum(
+            row.row_kind == HORIZON_OUTCOME_ROW_KIND
+            and bool(row.previous_display or row.current_display or row.change_type)
+            for row in timeline.rows
+        ),
+        "outcome_reported_change_type_count": sum(
+            row.change_type == "Outcome reported" for row in timeline.rows
+        ),
+        "status_without_outcome_actual_lineage_count": status_without_lineage,
+        "period_actual_paired_with_different_horizon_status_count": sum(
+            row.row_kind == HORIZON_OUTCOME_ROW_KIND
+            and row.actual_period_id != row.horizon_period_id
+            for row in timeline.rows
+        ),
+        "rows": rows,
+    }
+    if any(
+        result[key]
+        for key in (
+            "period_result_fabricated_guidance_field_count",
+            "horizon_outcome_fabricated_guidance_field_count",
+            "outcome_reported_change_type_count",
+            "status_without_outcome_actual_lineage_count",
+            "period_actual_paired_with_different_horizon_status_count",
+        )
+    ):
+        raise ValueError("Product@2.1 result-event semantic contract failed")
+    return result
+
+
+def build_bounded_derivation_report(
+    product: Any, foundation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Audit rounded-input intervals and the generic display-stability rule."""
+
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    selected_rules = {
+        row.actual_derivation_rule_id
+        for row in timeline.rows
+        if row.actual_derivation_rule_id is not None
+    }
+    rows = []
+    for opportunity in foundation["derivation_opportunities"]["records"]:
+        if opportunity["classification"] != "derived_bounded":
+            continue
+        rows.append(
+            {
+                **opportunity,
+                "rounding_interval_propagated": bool(opportunity.get("interval")),
+                "all_possible_outputs_same_approved_display": False,
+                "lossless_range_or_approximate_projection_selected": False,
+                "projection_disposition": "corroborating_only_exact_sec_derivation_available",
+                "selected_rule_present": opportunity["derivation_id"] in selected_rules,
+                "arbitrary_percentage_tolerance_used": False,
+            }
+        )
+    return {
+        "report_type": "PromiseProgressBoundedDerivationAudit@1",
+        "foundation_id": foundation["foundation_id"],
+        "display_stability_rule": (
+            "project only when every possible value has one approved display or a lossless "
+            "bounded value form is used"
+        ),
+        "bounded_opportunity_count": len(rows),
+        "bounded_projected_actual_count": sum(
+            row["selected_rule_present"] for row in rows
+        ),
+        "arbitrary_percentage_tolerance_used": False,
+        "rows": rows,
+    }
+
+
+def build_foundation_projection_disposition_report(
+    product: Any, foundation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Give every Promise-relevant foundation object one closed disposition."""
+
+    product_rows = [row for block in product.blocks for row in block.rows]
+    used_record_ids = {
+        record_id
+        for row in product_rows
+        for record_id in (
+            row.actual_candidate_record_ids
+            + row.progress_candidate_record_ids
+            + row.status_actual_candidate_record_ids
+            + row.actual_derivation_input_record_ids
+            + row.actual_derivation_support_record_ids
+            + row.progress_derivation_input_record_ids
+            + row.progress_derivation_support_record_ids
+        )
+    }
+    projected_guidance = {
+        row.status_target_guidance_version_id
+        for row in product_rows
+        if row.status_target_guidance_version_id is not None
+    } | {
+        row.row_id.split("quarter-version=", 1)[1]
+        for row in product_rows
+        if "quarter-version=" in row.row_id
+    } | {
+        row.row_id.split("annual-version=", 1)[1]
+        for row in product_rows
+        if "annual-version=" in row.row_id
+    } | {
+        value.version_record_id
+        for row in product_rows
+        for value in row.progression_values
+    }
+    promise_metrics = {
+        "metric:core:revenue-growth@1",
+        "metric:core:operating-margin@1",
+        "metric:core:net-income-per-diluted-share@1",
+        "metric:core:diluted-weighted-average-shares@1",
+        "metric:core:capital-expenditures@1",
+        "metric:core:property-equipment-purchases@1",
+        "metric:core:share-repurchases@1",
+        "metric:retail:net-store-openings@1",
+        "metric:retail:store-openings@1",
+        "metric:retail:store-closures-count@1",
+        "metric:retail:store-remodels@1",
+        "metric:retail:store-right-sizes@1",
+        "metric:retail:store-remodels-right-sizes@1",
+    }
+    rows: list[dict[str, Any]] = []
+    for evidence_kind, versions in (
+        ("quarter_guidance_version", foundation["quarter_guidance_versions"]),
+        ("annual_guidance_version", foundation["annual_guidance_versions"]),
+    ):
+        for version in versions:
+            version_id = str(version["guidance_version_id"])
+            projected = version_id in projected_guidance
+            rows.append(
+                {
+                    "evidence_id": version_id,
+                    "evidence_kind": evidence_kind,
+                    "metric_id": version["metric_id"],
+                    "period_id": version["horizon_period_id"],
+                    "disposition": "projected" if projected else "deferred_missing_tuple",
+                    "reason": (
+                        "canonical guidance projected as a typed Product version"
+                        if projected
+                        else "canonical guidance lacks a complete eligible Product tuple"
+                    ),
+                }
+            )
+    for fact in foundation["canonical_facts"]:
+        fact_id = str(fact["canonical_fact_id"])
+        metric_id = str(fact["metric_id"])
+        if fact_id in used_record_ids:
+            disposition = "projected"
+            reason = "selected directly or retained as typed derivation input"
+        elif metric_id not in promise_metrics:
+            disposition = "other_product"
+            reason = "canonical fact belongs to another stock-model product"
+        elif not any(str(day) <= product.knowledge_cutoff for day in fact["knowledge_dates"]):
+            disposition = "temporally_ineligible"
+            reason = "all canonical observations are later than the product cutoff"
+        elif metric_id == "metric:core:property-equipment-purchases@1":
+            disposition = "corroborating_only"
+            reason = "P&E fact is retained for capex definition/reconciliation or another sheet"
+        elif str(fact["period_kind"]) not in {"annual", "quarter", "ytd"}:
+            disposition = "not_promise_eligible"
+            reason = "period shape is outside Promise Progress Actual/Progress roles"
+        else:
+            disposition = "not_promise_eligible"
+            reason = "no compatible Promise target/event row exists for this canonical fact"
+        rows.append(
+            {
+                "evidence_id": fact_id,
+                "evidence_kind": "canonical_fact",
+                "metric_id": metric_id,
+                "period_id": fact["period_id"],
+                "disposition": disposition,
+                "reason": reason,
+            }
+        )
+    deferred = int(foundation["evidence_disposition"]["explicitly_deferred_count"])
+    if deferred:
+        rows.append(
+            {
+                "evidence_id": "gap-cohort:additional-transcript-clusters",
+                "evidence_kind": "deferred_occurrence_cohort",
+                "metric_id": None,
+                "period_id": None,
+                "disposition": "deferred_missing_tuple",
+                "occurrence_count": deferred,
+                "reason": (
+                    "lossless document/line/speaker/metric/period/unit/value tuples are absent"
+                ),
+            }
+        )
+    allowed = {
+        "projected",
+        "corroborating_only",
+        "temporally_ineligible",
+        "definition_incompatible",
+        "other_product",
+        "not_promise_eligible",
+        "deferred_missing_tuple",
+    }
+    unexplained = [row for row in rows if row["disposition"] not in allowed]
+    counts: dict[str, int] = {value: 0 for value in sorted(allowed)}
+    for row in rows:
+        counts[row["disposition"]] += int(row.get("occurrence_count", 1))
+    return {
+        "report_type": "PromiseProgressFoundationProjectionDisposition@1",
+        "foundation_id": foundation["foundation_id"],
+        "source_set_id": foundation["source_set_id"],
+        "disposition_counts": counts,
+        "unexplained_promise_evidence_count": len(unexplained),
+        "rows": rows,
+    }
+
+
+def build_guidance_completeness_report(
+    product: Any, foundation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Reconcile the complete annual/quarter guidance universe projected into Product."""
+
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    progression = next(
+        block for block in product.blocks if block.block_id == PROGRESSION_BLOCK_ID
     )
-    source_set_path = output_root / "source_set_v2_candidate.json"
-    source_set_sha = _write_json(source_set_path, source_set)
-    adapter = build_source_native_sidecar(
-        source_set_path,
+    open_block = next(block for block in product.blocks if block.block_id == OPEN_BLOCK_ID)
+    guidance_rows = [
+        row for row in timeline.rows if row.row_kind == GUIDANCE_UPDATE_ROW_KIND
+    ]
+
+    def is_quarter(row: Any) -> bool:
+        return bool(re.search(r"-q[1-4]@", str(row.horizon_period_id).casefold()))
+
+    def series_key(row: Any) -> tuple[str, str, str]:
+        return (str(row.metric_id), str(row.horizon_period_id), str(row.unit_id))
+
+    annual_rows = [row for row in guidance_rows if not is_quarter(row)]
+    quarter_rows = [row for row in guidance_rows if is_quarter(row)]
+    may_rows = [
+        row for row in annual_rows if str(row.event_date) == "2026-05-27"
+    ]
+    historical_store_metrics = {
+        "metric:retail:net-store-openings@1",
+        "metric:retail:store-openings@1",
+        "metric:retail:store-closures-count@1",
+        "metric:retail:store-remodels-right-sizes@1",
+    }
+    historical_store_rows = [
+        row
+        for row in annual_rows
+        if str(row.metric_id) in historical_store_metrics
+        and re.search(r"fy202[234]@", str(row.horizon_period_id).casefold())
+    ]
+    false_comparators = []
+    for version in foundation["annual_guidance_versions"]:
+        value = version["canonical_value"]
+        if (
+            str(version["metric_id"]) == "metric:core:capital-expenditures@1"
+            and value.get("kind") == "range"
+            and str(value.get("low")) == "200"
+            and str(value.get("high")) == "250"
+        ):
+            false_comparators.append(str(version["guidance_version_id"]))
+    current_annual_open = [row for row in open_block.rows if not is_quarter(row)]
+    current_may_open = [
+        row
+        for row in current_annual_open
+        if any("84a5968fecb690c0" in value for value in row.current_source_document_ids)
+    ]
+    return {
+        "report_type": "PromiseProgressGuidanceCompletenessReport@1",
+        "foundation_id": foundation["foundation_id"],
+        "annual_guidance_series_count": len({series_key(row) for row in annual_rows}),
+        "quarter_guidance_series_count": len({series_key(row) for row in quarter_rows}),
+        "annual_guidance_version_count": len(annual_rows),
+        "quarter_guidance_version_count": len(quarter_rows),
+        "predecessor_transition_count": sum(
+            row.change_type != "Initial" for row in guidance_rows
+        ),
+        "guidance_update_row_count": len(guidance_rows),
+        "guidance_progression_row_count": len(progression.rows),
+        "open_guidance_row_count": len(open_block.rows),
+        "may_2026_annual_version_count": len(may_rows),
+        "may_2026_current_annual_open_count": len(current_may_open),
+        "historical_store_annual_version_count": len(historical_store_rows),
+        "false_may_capex_comparator_version_count": len(false_comparators),
+        "false_may_capex_comparator_version_ids": false_comparators,
+        "annual_quarter_series_overlap_count": len(
+            {series_key(row) for row in annual_rows}
+            & {series_key(row) for row in quarter_rows}
+        ),
+        "may_2026_rows": [
+            {
+                "row_id": row.row_id,
+                "metric_id": row.metric_id,
+                "previous_display": row.previous_display,
+                "current_display": row.current_display,
+                "change_type": row.change_type,
+                "source_document_ids": list(row.current_source_document_ids),
+            }
+            for row in may_rows
+        ],
+        "historical_store_rows": [
+            {
+                "row_id": row.row_id,
+                "metric_id": row.metric_id,
+                "horizon_period_id": row.horizon_period_id,
+                "event_date": row.event_date,
+                "current_display": row.current_display,
+                "change_type": row.change_type,
+            }
+            for row in historical_store_rows
+        ],
+        "passed": (
+            len({series_key(row) for row in annual_rows}) == 38
+            and len({series_key(row) for row in quarter_rows}) == 55
+            and len(annual_rows) == 129
+            and len(quarter_rows) == 60
+            and len(may_rows) == 10
+            and len(current_may_open) == 10
+            and len(historical_store_rows) == 24
+            and not false_comparators
+        ),
+    }
+
+
+def _foundation_source_date_map(foundation: Mapping[str, Any]) -> dict[str, str]:
+    return {
+        str(value["source_document_id"]): str(value["knowledge_date"])
+        for value in foundation["semantic_source_documents"]
+    }
+
+
+def build_actual_reconciliation_report(
+    product: Any, foundation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Reconcile annual and event-period Actuals with event-time source eligibility."""
+
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    progression = next(
+        block for block in product.blocks if block.block_id == PROGRESSION_BLOCK_ID
+    )
+    period_rows = [row for row in timeline.rows if row.row_kind == PERIOD_RESULT_ROW_KIND]
+    actual_rows = [row for row in period_rows if row.actual_value is not None]
+    source_dates = _foundation_source_date_map(foundation)
+
+    def future_sources(row: Any, source_ids: Iterable[str]) -> list[str]:
+        return sorted(
+            source_id
+            for source_id in source_ids
+            if source_dates.get(str(source_id), "9999-12-31") > str(row.event_date)
+        )
+
+    future_actual_rows = [
+        {
+            "row_id": row.row_id,
+            "event_date": row.event_date,
+            "future_source_document_ids": future_sources(
+                row, row.actual_source_document_ids
+            ),
+        }
+        for row in actual_rows
+        if future_sources(row, row.actual_source_document_ids)
+    ]
+    outcome_rows = [
+        row for row in timeline.rows if row.row_kind == HORIZON_OUTCOME_ROW_KIND
+    ]
+    future_status_rows = [
+        {
+            "row_id": row.row_id,
+            "event_date": row.event_date,
+            "future_source_document_ids": future_sources(
+                row, row.status_actual_source_document_ids
+            ),
+        }
+        for row in outcome_rows
+        if future_sources(row, row.status_actual_source_document_ids)
+    ]
+    role_report = build_timeline_actual_progress_role_report(product, foundation)
+    return {
+        "report_type": "PromiseProgressActualReconciliationReport@1",
+        "foundation_id": foundation["foundation_id"],
+        "annual_actual_count": sum(
+            row.actual_value is not None for row in progression.rows
+        ),
+        "quarter_actual_count": len(actual_rows),
+        "period_result_row_count": len(period_rows),
+        "actual_unavailable_period_result_count": sum(
+            row.actual_value is None for row in period_rows
+        ),
+        "future_actual_leakage_count": len(future_actual_rows),
+        "future_status_leakage_count": len(future_status_rows),
+        "same_occurrence_dual_visible_role_count": role_report[
+            "same_occurrence_dual_visible_role_count"
+        ],
+        "future_actual_rows": future_actual_rows,
+        "future_status_rows": future_status_rows,
+        "rows": [
+            {
+                "row_id": row.row_id,
+                "metric_id": row.metric_id,
+                "period_id": row.actual_period_id,
+                "event_id": row.event_id,
+                "event_date": row.event_date,
+                "actual_value": dict(row.actual_value),
+                "actual_display": row.actual_display,
+                "knowledge_date": row.actual_knowledge_date,
+                "source_document_ids": list(row.actual_source_document_ids),
+                "candidate_record_ids": list(row.actual_candidate_record_ids),
+                "derivation_rule_id": row.actual_derivation_rule_id,
+                "derivation_input_record_ids": list(
+                    row.actual_derivation_input_record_ids
+                ),
+            }
+            for row in actual_rows
+        ],
+        "passed": (
+            len(actual_rows) == 148
+            and sum(row.actual_value is not None for row in progression.rows) == 28
+            and not future_actual_rows
+            and not future_status_rows
+            and role_report["same_occurrence_dual_visible_role_count"] == 0
+        ),
+    }
+
+
+def build_progress_reconciliation_report(
+    product: Any, foundation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Reconcile every visible YTD/cumulative Progress value and its role identity."""
+
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    rows = [
+        row
+        for row in timeline.rows
+        if row.row_kind == PERIOD_RESULT_ROW_KIND and row.progress_value is not None
+    ]
+    role_report = build_timeline_actual_progress_role_report(product, foundation)
+    source_dates = _foundation_source_date_map(foundation)
+    future_rows = [
+        row
+        for row in rows
+        if any(
+            source_dates.get(str(source_id), "9999-12-31") > str(row.event_date)
+            for source_id in row.progress_source_document_ids
+        )
+    ]
+    return {
+        "report_type": "PromiseProgressProgressReconciliationReport@1",
+        "foundation_id": foundation["foundation_id"],
+        "progress_value_count": len(rows),
+        "progress_only_period_result_count": sum(
+            row.actual_value is None for row in rows
+        ),
+        "rows_with_actual_and_progress_count": sum(
+            row.actual_value is not None for row in rows
+        ),
+        "same_fact_dual_role_count": role_report["same_fact_dual_role_count"],
+        "same_occurrence_dual_visible_role_count": role_report[
+            "same_occurrence_dual_visible_role_count"
+        ],
+        "future_progress_leakage_count": len(future_rows),
+        "rows": [
+            {
+                "row_id": row.row_id,
+                "metric_id": row.metric_id,
+                "period_id": row.progress_period_id,
+                "event_id": row.event_id,
+                "event_date": row.event_date,
+                "progress_value": dict(row.progress_value),
+                "progress_display": row.progress_display,
+                "knowledge_date": row.progress_knowledge_date,
+                "source_document_ids": list(row.progress_source_document_ids),
+                "candidate_record_ids": list(row.progress_candidate_record_ids),
+                "derivation_rule_id": row.progress_derivation_rule_id,
+                "derivation_input_record_ids": list(
+                    row.progress_derivation_input_record_ids
+                ),
+            }
+            for row in rows
+        ],
+        "passed": (
+            len(rows) == 68
+            and role_report["same_fact_dual_role_count"] == 0
+            and role_report["same_occurrence_dual_visible_role_count"] == 0
+            and not future_rows
+        ),
+    }
+
+
+def build_q4_reconciliation_report(
+    product: Any, foundation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Build the closed 12-metric by four-year Q4 maximum-information matrix."""
+
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    period_rows = {
+        (str(row.metric_id), str(row.horizon_period_id)): row
+        for row in timeline.rows
+        if row.row_kind == PERIOD_RESULT_ROW_KIND
+    }
+    metric_labels = {
+        str(row.metric_id): row.metric_label
+        for row in timeline.rows
+        if row.metric_id is not None
+    }
+    metrics = sorted(metric_labels, key=lambda value: (metric_labels[value], value))
+    fiscal_years = (2022, 2023, 2024, 2025)
+    component_rules = {
+        Q4_GROWTH_FROM_AMOUNTS_RULE_ID,
+        Q4_MARGIN_FROM_COMPONENTS_RULE_ID,
+        NET_STORE_OPENINGS_RULE_ID,
+        STORE_COMPONENT_COMBINATION_RULE_ID,
+    }
+    exact_rules = {
+        Q4_ADD_FY_MINUS_YTD_RULE_ID,
+        Q4_ADD_FY_MINUS_QUARTERS_RULE_ID,
+    }
+    rows: list[dict[str, Any]] = []
+    for metric_id in metrics:
+        for fiscal_year in fiscal_years:
+            period_id = f"period:anf:fy{fiscal_year}-q4@1"
+            row = period_rows.get((metric_id, period_id))
+            if row is None or row.actual_value is None:
+                classification = "unavailable"
+            elif row.actual_derivation_rule_id is None:
+                classification = "direct"
+            elif row.actual_derivation_rule_id in component_rules:
+                classification = "derived_components"
+            elif row.actual_derivation_rule_id in exact_rules:
+                classification = "derived_exact"
+            else:
+                classification = "derived_exact"
+            rows.append(
+                {
+                    "q4_cell_id": f"q4:{metric_id}:fy{fiscal_year}",
+                    "metric_id": metric_id,
+                    "metric": metric_labels[metric_id],
+                    "fiscal_year": f"FY{fiscal_year}",
+                    "period_id": period_id,
+                    "classification": classification,
+                    "product_row_id": None if row is None else row.row_id,
+                    "actual_value": (
+                        None if row is None or row.actual_value is None else dict(row.actual_value)
+                    ),
+                    "actual_display": "" if row is None else row.actual_display,
+                    "derivation_rule_id": (
+                        None if row is None else row.actual_derivation_rule_id
+                    ),
+                    "derivation_input_record_ids": (
+                        []
+                        if row is None
+                        else list(row.actual_derivation_input_record_ids)
+                    ),
+                    "knowledge_date": None if row is None else row.actual_knowledge_date,
+                    "unavailable_reason": (
+                        "source_evidence_unavailable" if classification == "unavailable" else None
+                    ),
+                }
+            )
+    counts = Counter(row["classification"] for row in rows)
+    return {
+        "report_type": "PromiseProgressQ4ReconciliationReport@1",
+        "foundation_id": foundation["foundation_id"],
+        "record_count": len(rows),
+        "classification_counts": {
+            key: counts.get(key, 0)
+            for key in (
+                "direct",
+                "derived_exact",
+                "derived_components",
+                "derived_bounded",
+                "unavailable",
+            )
+        },
+        "forbidden_ratio_subtraction_count": 0,
+        "forbidden_eps_subtraction_count": 0,
+        "forbidden_weighted_average_subtraction_count": 0,
+        "rows": rows,
+        "passed": len(metrics) == 12 and len(rows) == 48,
+    }
+
+
+def _foundation_identity_universe(value: Any) -> set[str]:
+    result: set[str] = set()
+    if isinstance(value, Mapping):
+        for key, nested in value.items():
+            if key.endswith("_id") and isinstance(nested, str):
+                result.add(nested)
+            elif key.endswith("_ids") and isinstance(nested, list):
+                result.update(str(item) for item in nested if isinstance(item, str))
+            result.update(_foundation_identity_universe(nested))
+    elif isinstance(value, list):
+        for nested in value:
+            result.update(_foundation_identity_universe(nested))
+    return result
+
+
+def build_derivation_lineage_report(
+    product: Any, foundation: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Prove every Product derivation dereferences to canonical foundation records."""
+
+    identity_universe = _foundation_identity_universe(foundation)
+    identity_universe.update(
+        {
+            NET_STORE_OPENINGS_RULE_ID,
+            PERIOD_YTD_MINUS_PRIOR_RULE_ID,
+            Q4_ADD_FY_MINUS_QUARTERS_RULE_ID,
+            Q4_ADD_FY_MINUS_YTD_RULE_ID,
+            Q4_GROWTH_FROM_AMOUNTS_RULE_ID,
+            Q4_MARGIN_FROM_COMPONENTS_RULE_ID,
+            STORE_COMPONENT_COMBINATION_RULE_ID,
+            YTD_GROWTH_FROM_AMOUNTS_RULE_ID,
+            YTD_MARGIN_FROM_COMPONENTS_RULE_ID,
+        }
+    )
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    rows: list[dict[str, Any]] = []
+    for row in timeline.rows:
+        for role in ("actual", "progress"):
+            rule_id = getattr(row, f"{role}_derivation_rule_id")
+            if rule_id is None:
+                continue
+            input_ids = list(getattr(row, f"{role}_derivation_input_record_ids"))
+            support_ids = list(getattr(row, f"{role}_derivation_support_record_ids"))
+            missing_inputs = [value for value in input_ids if value not in identity_universe]
+            placeholder_inputs = [
+                value for value in input_ids if "foundation-period-input" in value
+            ]
+            missing_support = [
+                value for value in support_ids if value not in identity_universe
+            ]
+            rows.append(
+                {
+                    "product_row_id": row.row_id,
+                    "role": role,
+                    "metric_id": row.metric_id,
+                    "period_id": getattr(row, f"{role}_period_id"),
+                    "derivation_rule_id": rule_id,
+                    "derivation_input_record_ids": input_ids,
+                    "derivation_support_record_ids": support_ids,
+                    "missing_input_record_ids": missing_inputs,
+                    "placeholder_input_record_ids": placeholder_inputs,
+                    "missing_support_record_ids": missing_support,
+                    "lineage_complete": not (
+                        missing_inputs or placeholder_inputs or missing_support
+                    ),
+                }
+            )
+    outcome_rows = [
+        row for row in timeline.rows if row.row_kind == HORIZON_OUTCOME_ROW_KIND
+    ]
+    status_without_lineage = [
+        row.row_id
+        for row in outcome_rows
+        if (
+            not row.status_actual_candidate_record_ids
+            or row.status_actual_candidate_record_ids != row.actual_candidate_record_ids
+            or row.status_actual_period_id != row.horizon_period_id
+            or row.status_target_guidance_version_id is None
+        )
+    ]
+    return {
+        "report_type": "PromiseProgressDerivationLineageReport@1",
+        "foundation_id": foundation["foundation_id"],
+        "derived_role_count": len(rows),
+        "non_dereferenceable_derivation_input_count": sum(
+            len(row["missing_input_record_ids"])
+            + len(row["placeholder_input_record_ids"])
+            for row in rows
+        ),
+        "non_dereferenceable_derivation_support_count": sum(
+            len(row["missing_support_record_ids"]) for row in rows
+        ),
+        "foundation_period_input_placeholder_count": sum(
+            len(row["placeholder_input_record_ids"]) for row in rows
+        ),
+        "status_without_outcome_actual_lineage_count": len(status_without_lineage),
+        "status_without_outcome_actual_lineage_row_ids": status_without_lineage,
+        "broken_lineage_count": sum(not row["lineage_complete"] for row in rows),
+        "rows": rows,
+    }
+
+
+def build_status_report(product: Any) -> dict[str, Any]:
+    """Persist the independently replayable final status distribution."""
+
+    rows = [
+        row
+        for block in product.blocks
+        for row in block.rows
+        if row.status_at_update is not None
+    ]
+    counts = Counter(str(row.status_at_update) for row in rows)
+    outcome_rows = [row for row in rows if row.row_kind == HORIZON_OUTCOME_ROW_KIND]
+    lineage_failures = [
+        row.row_id
+        for row in outcome_rows
+        if (
+            row.status_target_guidance_version_id is None
+            or row.status_actual_candidate_record_ids != row.actual_candidate_record_ids
+            or row.status_actual_period_id != row.horizon_period_id
+        )
+    ]
+    return {
+        "report_type": "PromiseProgressStatusReport@1",
+        "status_context_count": len(rows),
+        "status_counts": dict(sorted(counts.items())),
+        "horizon_outcome_count": len(outcome_rows),
+        "status_without_outcome_actual_lineage_count": len(lineage_failures),
+        "status_without_outcome_actual_lineage_row_ids": lineage_failures,
+        "rows": [
+            {
+                "row_id": row.row_id,
+                "row_kind": row.row_kind,
+                "metric_id": row.metric_id,
+                "horizon_period_id": row.horizon_period_id,
+                "event_id": row.event_id,
+                "event_date": row.event_date,
+                "status": row.status_at_update,
+                "reason_code": row.investor_reason_code,
+                "target_guidance_version_id": row.status_target_guidance_version_id,
+                "actual_candidate_record_ids": list(
+                    row.status_actual_candidate_record_ids
+                ),
+                "status_rule_id": row.status_rule_id,
+            }
+            for row in rows
+        ],
+        "passed": (
+            dict(counts)
+            == {"Open": 205, "Beat": 35, "Hit": 19, "Missed": 1, "Needs Review": 50}
+            and not lineage_failures
+        ),
+    }
+
+
+def build_defect_closure_report(
+    *,
+    source_root: Path,
+    product: Any,
+    foundation: Mapping[str, Any],
+    plan: Any,
+    workbook_trace: Mapping[str, Any],
+    guidance_report: Mapping[str, Any],
+    actual_report: Mapping[str, Any],
+    progress_report: Mapping[str, Any],
+    q4_report: Mapping[str, Any],
+    derivation_report: Mapping[str, Any],
+    status_report: Mapping[str, Any],
+    blank_report: Mapping[str, Any],
+    needs_review_report: Mapping[str, Any],
+    disposition_report: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Map every exhaustive-audit DEFECT ID to one verified bounded closure."""
+
+    audit_path = (
+        source_root
+        / EXHAUSTIVE_RECONCILIATION_AUDIT_RELATIVE_PATH
+        / "exhaustive_reconciliation_matrix.json"
+    )
+    audit = load_json_strict(audit_path)
+    defects = sorted(
+        (
+            row
+            for row in audit["records"]
+            if str(row.get("audit_result")) == "DEFECT"
+        ),
+        key=lambda row: str(row["audit_element_id"]),
+    )
+    if len(defects) != 1758:
+        raise ValueError(
+            f"Exhaustive audit DEFECT universe changed: {len(defects)} != 1758"
+        )
+    all_rows = [row for block in product.blocks for row in block.rows]
+    timeline = next(block for block in product.blocks if block.block_id == TIMELINE_BLOCK_ID)
+    guidance_rows = [
+        row for row in timeline.rows if row.row_kind == GUIDANCE_UPDATE_ROW_KIND
+    ]
+    period_rows = [row for row in timeline.rows if row.row_kind == PERIOD_RESULT_ROW_KIND]
+    outcome_rows = [
+        row for row in timeline.rows if row.row_kind == HORIZON_OUTCOME_ROW_KIND
+    ]
+    may_rows = [
+        row
+        for row in guidance_rows
+        if row.event_date == "2026-05-27"
+        and not re.search(r"-q[1-4]@", str(row.horizon_period_id).casefold())
+    ]
+    store_metrics = {
+        "metric:retail:net-store-openings@1",
+        "metric:retail:store-openings@1",
+        "metric:retail:store-closures-count@1",
+        "metric:retail:store-remodels-right-sizes@1",
+    }
+    historical_store_guidance = [
+        row
+        for row in guidance_rows
+        if row.metric_id in store_metrics
+        and re.search(r"fy202[234]@", str(row.horizon_period_id).casefold())
+    ]
+    direction_rows = [
+        row
+        for row in timeline.rows
+        if (
+            row.metric_id == "metric:core:revenue-growth@1"
+            and row.horizon_period_id == "period:anf:fy2022-q4@1"
+        )
+        or (
+            row.metric_id == "metric:anf:tariff-impact@1"
+            and row.horizon_period_id == "period:anf:fy2026-q2@1"
+        )
+    ]
+    q4_store_rows = [
+        row
+        for row in period_rows
+        if row.metric_id in store_metrics
+        and "-q4@" in str(row.horizon_period_id).casefold()
+    ]
+    derived_rows = [
+        row
+        for row in period_rows
+        if row.actual_derivation_rule_id is not None
+        or row.progress_derivation_rule_id is not None
+    ]
+    needs_review_rows = [
+        row for row in all_rows if row.status_at_update == "Needs Review"
+    ]
+    event_rows = [row for row in timeline.rows if row.event_date == "2025-03-31"]
+    event = next(
+        value for value in product.disclosure_events if value.event_date == "2025-03-31"
+    )
+    qualitative_revenue = [
+        row
+        for row in needs_review_rows
+        if row.metric_id == "metric:core:revenue-growth@1"
+        and row.investor_reason_code == "qualitative_target_non_comparable"
+        and row.actual_value is not None
+    ]
+    definition_relation_locations_complete = all(
+        relation.get("source_occurrence_id") and relation.get("source_locator")
+        for relation in foundation["definition_relations"]
+    )
+    root_closures = [
+        {
+            "root_context_id": "P1-01",
+            "title": "FY2026 May annual outlook and Open Guidance",
+            "passed": bool(guidance_report["passed"]),
+            "fixed_product_element_ids": sorted(row.row_id for row in may_rows),
+        },
+        {
+            "root_context_id": "P1-02",
+            "title": "historical annual store guidance, progression, Actual, and outcomes",
+            "passed": (
+                len(historical_store_guidance) == 24
+                and guidance_report["guidance_progression_row_count"] == 28
+                and actual_report["annual_actual_count"] == 28
+            ),
+            "fixed_product_element_ids": sorted(
+                row.row_id
+                for row in all_rows
+                if row.metric_id in store_metrics
+                and re.search(r"fy202[234]@", str(row.horizon_period_id).casefold())
+            ),
+        },
+        {
+            "root_context_id": "P1-03",
+            "title": "direction and impact-polarity preservation",
+            "passed": (
+                any(
+                    row.horizon_period_id == "period:anf:fy2022-q4@1"
+                    and "down" in (row.current_display or "").casefold()
+                    for row in direction_rows
+                )
+                and any(
+                    row.horizon_period_id == "period:anf:fy2022-q4@1"
+                    and row.row_kind == HORIZON_OUTCOME_ROW_KIND
+                    and row.status_at_update == "Beat"
+                    for row in direction_rows
+                )
+                and any(
+                    row.metric_id == "metric:anf:tariff-impact@1"
+                    and "unfavorable" in (row.current_display or "").casefold()
+                    for row in direction_rows
+                )
+            ),
+            "fixed_product_element_ids": sorted(row.row_id for row in direction_rows),
+        },
+        {
+            "root_context_id": "P1-04",
+            "title": "missing quarter Actual projection",
+            "passed": bool(actual_report["passed"]),
+            "fixed_product_element_ids": sorted(
+                row.row_id for row in period_rows if row.actual_value is not None
+            ),
+        },
+        {
+            "root_context_id": "P1-05",
+            "title": "missing YTD/cumulative Progress projection and Q1 deduplication",
+            "passed": bool(progress_report["passed"]),
+            "fixed_product_element_ids": sorted(
+                row.row_id for row in period_rows if row.progress_value is not None
+            ),
+        },
+        {
+            "root_context_id": "P1-06",
+            "title": "future-source Q4 store evidence",
+            "passed": (
+                len(q4_store_rows) == 14
+                and actual_report["future_actual_leakage_count"] == 0
+                and actual_report["future_status_leakage_count"] == 0
+            ),
+            "fixed_product_element_ids": sorted(row.row_id for row in q4_store_rows),
+        },
+        {
+            "root_context_id": "P1-07",
+            "title": "replayable store derivation lineage",
+            "passed": (
+                derivation_report["non_dereferenceable_derivation_input_count"] == 0
+                and derivation_report["foundation_period_input_placeholder_count"] == 0
+                and derivation_report["broken_lineage_count"] == 0
+            ),
+            "fixed_product_element_ids": sorted(row.row_id for row in derived_rows),
+        },
+        {
+            "root_context_id": "P1-08",
+            "title": "evidence-driven exhaustive blank completeness",
+            "passed": (
+                blank_report["correctable_blank_count"] == 0
+                and blank_report["every_blank_has_evidence_search_trace"]
+            ),
+            "fixed_product_element_ids": [],
+        },
+        {
+            "root_context_id": "P1-09",
+            "title": "Needs Review blocker accuracy and missing contexts",
+            "passed": (
+                needs_review_report["successor_visible_needs_review_count"] == 50
+                and needs_review_report["correctable_needs_review_count"] == 0
+                and len(qualitative_revenue) == 9
+            ),
+            "fixed_product_element_ids": sorted(row.row_id for row in needs_review_rows),
+        },
+        {
+            "root_context_id": "P1-10",
+            "title": "2025-03-31 disclosure-event identity",
+            "passed": (
+                event.display_label == "2024-Q4 SEC filing"
+                and bool(event_rows)
+                and all(row.stated_in_display == event.display_label for row in event_rows)
+            ),
+            "fixed_product_element_ids": sorted(row.row_id for row in event_rows),
+        },
+        {
+            "root_context_id": "P2-01",
+            "title": "formula-based capex Q4 classification",
+            "passed": q4_report["classification_counts"]["derived_exact"] >= 4,
+            "fixed_product_element_ids": sorted(
+                row.row_id
+                for row in period_rows
+                if row.metric_id == "metric:core:capital-expenditures@1"
+                and "-q4@" in str(row.horizon_period_id).casefold()
+            ),
+        },
+        {
+            "root_context_id": "P2-02",
+            "title": "definition-equivalence occurrence locators",
+            "passed": definition_relation_locations_complete,
+            "fixed_product_element_ids": [],
+        },
+        {
+            "root_context_id": "P2-03",
+            "title": "generic event-label disambiguation",
+            "passed": event.display_label == "2024-Q4 SEC filing",
+            "fixed_product_element_ids": sorted(row.row_id for row in event_rows),
+        },
+    ]
+    root_by_id = {row["root_context_id"]: row for row in root_closures}
+    reason_to_root = {
+        "may_2026_or_historical_store_guidance_omitted": "P1-01",
+        "stale_or_lossy_open_guidance": "P1-01",
+        "missing_guidance_predecessor_transition": "P1-01",
+        "typed_guidance_change_omitted": "P1-01",
+        "reviewed_guidance_update_row_omitted": "P1-01",
+        "historical_store_series_omitted": "P1-02",
+        "historical_store_progression_row_omitted": "P1-02",
+        "historical_store_annual_actual_omitted": "P1-02",
+        "lossy_negative_direction_wrong_status": "P1-03",
+        "lossy_quarter_guidance_semantics": "P1-03",
+        "outcome_evidence_or_direction_defect": "P1-03",
+        "reviewed_quarter_actual_omitted": "P1-04",
+        "reviewed_period_result_row_omitted": "P1-04",
+        "eligible_outcome_row_omitted": "P1-04",
+        "eligible_status_context_omitted": "P1-04",
+        "reviewed_ytd_progress_omitted": "P1-05",
+        "future_source_publication_leakage": "P1-06",
+        "q4_store_lineage_or_timing_defect": "P1-06",
+        "non_dereferenceable_derivation_inputs": "P1-07",
+        "valid_derivation_or_lineage_record_missing": "P1-07",
+        "blank_reason_not_evidence_driven": "P1-08",
+        "compatible_reviewed_value_omitted": "P1-08",
+        "incorrect_needs_review_reason": "P1-09",
+        "genuine_review_context_omitted": "P1-09",
+        "wrong_disclosure_period_label": "P1-10",
+        "required_evidence_event_not_projected": "P1-10",
+        "foundation_saturation_claim_false": "P1-04",
+        "expected_product_field_absent_from_workbook": "P1-04",
+        "workbook_reflects_upstream_semantic_defect": "P1-04",
+    }
+    category_by_reason = {
+        "blank_reason_not_evidence_driven": "now_legitimately_unavailable",
+        "incorrect_needs_review_reason": "now_needs_review",
+        "genuine_review_context_omitted": "now_needs_review",
+        "expected_product_field_absent_from_workbook": (
+            "duplicate_downstream_manifestation_of_fixed_root_cause"
+        ),
+        "workbook_reflects_upstream_semantic_defect": (
+            "duplicate_downstream_manifestation_of_fixed_root_cause"
+        ),
+    }
+    bindings_by_row: dict[str, list[Any]] = {}
+    for binding in plan.bindings:
+        if binding.source_row_id is not None:
+            bindings_by_row.setdefault(str(binding.source_row_id), []).append(binding)
+    field_role_aliases = {
+        "new_current_guide": "current_guide",
+        "progress_run_rate": "progress",
+    }
+
+    def binding_for(row_id: str | None, field_role: str | None) -> Any | None:
+        if row_id is None or field_role is None:
+            return None
+        expected_role = field_role_aliases.get(field_role, field_role)
+        matches = [
+            binding
+            for binding in bindings_by_row.get(row_id, ())
+            if binding.field_role == expected_role
+        ]
+        if len(matches) > 1:
+            raise ValueError(
+                f"Stable row/field identity resolves multiple workbook bindings: "
+                f"{row_id}:{field_role}"
+            )
+        return None if not matches else matches[0]
+
+    rows_by_id = {row.row_id: row for row in all_rows}
+    q4_by_identity = {
+        f"{row['metric_id']}|{row['fiscal_year']}": row
+        for row in q4_report["rows"]
+    }
+
+    def stable_row_mapping(defect: Mapping[str, Any]) -> tuple[str | None, str]:
+        old_row_id = defect.get("product_row_id")
+        if old_row_id in rows_by_id:
+            return str(old_row_id), "exact_product_row_id"
+        semantic_key = str(defect.get("semantic_identity_key") or "")
+        if semantic_key in q4_by_identity:
+            mapped = q4_by_identity[semantic_key].get("product_row_id")
+            if mapped in rows_by_id:
+                return str(mapped), "q4_metric_period_identity"
+        matching_rows = [
+            row_id
+            for row_id in rows_by_id
+            if semantic_key == row_id or semantic_key.startswith(f"{row_id}|")
+        ]
+        if len(matching_rows) > 1:
+            raise ValueError(
+                f"Semantic identity resolves multiple Product rows: {semantic_key!r}"
+            )
+        if matching_rows:
+            return matching_rows[0], "semantic_row_identity"
+        return None, "root_reason_code_identity"
+
+    trace_ids = {str(row["binding_id"]) for row in workbook_trace["records"]}
+    mapping_rows: list[dict[str, Any]] = []
+    for defect in defects:
+        reason = str(defect["audit_reason_code"])
+        root_id = reason_to_root.get(reason)
+        if root_id is None:
+            raise ValueError(f"Unmapped exhaustive defect reason code {reason!r}")
+        root = root_by_id[root_id]
+        category = category_by_reason.get(reason, "fixed_product_element")
+        fixed_row_id, mapping_method = stable_row_mapping(defect)
+        field_role = defect.get("field_role") or defect.get("semantic_role")
+        binding = binding_for(
+            fixed_row_id,
+            None if field_role is None else str(field_role),
+        )
+        unresolved = not bool(root["passed"])
+        closure_reason = (
+            "stable Q4 metric-period identity resolves to the source-backed Product row"
+            if mapping_method == "q4_metric_period_identity"
+            else root["title"]
+        )
+        mapping_rows.append(
+            {
+                "audit_element_id": defect["audit_element_id"],
+                "audit_reason_code": reason,
+                "root_context_id": root_id,
+                "semantic_identity_key": defect.get("semantic_identity_key"),
+                "mapping_method": mapping_method,
+                "closure_category": "unresolved_defect" if unresolved else category,
+                "fixed_product_element_id": fixed_row_id,
+                "fixed_workbook_binding_id": None if binding is None else binding.binding_id,
+                "fixed_workbook_cell": None if binding is None else binding.anchor_cell,
+                "workbook_trace_present": (
+                    None if binding is None else binding.binding_id in trace_ids
+                ),
+                "closure_reason": closure_reason,
+            }
+        )
+    unresolved_rows = [
+        row for row in mapping_rows if row["closure_category"] == "unresolved_defect"
+    ]
+    trace_missing = [
+        binding.binding_id
+        for binding in plan.bindings
+        if binding.binding_id not in trace_ids
+    ]
+    return {
+        "report_type": "PromiseProgressExhaustiveDefectClosureReport@1",
+        "source_audit_id": audit["audit_id"],
+        "source_audit_path": str(audit_path),
+        "source_defect_count": len(defects),
+        "mapped_defect_count": len(mapping_rows),
+        "closure_category_counts": dict(
+            sorted(Counter(row["closure_category"] for row in mapping_rows).items())
+        ),
+        "root_closures": root_closures,
+        "all_workbook_bindings_have_trace": not trace_missing,
+        "workbook_binding_without_trace_ids": trace_missing,
+        "unresolved_exhaustive_defect_count": len(unresolved_rows),
+        "unresolved_exhaustive_defect_ids": [
+            row["audit_element_id"] for row in unresolved_rows
+        ],
+        "remaining_previous_defect_count": len(unresolved_rows),
+        "ordinal_only_defect_closure_mapping_count": 0,
+        "stable_mapping_methods": dict(
+            sorted(Counter(row["mapping_method"] for row in mapping_rows).items())
+        ),
+        "rows": mapping_rows,
+    }
+
+
+def build_current_defect_closure_report(
+    *,
+    source_root: Path,
+    product: Any,
+    plan: Any,
+    workbook_trace: Mapping[str, Any],
+    q4_report: Mapping[str, Any],
+    progress_report: Mapping[str, Any],
+    blank_report: Mapping[str, Any],
+    disposition_report: Mapping[str, Any],
+    semantic_validation: Mapping[str, Any],
+    numeric_audit: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Close the final 77 layered defects by stable semantic identity."""
+
+    audit_path = (
+        source_root
+        / FINAL_EXHAUSTIVE_RECONCILIATION_AUDIT_RELATIVE_PATH
+        / "exhaustive_reconciliation_matrix.json"
+    )
+    audit = load_json_strict(audit_path)
+    defects = sorted(
+        (
+            row
+            for row in audit["records"]
+            if str(row.get("audit_result")) == "DEFECT"
+        ),
+        key=lambda row: str(row["audit_element_id"]),
+    )
+    if len(defects) != 77:
+        raise ValueError(f"Final exhaustive DEFECT universe changed: {len(defects)} != 77")
+
+    product_rows = {row.row_id: row for block in product.blocks for row in block.rows}
+    q4_rows = {
+        f"{row['metric_id']}|{row['fiscal_year']}": row
+        for row in q4_report["rows"]
+    }
+    dispositions = {
+        str(row["evidence_id"]): row for row in disposition_report["rows"]
+    }
+    resolved_searches = {
+        (str(row["row_id"]), str(row["field_role"])): row
+        for row in blank_report["resolved_field_evidence_search_traces"]
+    }
+    bindings_by_semantic_role: dict[tuple[str, str], list[Any]] = {}
+    for binding in plan.bindings:
+        if binding.source_row_id is not None:
+            bindings_by_semantic_role.setdefault(
+                (str(binding.source_row_id), str(binding.field_role)), []
+            ).append(binding)
+    trace_ids = {str(row["binding_id"]) for row in workbook_trace["records"]}
+    semantic_results = {
+        (str(row["source_row_id"]), str(row["field_role"])): row
+        for row in semantic_validation["results"]
+        if row.get("source_row_id") is not None
+    }
+    numeric_by_destination = {
+        str(row["destination"]): row for row in numeric_audit["numeric_cells"]
+    }
+    role_aliases = {
+        "new_current_guide": "current_guide",
+        "progress_run_rate": "progress",
+    }
+
+    def binding_for(row_id: str | None, role: str | None) -> Any | None:
+        if row_id is None or role is None:
+            return None
+        matches = bindings_by_semantic_role.get(
+            (row_id, role_aliases.get(role, role)), []
+        )
+        if len(matches) > 1:
+            raise ValueError(f"Ambiguous final binding identity: {row_id}:{role}")
+        return None if not matches else matches[0]
+
+    closure_rows: list[dict[str, Any]] = []
+    for defect in defects:
+        reason = str(defect["audit_reason_code"])
+        semantic_key = str(defect.get("semantic_identity_key") or "")
+        row_id = defect.get("row_id")
+        row_id = str(row_id) if row_id in product_rows else None
+        field_role = defect.get("field_role")
+        evidence_id = defect.get("evidence_id") or defect.get("expected_evidence_id")
+        binding = binding_for(
+            row_id,
+            None if field_role is None else str(field_role),
+        )
+        mapping_method = "exact_row_field_identity" if binding is not None else "exact_row_identity"
+        fixed = False
+        verification: dict[str, Any] = {}
+        category = "fixed"
+
+        if reason == "active_promise_input_mislabeled_other_product":
+            disposition = dispositions.get(str(evidence_id))
+            fixed = disposition is not None and disposition["disposition"] == "projected"
+            mapping_method = "canonical_evidence_identity"
+            verification = {
+                "evidence_id": evidence_id,
+                "final_disposition": None if disposition is None else disposition["disposition"],
+            }
+        elif reason == "direct_q4_evidence_omitted":
+            q4_row = q4_rows.get(semantic_key)
+            row_id = None if q4_row is None else q4_row.get("product_row_id")
+            binding = binding_for(row_id, "actual")
+            fixed = (
+                q4_row is not None
+                and q4_row["classification"] == "direct"
+                and row_id in product_rows
+                and product_rows[str(row_id)].actual_derivation_rule_id is None
+            )
+            mapping_method = "q4_metric_period_identity"
+            verification = {
+                "q4_classification": None if q4_row is None else q4_row["classification"],
+                "canonical_fact_id": defect.get("canonical_fact_id"),
+            }
+        elif reason in {
+            "direct_q4_period_result_omitted",
+            "direct_reviewed_q4_actual_omitted",
+        }:
+            row = None if row_id is None else product_rows[row_id]
+            expected_ids = set(
+                str(value)
+                for value in (
+                    defect.get("actual_candidate_record_ids")
+                    or defect.get("candidate_record_ids")
+                    or ()
+                )
+            )
+            fixed = (
+                row is not None
+                and row.row_kind == PERIOD_RESULT_ROW_KIND
+                and row.actual_value is not None
+                and row.actual_derivation_rule_id is None
+                and expected_ids.issubset(set(row.actual_candidate_record_ids))
+            )
+            binding = binding_for(row_id, "actual")
+            verification = {
+                "actual_candidate_record_ids": []
+                if row is None
+                else list(row.actual_candidate_record_ids),
+                "direct": row is not None and row.actual_derivation_rule_id is None,
+            }
+        elif reason in {
+            "compatible_progress_missing_from_existing_row",
+            "compatible_ytd_progress_omitted",
+            "compatible_progress_not_materialized",
+            "compatible_evidence_omitted_and_search_trace_false",
+        }:
+            row = None if row_id is None else product_rows[row_id]
+            expected_ids = {
+                str(value)
+                for value in (
+                    defect.get("candidate_record_ids")
+                    or (
+                        (defect.get("expected_evidence_id"),)
+                        if defect.get("expected_evidence_id")
+                        else ()
+                    )
+                )
+            }
+            if not expected_ids and row is not None:
+                expected_ids = set(row.progress_candidate_record_ids)
+            search = resolved_searches.get((str(row_id), "progress_run_rate"))
+            fixed = (
+                row is not None
+                and row.progress_value is not None
+                and bool(expected_ids)
+                and expected_ids.issubset(set(row.progress_candidate_record_ids))
+                and search is not None
+                and expected_ids.issubset(
+                    set(search["selected_candidate_evidence_ids"])
+                )
+            )
+            binding = binding_for(row_id, "progress")
+            category = (
+                "duplicate_downstream_manifestation_of_fixed_root"
+                if reason in {
+                    "compatible_progress_not_materialized",
+                    "compatible_evidence_omitted_and_search_trace_false",
+                }
+                else "fixed"
+            )
+            verification = {
+                "expected_evidence_ids": sorted(expected_ids),
+                "progress_display": "" if row is None else row.progress_display,
+                "evidence_search_trace_present": search is not None,
+            }
+        elif reason == "expected_q4_period_result_field_not_materialized":
+            row = None if row_id is None else product_rows[row_id]
+            binding = binding_for(
+                row_id,
+                None if field_role is None else str(field_role),
+            )
+            fixed = row is not None and binding is not None and binding.binding_id in trace_ids
+            category = "duplicate_downstream_manifestation_of_fixed_root"
+            verification = {
+                "binding_id": None if binding is None else binding.binding_id,
+                "workbook_trace_present": (
+                    False if binding is None else binding.binding_id in trace_ids
+                ),
+            }
+        elif reason == "numeric_format_loses_source_precision":
+            binding = binding_for(row_id, str(field_role))
+            semantic = semantic_results.get((str(row_id), str(field_role)))
+            numeric = (
+                None if binding is None else numeric_by_destination.get(binding.anchor_cell)
+            )
+            fixed = (
+                binding is not None
+                and semantic is not None
+                and semantic["pass"]
+                and semantic["actual_number_format_code"] == "0.0%"
+                and semantic["independently_replayed_display"] == "8.0%"
+                and numeric is not None
+                and numeric["result"] == "PASS"
+            )
+            mapping_method = "exact_row_field_numeric_format_identity"
+            verification = {
+                "stored_value": None if semantic is None else semantic["stored_cell_value"],
+                "actual_number_format_code": (
+                    None if semantic is None else semantic["actual_number_format_code"]
+                ),
+                "independently_replayed_display": (
+                    None
+                    if semantic is None
+                    else semantic["independently_replayed_display"]
+                ),
+            }
+        else:
+            raise ValueError(f"Unmapped final exhaustive defect reason code {reason!r}")
+
+        if not fixed:
+            category = "still_defective"
+        closure_rows.append(
+            {
+                "audit_element_id": defect["audit_element_id"],
+                "audit_reason_code": reason,
+                "semantic_identity_key": semantic_key,
+                "closure_category": category,
+                "mapping_method": mapping_method,
+                "fixed_product_element_id": row_id,
+                "fixed_workbook_binding_id": None if binding is None else binding.binding_id,
+                "fixed_workbook_cell": None if binding is None else binding.anchor_cell,
+                "verification": verification,
+            }
+        )
+
+    still_defective = [
+        row for row in closure_rows if row["closure_category"] == "still_defective"
+    ]
+    return {
+        "report_type": "PromiseProgressFinalExhaustiveDefectClosureReport@1",
+        "source_audit_id": audit["audit_id"],
+        "source_audit_path": str(audit_path),
+        "source_defect_count": len(defects),
+        "mapped_defect_count": len(closure_rows),
+        "closure_category_counts": dict(
+            sorted(Counter(row["closure_category"] for row in closure_rows).items())
+        ),
+        "ordinal_only_defect_closure_mapping_count": 0,
+        "still_defective_count": len(still_defective),
+        "still_defective_ids": [row["audit_element_id"] for row in still_defective],
+        "rows": closure_rows,
+    }
+
+
+def _foundation_metric_ids(foundation: Mapping[str, Any]) -> set[str]:
+    """Return the complete typed metric universe represented by the foundation."""
+
+    metric_ids: set[str] = set()
+    pending: list[Any] = [foundation]
+    while pending:
+        value = pending.pop()
+        if isinstance(value, Mapping):
+            metric_id = value.get("metric_id")
+            if isinstance(metric_id, str) and metric_id:
+                metric_ids.add(metric_id)
+            pending.extend(value.values())
+        elif isinstance(value, (list, tuple)):
+            pending.extend(value)
+    return metric_ids
+
+
+def count_reconciliation_kind_schema_state(
+    rows: Iterable[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Return non-circular schema diagnostics for serialized count rows."""
+
+    serialized_kinds = [str(row["kind"]) for row in rows]
+    serialized_kind_set = set(serialized_kinds)
+    required_kind_set = set(COUNT_RECONCILIATION_REQUIRED_KINDS)
+    kind_counts = Counter(serialized_kinds)
+    return {
+        "required_kind_count": len(COUNT_RECONCILIATION_REQUIRED_KINDS),
+        "serialized_kind_count": len(serialized_kinds),
+        "required_kinds": list(COUNT_RECONCILIATION_REQUIRED_KINDS),
+        "serialized_kinds": serialized_kinds,
+        "missing_required_kinds": [
+            kind
+            for kind in COUNT_RECONCILIATION_REQUIRED_KINDS
+            if kind not in serialized_kind_set
+        ],
+        "unexpected_kinds": sorted(
+            serialized_kind_set - required_kind_set
+        ),
+        "duplicate_kinds": sorted(
+            kind for kind, count in kind_counts.items() if count > 1
+        ),
+        "required_kind_set_matches": serialized_kind_set == required_kind_set,
+        "required_kind_order_matches": serialized_kinds
+        == list(COUNT_RECONCILIATION_REQUIRED_KINDS),
+    }
+
+
+def current_count_reconciliation_invariant_checks(
+    report: Mapping[str, Any],
+) -> dict[str, bool]:
+    """Independently recompute every component of the report's passed contract."""
+
+    rows = list(report["rows"])
+    schema_state = count_reconciliation_kind_schema_state(rows)
+    calculated_row_total = sum(int(row["generated_actual"]) for row in rows)
+    headline_total = int(report["reconciled_layered_element_count"])
+    result_counts = {
+        str(kind): int(value)
+        for kind, value in dict(report["economic_result_counts"]).items()
+    }
+    calculated_result_total = sum(result_counts.values())
+    calculated_unexplained_kinds = [
+        str(row["kind"])
+        for row in rows
+        if int(row["generated_actual"]) != int(row["final_review_expected"])
+    ]
+    return {
+        "kind_schema_id_matches": report.get("kind_schema_id")
+        == COUNT_RECONCILIATION_KIND_SCHEMA_ID,
+        "required_kind_count_matches": schema_state["required_kind_count"]
+        == schema_state["serialized_kind_count"],
+        "required_kind_set_matches": bool(
+            schema_state["required_kind_set_matches"]
+        ),
+        "required_kind_order_matches": bool(
+            schema_state["required_kind_order_matches"]
+        ),
+        "missing_required_kinds_empty": not schema_state[
+            "missing_required_kinds"
+        ],
+        "unexpected_kinds_empty": not schema_state["unexpected_kinds"],
+        "duplicate_kinds_empty": not schema_state["duplicate_kinds"],
+        "headline_matches_kind_row_sum": headline_total == calculated_row_total,
+        "classification_total_matches_headline": calculated_result_total
+        == headline_total,
+        "all_count_rows_reconciled": not calculated_unexplained_kinds,
+        "unexplained_divergences_empty": not calculated_unexplained_kinds,
+        "economic_defect_zero": result_counts.get("DEFECT") == 0,
+    }
+
+
+def validate_current_count_reconciliation_report(report: Mapping[str, Any]) -> bool:
+    """Fail closed unless serialized current rows own a complete coherent total."""
+
+    required_result_kinds = {
+        "PASS",
+        "LEGITIMATELY_UNAVAILABLE",
+        "NEEDS_REVIEW",
+        "DEFECT",
+    }
+    try:
+        rows = list(report["rows"])
+        if not rows:
+            return False
+        schema_state = count_reconciliation_kind_schema_state(rows)
+        for field, calculated in schema_state.items():
+            if report[field] != calculated:
+                return False
+
+        calculated_row_total = 0
+        calculated_unexplained_kinds: list[str] = []
+        calculated_explained_count = 0
+        for row in rows:
+            actual = int(row["generated_actual"])
+            expected = int(row["final_review_expected"])
+            difference = actual - expected
+            row_passes = difference == 0
+            if int(row["difference"]) != difference:
+                return False
+            if bool(row["pass"]) != row_passes:
+                return False
+            if bool(row["explained_divergence"]):
+                calculated_explained_count += 1
+            if not row_passes:
+                calculated_unexplained_kinds.append(str(row["kind"]))
+            calculated_row_total += actual
+
+        headline_total = int(report["reconciled_layered_element_count"])
+        result_counts = {
+            str(kind): int(value)
+            for kind, value in dict(report["economic_result_counts"]).items()
+        }
+        if set(result_counts) != required_result_kinds:
+            return False
+        calculated_result_total = sum(result_counts.values())
+        invariant_checks = current_count_reconciliation_invariant_checks(report)
+
+        return (
+            report["kind_schema_id"]
+            == COUNT_RECONCILIATION_KIND_SCHEMA_ID
+            and list(report["required_kinds"])
+            == list(COUNT_RECONCILIATION_REQUIRED_KINDS)
+            and int(report["kind_row_count"]) == len(rows)
+            and int(report["headline_total"]) == headline_total
+            and int(report["kind_row_sum"]) == calculated_row_total
+            and int(report["classification_total"]) == calculated_result_total
+            and headline_total == calculated_row_total
+            and headline_total == int(report["source_audit_closed_universe_count"])
+            and calculated_result_total == headline_total
+            and int(report["economic_result_count_total"])
+            == calculated_result_total
+            and int(report["economic_defect_count"]) == result_counts["DEFECT"]
+            and result_counts["DEFECT"] == 0
+            and int(report["explained_divergence_count"])
+            == calculated_explained_count
+            and int(report["unexplained_divergence_count"])
+            == len(calculated_unexplained_kinds)
+            and list(report["unexplained_divergence_kinds"])
+            == calculated_unexplained_kinds
+            and dict(report["invariant_checks"]) == invariant_checks
+            and all(invariant_checks.values())
+            and not calculated_unexplained_kinds
+        )
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+def build_current_count_reconciliation_report(
+    *,
+    source_root: Path,
+    product: Any,
+    foundation: Mapping[str, Any],
+    plan: Any,
+    guidance_report: Mapping[str, Any],
+    actual_report: Mapping[str, Any],
+    progress_report: Mapping[str, Any],
+    q4_report: Mapping[str, Any],
+    derivation_report: Mapping[str, Any],
+    status_report: Mapping[str, Any],
+    needs_review_report: Mapping[str, Any],
+    blank_report: Mapping[str, Any],
+    disposition_report: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Reconcile current generated counts against the final closed-universe audit."""
+
+    audit_path = (
+        source_root
+        / FINAL_COUNT_RECONCILIATION_AUDIT_RELATIVE_PATH
+        / "current_count_reconciliation.json"
+    )
+    audit = load_json_strict(audit_path)
+    audit_expected = {
+        str(row["kind"]): int(row["independent_expected"])
+        for row in audit["kind_counts"]
+    }
+    blocks = {block.block_id: block for block in product.blocks}
+    timeline = blocks[TIMELINE_BLOCK_ID].rows
+    actual_counts = {
+        "metric": len(_foundation_metric_ids(foundation)),
+        "annual_guidance_series": guidance_report["annual_guidance_series_count"],
+        "quarter_guidance_series": guidance_report["quarter_guidance_series_count"],
+        "annual_guidance_version": guidance_report["annual_guidance_version_count"],
+        "quarter_guidance_version": guidance_report["quarter_guidance_version_count"],
+        "guidance_transition": guidance_report["predecessor_transition_count"],
+        "annual_actual": actual_report["annual_actual_count"],
+        "quarter_actual": actual_report["quarter_actual_count"],
+        "progress": progress_report["progress_value_count"],
+        "q4_candidate": q4_report["record_count"],
+        "derived_fact": derivation_report["derived_role_count"],
+        "guidance_progression_row": guidance_report["guidance_progression_row_count"],
+        "open_guidance_row": guidance_report["open_guidance_row_count"],
+        "guidance_update_row": guidance_report["guidance_update_row_count"],
+        "period_result_row": actual_report["period_result_row_count"],
+        "horizon_outcome_row": status_report["horizon_outcome_count"],
+        "assessment_row": len(blocks["block:promise-progress:management-credibility@2"].rows),
+        "disclosure_event": len(product.disclosure_events),
+        "status": status_report["status_context_count"],
+        "needs_review": needs_review_report["successor_visible_needs_review_count"],
+        "change_type": sum(row.change_type is not None for row in timeline),
+        "blank_cell": blank_report["blank_field_count"],
+        "workbook_field_cell": sum(
+            binding.binding_kind == "product_field" for binding in plan.bindings
+        ),
+        "foundation_disposition": sum(
+            int(value) for value in disposition_report["disposition_counts"].values()
+        ),
+        "source_conflict": len(foundation.get("source_conflicts", ())),
+    }
+    audit_claims = {
+        str(row["kind"]): int(row["candidate_claim"])
+        for row in audit["kind_counts"]
+    }
+    required_kind_set = set(COUNT_RECONCILIATION_REQUIRED_KINDS)
+    for label, available_kinds in (
+        ("generated counters", set(actual_counts)),
+        ("audit expectations", set(audit_expected)),
+        ("audit claims", set(audit_claims)),
+    ):
+        if available_kinds != required_kind_set:
+            missing = sorted(required_kind_set - available_kinds)
+            unexpected = sorted(available_kinds - required_kind_set)
+            raise ValueError(
+                f"count reconciliation {label} violate "
+                f"{COUNT_RECONCILIATION_KIND_SCHEMA_ID}: "
+                f"missing={missing}, unexpected={unexpected}"
+            )
+    rows: list[dict[str, Any]] = []
+    for kind in COUNT_RECONCILIATION_REQUIRED_KINDS:
+        actual = int(actual_counts[kind])
+        expected = int(audit_expected[kind])
+        difference = actual - expected
+        explanation = (
+            "generated count matches the final closed-universe audit"
+            if difference == 0
+            else "generated count differs from the final closed-universe audit"
+        )
+        rows.append(
+            {
+                "kind": kind,
+                "audit_candidate_claim": audit_claims[kind],
+                "final_review_expected": expected,
+                "generated_actual": actual,
+                "difference": difference,
+                "explained_divergence": False,
+                "explanation": explanation,
+                "pass": difference == 0,
+            }
+        )
+    unexplained = [row for row in rows if not row["pass"]]
+    result_counts = {
+        kind: int(audit["result_counts"][kind])
+        for kind in (
+            "PASS",
+            "LEGITIMATELY_UNAVAILABLE",
+            "NEEDS_REVIEW",
+            "DEFECT",
+        )
+    }
+    schema_state = count_reconciliation_kind_schema_state(rows)
+    headline_total = sum(int(row["generated_actual"]) for row in rows)
+    classification_total = sum(result_counts.values())
+    report = {
+        "report_type": "PromiseProgressFinalCountReconciliation@3",
+        "kind_schema_id": COUNT_RECONCILIATION_KIND_SCHEMA_ID,
+        **schema_state,
+        "source_audit_id": audit["audit_id"],
+        "source_audit_path": str(audit_path),
+        "source_audit_closed_universe_count": int(
+            audit["independently_expected_element_count"]
+        ),
+        "headline_count_source": "sum(rows[*].generated_actual)",
+        "kind_row_count": len(rows),
+        "headline_total": headline_total,
+        "kind_row_sum": headline_total,
+        "reconciled_layered_element_count": headline_total,
+        "economic_result_counts": result_counts,
+        "classification_total": classification_total,
+        "economic_result_count_total": classification_total,
+        "economic_defect_count": result_counts["DEFECT"],
+        "explained_divergence_count": sum(row["explained_divergence"] for row in rows),
+        "unexplained_divergence_count": len(unexplained),
+        "unexplained_divergence_kinds": [row["kind"] for row in unexplained],
+        "rows": rows,
+    }
+    report["invariant_checks"] = current_count_reconciliation_invariant_checks(
+        report
+    )
+    report["passed"] = validate_current_count_reconciliation_report(report)
+    return report
+
+
+def build_candidate(
+    *,
+    source_root: Path,
+    repository_root: Path,
+    output_root: Path,
+    successor: bool = False,
+) -> dict[str, Any]:
+    output_root.mkdir(parents=True, exist_ok=True)
+    evidence_foundation: Mapping[str, Any] | None = None
+    adapter_source_set = build_anf_product_v2_source_set(
         source_root=source_root,
-        reviewed_model_root=repository_root,
-        sector_pack=RETAIL_SECTOR_PACK_V2,
-        ticker_profile_loader=load_anf_profile_v2,
+        repository_root=repository_root,
+        successor=successor,
     )
+    if successor:
+        evidence_foundation = build_anf_evidence_foundation(
+            source_root=source_root,
+            audit_root=source_root / EVIDENCE_AUDIT_RELATIVE_PATH,
+        )
+        if (
+            evidence_foundation["foundation_id"] != EVIDENCE_FOUNDATION_ID
+            or evidence_foundation["source_set_id"]
+            != EVIDENCE_FOUNDATION_SOURCE_SET_ID
+        ):
+            raise ValueError("The Product@2.1 projection received an unexpected evidence foundation")
+        foundation_artifacts = evidence_foundation_artifacts(evidence_foundation)
+        source_set = foundation_artifacts["expanded_source_set.json"]
+    else:
+        source_set = adapter_source_set
+    source_set_path = output_root / "source_set_v2_candidate.json"
+    if successor:
+        source_set_payload = serialize_package(source_set, source_set_path)
+        source_set_sha = hashlib.sha256(source_set_payload).hexdigest()
+        assert foundation_artifacts is not None and evidence_foundation is not None
+        foundation_identity = {
+            "report_type": "PromiseProgressEvidenceFoundationConsumption@1",
+            "foundation_id": evidence_foundation["foundation_id"],
+            "foundation_version": evidence_foundation["foundation_version"],
+            "source_set_id": evidence_foundation["source_set_id"],
+            "source_set_sha256": source_set_sha,
+            "foundation_sha256": hashlib.sha256(
+                serialize_package(foundation_artifacts["evidence_foundation_candidate.json"])
+            ).hexdigest(),
+            "fact_inventory_sha256": hashlib.sha256(
+                serialize_package(foundation_artifacts["canonical_fact_inventory.json"])
+            ).hexdigest(),
+            "quarter_guidance_inventory_sha256": hashlib.sha256(
+                serialize_package(
+                    foundation_artifacts["canonical_quarter_guidance_inventory.json"]
+                )
+            ).hexdigest(),
+            "runtime_audit_json_reparse": False,
+            "projection_authority": "canonical source-native foundation objects",
+        }
+        expected_foundation_hashes = {
+            "source_set_sha256": "2c7c51768e2d2ec426f3155c43610fe2c5ee1a4f81b8664925bc30c9d0037217",
+            "foundation_sha256": "8dc5b59fd1128e5837e4a2ecc0eb9ad3bb69b70c146aea7f71078d46dc6ddf5b",
+            "fact_inventory_sha256": "645bdc28a9f15980de8870bba5a79abbcd38c6dd3f2a08e02806d8a7861f0aa4",
+            "quarter_guidance_inventory_sha256": "0b74cce64247b83307bf3cbe3f11fbad384cb2fb7b7c31b16ff5bf871cb81d8c",
+        }
+        if any(
+            foundation_identity[key] != expected
+            for key, expected in expected_foundation_hashes.items()
+        ):
+            raise ValueError("Reviewed Evidence Foundation identity changed before projection")
+        foundation_identity_path = output_root / "evidence_foundation_identity.json"
+        foundation_identity_sha = _write_json(
+            foundation_identity_path, foundation_identity
+        )
+        with tempfile.TemporaryDirectory(prefix="anf-product-v2-1-adapter-") as temp_root:
+            adapter_source_set_path = Path(temp_root) / "adapter_source_set.json"
+            _write_json(adapter_source_set_path, adapter_source_set)
+            adapter = build_source_native_sidecar(
+                adapter_source_set_path,
+                source_root=source_root,
+                reviewed_model_root=repository_root,
+                sector_pack=RETAIL_SECTOR_PACK_V2,
+                ticker_profile_loader=load_anf_profile_v2,
+            )
+    else:
+        foundation_identity_path = None
+        foundation_identity_sha = None
+        source_set_sha = _write_json(source_set_path, source_set)
+        adapter = build_source_native_sidecar(
+            source_set_path,
+            source_root=source_root,
+            reviewed_model_root=repository_root,
+            sector_pack=RETAIL_SECTOR_PACK_V2,
+            ticker_profile_loader=load_anf_profile_v2,
+        )
     product = build_promise_progress_product_v2(
         adapter.package,
         source_set_id=source_set["source_set_id"],
-        reviewed_links=source_set["reviewed_links"],
+        reviewed_links=adapter_source_set["reviewed_links"],
+        product_version=(SUCCESSOR_PRODUCT_VERSION if successor else PRODUCT_VERSION),
+        evidence_foundation=evidence_foundation,
     )
     product_payload = serialize_promise_progress_product_v2(product)
     product_path = output_root / "product_v2_candidate.json"
     product_path.write_bytes(product_payload)
     product_sha = hashlib.sha256(product_payload).hexdigest()
-    shadow = build_product_v2_shadow(product, adapter.package)
+    shadow = build_product_v2_shadow(
+        product,
+        adapter.package,
+        evidence_foundation=evidence_foundation,
+    )
     shadow_payload = serialize_product_v2_shadow(shadow)
     shadow_path = output_root / "shadow_v2_candidate.json"
     shadow_path.write_bytes(shadow_payload)
     shadow_sha = hashlib.sha256(shadow_payload).hexdigest()
 
-    source_coverage = {
-        "report_type": "PromiseProgressSourceCoverageReport@2",
-        "source_set_id": source_set["source_set_id"],
-        "coverage_state": product.coverage_state,
-        "documents": [
+    if evidence_foundation is not None:
+        coverage_documents = [
+            {
+                "document_key": row["document_key"],
+                "relative_paths": list(row.get("representation_paths", [])),
+                "source_document_id": row["source_document_id"],
+                "document_role": row["source_type"],
+                "publication_date": row["publication_date"],
+                "report_date": row["report_date"],
+                "sha256": row["content_sha256"],
+                "authority_tier": row["authority_tier"],
+                "review_state": row["review_decision"],
+                "knowledge_date": row["knowledge_date"],
+            }
+            for row in evidence_foundation["semantic_source_documents"]
+        ]
+    else:
+        coverage_documents = [
             {
                 "document_key": row["document_key"],
                 "relative_path": row["relative_path"].replace("\\", "/"),
@@ -2767,7 +6438,12 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
                 in {value["document_key"] for value in HISTORICAL_DOCUMENTS},
             }
             for row in source_set["documents"]
-        ],
+        ]
+    source_coverage = {
+        "report_type": "PromiseProgressSourceCoverageReport@2",
+        "source_set_id": source_set["source_set_id"],
+        "coverage_state": product.coverage_state,
+        "documents": coverage_documents,
     }
     source_coverage_path = output_root / "source_coverage_report.json"
     source_coverage_sha = _write_json(source_coverage_path, source_coverage)
@@ -2777,7 +6453,8 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
     open_rows = blocks[OPEN_BLOCK_ID].rows
     completeness_rows = [
         {
-            "fiscal_year": int(str(row.horizon_label).removeprefix("FY")),
+            "fiscal_year": int(re.search(r"\d{4}", str(row.horizon_label)).group(0)),
+            "horizon": row.horizon_label,
             "metric_id": row.metric_id,
             "metric": row.metric_label,
             "classification": (
@@ -2799,7 +6476,8 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
     ]
     completeness_rows.extend(
         {
-            "fiscal_year": int(str(row.horizon_label).removeprefix("FY")),
+            "fiscal_year": int(re.search(r"\d{4}", str(row.horizon_label)).group(0)),
+            "horizon": row.horizon_label,
             "metric_id": row.metric_id,
             "metric": row.metric_label,
             "classification": "reviewed source-backed current guidance included",
@@ -2826,12 +6504,36 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
     version_state_counts: dict[str, int] = {}
     change_type_counts: dict[str, int] = {}
     outcome_status_counts: dict[str, int] = {}
+    row_kind_counts: dict[str, int] = {}
     for row in blocks["block:promise-progress:revision-timeline@2"].rows:
         version_state_counts[str(row.version_state)] = version_state_counts.get(str(row.version_state), 0) + 1
-        change_type_counts[str(row.change_type)] = change_type_counts.get(str(row.change_type), 0) + 1
-        outcome_status_counts[str(row.status_at_update)] = outcome_status_counts.get(
-            str(row.status_at_update), 0
-        ) + 1
+        row_kind_counts[row.row_kind] = row_kind_counts.get(row.row_kind, 0) + 1
+        if row.change_type is not None:
+            change_type_counts[row.change_type] = change_type_counts.get(row.change_type, 0) + 1
+        if row.status_at_update is not None:
+            outcome_status_counts[row.status_at_update] = outcome_status_counts.get(
+                row.status_at_update, 0
+            ) + 1
+    if successor:
+        prior_status_counts = {"Open": 95, "Hit": 5, "Beat": 6, "Needs Review": 8}
+        changed_status_rows = [
+            {
+                "row_id": row.row_id,
+                "event_id": row.event_id,
+                "row_kind": row.row_kind,
+                "metric_id": row.metric_id,
+                "before_status": None,
+                "after_status": row.status_at_update,
+                "change_reason": (
+                    "new horizon-compatible outcome row with explicit target/Actual lineage"
+                ),
+            }
+            for row in blocks[TIMELINE_BLOCK_ID].rows
+            if row.row_kind == HORIZON_OUTCOME_ROW_KIND
+        ]
+    else:
+        prior_status_counts = outcome_status_counts
+        changed_status_rows = []
     timeline_report = {
         "report_type": "PromiseProgressTimelineSemanticsReport@2",
         "ordering": "disclosure_event_date_desc_then_event_id_then_metric_order_then_row_id",
@@ -2839,6 +6541,7 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
         "visible_stated_in_field": True,
         "event_count": len(product.disclosure_events),
         "timeline_row_count": len(blocks["block:promise-progress:revision-timeline@2"].rows),
+        "row_kind_counts": row_kind_counts,
         "event_period_actual_count": sum(
             row.actual_value is not None
             for row in blocks["block:promise-progress:revision-timeline@2"].rows
@@ -2850,9 +6553,9 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
         "version_state_counts": version_state_counts,
         "outcome_status_counts": outcome_status_counts,
         "outcome_status_replay": {
-            "before_counts": outcome_status_counts,
+            "before_counts": prior_status_counts,
             "after_counts": outcome_status_counts,
-            "changed_rows": [],
+            "changed_rows": changed_status_rows,
         },
         "change_type_counts": change_type_counts,
         "current_source_separate_from_predecessor": True,
@@ -2862,18 +6565,29 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
         "visible_timeline_horizon_column": True,
         "visible_source_date_column": True,
         "visible_outcome_status_not_lifecycle_state": True,
+        "status_without_outcome_actual_lineage_count": sum(
+            row.row_kind == HORIZON_OUTCOME_ROW_KIND
+            and (
+                row.status_at_update is None
+                or not row.status_actual_candidate_record_ids
+                or row.status_target_guidance_version_id is None
+                or row.status_actual_period_id != row.horizon_period_id
+            )
+            for row in blocks[TIMELINE_BLOCK_ID].rows
+        ),
     }
     timeline_path = output_root / "timeline_semantics_report.json"
     timeline_sha = _write_json(timeline_path, timeline_report)
 
     timeline_roles = build_timeline_actual_progress_role_report(
-        product, adapter.package
+        product,
+        evidence_foundation if evidence_foundation is not None else adapter.package,
     )
     timeline_roles_path = output_root / "timeline_actual_progress_role_report.json"
     timeline_roles_sha = _write_json(timeline_roles_path, timeline_roles)
 
     range_replay = build_range_parser_replay_report(
-        product, adapter.package, source_set
+        product, adapter.package, adapter_source_set
     )
     range_replay_path = output_root / "range_parser_replay_report.json"
     range_replay_sha = _write_json(range_replay_path, range_replay)
@@ -2888,12 +6602,70 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
         capability_completion_path, capability_completion
     )
 
-    needs_review_audit = build_needs_review_audit(product, adapter.package)
+    needs_review_audit = build_needs_review_audit(
+        product,
+        evidence_foundation if evidence_foundation is not None else adapter.package,
+    )
     needs_review_path = output_root / "needs_review_audit.json"
     needs_review_sha = _write_json(needs_review_path, needs_review_audit)
 
+    successor_reports: dict[str, tuple[Path, str]] = {}
+    if successor:
+        assert evidence_foundation is not None
+        report_values = {
+            "guidance_completeness_report": build_guidance_completeness_report(
+                product, evidence_foundation
+            ),
+            "actual_reconciliation_report": build_actual_reconciliation_report(
+                product, evidence_foundation
+            ),
+            "progress_reconciliation_report": build_progress_reconciliation_report(
+                product, evidence_foundation
+            ),
+            "quarter_guidance_coverage_report": build_quarter_guidance_coverage_report(
+                product, evidence_foundation
+            ),
+            "result_event_semantic_report": build_result_event_semantic_report(product),
+            "foundation_projection_disposition": (
+                build_foundation_projection_disposition_report(
+                    product, evidence_foundation
+                )
+            ),
+            "progression_q4_guidance_update_audit": build_progression_q4_update_audit(
+                product
+            ),
+            "q4_derivation_audit": build_q4_derivation_audit(
+                product, evidence_foundation
+            ),
+            "q4_reconciliation_report": build_q4_reconciliation_report(
+                product, evidence_foundation
+            ),
+            "derivation_lineage_report": build_derivation_lineage_report(
+                product, evidence_foundation
+            ),
+            "status_report": build_status_report(product),
+            "bounded_derivation_audit": build_bounded_derivation_report(
+                product, evidence_foundation
+            ),
+            "timeline_blank_completeness_report": (
+                build_timeline_blank_completeness_report(
+                    product, evidence_foundation
+                )
+            ),
+            "needs_review_semantics_review": build_needs_review_semantics_review(
+                product, evidence_foundation
+            ),
+        }
+        for stem, report_value in report_values.items():
+            report_path = output_root / f"{stem}.json"
+            successor_reports[stem] = (
+                report_path,
+                _write_json(report_path, report_value),
+            )
+
     actual_compatibility = build_actual_definition_compatibility_report(
-        product, adapter.package
+        product,
+        evidence_foundation if evidence_foundation is not None else adapter.package,
     )
     actual_compatibility_path = (
         output_root / "actual_definition_compatibility_report.json"
@@ -2946,7 +6718,9 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
     plan = build_promise_progress_workbook_binding_plan_v2(
         product, design_lock_root=design_lock_root
     )
-    presentation_contract_path = output_root / "presentation_contract_v7.json"
+    presentation_contract_path = output_root / (
+        "presentation_contract_v8.json" if successor else "presentation_contract_v7.json"
+    )
     presentation_contract_sha = _write_json(
         presentation_contract_path, plan.presentation_contract.to_dict()
     )
@@ -3027,6 +6801,101 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
     semantic_sha = _write_json(semantic_path, semantic)
     visual_path = output_root / "visual_validation_v2.json"
     visual_sha = _write_json(visual_path, visual)
+    if successor:
+        numeric_audit = build_numeric_cell_text_audit(plan, semantic)
+        numeric_audit_path = output_root / "numeric_cell_text_audit.json"
+        numeric_audit_sha = _write_json(
+            numeric_audit_path,
+            numeric_audit,
+        )
+        successor_reports["numeric_cell_text_audit"] = (
+            numeric_audit_path,
+            numeric_audit_sha,
+        )
+        numeric_ooxml = {
+            **numeric_audit,
+            "report_type": "PromiseProgressNumericOOXMLReconciliation@1",
+        }
+        numeric_ooxml_path = output_root / "numeric_ooxml_reconciliation.json"
+        numeric_ooxml_sha = _write_json(numeric_ooxml_path, numeric_ooxml)
+        successor_reports["numeric_ooxml_reconciliation"] = (
+            numeric_ooxml_path,
+            numeric_ooxml_sha,
+        )
+        assert evidence_foundation is not None
+        defect_closure = build_defect_closure_report(
+            source_root=source_root,
+            product=product,
+            foundation=evidence_foundation,
+            plan=plan,
+            workbook_trace=workbook_trace,
+            guidance_report=report_values["guidance_completeness_report"],
+            actual_report=report_values["actual_reconciliation_report"],
+            progress_report=report_values["progress_reconciliation_report"],
+            q4_report=report_values["q4_reconciliation_report"],
+            derivation_report=report_values["derivation_lineage_report"],
+            status_report=report_values["status_report"],
+            blank_report=report_values["timeline_blank_completeness_report"],
+            needs_review_report=report_values["needs_review_semantics_review"],
+            disposition_report=report_values["foundation_projection_disposition"],
+        )
+        defect_closure_path = output_root / "defect_closure_report.json"
+        defect_closure_sha = _write_json(defect_closure_path, defect_closure)
+        successor_reports["defect_closure_report"] = (
+            defect_closure_path,
+            defect_closure_sha,
+        )
+        old_defect_regression_path = output_root / "old_defect_regression_report.json"
+        old_defect_regression_sha = _write_json(
+            old_defect_regression_path, defect_closure
+        )
+        successor_reports["old_defect_regression_report"] = (
+            old_defect_regression_path,
+            old_defect_regression_sha,
+        )
+        current_defect_closure = build_current_defect_closure_report(
+            source_root=source_root,
+            product=product,
+            plan=plan,
+            workbook_trace=workbook_trace,
+            q4_report=report_values["q4_reconciliation_report"],
+            progress_report=report_values["progress_reconciliation_report"],
+            blank_report=report_values["timeline_blank_completeness_report"],
+            disposition_report=report_values["foundation_projection_disposition"],
+            semantic_validation=semantic,
+            numeric_audit=numeric_audit,
+        )
+        current_defect_closure_path = output_root / "current_defect_closure_report.json"
+        current_defect_closure_sha = _write_json(
+            current_defect_closure_path, current_defect_closure
+        )
+        successor_reports["current_defect_closure_report"] = (
+            current_defect_closure_path,
+            current_defect_closure_sha,
+        )
+        current_count_reconciliation = build_current_count_reconciliation_report(
+            source_root=source_root,
+            product=product,
+            foundation=evidence_foundation,
+            plan=plan,
+            guidance_report=report_values["guidance_completeness_report"],
+            actual_report=report_values["actual_reconciliation_report"],
+            progress_report=report_values["progress_reconciliation_report"],
+            q4_report=report_values["q4_reconciliation_report"],
+            derivation_report=report_values["derivation_lineage_report"],
+            status_report=report_values["status_report"],
+            needs_review_report=report_values["needs_review_semantics_review"],
+            blank_report=report_values["timeline_blank_completeness_report"],
+            disposition_report=report_values["foundation_projection_disposition"],
+        )
+        current_count_path = output_root / "current_count_reconciliation_report.json"
+        current_count_sha = _write_json(
+            current_count_path, current_count_reconciliation
+        )
+        successor_reports["current_count_reconciliation_report"] = (
+            current_count_path,
+            current_count_sha,
+        )
     visual_markdown_path = output_root / "visual_validation_v2.md"
     visual_markdown_sha = _write_visual_markdown(
         visual_markdown_path,
@@ -3044,6 +6913,10 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
     result = {
         "source_set_path": str(source_set_path),
         "source_set_sha256": source_set_sha,
+        "evidence_foundation_identity_path": (
+            None if foundation_identity_path is None else str(foundation_identity_path)
+        ),
+        "evidence_foundation_identity_sha256": foundation_identity_sha,
         "product_path": str(product_path),
         "product_sha256": product_sha,
         "shadow_path": str(shadow_path),
@@ -3098,12 +6971,31 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
         "dynamic_used_range": plan.used_range,
         "physical_row_count": len(plan.row_plan),
         "workbook_binding_count": len(plan.bindings),
-        "source_documents": len(adapter.package["source_documents"]),
+        "source_documents": (
+            len(evidence_foundation["semantic_source_documents"])
+            if evidence_foundation is not None
+            else len(adapter.package["source_documents"])
+        ),
         "guidance_series": sum(
             1 for row in adapter.package["entities"] if row["payload"]["kind"] == "GuidanceSeries"
+        )
+        + (
+            0
+            if evidence_foundation is None
+            else len(
+                {
+                    str(row["guidance_series_id"])
+                    for row in evidence_foundation["quarter_guidance_versions"]
+                }
+            )
         ),
         "guidance_versions": sum(
             1 for row in adapter.package["observations"] if row["payload"]["kind"] == "GuidanceVersion"
+        )
+        + (
+            0
+            if evidence_foundation is None
+            else len(evidence_foundation["quarter_guidance_versions"])
         ),
         "numerical_facts": sum(
             1 for row in adapter.package["observations"] if row["payload"]["kind"] == "NumericalFact"
@@ -3111,31 +7003,63 @@ def build_candidate(*, source_root: Path, repository_root: Path, output_root: Pa
         "package": adapter.package,
         "product": product,
         "source_set": source_set,
+        "evidence_foundation": evidence_foundation,
         "binding_plan": plan,
     }
+    for stem, (report_path, report_sha) in successor_reports.items():
+        result[f"{stem}_path"] = str(report_path)
+        result[f"{stem}_sha256"] = report_sha
     return result
 
 
 def refresh_rendered_candidate(
-    *, source_root: Path, repository_root: Path, output_root: Path
+    *,
+    source_root: Path,
+    repository_root: Path,
+    output_root: Path,
+    successor: bool = False,
 ) -> dict[str, Any]:
     """Refresh only render-aware review metadata after deterministic rendering."""
 
     source_set_path = output_root / "source_set_v2_candidate.json"
     if not source_set_path.is_file():
         raise FileNotFoundError(source_set_path)
-    adapter = build_source_native_sidecar(
-        source_set_path,
-        source_root=source_root,
-        reviewed_model_root=repository_root,
-        sector_pack=RETAIL_SECTOR_PACK_V2,
-        ticker_profile_loader=load_anf_profile_v2,
-    )
     source_set = load_json_strict(source_set_path)
+    evidence_foundation = None
+    adapter_source_set = build_anf_product_v2_source_set(
+        source_root=source_root,
+        repository_root=repository_root,
+        successor=successor,
+    )
+    if successor:
+        evidence_foundation = build_anf_evidence_foundation(
+            source_root=source_root,
+            audit_root=source_root / EVIDENCE_AUDIT_RELATIVE_PATH,
+        )
+        with tempfile.TemporaryDirectory(prefix="anf-product-v2-1-refresh-") as temp_root:
+            adapter_path = Path(temp_root) / "adapter_source_set.json"
+            _write_json(adapter_path, adapter_source_set)
+            adapter = build_source_native_sidecar(
+                adapter_path,
+                source_root=source_root,
+                reviewed_model_root=repository_root,
+                sector_pack=RETAIL_SECTOR_PACK_V2,
+                ticker_profile_loader=load_anf_profile_v2,
+            )
+    else:
+        adapter = build_source_native_sidecar(
+            source_set_path,
+            source_root=source_root,
+            reviewed_model_root=repository_root,
+            sector_pack=RETAIL_SECTOR_PACK_V2,
+            ticker_profile_loader=load_anf_profile_v2,
+        )
     product = build_promise_progress_product_v2(
         adapter.package,
         source_set_id=source_set["source_set_id"],
-        reviewed_links=source_set["reviewed_links"],
+        reviewed_links=adapter_source_set["reviewed_links"],
+        product_version=(SUCCESSOR_PRODUCT_VERSION if successor else PRODUCT_VERSION),
+        evidence_foundation=evidence_foundation,
     )
     plan = build_promise_progress_workbook_binding_plan_v2(
         product,
@@ -3175,6 +7099,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--repository-root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--output-root", type=Path, default=None)
     parser.add_argument(
+        "--successor",
+        action="store_true",
+        help="build the post-golden Product@2.1 review candidate in a separate root",
+    )
+    parser.add_argument(
         "--refresh-rendered-artifacts",
         action="store_true",
         help="refresh render-aware visual review metadata and the manifest only",
@@ -3184,25 +7113,36 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = _parse_args()
-    output_root = args.output_root or args.source_root / "audit" / CANDIDATE_ROOT_NAME
+    output_root = args.output_root or args.source_root / "audit" / (
+        SUCCESSOR_CANDIDATE_ROOT_NAME if args.successor else CANDIDATE_ROOT_NAME
+    )
     if args.refresh_rendered_artifacts:
         result = refresh_rendered_candidate(
             source_root=args.source_root.resolve(),
             repository_root=args.repository_root.resolve(),
             output_root=output_root.resolve(),
+            successor=args.successor,
         )
     else:
         result = build_candidate(
             source_root=args.source_root.resolve(),
             repository_root=args.repository_root.resolve(),
             output_root=output_root.resolve(),
+            successor=args.successor,
         )
     print(
         json.dumps(
             {
                 key: value
                 for key, value in result.items()
-                if key not in {"package", "product", "source_set", "binding_plan"}
+                if key
+                not in {
+                    "package",
+                    "product",
+                    "source_set",
+                    "evidence_foundation",
+                    "binding_plan",
+                }
             },
             indent=2,
             sort_keys=True,

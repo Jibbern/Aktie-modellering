@@ -5,6 +5,7 @@ import copy
 import hashlib
 import inspect
 import json
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from zipfile import ZipFile
@@ -20,7 +21,13 @@ from pbi_xbrl.longitudinal_memory.promise_progress_product_v2 import (
     OPEN_BLOCK_ID,
     PRODUCT_TYPE,
     PRODUCT_VERSION,
+    Q4_ADD_FY_MINUS_QUARTERS_RULE_ID,
+    Q4_ADD_FY_MINUS_YTD_RULE_ID,
     PROGRESSION_BLOCK_ID,
+    GUIDANCE_UPDATE_ROW_KIND,
+    PERIOD_RESULT_ROW_KIND,
+    HORIZON_OUTCOME_ROW_KIND,
+    SUCCESSOR_PRODUCT_VERSION,
     TIMELINE_BLOCK_ID,
     VERSION_STATES,
     PromiseProgressProductV2Error,
@@ -29,6 +36,12 @@ from pbi_xbrl.longitudinal_memory.promise_progress_product_v2 import (
     build_promise_progress_product_v2,
     classify_timeline_fact_role,
     classify_change,
+    compatible_foundation_metric_ids,
+    derive_q4_additive_from_fy_quarters,
+    derive_q4_additive_from_fy_ytd,
+    derive_q4_growth_from_amounts,
+    derive_q4_margin_from_components,
+    display_value,
     promise_progress_product_v2_sha256,
     serialize_product_v2_shadow,
     serialize_promise_progress_product_v2,
@@ -38,6 +51,7 @@ from pbi_xbrl.longitudinal_memory.promise_progress_projection import (
     serialize_promise_progress_product,
     serialize_shadow_matrix,
 )
+from pbi_xbrl.longitudinal_memory.serialization import serialize_package
 from pbi_xbrl.longitudinal_memory.sector_packs.retail import (
     RETAIL_SECTOR_PACK,
     RETAIL_SECTOR_PACK_V2,
@@ -53,16 +67,23 @@ from pbi_xbrl.longitudinal_memory.ticker_profiles.anf import (
     load_anf_profile,
     load_anf_profile_v2,
 )
+from pbi_xbrl.longitudinal_memory.ticker_profiles.anf_evidence_foundation import (
+    SOURCE_SET_ID as EVIDENCE_FOUNDATION_SOURCE_SET_ID,
+    build_anf_evidence_foundation,
+    candidate_artifacts as evidence_foundation_artifacts,
+)
 from pbi_xbrl.promise_progress_workbook_preview import (
     EXPECTED_ANF_PRODUCT_SHA256,
     EXPECTED_ANF_SHADOW_SHA256,
     EXPECTED_ANF_WORKBOOK_SHA256,
     PRODUCT_V2_PRESENTATION_CONTRACT_ID,
+    SUCCESSOR_PRODUCT_V2_PRESENTATION_CONTRACT_ID,
     PRODUCT_V2_COMPACT_CHANGE_TRANSFORM_ID,
     PromiseProgressWorkbookPreviewError,
     _cell_text,
     _parse_xml,
     _resolve_target_sheet,
+    _serialize_xml,
     _shared_strings,
     _worksheet_cell_map,
     build_promise_progress_workbook_binding_plan_v2,
@@ -75,17 +96,43 @@ from pbi_xbrl.promise_progress_workbook_preview import (
     validate_preview_structure_v2,
     validate_preview_visual_fit_v2,
     validate_promise_progress_workbook_binding_plan_v2,
+    replay_ooxml_numeric_display,
 )
 from scripts.build_anf_promise_progress_product_v2 import (
+    COUNT_RECONCILIATION_KIND_SCHEMA_ID,
+    COUNT_RECONCILIATION_REQUIRED_KINDS,
+    FINAL_CLOSURE_MANIFEST_FILENAMES,
     SOURCE_SET_ID,
     _json_bytes,
+    _write_visual_markdown,
     build_actual_definition_compatibility_report,
     build_anf_product_v2_source_set,
     build_capability_completion_report,
     build_legacy_capability_completeness_report,
     build_needs_review_audit,
+    build_needs_review_semantics_review,
+    build_numeric_cell_text_audit,
+    build_progression_q4_update_audit,
+    build_q4_derivation_audit,
+    build_bounded_derivation_report,
+    build_foundation_projection_disposition_report,
+    build_guidance_completeness_report,
+    build_actual_reconciliation_report,
+    build_progress_reconciliation_report,
+    build_q4_reconciliation_report,
+    build_derivation_lineage_report,
+    build_status_report,
+    build_defect_closure_report,
+    build_current_defect_closure_report,
+    build_current_count_reconciliation_report,
+    count_reconciliation_kind_schema_state,
+    current_count_reconciliation_invariant_checks,
+    validate_current_count_reconciliation_report,
+    build_quarter_guidance_coverage_report,
+    build_result_event_semantic_report,
     build_range_parser_replay_report,
     build_timeline_actual_progress_role_report,
+    build_timeline_blank_completeness_report,
     build_timeline_knowledge_date_report,
 )
 
@@ -94,6 +141,14 @@ REPO = Path(__file__).resolve().parents[1]
 SOURCE_ROOT = Path(r"C:\Users\Jibbe\Aktier\StockModelData")
 LEGACY_WORKBOOK = SOURCE_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
 DESIGN_LOCK = SOURCE_ROOT / "audit" / "promise_progress_design_lock"
+EVIDENCE_AUDIT_ROOT = (
+    SOURCE_ROOT / "audit" / "anf_local_source_review_authority_expansion_audit_2026-08-09"
+)
+FINAL_EXHAUSTIVE_AUDIT_ROOT = (
+    SOURCE_ROOT
+    / "audit"
+    / "promise_progress_product_v2_1_final_exhaustive_semantic_reconciliation_acceptance_audit"
+)
 V1_ORACLE = REPO / "tests" / "fixtures" / "promise_progress" / "anf_legacy_oracle.v1.json"
 V2_SOURCE_SET_GOLDEN = (
     REPO / "tests" / "fixtures" / "longitudinal_memory" / "anf_source_set.v2.json"
@@ -107,6 +162,36 @@ V2_MANIFEST_GOLDEN = (
     / "promise_progress"
     / "anf_product_v2_golden_manifest.v1.json"
 )
+V2_1_SOURCE_SET_GOLDEN = (
+    REPO / "tests" / "fixtures" / "longitudinal_memory" / "anf_source_set.v2_1.json"
+)
+V2_1_FOUNDATION_IDENTITY_GOLDEN = (
+    REPO
+    / "tests"
+    / "fixtures"
+    / "longitudinal_memory"
+    / "anf_evidence_foundation_identity.v2_1.json"
+)
+V2_1_PRODUCT_GOLDEN = (
+    REPO / "tests" / "fixtures" / "promise_progress" / "anf_product.v2_1.json"
+)
+V2_1_SHADOW_GOLDEN = (
+    REPO / "tests" / "fixtures" / "promise_progress" / "anf_shadow.v2_1.json"
+)
+V2_1_COUNT_REPORT_GOLDEN = (
+    REPO
+    / "tests"
+    / "fixtures"
+    / "promise_progress"
+    / "anf_count_reconciliation.v2_1.json"
+)
+V2_1_MANIFEST_GOLDEN = (
+    REPO
+    / "tests"
+    / "fixtures"
+    / "promise_progress"
+    / "anf_product_v2_1_golden_manifest.v1.json"
+)
 
 EXPECTED_V2_SOURCE_SET_SHA256 = "73a385b0d9c351b5356c34b06ef8d3bb71fcc9f9b503f278bdc550621016a877"
 EXPECTED_V2_PRODUCT_SHA256 = "72266543e1c122691dfcdd6d0ee0e472707e527029e719a50881c417da328a05"
@@ -117,6 +202,40 @@ EXPECTED_V2_TARGET_SEMANTIC_SHA256 = "ff97dc2064c83b574c4c3f27c6a5b83a9b6e6b4ede
 EXPECTED_V2_TRACE_SHA256 = "4e06902da38963c04e439a921248946550247c7cf26c5be3943837b561a34f7c"
 EXPECTED_V2_MANIFEST_FILE_SHA256 = "d9cf40475d444043fdb3b21507b1efd2ca05115a62287ce406e77e8e6d5a7d3e"
 EXPECTED_V2_MANIFEST_DIGEST = "db9c8c27ee37c4275768dcd34fc7e11b64e82e6eb21b4c1fdcca3fd4e5dfbc30"
+
+EXPECTED_SUCCESSOR_SOURCE_SET_SHA256 = (
+    "2c7c51768e2d2ec426f3155c43610fe2c5ee1a4f81b8664925bc30c9d0037217"
+)
+EXPECTED_SUCCESSOR_PRODUCT_SHA256 = (
+    "ec2b98c41ce05566bec53133fb05b92c1a77b65ad890cd94f71dc0cc1a515584"
+)
+EXPECTED_SUCCESSOR_SHADOW_SHA256 = (
+    "094ba58548643587b93eb07e96a42742ddf297f8b3702937c72a83f5196007bc"
+)
+EXPECTED_SUCCESSOR_WORKBOOK_SHA256 = (
+    "48c4ea0ddef8f710c07c1a0acde03a5004a98afc15046b9f24cf817ea40178e4"
+)
+EXPECTED_SUCCESSOR_CANONICAL_OOXML_SHA256 = (
+    "6b70ba37e71376812bb09f21b9ed8212184b5f216236a3347ac1cf0a9fba6680"
+)
+EXPECTED_SUCCESSOR_TARGET_SEMANTIC_SHA256 = (
+    "f04f842064bf637d0bffaa217509e6d093639f1b63e6ad04ed546437e6b93c62"
+)
+EXPECTED_SUCCESSOR_TRACE_SHA256 = (
+    "d01665d73a692f057f8b0c782ecfcde0139e567aa1c54724c1efcfac6013ef4b"
+)
+EXPECTED_SUCCESSOR_COUNT_REPORT_SHA256 = (
+    "8b761e2b3a6e923e3d956302443cf20087839725ee09eecacab23182befed5a2"
+)
+EXPECTED_SUCCESSOR_FOUNDATION_IDENTITY_SHA256 = (
+    "8fa26d58c3d4b59897fca3e1eb5ec92255008d861775016c268c71b9333dd82c"
+)
+EXPECTED_SUCCESSOR_FOUNDATION_SHA256 = (
+    "8dc5b59fd1128e5837e4a2ecc0eb9ad3bb69b70c146aea7f71078d46dc6ddf5b"
+)
+EXPECTED_V2_1_GOLDEN_MANIFEST_SHA256 = (
+    "3c4893fdcd190f5f184e53e44254f170d67da24a723399f0a94adf39501881cc"
+)
 
 
 def _strict_json(path: Path) -> dict:
@@ -199,6 +318,81 @@ def candidate(tmp_path_factory):
         second=second,
         first_result=first_result,
         second_result=second_result,
+    )
+
+
+@pytest.fixture(scope="module")
+def successor_candidate(tmp_path_factory):
+    root = tmp_path_factory.mktemp("promise-progress-product-v2-successor")
+    adapter_source_set = build_anf_product_v2_source_set(
+        source_root=SOURCE_ROOT,
+        repository_root=REPO,
+        successor=True,
+    )
+    source_set_path = root / "source_set.json"
+    source_set_path.write_bytes(_json_bytes(adapter_source_set))
+    package = build_source_native_sidecar(
+        source_set_path,
+        source_root=SOURCE_ROOT,
+        reviewed_model_root=REPO,
+        sector_pack=RETAIL_SECTOR_PACK_V2,
+        ticker_profile_loader=load_anf_profile_v2,
+    ).package
+    evidence_foundation = build_anf_evidence_foundation(
+        source_root=SOURCE_ROOT,
+        audit_root=EVIDENCE_AUDIT_ROOT,
+    )
+    source_set = evidence_foundation_artifacts(evidence_foundation)[
+        "expanded_source_set.json"
+    ]
+    product = build_promise_progress_product_v2(
+        package,
+        source_set_id=evidence_foundation["source_set_id"],
+        reviewed_links=adapter_source_set["reviewed_links"],
+        product_version=SUCCESSOR_PRODUCT_VERSION,
+        evidence_foundation=evidence_foundation,
+    )
+    plan = build_promise_progress_workbook_binding_plan_v2(
+        product, design_lock_root=DESIGN_LOCK
+    )
+    first = root / "first.xlsx"
+    second = root / "second.xlsx"
+    first_result = materialize_promise_progress_preview_v2(
+        product,
+        plan,
+        legacy_workbook=LEGACY_WORKBOOK,
+        output_workbook=first,
+        design_lock_root=DESIGN_LOCK,
+    )
+    second_result = materialize_promise_progress_preview_v2(
+        product,
+        plan,
+        legacy_workbook=LEGACY_WORKBOOK,
+        output_workbook=second,
+        design_lock_root=DESIGN_LOCK,
+    )
+    structural = validate_preview_structure_v2(
+        legacy_workbook=LEGACY_WORKBOOK,
+        preview_workbook=first,
+        plan=plan,
+    )
+    semantic = validate_preview_semantics_v2(product, plan, preview_workbook=first)
+    visual = validate_preview_visual_fit_v2(preview_workbook=first, plan=plan)
+    return SimpleNamespace(
+        root=root,
+        source_set=source_set,
+        adapter_source_set=adapter_source_set,
+        evidence_foundation=evidence_foundation,
+        package=package,
+        product=product,
+        plan=plan,
+        first=first,
+        second=second,
+        first_result=first_result,
+        second_result=second_result,
+        structural=structural,
+        semantic=semantic,
+        visual=visual,
     )
 
 
@@ -2124,3 +2318,1734 @@ def test_compact_width_classes_fit_generic_cross_ticker_cases(
         if row.source_row_id == mutated_row.row_id
     )
     assert dict(plan.row_heights)[row_number] in {24, 40}
+
+
+def _q4_test_periods() -> dict[str, dict]:
+    return {
+        "fy": {
+            "period_id": "fy",
+            "period_type": "annual",
+            "fiscal_year": 2025,
+            "calendar_id": "calendar:anf",
+        },
+        "ytd": {
+            "period_id": "ytd",
+            "period_type": "ytd",
+            "fiscal_year": 2025,
+            "fiscal_quarter": 3,
+            "calendar_id": "calendar:anf",
+        },
+        "q1": {"period_id": "q1", "period_type": "quarter", "fiscal_year": 2025, "fiscal_quarter": 1, "calendar_id": "calendar:anf"},
+        "q2": {"period_id": "q2", "period_type": "quarter", "fiscal_year": 2025, "fiscal_quarter": 2, "calendar_id": "calendar:anf"},
+        "q3": {"period_id": "q3", "period_type": "quarter", "fiscal_year": 2025, "fiscal_quarter": 3, "calendar_id": "calendar:anf"},
+        "q4": {"period_id": "q4", "period_type": "quarter", "fiscal_year": 2025, "fiscal_quarter": 4, "calendar_id": "calendar:anf"},
+    }
+
+
+def _q4_test_fact(
+    record_id: str,
+    value: str,
+    period_id: str,
+    *,
+    metric_id: str = "metric:core:property-equipment-purchases@1",
+    definition_id: str = "definition:core:company-reported@1",
+    basis_id: str = "basis:core:reported@1",
+    unit_id: str = "unit:core:currency-million@1",
+    currency: str = "USD",
+    scale: str = "million",
+    knowledge_date: str = "2026-03-04",
+) -> dict:
+    return {
+        "header": {
+            "record_id": record_id,
+            "effective_period_id": period_id,
+            "dimension_set_id": "dimset:total-company",
+            "knowledge_date": knowledge_date,
+        },
+        "payload": {
+            "kind": "NumericalFact",
+            "metric_id": metric_id,
+            "definition_id": definition_id,
+            "basis_id": basis_id,
+            "unit_id": unit_id,
+            "currency": currency,
+            "scale": scale,
+            "value": {"kind": "exact", "value": value},
+        },
+    }
+
+
+def test_q4_additive_fy_minus_ytd_is_typed_and_lineaged() -> None:
+    periods = _q4_test_periods()
+    result = derive_q4_additive_from_fy_ytd(
+        _q4_test_fact("fy-fact", "170", "fy"),
+        _q4_test_fact("ytd-fact", "125", "ytd"),
+        periods=periods,
+        q4_period_id="q4",
+        event_cutoff="2026-03-04",
+    )
+    assert result.value == {"kind": "exact", "value": "45"}
+    assert result.derivation_rule_id == Q4_ADD_FY_MINUS_YTD_RULE_ID
+    assert result.input_record_ids == ("fy-fact", "ytd-fact")
+    assert result.knowledge_date == "2026-03-04"
+
+
+def test_q4_additive_fy_minus_q1_q2_q3_is_equivalent() -> None:
+    periods = _q4_test_periods()
+    result = derive_q4_additive_from_fy_quarters(
+        _q4_test_fact("fy-fact", "170", "fy"),
+        (
+            _q4_test_fact("q1-fact", "40", "q1"),
+            _q4_test_fact("q2-fact", "45", "q2"),
+            _q4_test_fact("q3-fact", "40", "q3"),
+        ),
+        periods=periods,
+        q4_period_id="q4",
+        event_cutoff="2026-03-04",
+    )
+    assert result.value == {"kind": "exact", "value": "45"}
+    assert result.derivation_rule_id == Q4_ADD_FY_MINUS_QUARTERS_RULE_ID
+    assert result.input_record_ids == ("fy-fact", "q1-fact", "q2-fact", "q3-fact")
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    (
+        ("basis_id", "basis:core:adjusted@1"),
+        ("unit_id", "unit:core:count@1"),
+    ),
+)
+def test_q4_additive_rejects_incompatible_semantics(field, replacement) -> None:
+    periods = _q4_test_periods()
+    kwargs = {field: replacement}
+    with pytest.raises(PromiseProgressProductV2Error, match="incompatible"):
+        derive_q4_additive_from_fy_ytd(
+            _q4_test_fact("fy-fact", "170", "fy"),
+            _q4_test_fact("ytd-fact", "125", "ytd", **kwargs),
+            periods=periods,
+            q4_period_id="q4",
+            event_cutoff="2026-03-04",
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "replacement"),
+    (
+        ("currency", "EUR"),
+        ("scale", "billion"),
+    ),
+)
+def test_q4_additive_rejects_mixed_currency_or_scale(field, replacement) -> None:
+    with pytest.raises(PromiseProgressProductV2Error, match="incompatible"):
+        derive_q4_additive_from_fy_ytd(
+            _q4_test_fact("fy-fact", "170", "fy"),
+            _q4_test_fact("ytd-fact", "125", "ytd", **{field: replacement}),
+            periods=_q4_test_periods(),
+            q4_period_id="q4",
+            event_cutoff="2026-03-04",
+        )
+
+
+def test_q4_additive_rejects_mixed_fiscal_calendar() -> None:
+    periods = _q4_test_periods()
+    periods["ytd"] = {**periods["ytd"], "calendar_id": "calendar:other"}
+    with pytest.raises(PromiseProgressProductV2Error, match="fiscal year/calendar"):
+        derive_q4_additive_from_fy_ytd(
+            _q4_test_fact("fy-fact", "170", "fy"),
+            _q4_test_fact("ytd-fact", "125", "ytd"),
+            periods=periods,
+            q4_period_id="q4",
+            event_cutoff="2026-03-04",
+        )
+
+
+def test_q4_additive_rejects_future_input() -> None:
+    with pytest.raises(PromiseProgressProductV2Error, match="after its disclosure event"):
+        derive_q4_additive_from_fy_ytd(
+            _q4_test_fact("fy-fact", "170", "fy"),
+            _q4_test_fact(
+                "ytd-fact", "125", "ytd", knowledge_date="2026-03-05"
+            ),
+            periods=_q4_test_periods(),
+            q4_period_id="q4",
+            event_cutoff="2026-03-04",
+        )
+
+
+@pytest.mark.parametrize(
+    "metric_id",
+    (
+        "metric:core:operating-margin@1",
+        "metric:core:net-income-per-diluted-share@1",
+        "metric:core:diluted-weighted-average-shares@1",
+    ),
+)
+def test_q4_subtraction_forbids_rates_eps_and_weighted_averages(metric_id) -> None:
+    with pytest.raises(PromiseProgressProductV2Error, match="forbidden"):
+        derive_q4_additive_from_fy_ytd(
+            _q4_test_fact("fy-fact", "10", "fy", metric_id=metric_id),
+            _q4_test_fact("ytd-fact", "7", "ytd", metric_id=metric_id),
+            periods=_q4_test_periods(),
+            q4_period_id="q4",
+            event_cutoff="2026-03-04",
+        )
+
+
+def test_q4_margin_and_growth_derive_only_from_compatible_components() -> None:
+    assert derive_q4_margin_from_components(
+        {"kind": "exact", "value": "14"},
+        {"kind": "exact", "value": "100"},
+    ) == {"kind": "exact", "value": "14"}
+    assert derive_q4_growth_from_amounts(
+        {"kind": "exact", "value": "105"},
+        {"kind": "exact", "value": "100"},
+    ) == {"kind": "exact", "value": "5"}
+    with pytest.raises(PromiseProgressProductV2Error):
+        derive_q4_margin_from_components(
+            {"kind": "range", "low": "13", "high": "15"},
+            {"kind": "exact", "value": "100"},
+        )
+
+
+def test_successor_q4_audit_is_closed_and_lineaged(successor_candidate) -> None:
+    report = build_q4_derivation_audit(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert report["projected_q4_actual_count"] == 39
+    assert report["projected_classification_counts"] == {
+        "direct": 23,
+        "derived_exact": 10,
+        "derived_components": 6,
+        "derived_bounded": 0,
+    }
+    assert report["bounded_projected_count"] == 0
+    derived = next(
+        row for row in report["rows"] if row["derivation_rule_id"] is not None
+    )
+    assert derived["derivation_input_record_ids"]
+    assert derived["derivation_support_record_ids"]
+    assert report["forbidden_ratio_subtraction_count"] == 0
+    assert report["forbidden_eps_subtraction_count"] == 0
+    assert report["forbidden_weighted_average_subtraction_count"] == 0
+
+
+def test_successor_projects_all_four_direct_q4_operating_income_facts(
+    successor_candidate,
+) -> None:
+    audit = _strict_json(FINAL_EXHAUSTIVE_AUDIT_ROOT / "quarter_actual_reconciliation.json")
+    expected = {
+        str(row["period_id"]): row
+        for row in audit["records"]
+        if row["audit_result"] == "DEFECT"
+        and row["metric_id"] == "metric:anf:operating-income@1"
+    }
+    assert set(expected) == {
+        "period:anf:fy2022-q4@1",
+        "period:anf:fy2023-q4@1",
+        "period:anf:fy2024-q4@1",
+        "period:anf:fy2025-q4@1",
+    }
+    timeline = _blocks(successor_candidate)[TIMELINE_BLOCK_ID].rows
+    rows = {
+        str(row.horizon_period_id): row
+        for row in timeline
+        if row.row_kind == PERIOD_RESULT_ROW_KIND
+        and row.metric_id == "metric:anf:operating-income@1"
+        and "-q4@" in str(row.horizon_period_id)
+    }
+    assert set(rows) == set(expected)
+    trace = build_workbook_trace_v2(
+        successor_candidate.product,
+        successor_candidate.plan,
+        preview_workbook=successor_candidate.first,
+    )
+    trace_ids = {str(row["binding_id"]) for row in trace["records"]}
+    for period_id, audited in expected.items():
+        row = rows[period_id]
+        assert row.actual_value == audited["canonical_value"]
+        assert row.actual_display == audited["display"]
+        assert row.actual_knowledge_date == audited["knowledge_date"]
+        assert row.event_date == audited["knowledge_date"]
+        assert row.actual_source_document_ids == tuple(audited["source_document_ids"])
+        assert row.actual_candidate_record_ids == tuple(audited["candidate_record_ids"])
+        assert row.actual_derivation_rule_id is None
+        assert row.actual_derivation_input_record_ids == ()
+        assert row.previous_display == ""
+        assert row.current_display == ""
+        assert row.change_type is None
+        assert row.status_at_update is None
+        actual_bindings = [
+            binding
+            for binding in successor_candidate.plan.bindings
+            if binding.source_row_id == row.row_id and binding.field_role == "actual"
+        ]
+        assert len(actual_bindings) == 1
+        assert actual_bindings[0].binding_id in trace_ids
+        assert actual_bindings[0].actual_candidate_record_ids == row.actual_candidate_record_ids
+
+
+def test_operating_income_uses_the_closed_product_to_canonical_metric_relation() -> None:
+    assert compatible_foundation_metric_ids("metric:anf:operating-income@1") == (
+        "metric:anf:operating-income@1",
+        "metric:core:operating-income@1",
+    )
+    assert compatible_foundation_metric_ids("metric:core:operating-margin@1") == (
+        "metric:core:operating-margin@1",
+    )
+
+
+def test_successor_projects_all_sixty_quarter_guidance_versions(
+    successor_candidate,
+) -> None:
+    report = build_quarter_guidance_coverage_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert report["canonical_quarter_guidance_count"] == 60
+    assert report["product_considered_quarter_guidance_count"] == 60
+    assert report["product_projected_quarter_guidance_count"] == 60
+    assert report["open_quarter_guidance_count"] == 6
+    assert report["annual_quarter_version_overlap_count"] == 0
+    assert report["annual_progression_remains_annual_only"] is True
+    assert report["false_may_capex_comparator_version_count"] == 0
+    assert all(row["horizon_type"] == "quarter" for row in report["rows"])
+
+
+def test_successor_tariff_guidance_retains_basis_point_unit(
+    successor_candidate,
+) -> None:
+    open_rows = _blocks(successor_candidate)[OPEN_BLOCK_ID].rows
+    tariff = next(
+        row for row in open_rows if row.metric_id == "metric:anf:tariff-impact@1"
+    )
+    assert tariff.horizon_period_id == "period:anf:fy2026-q2@1"
+    assert tariff.current_value == {
+        "impact_polarity": "unfavorable",
+        "kind": "approximate",
+        "qualifier": "around",
+        "tolerance": None,
+        "unit": "basis points",
+        "value": "120",
+    }
+    assert tariff.unit_id == "unit:core:basis-points@1"
+    assert tariff.current_display == "~120 bps unfavorable"
+    assert display_value(
+        {"kind": "approximate", "value": "120"},
+        unit_id="unit:core:basis-points@1",
+    ) == "~120 bps"
+
+
+def test_successor_timeline_roles_separate_guidance_results_and_outcomes(
+    successor_candidate,
+) -> None:
+    report = build_result_event_semantic_report(successor_candidate.product)
+    assert report["row_kind_counts"] == {
+        GUIDANCE_UPDATE_ROW_KIND: 189,
+        PERIOD_RESULT_ROW_KIND: 149,
+        HORIZON_OUTCOME_ROW_KIND: 76,
+    }
+    assert report["period_result_fabricated_guidance_field_count"] == 0
+    assert report["horizon_outcome_fabricated_guidance_field_count"] == 0
+    assert report["outcome_reported_change_type_count"] == 0
+    assert report["status_without_outcome_actual_lineage_count"] == 0
+    assert report["period_actual_paired_with_different_horizon_status_count"] == 0
+
+
+def test_successor_horizon_status_uses_the_visible_horizon_actual(
+    successor_candidate,
+) -> None:
+    timeline = _blocks(successor_candidate)[TIMELINE_BLOCK_ID].rows
+    outcomes = [row for row in timeline if row.row_kind == HORIZON_OUTCOME_ROW_KIND]
+    assert len(outcomes) == 76
+    assert all(row.previous_display == "" for row in outcomes)
+    assert all(row.current_display == "" for row in outcomes)
+    assert all(row.change_type is None for row in outcomes)
+    assert all(row.actual_value is not None for row in outcomes)
+    assert all(row.actual_period_id == row.horizon_period_id for row in outcomes)
+    assert all(
+        row.status_actual_candidate_record_ids == row.actual_candidate_record_ids
+        for row in outcomes
+    )
+    assert all(
+        row.status_actual_source_document_ids == row.actual_source_document_ids
+        for row in outcomes
+    )
+
+
+def test_successor_q1_same_occurrence_prefers_actual_and_q2_q3_remain_distinct(
+    successor_candidate,
+) -> None:
+    timeline = _blocks(successor_candidate)[TIMELINE_BLOCK_ID].rows
+    metrics = {
+        "metric:core:diluted-weighted-average-shares@1",
+        "metric:core:share-repurchases@1",
+    }
+    rows = [
+        row
+        for row in timeline
+        if row.row_kind == PERIOD_RESULT_ROW_KIND
+        and row.metric_id in metrics
+        and row.actual_period_id is not None
+        and "fy2025-q" in row.actual_period_id
+    ]
+    by_quarter = {
+        quarter: [row for row in rows if f"fy2025-q{quarter}@" in row.actual_period_id]
+        for quarter in (1, 2, 3)
+    }
+    assert all(len(by_quarter[quarter]) == 2 for quarter in (1, 2, 3))
+    assert all(row.actual_value is not None for row in rows)
+    assert all(row.progress_value is None for row in by_quarter[1])
+    assert all(row.progress_value is not None for quarter in (2, 3) for row in by_quarter[quarter])
+
+
+def test_successor_bounded_q4_opportunities_do_not_become_false_exact_actuals(
+    successor_candidate,
+) -> None:
+    report = build_bounded_derivation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert report["bounded_opportunity_count"] == 4
+    assert report["bounded_projected_actual_count"] == 0
+    assert report["arbitrary_percentage_tolerance_used"] is False
+    assert all(not row["selected_rule_present"] for row in report["rows"])
+
+
+def test_successor_foundation_projection_has_no_unexplained_evidence(
+    successor_candidate,
+) -> None:
+    report = build_foundation_projection_disposition_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert report["unexplained_promise_evidence_count"] == 0
+    assert report["disposition_counts"] == {
+        "projected": 335,
+        "other_product": 175,
+        "corroborating_only": 1,
+        "not_promise_eligible": 14,
+        "deferred_missing_tuple": 15,
+        "temporally_ineligible": 0,
+        "definition_incompatible": 0,
+    }
+
+
+def test_successor_reclassifies_the_exact_nineteen_active_foundation_facts(
+    successor_candidate,
+) -> None:
+    audit = _strict_json(
+        FINAL_EXHAUSTIVE_AUDIT_ROOT / "foundation_disposition_reconciliation.json"
+    )
+    audited_ids = {
+        str(row["evidence_id"])
+        for row in audit["records"]
+        if row["audit_result"] == "DEFECT"
+    }
+    assert len(audited_ids) == 19
+    report = build_foundation_projection_disposition_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    by_id = {str(row["evidence_id"]): row for row in report["rows"]}
+    assert all(by_id[evidence_id]["disposition"] == "projected" for evidence_id in audited_ids)
+    assert all(
+        by_id[evidence_id]["reason"]
+        == "selected directly or retained as typed derivation input"
+        for evidence_id in audited_ids
+    )
+    q4_operating_income_ids = {
+        str(row["candidate_record_ids"][0])
+        for row in _strict_json(
+            FINAL_EXHAUSTIVE_AUDIT_ROOT / "quarter_actual_reconciliation.json"
+        )["records"]
+        if row.get("metric_id") == "metric:anf:operating-income@1"
+        and row.get("audit_result") == "DEFECT"
+    }
+    assert len(q4_operating_income_ids) == 4
+    assert all(
+        by_id[evidence_id]["disposition"] == "projected"
+        for evidence_id in q4_operating_income_ids
+    )
+    assert any(row["disposition"] == "other_product" for row in report["rows"])
+
+
+def test_progression_q4_slot_never_receives_q4_actual(successor_candidate) -> None:
+    report = build_progression_q4_update_audit(successor_candidate.product)
+    assert report["row_count"] == 28
+    assert report["populated_q4_guidance_update_count"] == 10
+    assert report["intentional_blank_q4_guidance_update_count"] == 18
+    assert report["q4_actual_as_guidance_count"] == 0
+
+
+def test_successor_actual_progress_roles_and_blank_audit(successor_candidate) -> None:
+    roles = build_timeline_actual_progress_role_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert roles["role_counts"] == {
+        "event_period_actual": 148,
+        "horizon_actual": 76,
+        "ytd_progress": 68,
+        "cumulative_progress": 0,
+        "annualized_run_rate": 0,
+        "delta_progress": 0,
+        "unavailable": 189,
+    }
+    assert roles["timeline_row_count"] == 414
+    assert roles["rows_with_actual_and_progress_count"] == 67
+    assert roles["same_fact_dual_role_count"] == 0
+    assert roles["same_occurrence_dual_visible_role_count"] == 0
+    assert roles["future_actual_leakage_count"] == 0
+    assert roles["future_progress_leakage_count"] == 0
+    assert roles["status_replay"]["status_without_outcome_actual_lineage_count"] == 0
+    blanks = build_timeline_blank_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert blanks["timeline_row_count"] == 414
+    assert blanks["blank_field_count"] == 1484
+    assert blanks["correctable_blank_count"] == 0
+    assert blanks["every_blank_has_evidence_search_trace"] is True
+    assert blanks["reason_counts"]["extraction_missing"] == 0
+    assert blanks["reason_counts"]["semantic_mapping_missing"] == 0
+    assert blanks["reason_counts"]["unexplained_review_required"] == 0
+
+
+def test_successor_fy2022_q3_operating_income_has_distinct_actual_and_progress(
+    successor_candidate,
+) -> None:
+    row = next(
+        row
+        for row in _blocks(successor_candidate)[TIMELINE_BLOCK_ID].rows
+        if row.row_kind == PERIOD_RESULT_ROW_KIND
+        and row.metric_id == "metric:anf:operating-income@1"
+        and row.horizon_period_id == "period:anf:fy2022-q3@1"
+    )
+    assert row.actual_value == {"kind": "exact", "value": "17.543"}
+    assert row.actual_display == "$17.543m"
+    assert row.actual_period_id == "period:anf:fy2022-q3@1"
+    assert row.progress_value == {"kind": "exact", "value": "5.626"}
+    assert row.progress_display == "YTD: $5.626m"
+    assert row.progress_period_id == "period:anf:fy2022-ytd-q3@1"
+    assert set(row.actual_candidate_record_ids).isdisjoint(row.progress_candidate_record_ids)
+    assert row.actual_knowledge_date == row.progress_knowledge_date == "2022-11-23"
+    blanks = build_timeline_blank_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    traces = [
+        trace
+        for trace in blanks["resolved_field_evidence_search_traces"]
+        if trace["row_id"] == row.row_id
+        and trace["field_role"] == "progress_run_rate"
+    ]
+    assert len(traces) == 1
+    assert traces[0]["selected_candidate_evidence_ids"] == list(
+        row.progress_candidate_record_ids
+    )
+    assert set(row.progress_candidate_record_ids).issubset(
+        traces[0]["candidate_evidence_ids_considered"]
+    )
+    assert not any(
+        blank["row_id"] == row.row_id and blank["field_role"] == "progress_run_rate"
+        for blank in blanks["rows"]
+    )
+    role_report = build_timeline_actual_progress_role_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert role_report["same_occurrence_dual_visible_role_count"] == 0
+
+
+def test_successor_needs_review_is_audited_without_arbitrary_assumptions(
+    successor_candidate,
+) -> None:
+    report = build_needs_review_semantics_review(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert report["prior_golden_visible_needs_review_count"] == 9
+    assert report["successor_visible_needs_review_count"] == 50
+    assert report["successor_unique_issue_count"] == 35
+    assert report["additional_timeline_outcome_context_count"] == 15
+    assert report["unresolved_correctable_count"] == 0
+    assert report["approximate_target_rule"]["arbitrary_tolerance_permitted"] is False
+    assert report["approximate_target_rule"]["favorable_direction_may_be_inferred"] is False
+    assert all(not row["arbitrary_tolerance_used"] for row in report["approximate_cases"])
+    assert all(not row["favorable_direction_inferred"] for row in report["approximate_cases"])
+
+
+def test_successor_numeric_storage_is_scoped_and_intentional(successor_candidate) -> None:
+    report = build_numeric_cell_text_audit(
+        successor_candidate.plan, successor_candidate.semantic
+    )
+    assert report["numeric_cell_count"] > 177
+    assert report["numeric_format_mismatch_count"] == 0
+    assert report["other_presentation_defect_count"] == 0
+    assert report["global_ignored_error_suppression"] is False
+    assert any(
+        row["presentation_text"] == "5%" and row["number_format_code"] == "0%"
+        for row in report["numeric_cells"]
+    )
+    assert any(
+        row["presentation_text"] == "$450m"
+        and row["number_format_code"] == '"$"0"m"'
+        for row in report["numeric_cells"]
+    )
+    precise_percent_cells = [
+        row
+        for row in report["numeric_cells"]
+        if row["destination"] in {"E78", "E79"}
+    ]
+    assert len(precise_percent_cells) == 2
+    assert all(row["stored_numeric_value"] == "0.08" for row in precise_percent_cells)
+    assert all(row["number_format_code"] == "0.0%" for row in precise_percent_cells)
+    assert all(
+        row["independently_replayed_display"] == "8.0%"
+        for row in precise_percent_cells
+    )
+    assert any(
+        row["presentation_text"] == "$200m–$225m" and row["classification"] == "B"
+        for row in report["rows"]
+    )
+    assert all(row["classification"] in {"B", "C", "D"} for row in report["rows"])
+    with ZipFile(successor_candidate.first) as archive:
+        worksheet_xml = b"".join(
+            archive.read(name)
+            for name in archive.namelist()
+            if name.startswith("xl/worksheets/") and name.endswith(".xml")
+        )
+    assert b"ignoredErrors" not in worksheet_xml
+
+
+def test_successor_numeric_precision_replay_and_mutation_detection(
+    successor_candidate,
+) -> None:
+    assert replay_ooxml_numeric_display("0.08", "0.0%") == "8.0%"
+    assert replay_ooxml_numeric_display("0.08", "0%") == "8%"
+    assert replay_ooxml_numeric_display("450", '"$"0"m"') == "$450m"
+    assert replay_ooxml_numeric_display("10.46", '"$"0.00') == "$10.46"
+
+    mutated = successor_candidate.root / "mutated-number-format.xlsx"
+    with ZipFile(successor_candidate.first, "r") as source, ZipFile(mutated, "w") as target:
+        for info in source.infolist():
+            payload = source.read(info.filename)
+            if info.filename == "xl/styles.xml":
+                root = _parse_xml(payload)
+                matches = [
+                    node
+                    for node in root.iter()
+                    if node.tag.endswith("numFmt") and node.get("formatCode") == "0.0%"
+                ]
+                assert len(matches) == 1
+                matches[0].set("formatCode", "0%")
+                payload = _serialize_xml(root)
+            target.writestr(info, payload)
+    validation = validate_preview_semantics_v2(
+        successor_candidate.product,
+        successor_candidate.plan,
+        preview_workbook=mutated,
+    )
+    assert validation["passed"] is False
+    mismatches = [
+        row
+        for row in validation["results"]
+        if row["expected_display_value"] == "8.0%" and not row["pass"]
+    ]
+    assert len(mismatches) >= 2
+    assert all(row["actual_number_format_code"] == "0%" for row in mismatches)
+    assert all(row["independently_replayed_display"] == "8%" for row in mismatches)
+
+
+def test_successor_event_header_role_is_dark_generic_and_spans_a_to_j(
+    successor_candidate,
+) -> None:
+    contract = successor_candidate.plan.presentation_contract.to_dict()
+    assert contract["contract_id"] == SUCCESSOR_PRODUCT_V2_PRESENTATION_CONTRACT_ID
+    assert contract["timeline_event_header_role"] == {
+        "style_role": "TimelineEventHeader",
+        "legacy_style_source": "Promise_Progress_UI!A59",
+        "fill_rgb": "5B9BD5",
+        "font_rgb": "FFFFFF",
+        "font_bold": True,
+        "span": "A:J",
+        "economics_authority": "none",
+    }
+    event_header_anchors = {
+        f"A{row.row_number}"
+        for row in successor_candidate.plan.row_plan
+        if row.row_kind == "event_group"
+    }
+    event_header_bindings = [
+        binding
+        for binding in successor_candidate.plan.bindings
+        if binding.anchor_cell in event_header_anchors
+        and binding.binding_kind == "event_group"
+    ]
+    assert len(event_header_bindings) == len(event_header_anchors)
+    assert all(
+        binding.style_role == "TimelineEventHeader"
+        for binding in event_header_bindings
+    )
+
+
+def test_successor_workbook_is_deterministic_and_visually_valid(successor_candidate) -> None:
+    assert successor_candidate.first.read_bytes() == successor_candidate.second.read_bytes()
+    for key in (
+        "preview_workbook_sha256",
+        "canonical_workbook_content_sha256",
+        "target_sheet_semantic_sha256",
+        "binding_plan_sha256",
+        "presentation_contract_sha256",
+    ):
+        assert successor_candidate.first_result[key] == successor_candidate.second_result[key]
+    assert successor_candidate.structural["passed"] is True
+    assert successor_candidate.semantic["passed"] is True
+    assert successor_candidate.visual["passed"] is True
+    assert successor_candidate.visual["clipped_visible_field_count"] == 0
+    assert successor_candidate.visual["overflow_dependency_count"] == 0
+    assert all(
+        height == 24
+        for row_number, height in successor_candidate.plan.row_heights
+        if next(
+            row for row in successor_candidate.plan.row_plan if row.row_number == row_number
+        ).row_kind
+        == "product_row"
+    )
+
+
+def test_visual_validation_markdown_is_output_root_independent(tmp_path: Path) -> None:
+    visual = {
+        "record_count": 1,
+        "clipped_visible_field_count": 0,
+        "overflow_dependency_count": 0,
+        "passed": True,
+    }
+    plan = SimpleNamespace(used_range="A1:O1", row_plan=(object(),))
+    payloads = []
+    for name in ("candidate-a", "candidate-b"):
+        root = tmp_path / name
+        root.mkdir()
+        report = root / "visual_validation_v2.md"
+        preview = root / "ANF_Promise_Progress_source_native_v2_preview.xlsx"
+        _write_visual_markdown(
+            report,
+            product_sha256="0" * 64,
+            preview_path=preview,
+            visual=visual,
+            plan=plan,
+        )
+        payloads.append(report.read_bytes())
+    assert payloads[0] == payloads[1]
+    assert b"ANF_Promise_Progress_source_native_v2_preview.xlsx" in payloads[0]
+    assert str(tmp_path).encode() not in payloads[0]
+
+
+def test_successor_manifest_inventory_includes_final_closure_reports() -> None:
+    assert FINAL_CLOSURE_MANIFEST_FILENAMES == (
+        "old_defect_regression_report.json",
+        "current_defect_closure_report.json",
+        "current_count_reconciliation_report.json",
+        "numeric_ooxml_reconciliation.json",
+    )
+
+
+def test_successor_version_and_old_golden_tag_are_separate(successor_candidate) -> None:
+    assert successor_candidate.source_set["source_set_id"] == EVIDENCE_FOUNDATION_SOURCE_SET_ID
+    assert successor_candidate.product.product_version == SUCCESSOR_PRODUCT_VERSION
+    assert SUCCESSOR_PRODUCT_VERSION != PRODUCT_VERSION
+    peeled = subprocess.check_output(
+        ["git", "rev-list", "-n", "1", "promise-progress-product-v2-workbook-golden"],
+        cwd=REPO,
+        text=True,
+    ).strip()
+    assert peeled == "05f549cd6de288366642a41e1ba81c4b33696fc5"
+
+
+def test_product_v2_1_golden_publication_fixtures_are_exact() -> None:
+    expected_fixture_hashes = {
+        V2_1_SOURCE_SET_GOLDEN: EXPECTED_SUCCESSOR_SOURCE_SET_SHA256,
+        V2_1_FOUNDATION_IDENTITY_GOLDEN: (
+            EXPECTED_SUCCESSOR_FOUNDATION_IDENTITY_SHA256
+        ),
+        V2_1_PRODUCT_GOLDEN: EXPECTED_SUCCESSOR_PRODUCT_SHA256,
+        V2_1_SHADOW_GOLDEN: EXPECTED_SUCCESSOR_SHADOW_SHA256,
+        V2_1_COUNT_REPORT_GOLDEN: EXPECTED_SUCCESSOR_COUNT_REPORT_SHA256,
+        V2_1_MANIFEST_GOLDEN: EXPECTED_V2_1_GOLDEN_MANIFEST_SHA256,
+    }
+    assert {
+        path: sha256_file(path) for path in expected_fixture_hashes
+    } == expected_fixture_hashes
+
+    manifest = _strict_json(V2_1_MANIFEST_GOLDEN)
+    assert manifest["manifest_type"] == "PromiseProgressProductV2GoldenManifest@2"
+    assert manifest["golden_id"] == "promise-progress-product:anf@2.1.0"
+    assert manifest["product_schema_type"] == PRODUCT_TYPE
+    assert manifest["product_version"] == "2.1.0"
+    assert manifest["product_artifact_version"] == SUCCESSOR_PRODUCT_VERSION
+    assert manifest["lifecycle"] == "target_not_wired"
+    assert manifest["accepted_candidate"] == {
+        "manifest_digest": (
+            "d8b758889781332d9aa3a69b1e69f37344409d27ed7dfbe64223a79bc97be10f"
+        ),
+        "manifest_file_sha256": (
+            "9cb26d0608909ccd3dfb31b7f48b03ec4df6480d6addc3b53ecbb8dcee39fc97"
+        ),
+        "root_name": (
+            "promise_progress_product_v2_1_final_required_kind_schema_"
+            "invariant_correction_candidate"
+        ),
+    }
+    fixture_rows = manifest["fixture_artifacts"]
+    assert len(fixture_rows) == 5
+    assert {
+        (V2_1_MANIFEST_GOLDEN.parent / row["relative_path"]).resolve(): row["sha256"]
+        for row in fixture_rows
+    } == {
+        path.resolve(): expected_fixture_hashes[path]
+        for path in expected_fixture_hashes
+        if path != V2_1_MANIFEST_GOLDEN
+    }
+
+    source_set = _strict_json(V2_1_SOURCE_SET_GOLDEN)
+    foundation_identity = _strict_json(V2_1_FOUNDATION_IDENTITY_GOLDEN)
+    product = _strict_json(V2_1_PRODUCT_GOLDEN)
+    count_report = _strict_json(V2_1_COUNT_REPORT_GOLDEN)
+    assert source_set["source_set_id"] == EVIDENCE_FOUNDATION_SOURCE_SET_ID
+    assert foundation_identity["foundation_sha256"] == (
+        EXPECTED_SUCCESSOR_FOUNDATION_SHA256
+    )
+    assert product["product_type"] == PRODUCT_TYPE
+    assert product["product_version"] == SUCCESSOR_PRODUCT_VERSION
+    assert count_report["kind_schema_id"] == COUNT_RECONCILIATION_KIND_SCHEMA_ID
+    assert count_report["report_type"] == "PromiseProgressFinalCountReconciliation@3"
+    assert count_report["passed"] is True
+    assert validate_current_count_reconciliation_report(count_report) is True
+
+    # Product@2.0 remains a separate immutable predecessor checkpoint.
+    assert sha256_file(V2_SOURCE_SET_GOLDEN) == EXPECTED_V2_SOURCE_SET_SHA256
+    assert sha256_file(V2_PRODUCT_GOLDEN) == EXPECTED_V2_PRODUCT_SHA256
+    assert sha256_file(V2_SHADOW_GOLDEN) == EXPECTED_V2_SHADOW_SHA256
+    assert sha256_file(V2_MANIFEST_GOLDEN) == EXPECTED_V2_MANIFEST_FILE_SHA256
+
+
+def test_product_v2_1_golden_regeneration_matches_reviewed_snapshot(
+    successor_candidate,
+    final_count_reconciliation_bundle,
+) -> None:
+    assert serialize_package(successor_candidate.source_set) == (
+        V2_1_SOURCE_SET_GOLDEN.read_bytes()
+    )
+    assert serialize_promise_progress_product_v2(successor_candidate.product) == (
+        V2_1_PRODUCT_GOLDEN.read_bytes()
+    )
+    rebuilt_shadow = build_product_v2_shadow(
+        successor_candidate.product,
+        successor_candidate.package,
+        evidence_foundation=successor_candidate.evidence_foundation,
+    )
+    assert serialize_product_v2_shadow(rebuilt_shadow) == V2_1_SHADOW_GOLDEN.read_bytes()
+    assert _json_bytes(final_count_reconciliation_bundle.report) == (
+        V2_1_COUNT_REPORT_GOLDEN.read_bytes()
+    )
+
+    foundation_artifacts = evidence_foundation_artifacts(
+        successor_candidate.evidence_foundation
+    )
+    foundation_identity = _strict_json(V2_1_FOUNDATION_IDENTITY_GOLDEN)
+    assert hashlib.sha256(
+        serialize_package(foundation_artifacts["evidence_foundation_candidate.json"])
+    ).hexdigest() == foundation_identity["foundation_sha256"]
+    assert hashlib.sha256(
+        serialize_package(foundation_artifacts["canonical_fact_inventory.json"])
+    ).hexdigest() == foundation_identity["fact_inventory_sha256"]
+    assert hashlib.sha256(
+        serialize_package(
+            foundation_artifacts["canonical_quarter_guidance_inventory.json"]
+        )
+    ).hexdigest() == foundation_identity["quarter_guidance_inventory_sha256"]
+
+    manifest = _strict_json(V2_1_MANIFEST_GOLDEN)
+    workbook_contract = manifest["workbook_preview"]
+    assert sha256_file(successor_candidate.first) == (
+        workbook_contract["raw_workbook_sha256"]
+    )
+    assert successor_candidate.first.read_bytes() == successor_candidate.second.read_bytes()
+    assert canonical_workbook_content_sha256(successor_candidate.first) == (
+        workbook_contract["canonical_ooxml_sha256"]
+    )
+    assert target_sheet_semantic_sha256_v2(
+        successor_candidate.first,
+        successor_candidate.plan,
+    ) == workbook_contract["target_semantic_sha256"]
+    trace = build_workbook_trace_v2(
+        successor_candidate.product,
+        successor_candidate.plan,
+        preview_workbook=successor_candidate.first,
+    )
+    assert hashlib.sha256(_json_bytes(trace)).hexdigest() == (
+        workbook_contract["trace_sha256"]
+    )
+
+
+def test_product_v2_1_golden_semantic_snapshot_and_regressions(
+    successor_candidate,
+    final_count_reconciliation_bundle,
+) -> None:
+    manifest = _strict_json(V2_1_MANIFEST_GOLDEN)
+    count_report = final_count_reconciliation_bundle.report
+    generated_counts = {
+        row["kind"]: row["generated_actual"] for row in count_report["rows"]
+    }
+    assert {
+        kind: generated_counts[kind] for kind in manifest["semantic_snapshot"]
+    } == manifest["semantic_snapshot"]
+    assert count_report["economic_result_counts"] == (
+        manifest["count_reconciliation"]["classification"]
+    )
+    assert count_report["headline_total"] == count_report["kind_row_sum"] == 8309
+    assert sum(count_report["economic_result_counts"].values()) == 8309
+
+    timeline = _blocks(successor_candidate)[TIMELINE_BLOCK_ID].rows
+    fy2022_q4_revenue_guide = next(
+        row
+        for row in timeline
+        if row.row_kind == GUIDANCE_UPDATE_ROW_KIND
+        and row.metric_id == "metric:core:revenue-growth@1"
+        and row.horizon_period_id == "period:anf:fy2022-q4@1"
+    )
+    fy2022_q4_revenue_outcome = next(
+        row
+        for row in timeline
+        if row.row_kind == HORIZON_OUTCOME_ROW_KIND
+        and row.metric_id == "metric:core:revenue-growth@1"
+        and row.horizon_period_id == "period:anf:fy2022-q4@1"
+    )
+    assert fy2022_q4_revenue_guide.current_display == "Down 2%\u20134%"
+    assert fy2022_q4_revenue_outcome.actual_value == {"kind": "exact", "value": "3"}
+    assert fy2022_q4_revenue_outcome.status_at_update == "Beat"
+
+    tariff = next(
+        row
+        for row in timeline
+        if row.row_kind == GUIDANCE_UPDATE_ROW_KIND
+        and row.metric_id == "metric:anf:tariff-impact@1"
+        and row.horizon_period_id == "period:anf:fy2026-q2@1"
+    )
+    assert tariff.current_display == "~120 bps unfavorable"
+    guidance = build_guidance_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert guidance["false_may_capex_comparator_version_count"] == 0
+
+    q4 = build_q4_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert q4["classification_counts"] == {
+        "derived_bounded": 0,
+        "derived_components": 6,
+        "derived_exact": 10,
+        "direct": 23,
+        "unavailable": 9,
+    }
+    assert q4["forbidden_eps_subtraction_count"] == 0
+    assert q4["forbidden_ratio_subtraction_count"] == 0
+    assert q4["forbidden_weighted_average_subtraction_count"] == 0
+
+    derivation = build_derivation_lineage_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    disposition = build_foundation_projection_disposition_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    blanks = final_count_reconciliation_bundle.blanks
+    needs_review = build_needs_review_semantics_review(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert derivation["broken_lineage_count"] == 0
+    assert derivation["non_dereferenceable_derivation_input_count"] == 0
+    assert derivation["status_without_outcome_actual_lineage_count"] == 0
+    assert disposition["unexplained_promise_evidence_count"] == 0
+    assert blanks["correctable_blank_count"] == 0
+    assert needs_review["correctable_needs_review_count"] == 0
+
+
+def test_exhaustive_closure_projects_may_2026_annual_outlook(successor_candidate) -> None:
+    report = build_guidance_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert report["passed"] is True
+    assert report["annual_guidance_series_count"] == 38
+    assert report["annual_guidance_version_count"] == 129
+    assert report["may_2026_annual_version_count"] == 10
+    assert report["may_2026_current_annual_open_count"] == 10
+    assert report["false_may_capex_comparator_version_count"] == 0
+    open_rows = _blocks(successor_candidate)[OPEN_BLOCK_ID].rows
+    may_annual = [
+        row
+        for row in open_rows
+        if row.horizon_period_id == "period:anf:fy2026@1"
+    ]
+    assert len(may_annual) == 10
+    assert all(row.source_summary == "May 27 2026 release" for row in may_annual)
+    capex_update = next(
+        row
+        for row in _blocks(successor_candidate)[TIMELINE_BLOCK_ID].rows
+        if row.row_kind == GUIDANCE_UPDATE_ROW_KIND
+        and row.event_date == "2026-05-27"
+        and row.metric_id == "metric:core:capital-expenditures@1"
+        and row.horizon_period_id == "period:anf:fy2026@1"
+    )
+    assert capex_update.previous_display == "$200m–$225m"
+    assert capex_update.current_display == "~$225m"
+    assert capex_update.change_type == "Range → approximate"
+
+
+def test_exhaustive_closure_projects_historical_store_guidance(successor_candidate) -> None:
+    report = build_guidance_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert report["historical_store_annual_version_count"] == 24
+    assert report["guidance_progression_row_count"] == 28
+    assert report["guidance_update_row_count"] == 189
+    assert report["predecessor_transition_count"] == 96
+    progression = _blocks(successor_candidate)[PROGRESSION_BLOCK_ID].rows
+    historical_store = [
+        row
+        for row in progression
+        if row.metric_id
+        in {
+            "metric:retail:net-store-openings@1",
+            "metric:retail:store-openings@1",
+            "metric:retail:store-closures-count@1",
+            "metric:retail:store-remodels-right-sizes@1",
+        }
+        and row.horizon_label in {"FY2022", "FY2023", "FY2024"}
+    ]
+    assert len(historical_store) == 9
+
+
+def test_exhaustive_closure_preserves_down_and_unfavorable_semantics(
+    successor_candidate,
+) -> None:
+    timeline = _blocks(successor_candidate)[TIMELINE_BLOCK_ID].rows
+    q4_guide = next(
+        row
+        for row in timeline
+        if row.row_kind == GUIDANCE_UPDATE_ROW_KIND
+        and row.metric_id == "metric:core:revenue-growth@1"
+        and row.horizon_period_id == "period:anf:fy2022-q4@1"
+    )
+    q4_outcome = next(
+        row
+        for row in timeline
+        if row.row_kind == HORIZON_OUTCOME_ROW_KIND
+        and row.metric_id == "metric:core:revenue-growth@1"
+        and row.horizon_period_id == "period:anf:fy2022-q4@1"
+    )
+    assert q4_guide.current_value["direction"] == "down"
+    assert q4_guide.current_display == "Down 2%–4%"
+    assert q4_outcome.actual_display == "3%"
+    assert q4_outcome.status_at_update == "Beat"
+    tariff = next(
+        row
+        for row in _blocks(successor_candidate)[OPEN_BLOCK_ID].rows
+        if row.metric_id == "metric:anf:tariff-impact@1"
+    )
+    assert tariff.current_value["impact_polarity"] == "unfavorable"
+    assert tariff.current_display == "~120 bps unfavorable"
+
+
+def test_exhaustive_closure_actual_progress_and_status_counts(successor_candidate) -> None:
+    actual = build_actual_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    progress = build_progress_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    status = build_status_report(successor_candidate.product)
+    assert actual["passed"] is True
+    assert actual["annual_actual_count"] == 28
+    assert actual["quarter_actual_count"] == 148
+    assert actual["period_result_row_count"] == 149
+    assert actual["actual_unavailable_period_result_count"] == 1
+    assert progress["passed"] is True
+    assert progress["progress_value_count"] == 68
+    assert progress["progress_only_period_result_count"] == 1
+    assert progress["same_occurrence_dual_visible_role_count"] == 0
+    assert status["passed"] is True
+    assert status["status_context_count"] == 310
+    assert status["status_counts"] == {
+        "Open": 205,
+        "Beat": 35,
+        "Hit": 19,
+        "Missed": 1,
+        "Needs Review": 50,
+    }
+
+
+def test_exhaustive_closure_q4_and_derivation_lineage_are_replayable(
+    successor_candidate,
+) -> None:
+    q4 = build_q4_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    lineage = build_derivation_lineage_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert q4["passed"] is True
+    assert q4["record_count"] == 48
+    assert q4["classification_counts"] == {
+        "direct": 23,
+        "derived_exact": 10,
+        "derived_components": 6,
+        "derived_bounded": 0,
+        "unavailable": 9,
+    }
+    assert q4["forbidden_ratio_subtraction_count"] == 0
+    assert q4["forbidden_eps_subtraction_count"] == 0
+    assert q4["forbidden_weighted_average_subtraction_count"] == 0
+    assert lineage["broken_lineage_count"] == 0
+    assert lineage["non_dereferenceable_derivation_input_count"] == 0
+    assert lineage["non_dereferenceable_derivation_support_count"] == 0
+    assert lineage["foundation_period_input_placeholder_count"] == 0
+
+
+def test_exhaustive_closure_blank_search_is_evidence_driven(successor_candidate) -> None:
+    report = build_timeline_blank_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert report["blank_field_count"] == 1484
+    assert report["correctable_blank_count"] == 0
+    assert report["every_blank_has_evidence_search_trace"] is True
+    assert set(report["reason_counts"]) == {
+        "not_applicable",
+        "no_prior_guidance",
+        "not_disclosed_at_event",
+        "source_evidence_unavailable",
+        "derivation_not_valid",
+        "incompatible_basis",
+        "incompatible_period",
+        "extraction_missing",
+        "semantic_mapping_missing",
+        "unexplained_review_required",
+    }
+    searched = [
+        row
+        for row in report["rows"]
+        if row["candidate_evidence_ids_considered"]
+        or row["candidate_derivation_rules_considered"]
+    ]
+    assert searched
+    assert all(row["rejection_reasons"] for row in searched)
+
+
+def test_exhaustive_closure_needs_review_blockers_match_evidence(
+    successor_candidate,
+) -> None:
+    report = build_needs_review_semantics_review(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    assert report["successor_visible_needs_review_count"] == 50
+    assert report["successor_unique_issue_count"] == 35
+    assert report["correctable_needs_review_count"] == 0
+    timeline = _blocks(successor_candidate)[TIMELINE_BLOCK_ID].rows
+    qualitative = [
+        row
+        for row in timeline
+        if row.status_at_update == "Needs Review"
+        and row.metric_id == "metric:core:revenue-growth@1"
+        and row.actual_value is not None
+        and row.investor_reason_code == "qualitative_target_non_comparable"
+    ]
+    assert len(qualitative) == 9
+    assert all("Actual" not in row.investor_reason_display or "unavailable" not in row.investor_reason_display for row in qualitative)
+
+
+def test_exhaustive_closure_uses_typed_sec_event_identity(successor_candidate) -> None:
+    event = next(
+        row
+        for row in successor_candidate.product.disclosure_events
+        if row.event_date == "2025-03-31"
+    )
+    assert event.display_label == "2024-Q4 SEC filing"
+    affected = [
+        row
+        for row in _blocks(successor_candidate)[TIMELINE_BLOCK_ID].rows
+        if row.event_date == "2025-03-31"
+    ]
+    assert affected
+    assert all(row.stated_in_display == "2024-Q4 SEC filing" for row in affected)
+    assert all(row.event_date == "2025-03-31" for row in affected)
+
+
+def test_exhaustive_defect_ids_all_close(successor_candidate) -> None:
+    guidance = build_guidance_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    actual = build_actual_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    progress = build_progress_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    q4 = build_q4_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    derivation = build_derivation_lineage_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    status = build_status_report(successor_candidate.product)
+    blanks = build_timeline_blank_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    needs_review = build_needs_review_semantics_review(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    disposition = build_foundation_projection_disposition_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    trace = build_workbook_trace_v2(
+        successor_candidate.product,
+        successor_candidate.plan,
+        preview_workbook=successor_candidate.first,
+    )
+    closure = build_defect_closure_report(
+        source_root=SOURCE_ROOT,
+        product=successor_candidate.product,
+        foundation=successor_candidate.evidence_foundation,
+        plan=successor_candidate.plan,
+        workbook_trace=trace,
+        guidance_report=guidance,
+        actual_report=actual,
+        progress_report=progress,
+        q4_report=q4,
+        derivation_report=derivation,
+        status_report=status,
+        blank_report=blanks,
+        needs_review_report=needs_review,
+        disposition_report=disposition,
+    )
+    assert closure["source_defect_count"] == 1758
+    assert closure["mapped_defect_count"] == 1758
+    assert closure["unresolved_exhaustive_defect_count"] == 0
+    assert closure["unresolved_exhaustive_defect_ids"] == []
+    assert closure["all_workbook_bindings_have_trace"] is True
+    assert closure["remaining_previous_defect_count"] == 0
+    assert closure["ordinal_only_defect_closure_mapping_count"] == 0
+    old_q4_ids = {
+        "audit-element:q4_candidate:535024b10bd7082ad89547d8",
+        "audit-element:q4_candidate:9906c28c3c34c85b56790b49",
+        "audit-element:q4_candidate:f147d32746fe51dabb0b112f",
+        "audit-element:q4_candidate:65ccb1c431ee533b4ec1c0d0",
+    }
+    mapped_q4 = {
+        row["audit_element_id"]: row
+        for row in closure["rows"]
+        if row["audit_element_id"] in old_q4_ids
+    }
+    assert set(mapped_q4) == old_q4_ids
+    assert all(
+        row["mapping_method"] == "q4_metric_period_identity"
+        for row in mapped_q4.values()
+    )
+    assert all(
+        row["closure_reason"]
+        == "stable Q4 metric-period identity resolves to the source-backed Product row"
+        for row in mapped_q4.values()
+    )
+    assert all(
+        "metric:anf:operating-income@1" in str(row["fixed_product_element_id"])
+        and "-q4@" in str(row["fixed_product_element_id"])
+        for row in mapped_q4.values()
+    )
+
+
+def test_final_current_77_defects_and_count_reconciliation_close(
+    successor_candidate,
+) -> None:
+    guidance = build_guidance_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    actual = build_actual_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    progress = build_progress_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    q4 = build_q4_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    derivation = build_derivation_lineage_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    status = build_status_report(successor_candidate.product)
+    blanks = build_timeline_blank_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    needs_review = build_needs_review_semantics_review(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    disposition = build_foundation_projection_disposition_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    trace = build_workbook_trace_v2(
+        successor_candidate.product,
+        successor_candidate.plan,
+        preview_workbook=successor_candidate.first,
+    )
+    numeric = build_numeric_cell_text_audit(
+        successor_candidate.plan, successor_candidate.semantic
+    )
+    closure = build_current_defect_closure_report(
+        source_root=SOURCE_ROOT,
+        product=successor_candidate.product,
+        plan=successor_candidate.plan,
+        workbook_trace=trace,
+        q4_report=q4,
+        progress_report=progress,
+        blank_report=blanks,
+        disposition_report=disposition,
+        semantic_validation=successor_candidate.semantic,
+        numeric_audit=numeric,
+    )
+    assert closure["source_defect_count"] == 77
+    assert closure["mapped_defect_count"] == 77
+    assert closure["still_defective_count"] == 0
+    assert closure["still_defective_ids"] == []
+    assert closure["ordinal_only_defect_closure_mapping_count"] == 0
+    assert set(closure["closure_category_counts"]) == {
+        "fixed",
+        "duplicate_downstream_manifestation_of_fixed_root",
+    }
+
+    count_report = build_current_count_reconciliation_report(
+        source_root=SOURCE_ROOT,
+        product=successor_candidate.product,
+        foundation=successor_candidate.evidence_foundation,
+        plan=successor_candidate.plan,
+        guidance_report=guidance,
+        actual_report=actual,
+        progress_report=progress,
+        q4_report=q4,
+        derivation_report=derivation,
+        status_report=status,
+        needs_review_report=needs_review,
+        blank_report=blanks,
+        disposition_report=disposition,
+    )
+    assert count_report["passed"] is True
+    assert count_report["reconciled_layered_element_count"] == 8309
+    assert sum(row["generated_actual"] for row in count_report["rows"]) == 8309
+    assert count_report["unexplained_divergence_count"] == 0
+    assert count_report["explained_divergence_count"] == 0
+    blank_count = next(row for row in count_report["rows"] if row["kind"] == "blank_cell")
+    assert blank_count["final_review_expected"] == 1484
+    assert blank_count["generated_actual"] == 1484
+    assert blank_count["difference"] == 0
+    assert blank_count["explained_divergence"] is False
+
+
+def _build_final_count_report_for_test(successor_candidate):
+    guidance = build_guidance_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    actual = build_actual_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    progress = build_progress_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    q4 = build_q4_reconciliation_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    derivation = build_derivation_lineage_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    status = build_status_report(successor_candidate.product)
+    blanks = build_timeline_blank_completeness_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    needs_review = build_needs_review_semantics_review(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    disposition = build_foundation_projection_disposition_report(
+        successor_candidate.product, successor_candidate.evidence_foundation
+    )
+    report = build_current_count_reconciliation_report(
+        source_root=SOURCE_ROOT,
+        product=successor_candidate.product,
+        foundation=successor_candidate.evidence_foundation,
+        plan=successor_candidate.plan,
+        guidance_report=guidance,
+        actual_report=actual,
+        progress_report=progress,
+        q4_report=q4,
+        derivation_report=derivation,
+        status_report=status,
+        needs_review_report=needs_review,
+        blank_report=blanks,
+        disposition_report=disposition,
+    )
+    return SimpleNamespace(report=report, blanks=blanks)
+
+
+@pytest.fixture(scope="module")
+def final_count_reconciliation_bundle(successor_candidate):
+    return _build_final_count_report_for_test(successor_candidate)
+
+
+def _refresh_count_report_derived_metadata(report: dict) -> None:
+    """Refresh serialized diagnostics without changing authoritative requirements."""
+
+    report.update(count_reconciliation_kind_schema_state(report["rows"]))
+    report["kind_row_count"] = len(report["rows"])
+    report["kind_row_sum"] = sum(
+        row["generated_actual"] for row in report["rows"]
+    )
+    report["invariant_checks"] = current_count_reconciliation_invariant_checks(
+        report
+    )
+
+
+def test_final_count_report_current_rows_own_the_8309_headline(
+    final_count_reconciliation_bundle,
+) -> None:
+    report = final_count_reconciliation_bundle.report
+    expected = {
+        "metric": 59,
+        "annual_guidance_series": 38,
+        "quarter_guidance_series": 55,
+        "annual_guidance_version": 129,
+        "quarter_guidance_version": 60,
+        "guidance_transition": 96,
+        "annual_actual": 28,
+        "quarter_actual": 148,
+        "progress": 68,
+        "q4_candidate": 48,
+        "derived_fact": 82,
+        "guidance_progression_row": 28,
+        "open_guidance_row": 16,
+        "guidance_update_row": 189,
+        "period_result_row": 149,
+        "horizon_outcome_row": 76,
+        "assessment_row": 1,
+        "disclosure_event": 34,
+        "status": 310,
+        "needs_review": 50,
+        "change_type": 189,
+        "blank_cell": 1484,
+        "workbook_field_cell": 4429,
+        "foundation_disposition": 540,
+        "source_conflict": 3,
+    }
+    generated = {row["kind"]: row["generated_actual"] for row in report["rows"]}
+    independently_summed = sum(row["generated_actual"] for row in report["rows"])
+
+    assert report["report_type"] == "PromiseProgressFinalCountReconciliation@3"
+    assert report["kind_schema_id"] == COUNT_RECONCILIATION_KIND_SCHEMA_ID
+    assert tuple(report["required_kinds"]) == COUNT_RECONCILIATION_REQUIRED_KINDS
+    assert tuple(report["serialized_kinds"]) == COUNT_RECONCILIATION_REQUIRED_KINDS
+    assert report["required_kind_count"] == report["serialized_kind_count"] == 25
+    assert report["missing_required_kinds"] == []
+    assert report["unexpected_kinds"] == []
+    assert report["duplicate_kinds"] == []
+    assert report["required_kind_set_matches"] is True
+    assert report["required_kind_order_matches"] is True
+    assert generated == expected
+    assert report["kind_row_count"] == len(expected) == 25
+    assert independently_summed == 8309
+    assert report["headline_total"] == independently_summed
+    assert report["kind_row_sum"] == independently_summed
+    assert report["reconciled_layered_element_count"] == independently_summed
+    assert report["source_audit_closed_universe_count"] == independently_summed
+    assert report["headline_count_source"] == "sum(rows[*].generated_actual)"
+    assert all(row["difference"] == 0 and row["pass"] for row in report["rows"])
+    assert validate_current_count_reconciliation_report(report) is True
+    assert report["passed"] is True
+
+
+def test_final_count_report_economic_results_reconcile_to_the_headline(
+    final_count_reconciliation_bundle,
+) -> None:
+    report = final_count_reconciliation_bundle.report
+    assert report["economic_result_counts"] == {
+        "PASS": 8184,
+        "LEGITIMATELY_UNAVAILABLE": 24,
+        "NEEDS_REVIEW": 101,
+        "DEFECT": 0,
+    }
+    assert sum(report["economic_result_counts"].values()) == 8309
+    assert report["classification_total"] == 8309
+    assert report["economic_result_count_total"] == 8309
+    assert report["economic_defect_count"] == 0
+
+
+def test_final_count_report_mutations_fail_closed(
+    final_count_reconciliation_bundle,
+) -> None:
+    report = final_count_reconciliation_bundle.report
+
+    old_mismatch = copy.deepcopy(report)
+    old_mismatch["reconciled_layered_element_count"] = 8310
+    old_mismatch["headline_total"] = 8310
+    _refresh_count_report_derived_metadata(old_mismatch)
+    old_mismatch["passed"] = True
+    assert validate_current_count_reconciliation_report(old_mismatch) is False
+
+    changed_kind = copy.deepcopy(report)
+    changed_kind["rows"][0]["generated_actual"] += 1
+    changed_kind["rows"][0]["difference"] += 1
+    changed_kind["rows"][0]["pass"] = False
+    _refresh_count_report_derived_metadata(changed_kind)
+    assert validate_current_count_reconciliation_report(changed_kind) is False
+
+    changed_headline = copy.deepcopy(report)
+    changed_headline["reconciled_layered_element_count"] -= 1
+    changed_headline["headline_total"] -= 1
+    _refresh_count_report_derived_metadata(changed_headline)
+    assert validate_current_count_reconciliation_report(changed_headline) is False
+
+    changed_classification = copy.deepcopy(report)
+    changed_classification["economic_result_counts"]["PASS"] -= 1
+    changed_classification["classification_total"] -= 1
+    changed_classification["economic_result_count_total"] -= 1
+    _refresh_count_report_derived_metadata(changed_classification)
+    assert validate_current_count_reconciliation_report(changed_classification) is False
+
+    nonzero_defect = copy.deepcopy(report)
+    nonzero_defect["economic_result_counts"]["PASS"] -= 1
+    nonzero_defect["economic_result_counts"]["DEFECT"] = 1
+    nonzero_defect["economic_defect_count"] = 1
+    _refresh_count_report_derived_metadata(nonzero_defect)
+    assert validate_current_count_reconciliation_report(nonzero_defect) is False
+
+
+def test_final_count_report_rename_mutation_identifies_missing_and_unexpected_kinds(
+    final_count_reconciliation_bundle,
+) -> None:
+    report = copy.deepcopy(final_count_reconciliation_bundle.report)
+    source_conflict = next(
+        row for row in report["rows"] if row["kind"] == "source_conflict"
+    )
+    source_conflict["kind"] = "unexpected_kind"
+    _refresh_count_report_derived_metadata(report)
+
+    assert report["missing_required_kinds"] == ["source_conflict"]
+    assert report["unexpected_kinds"] == ["unexpected_kind"]
+    assert report["duplicate_kinds"] == []
+    assert report["required_kind_set_matches"] is False
+    assert validate_current_count_reconciliation_report(report) is False
+
+
+def test_final_count_report_compensated_omission_fails_schema_validation(
+    final_count_reconciliation_bundle,
+) -> None:
+    report = copy.deepcopy(final_count_reconciliation_bundle.report)
+    source_conflict = next(
+        row for row in report["rows"] if row["kind"] == "source_conflict"
+    )
+    report["rows"].remove(source_conflict)
+    metric = next(row for row in report["rows"] if row["kind"] == "metric")
+    for field in (
+        "generated_actual",
+        "final_review_expected",
+        "audit_candidate_claim",
+    ):
+        metric[field] += source_conflict[field]
+    _refresh_count_report_derived_metadata(report)
+
+    assert report["kind_row_sum"] == report["headline_total"] == 8309
+    assert report["missing_required_kinds"] == ["source_conflict"]
+    assert report["unexpected_kinds"] == []
+    assert report["serialized_kind_count"] == 24
+    assert validate_current_count_reconciliation_report(report) is False
+
+
+@pytest.mark.parametrize("missing_kind", COUNT_RECONCILIATION_REQUIRED_KINDS)
+def test_final_count_report_rejects_each_missing_required_kind(
+    final_count_reconciliation_bundle,
+    missing_kind: str,
+) -> None:
+    report = copy.deepcopy(final_count_reconciliation_bundle.report)
+    report["rows"] = [
+        row for row in report["rows"] if row["kind"] != missing_kind
+    ]
+    _refresh_count_report_derived_metadata(report)
+
+    assert report["missing_required_kinds"] == [missing_kind]
+    assert validate_current_count_reconciliation_report(report) is False
+
+
+def test_final_count_report_rejects_extra_duplicate_and_reordered_kinds(
+    final_count_reconciliation_bundle,
+) -> None:
+    valid = final_count_reconciliation_bundle.report
+
+    extra = copy.deepcopy(valid)
+    extra_row = copy.deepcopy(extra["rows"][0])
+    extra_row.update(
+        {
+            "kind": "unexpected_kind",
+            "audit_candidate_claim": 0,
+            "final_review_expected": 0,
+            "generated_actual": 0,
+            "difference": 0,
+            "pass": True,
+        }
+    )
+    extra["rows"].append(extra_row)
+    _refresh_count_report_derived_metadata(extra)
+    assert extra["unexpected_kinds"] == ["unexpected_kind"]
+    assert validate_current_count_reconciliation_report(extra) is False
+
+    duplicate = copy.deepcopy(valid)
+    duplicate_row = copy.deepcopy(duplicate["rows"][0])
+    duplicate_row.update(
+        {
+            "audit_candidate_claim": 0,
+            "final_review_expected": 0,
+            "generated_actual": 0,
+            "difference": 0,
+            "pass": True,
+        }
+    )
+    duplicate["rows"].append(duplicate_row)
+    _refresh_count_report_derived_metadata(duplicate)
+    assert duplicate["duplicate_kinds"] == ["metric"]
+    assert validate_current_count_reconciliation_report(duplicate) is False
+
+    reordered = copy.deepcopy(valid)
+    reordered["rows"] = list(reversed(reordered["rows"]))
+    _refresh_count_report_derived_metadata(reordered)
+    assert reordered["required_kind_set_matches"] is True
+    assert reordered["required_kind_order_matches"] is False
+    assert validate_current_count_reconciliation_report(reordered) is False
+
+
+def test_final_count_required_kind_schema_is_independent_of_serialized_rows(
+    final_count_reconciliation_bundle,
+) -> None:
+    report = copy.deepcopy(final_count_reconciliation_bundle.report)
+    report["rows"] = [
+        row for row in report["rows"] if row["kind"] != "source_conflict"
+    ]
+    state = count_reconciliation_kind_schema_state(report["rows"])
+    assert state["missing_required_kinds"] == ["source_conflict"]
+
+    # Even self-declaring the truncated serialized set as required cannot weaken
+    # the validator's external, versioned schema owner.
+    report.update(state)
+    report["required_kinds"] = list(report["serialized_kinds"])
+    report["required_kind_count"] = len(report["serialized_kinds"])
+    report["missing_required_kinds"] = []
+    report["unexpected_kinds"] = []
+    report["required_kind_set_matches"] = True
+    report["required_kind_order_matches"] = True
+    report["kind_row_count"] = len(report["rows"])
+    report["kind_row_sum"] = sum(
+        row["generated_actual"] for row in report["rows"]
+    )
+    report["invariant_checks"] = {
+        key: True for key in report["invariant_checks"]
+    }
+    assert validate_current_count_reconciliation_report(report) is False
+
+
+def test_final_count_report_has_no_prior_delta_headline_shortcut(
+    final_count_reconciliation_bundle,
+) -> None:
+    report = final_count_reconciliation_bundle.report
+    source = inspect.getsource(build_current_count_reconciliation_report)
+    assert "new_intentional_blank_manifestation_count" not in source
+    assert "corrected_expected" not in source
+    assert "8309" not in source
+    assert "8310" not in source
+    assert "+ 20" not in source
+    assert "- 1" not in source
+    assert "COUNT_RECONCILIATION_REQUIRED_KINDS" in source
+    assert report["headline_count_source"] == "sum(rows[*].generated_actual)"
+
+
+def test_final_count_report_tracks_repaired_progress_and_four_new_rows(
+    successor_candidate,
+    final_count_reconciliation_bundle,
+) -> None:
+    timeline = _blocks(successor_candidate)[TIMELINE_BLOCK_ID].rows
+    repaired = next(
+        row
+        for row in timeline
+        if row.row_kind == PERIOD_RESULT_ROW_KIND
+        and row.metric_id == "metric:anf:operating-income@1"
+        and row.horizon_period_id == "period:anf:fy2022-q3@1"
+    )
+    assert repaired.progress_value == {"kind": "exact", "value": "5.626"}
+    assert repaired.progress_display == "YTD: $5.626m"
+    assert not any(
+        row["row_id"] == repaired.row_id and row["field_role"] == "progress_run_rate"
+        for row in final_count_reconciliation_bundle.blanks["rows"]
+    )
+
+    q4_rows = [
+        row
+        for row in timeline
+        if row.row_kind == PERIOD_RESULT_ROW_KIND
+        and row.metric_id == "metric:anf:operating-income@1"
+        and "-q4@" in str(row.horizon_period_id)
+    ]
+    assert len(q4_rows) == 4
+    expected_blank_roles = {
+        "previous_guide",
+        "new_current_guide",
+        "change_type",
+        "progress_run_rate",
+        "status",
+    }
+    blank_rows = final_count_reconciliation_bundle.blanks["rows"]
+    q4_row_ids = {row.row_id for row in q4_rows}
+    for row in q4_rows:
+        assert row.actual_value is not None
+        assert row.previous_display == row.current_display == row.progress_display == ""
+        assert row.change_type is None
+        assert row.status_at_update is None
+        assert {
+            blank["field_role"] for blank in blank_rows if blank["row_id"] == row.row_id
+        } == expected_blank_roles
+    assert sum(blank["row_id"] in q4_row_ids for blank in blank_rows) == 20
+    assert final_count_reconciliation_bundle.blanks["blank_field_count"] == 1484
+
+
+def test_final_count_report_regeneration_is_deterministic(
+    successor_candidate,
+    final_count_reconciliation_bundle,
+) -> None:
+    rebuilt = _build_final_count_report_for_test(successor_candidate).report
+    assert _json_bytes(rebuilt) == _json_bytes(final_count_reconciliation_bundle.report)
+
+
+def test_final_count_report_correction_freezes_all_economic_hashes(
+    successor_candidate,
+) -> None:
+    trace = build_workbook_trace_v2(
+        successor_candidate.product,
+        successor_candidate.plan,
+        preview_workbook=successor_candidate.first,
+    )
+    shadow = build_product_v2_shadow(
+        successor_candidate.product,
+        successor_candidate.package,
+        evidence_foundation=successor_candidate.evidence_foundation,
+    )
+    actual = {
+        "source_set": hashlib.sha256(
+            serialize_package(successor_candidate.source_set)
+        ).hexdigest(),
+        "product": promise_progress_product_v2_sha256(successor_candidate.product),
+        "shadow": hashlib.sha256(serialize_product_v2_shadow(shadow)).hexdigest(),
+        "workbook": sha256_file(successor_candidate.first),
+        "canonical_ooxml": canonical_workbook_content_sha256(successor_candidate.first),
+        "target_semantic": target_sheet_semantic_sha256_v2(
+            successor_candidate.first, successor_candidate.plan
+        ),
+        "trace": hashlib.sha256(_json_bytes(trace)).hexdigest(),
+    }
+    assert actual == {
+        "source_set": EXPECTED_SUCCESSOR_SOURCE_SET_SHA256,
+        "product": EXPECTED_SUCCESSOR_PRODUCT_SHA256,
+        "shadow": EXPECTED_SUCCESSOR_SHADOW_SHA256,
+        "workbook": EXPECTED_SUCCESSOR_WORKBOOK_SHA256,
+        "canonical_ooxml": EXPECTED_SUCCESSOR_CANONICAL_OOXML_SHA256,
+        "target_semantic": EXPECTED_SUCCESSOR_TARGET_SEMANTIC_SHA256,
+        "trace": EXPECTED_SUCCESSOR_TRACE_SHA256,
+    }
