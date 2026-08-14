@@ -261,6 +261,7 @@ def test_strict_post_fill_rejects_one_unplanned_style_mutation(
     assert "post_fill_protected_cell_drift" in {row["rule_id"] for row in report["issues"]}
 
 
+@pytest.mark.native_excel
 @pytest.mark.skipif(sys.platform != "win32", reason="Desktop Excel automation is Windows-only")
 def test_swedish_excel_native_recalculation_preserves_formula_and_protection_contracts(
     filled_anf_style_workbook: dict[str, Any], tmp_path: Path

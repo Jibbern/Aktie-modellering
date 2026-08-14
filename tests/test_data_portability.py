@@ -234,7 +234,7 @@ def test_stock_models_data_subcommand_dispatches_to_portable_tools(monkeypatch: 
 
     assert exc_info.value.code == 0
     assert called["argv"] == ["snapshot", "--data-root", str(data_root), "--out", str(out_zip)]
-    assert Path(called["repo_root"]).name == "Aktier"
+    assert Path(called["repo_root"]).resolve() == Path(stock_models.__file__).resolve().parent
 
 
 def test_data_config_show_set_and_clear_root_cli(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

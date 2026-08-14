@@ -30,6 +30,7 @@ def _package_path() -> Path:
     pytest.fail("ANF normalized package is required for the Excel-native release-path test.")
 
 
+@pytest.mark.native_excel
 @pytest.mark.skipif(sys.platform != "win32", reason="Desktop Excel release validation is Windows-only")
 def test_real_swedish_excel_roundtrip_uses_owned_process_and_leaves_no_workbook(
     tmp_path: Path,
@@ -81,6 +82,7 @@ def test_real_swedish_excel_roundtrip_uses_owned_process_and_leaves_no_workbook(
     assert not list(tmp_path.rglob("*.xlsx"))
 
 
+@pytest.mark.native_excel
 @pytest.mark.skipif(sys.platform != "win32", reason="Desktop Excel formula validation is Windows-only")
 def test_real_swedish_excel_investment_case_guards_unavailable_and_zero_domains(
     tmp_path: Path,

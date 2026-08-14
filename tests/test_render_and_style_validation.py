@@ -1,13 +1,24 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
+import shutil
 import sys
 
+import pandas as pd
 import pytest
 from openpyxl import Workbook, load_workbook
 
 import pbi_xbrl.render_validation_runner as render_runner
+from pbi_xbrl.debt_sheet_visibility import (
+    DEBT_CREDIT_NOTES_SHEET,
+    DEBT_MATURITY_SHEET,
+    DEBT_PROFILE_SHEET,
+    LEVERAGE_LIQUIDITY_SHEET,
+    REVOLVER_HISTORY_SHEET,
+    apply_legacy_debt_sheet_visibility,
+)
 from pbi_xbrl.render_validation_runner import (
     RENDER_RANGES,
     RenderTarget,
@@ -444,6 +455,7 @@ def test_com_renderer_reports_owned_image_deletion_failure_without_hiding_render
     result.image_path.unlink()
 
 
+@pytest.mark.native_excel
 @pytest.mark.skipif(sys.platform != "win32", reason="Excel COM image rendering is Windows-only")
 def test_real_excel_renders_protected_source_via_owned_scratch_workbook(tmp_path: Path) -> None:
     wb = Workbook()
@@ -486,9 +498,39 @@ def test_openpyxl_style_validation_passes_current_legacy_core_surfaces() -> None
 
 
 def test_render_validation_skips_com_cleanly_and_still_runs_style_checks(tmp_path: Path) -> None:
-    # PBI has populated manifest-era conditional sheets; GPRE/ANF canonical files
-    # retain legacy debt layouts and are covered above through their core surfaces.
-    workbooks = {"PBI": _workbook_path("PBI")}
+    # Keep the protected production workbook read-only while exercising the
+    # current manifest-owned legacy visibility pass on an isolated copy.
+    source_path = _workbook_path("PBI")
+    source_hash = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    scratch_path = tmp_path / source_path.name
+    shutil.copy2(source_path, scratch_path)
+    workbook = load_workbook(scratch_path, data_only=False, read_only=False)
+    try:
+        def legacy_frame(sheet_name: str) -> pd.DataFrame:
+            rows = list(workbook[sheet_name].iter_rows(values_only=True))
+            if len(rows) < 2 or not rows[0] or not all(value is not None for value in rows[0]):
+                return pd.DataFrame()
+            return pd.DataFrame(rows[1:], columns=[str(value) for value in rows[0]])
+
+        profile_frame = legacy_frame(DEBT_PROFILE_SHEET)
+        # A protected legacy workbook does not serialize the independent typed
+        # economic-validation result.  Its row geometry cannot recreate that
+        # authority, so the current visibility owner must fail closed.
+        apply_legacy_debt_sheet_visibility(
+            workbook,
+            {
+                DEBT_PROFILE_SHEET: profile_frame,
+                REVOLVER_HISTORY_SHEET: legacy_frame(REVOLVER_HISTORY_SHEET),
+                LEVERAGE_LIQUIDITY_SHEET: legacy_frame(LEVERAGE_LIQUIDITY_SHEET),
+                DEBT_CREDIT_NOTES_SHEET: legacy_frame(DEBT_CREDIT_NOTES_SHEET),
+                DEBT_MATURITY_SHEET: legacy_frame(DEBT_MATURITY_SHEET),
+            },
+        )
+        workbook.save(scratch_path)
+    finally:
+        workbook.close()
+    assert hashlib.sha256(source_path.read_bytes()).hexdigest() == source_hash
+    workbooks = {"PBI": scratch_path}
 
     report = run_render_validation(
         workbooks,

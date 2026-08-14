@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import xml.etree.ElementTree as ET
 from collections import Counter
 from pathlib import Path
@@ -11,13 +10,8 @@ import pytest
 from openpyxl.utils import get_column_letter
 from openpyxl.utils.cell import range_boundaries
 
+from tests.workbook_test_resources import delivered_workbook_path
 
-WORKBOOK_DIR = Path(
-    os.environ.get(
-        "STOCK_MODEL_WORKBOOK_DIR",
-        r"C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models",
-    )
-)
 CANONICAL_TICKERS = ("PBI", "GPRE", "ANF")
 
 OOXML_NS = {
@@ -28,10 +22,7 @@ OOXML_NS = {
 
 
 def _workbook_path(ticker: str) -> Path:
-    path = WORKBOOK_DIR / f"{ticker}_model.xlsx"
-    if not path.exists():
-        pytest.skip(f"Workbook not found: {path}")
-    return path
+    return delivered_workbook_path(ticker, Path(__file__).resolve())
 
 
 def _worksheet_xml_map(path: Path) -> dict[str, str]:
@@ -123,7 +114,12 @@ def test_bs_segments_shared_top_layout_and_standard_widths(ticker: str) -> None:
 
         for col_idx in range(2, 10):
             letter = get_column_letter(col_idx)
-            assert float(ws.column_dimensions[letter].width or 0.0) == pytest.approx(11.29, abs=0.03)
-        assert float(ws.column_dimensions["A"].width or 0.0) > 11.29
+            # The protected macro-enabled GPRE oracle retains its historical
+            # mixed-width geometry: B is the shared first data column and C:I
+            # retain the legacy 13-character widths. Current .xlsx projections
+            # own the uniform 11.29-character data-column contract.
+            expected_width = 13.0 if path.suffix.lower() == ".xlsm" and col_idx >= 3 else 11.29
+            assert float(ws.column_dimensions[letter].width or 0.0) == pytest.approx(expected_width, abs=0.03)
+        assert float(ws.column_dimensions["A"].width or 0.0) > 13.0
     finally:
         wb.close()

@@ -258,6 +258,7 @@ def test_valid_xlsx_execute_promotion_and_rollback_use_real_strict_saved_validat
     assert not list(canonical.parent.glob(".*.candidate.xlsx"))
 
 
+@pytest.mark.native_excel
 @pytest.mark.skipif(sys.platform != "win32", reason="Desktop Excel release validation is Windows-only")
 def test_real_swedish_excel_validates_isolated_rollback_source(
     tmp_path: Path,

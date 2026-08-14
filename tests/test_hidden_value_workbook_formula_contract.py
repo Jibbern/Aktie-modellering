@@ -258,6 +258,7 @@ def test_formula_mutation_breaks_frozen_shell_identity(tmp_path: Path) -> None:
     assert report.status == "FAIL"
 
 
+@pytest.mark.native_excel
 @pytest.mark.skipif(sys.platform != "win32", reason="Desktop Excel automation is Windows-only")
 def test_excel_native_recompute_matches_independent_a_to_g_oracle_and_blocks_mutations(tmp_path: Path) -> None:
     win32com = pytest.importorskip("win32com.client")

@@ -5,26 +5,36 @@ from pathlib import Path
 
 import pytest
 
+from tests.workbook_test_resources import registered_data_root
+
 
 def _gpre_bofa_conference_dir() -> Path:
-    return Path(__file__).resolve().parents[2] / "sec_cache" / "GPRE" / "external" / "conferences" / "2026-02-26_bofa"
+    return (
+        registered_data_root(Path(__file__).resolve())
+        / "sec_cache"
+        / "GPRE"
+        / "external"
+        / "conferences"
+        / "2026-02-26_bofa"
+    )
 
 
 def _load_structured_rows() -> list[dict]:
     conf_dir = _gpre_bofa_conference_dir()
     json_path = conf_dir / "structured_statements.json"
     if not json_path.exists():
-        pytest.skip(f"Normalized conference JSON missing: {json_path}")
+        pytest.skip(f"contractual_optional_external_data: normalized conference JSON missing: {json_path}")
     return json.loads(json_path.read_text(encoding="utf-8"))
 
 
+@pytest.mark.optional_external_data
 def test_gpre_external_conference_files_exist_and_are_not_sec_named() -> None:
     conf_dir = _gpre_bofa_conference_dir()
     transcript_path = conf_dir / "transcript.md"
     json_path = conf_dir / "structured_statements.json"
 
     if not transcript_path.exists() or not json_path.exists():
-        pytest.skip(f"Normalized conference source files missing under {conf_dir}")
+        pytest.skip(f"contractual_optional_external_data: normalized conference source files missing under {conf_dir}")
 
     assert conf_dir.name == "2026-02-26_bofa"
     assert transcript_path.name == "transcript.md"
@@ -41,6 +51,7 @@ def test_gpre_external_conference_files_exist_and_are_not_sec_named() -> None:
     assert "�" not in transcript
 
 
+@pytest.mark.optional_external_data
 def test_gpre_external_conference_structured_rows_are_reusable_and_conservative() -> None:
     rows = _load_structured_rows()
     assert isinstance(rows, list)

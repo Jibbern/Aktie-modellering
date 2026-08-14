@@ -1,0 +1,12 @@
+{
+  "contract_id": "contract:repository-native-excel-test-boundary@1",
+  "marker": "native_excel",
+  "test_ids": [
+    "tests/test_hidden_value_workbook_formula_contract.py::test_excel_native_recompute_matches_independent_a_to_g_oracle_and_blocks_mutations",
+    "tests/test_new_engine_excel_native.py::test_real_swedish_excel_investment_case_guards_unavailable_and_zero_domains",
+    "tests/test_new_engine_excel_native.py::test_real_swedish_excel_roundtrip_uses_owned_process_and_leaves_no_workbook",
+    "tests/test_new_engine_promotion_integration.py::test_real_swedish_excel_validates_isolated_rollback_source",
+    "tests/test_new_ticker_style_pipeline.py::test_swedish_excel_native_recalculation_preserves_formula_and_protection_contracts",
+    "tests/test_render_and_style_validation.py::test_real_excel_renders_protected_source_via_owned_scratch_workbook"
+  ]
+}
