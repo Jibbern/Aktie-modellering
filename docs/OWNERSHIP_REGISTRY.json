@@ -1,7 +1,7 @@
 {
   "registry_id": "registry:canonical-ownership@1",
-  "registry_version": "1.1.0",
-  "checkpoint": "ce1f1aea07d98e566a142c8221e53efe2ce692de",
+  "registry_version": "1.2.0",
+  "checkpoint": "05b9446b272ed91a7068affd0716ed66bd9046cc",
   "purpose": "Canonical ownership index. It routes changes to live owners and records parallel compatibility owners without declaring migration complete.",
   "ownership_states": [
     "unified",
@@ -938,6 +938,79 @@
         "direct legacy replacement"
       ],
       "notes": "The product is active and accepted; its workbook bridge is target_not_wired."
+    },
+    {
+      "concept_id": "concept:summary-bs-source-native-product@1",
+      "name": "Summary and BS_Segments source-native product",
+      "canonical_owner_component_id": "component:summary-bs-source-native-product@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/summary_bs_products.py",
+        "pbi_xbrl/longitudinal_memory/ticker_profiles/anf_summary_bs_foundation.py",
+        "tests/fixtures/summary_bs/anf_summary_bs_golden_manifest.v1.json"
+      ],
+      "public_interfaces": [
+        "build_anf_summary_bs_products",
+        "SourceNativeProduct",
+        "summary-bs-source-native:anf@1.0.0"
+      ],
+      "current_consumers": [
+        "accepted Summary/BS product and shadow fixtures",
+        "component:summary-bs-workbook-bridge@1"
+      ],
+      "ownership_state": "unified_unwired",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "legacy SUMMARY and BS_Segments economic cells",
+          "lifecycle_state": "active",
+          "authority_limit": "Current production workbook compatibility only; cannot override accepted source-native economics."
+        }
+      ],
+      "allowed_extension_point": "Reviewed typed field, derivation, availability or lineage changes under a versioned source-native Summary/BS contract and semantic golden gate.",
+      "prohibited_owners": [
+        "workbook row position",
+        "source order",
+        "legacy workbook values",
+        "OOXML materializer"
+      ],
+      "notes": "The 452-field economic product is golden accepted. Its workbook bridge remains separately target_not_wired."
+    },
+    {
+      "concept_id": "concept:summary-bs-workbook-projection@1",
+      "name": "Summary and BS_Segments workbook projection and lossless materialization",
+      "canonical_owner_component_id": "component:summary-bs-workbook-bridge@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/summary_bs_workbook_projection.py",
+        "pbi_xbrl/longitudinal_memory/summary_bs_workbook_materialization.py",
+        "pbi_xbrl/longitudinal_memory/summary_bs_golden.py",
+        "tests/fixtures/summary_bs/anf_summary_bs_binding_plan.v1.json"
+      ],
+      "public_interfaces": [
+        "build_summary_bs_projection_plan",
+        "materialize_summary_bs_preview",
+        "reproduce_registered_golden"
+      ],
+      "current_consumers": [
+        "accepted Summary/BS source-native golden replay",
+        "focused lossless preservation tests"
+      ],
+      "ownership_state": "unified_unwired",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "current production SUMMARY and BS_Segments workbook routes",
+          "lifecycle_state": "active",
+          "authority_limit": "Production compatibility route only; it is not the source-native binding or materialization authority."
+        }
+      ],
+      "allowed_extension_point": "Exact reviewed field-to-cell bindings and preservation-safe scratch materialization without economic reselection.",
+      "prohibited_owners": [
+        "source authority",
+        "workbook-owned economic calculation",
+        "artifact-tool XLSX export",
+        "production cutover without gate:workbook-cutover@1"
+      ],
+      "notes": "The bridge implementation and golden are accepted for replay, but no production consumer is wired and production_default remains false."
     },
     {
       "concept_id": "concept:normalized-package@1",

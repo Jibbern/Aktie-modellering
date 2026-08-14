@@ -20,10 +20,11 @@ Three surfaces coexist. Their lifecycle and authority are machine-readable in
    validated transition capabilities. They have not replaced every production
    consumer and are not the source-native Promise Progress workbook bridge.
 3. **Source-native longitudinal/product architecture — active for its accepted
-   in-memory scope.** C1/C2/C3 records and `PromiseProgressProduct@1` have closed
-   contracts, deterministic goldens, and tests. Promise Progress is a real product
-   consumer of longitudinal memory, but its workbook bridge is
-   **target_not_wired**.
+   scope.** C1/C2/C3 records, `PromiseProgressProduct@1`, and the 452-field
+   Summary/BS source-native product have closed contracts, deterministic goldens,
+   and tests. Promise Progress has no workbook bridge. The accepted lossless
+   Summary/BS replay bridge can build scratch goldens, but both production workbook
+   integrations remain **target_not_wired** and Summary/BS is not a production default.
 
 Legacy workbooks may be read-only product, capability, behavior, or visual oracles.
 They are not canonical source authority for economic facts.

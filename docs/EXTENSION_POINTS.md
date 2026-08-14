@@ -29,6 +29,8 @@ The intended direction for new semantic work is:
 
 The source-native Promise Progress product is active and accepted. Its workbook bridge is `target_not_wired`; do not modify a workbook writer as though that bridge already exists.
 
+The source-native Summary/BS product is golden accepted as `summary-bs-source-native:anf@1.0.0`. Its lossless replay bridge is also `target_not_wired` and is not a production default; route economic changes through `concept:summary-bs-source-native-product@1` and binding/materialization changes through `concept:summary-bs-workbook-projection@1`.
+
 ## Task-oriented extension table
 
 | Extension | Start here | Required contracts/registries | Expected tests and goldens | Prohibited locations | Approval |
@@ -52,6 +54,8 @@ The source-native Promise Progress product is active and accepted. Its workbook 
 | New Guidance or Promise concept | `concept:guidance-series-version@1` or `concept:promise-version@1` | longitudinal schema/validation; explicit version relations; product contract when consumed | chronology, relation, conflict, knowledge-date and product tests | workbook quarter position, newest-only, writer copy-forward/status | authority, golden, product-contract gates |
 | New product projection | canonical longitudinal owner plus a versioned product contract | typed input/output, selection/order, lineage, serializer, validator, parity policy if needed | semantic/mutation/shuffle/hash-seed tests and independently reviewed goldens | source adapter UI logic, workbook writer selection, support-sheet truth engine | product-contract, golden, owner-migration gates |
 | New Promise Progress field | `concept:promise-progress-projection@1`; `PromiseProgressProduct@1` | product contract/version; closed block role/destination; shadow schema; parity/capture/scope | field/schema/lineage/parity/determinism tests; affected product/shadow goldens | Excel calculation, legacy writer selection, parallel support matrix | product-contract, golden, oracle, future cutover gates |
+| Summary/BS source-native field or definition | `concept:summary-bs-source-native-product@1`; `change:product-field@1` or `change:metric-definition@1` | source-native product/foundation identity; definition/basis/unit; derivation and typed lineage | Summary/BS product, shadow, semantic identity, readback and golden fixtures | workbook row position, materializer, legacy workbook value, source order | product-contract and semantic-golden gates; authority gate when source ownership changes |
+| Summary/BS workbook binding or presentation mutation | `concept:summary-bs-workbook-projection@1`; `change:workbook-destination-binding@1` | immutable binding plan, frozen surface map, lossless materializer and protected-oracle identity | binding uniqueness, lossless preservation, readback, render and golden replay | economic selection, artifact-tool XLSX export, protected workbook overwrite | presentation/layout gate; workbook-cutover gate before any production route |
 | New workbook binding | `concept:workbook-binding@1`; binding map and planner | binding schema; shell writable zones/merge contracts; source field contract | binding-plan, allowed-cell, capacity, readback and destination tests | source/economic selection, broad range dump, missing-to-zero | presentation/layout and cutover gates |
 | New runtime workbook sheet | declarative module/sector ownership plus `concept:workbook-finalization-publication@1` and `change:workbook-finalization-publication@1` | materialization result, required visibility/order/cleanup state, structural/readback validation and explicit optionality | materialization/finalization mutation tests, saved readback, ordering, visibility, protection and atomic-publication tests | direct final-path save, swallowed material failure, test-only runtime branch | `gate:workbook-publication-contract-change@1`; presentation/layout and cutover gates as applicable |
 | New Quarter Notes intentionally-empty producer | `concept:quarter-notes-intentionally-empty@1`; `change:quarter-notes-empty-state@1`; `WorkbookInputs.quarter_notes_intentionally_empty` | producer must explicitly establish valid empty; missing input, parse failure and unexpected empty remain distinct | empty-state producer/consumer/readback tests and false-green mutation coverage | arbitrary caller bypass, empty object as success, inference from missing/failed parse | `gate:product-contract-change@1` |
@@ -74,14 +78,14 @@ Current limitations, not invitations to improvise:
 - The normalized root schema and schema-migration framework remain incomplete.
 - Writer-owned economics and the large legacy dependency cycle remain active compatibility debt.
 - Accepted workbook publication now classifies material versus explicitly optional finalization, blocks publication on material failure, serializes to an isolated candidate, validates serialized readback, and promotes atomically through `concept:workbook-finalization-publication@1`. New paths must reuse that contract rather than introduce a parallel save owner.
-- No source-native-to-workbook bridge is implemented.
+- The Promise Progress source-native-to-workbook bridge is not implemented. The accepted Summary/BS lossless bridge can reproduce its golden into scratch output, but remains `target_not_wired` and is not a production route.
 
 ## Terminology
 
 - **Active:** executed or consumed in the accepted current system for its declared scope.
 - **Compatibility:** still required by current production, but not the preferred owner for new semantics.
 - **Transition:** validated new-engine/normalized capability that has not replaced every production consumer.
-- **Target not wired:** designed boundary with no active producer/consumer connection. Promise Progress workbook integration is in this state.
+- **Target not wired:** designed or replayable boundary with no active production producer/consumer connection. Promise Progress integration and the accepted-but-nonproduction Summary/BS bridge are in this state.
 - **Legacy workbook oracle:** read-only product, behavior, capability, or visual reference. It is not source authority for economic facts.
 - **Source-native:** records and products derived from immutable sources, explicit semantics, canonical resolution, and lineage.
 - **Normalized:** the separate transition package consumed by the frozen-shell engine. It is not currently synonymous with source-native.

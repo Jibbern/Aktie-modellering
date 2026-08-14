@@ -145,7 +145,24 @@ This product is active and accepted. The source-native -> workbook bridge is
 `target_not_wired`; the legacy Promise Progress writer is a compatibility/UI owner,
 not a consumer of this projection.
 
-### 4e. Normalized/frozen-shell engine (validated transition)
+### 4e. Source-native Summary and BS_Segments product (golden accepted, workbook not wired)
+- [`pbi_xbrl/longitudinal_memory/summary_bs_products.py`](../pbi_xbrl/longitudinal_memory/summary_bs_products.py) and
+  [`pbi_xbrl/longitudinal_memory/ticker_profiles/anf_summary_bs_foundation.py`](../pbi_xbrl/longitudinal_memory/ticker_profiles/anf_summary_bs_foundation.py)
+  - Own the accepted 452-field Summary/BS economic product, derivations,
+    availability and typed lineage.
+- [`pbi_xbrl/longitudinal_memory/summary_bs_workbook_projection.py`](../pbi_xbrl/longitudinal_memory/summary_bs_workbook_projection.py) and
+  [`pbi_xbrl/longitudinal_memory/summary_bs_workbook_materialization.py`](../pbi_xbrl/longitudinal_memory/summary_bs_workbook_materialization.py)
+  - Own the immutable 452-field binding/presentation plan and targeted lossless
+    OOXML scratch materialization. They do not select economics.
+- [`tests/fixtures/summary_bs/anf_summary_bs_golden_manifest.v1.json`](../tests/fixtures/summary_bs/anf_summary_bs_golden_manifest.v1.json)
+  - Registers golden `summary-bs-source-native:anf@1.0.0`, its product/shadow,
+    binding, workbook and acceptance identities.
+
+The source-native product and replayable golden are accepted. The production workbook
+bridge remains `target_not_wired`, `production_default=false`; artifact-tool is
+read/inspection/render only for this bridge.
+
+### 4f. Normalized/frozen-shell engine (validated transition)
 - [`docs/normalized_company_data.schema.json`](normalized_company_data.schema.json)
   - Transition package contract consumed by the new-engine planner; it is not the
     longitudinal schema and no accepted general bridge joins the two.

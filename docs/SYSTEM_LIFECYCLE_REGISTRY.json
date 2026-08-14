@@ -1,7 +1,7 @@
 {
   "registry_id": "registry:system-lifecycle@1",
-  "registry_version": "1.1.0",
-  "checkpoint": "ce1f1aea07d98e566a142c8221e53efe2ce692de",
+  "registry_version": "1.2.0",
+  "checkpoint": "05b9446b272ed91a7068affd0716ed66bd9046cc",
   "purpose": "Machine-readable index of current lifecycle and authority. Live code and closed contracts remain behavioral authority; this registry routes agents to them and must not be used as runtime configuration.",
   "lifecycle_states": [
     "active",
@@ -322,6 +322,7 @@
       "producer": "accepted C1/C2/C3 builders",
       "consumers": [
         "component:promise-progress-product@1",
+        "component:summary-bs-source-native-product@1",
         "canonical validation and lineage reports"
       ],
       "mutable_or_immutable": "immutable_contract",
@@ -461,6 +462,64 @@
         "direct in-place legacy replacement"
       ],
       "notes": "Do not describe Promise Progress workbook integration as active."
+    },
+    {
+      "component_id": "component:summary-bs-source-native-product@1",
+      "name": "Source-native Summary and BS_Segments product",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "ANF Summary/BS source-native product and ticker-foundation contracts",
+      "repository_paths": [
+        "pbi_xbrl/longitudinal_memory/summary_bs_products.py",
+        "pbi_xbrl/longitudinal_memory/ticker_profiles/anf_summary_bs_foundation.py",
+        "scripts/build_anf_summary_bs_source_native.py"
+      ],
+      "producer": "build_anf_summary_bs_products",
+      "consumers": [
+        "component:summary-bs-workbook-bridge@1",
+        "component:test-fixtures-and-goldens@1"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Versioned Summary/BS fields, definitions, units, derivations, availability and typed lineage under the reviewed source-native contract.",
+      "prohibited_ownership": [
+        "workbook cell destinations",
+        "legacy workbook values as source authority",
+        "writer-side economic reselection"
+      ],
+      "notes": "Golden summary-bs-source-native:anf@1.0.0 is accepted. The economic product is independent from its separately unwired workbook bridge."
+    },
+    {
+      "component_id": "component:summary-bs-workbook-bridge@1",
+      "name": "Lossless source-native Summary and BS_Segments workbook bridge",
+      "lifecycle_state": "target_not_wired",
+      "authority_level": "presentation_contract",
+      "canonical_owner": "typed Summary/BS binding plan and targeted lossless OOXML materializer",
+      "repository_paths": [
+        "pbi_xbrl/longitudinal_memory/summary_bs_workbook_projection.py",
+        "pbi_xbrl/longitudinal_memory/summary_bs_workbook_materialization.py",
+        "pbi_xbrl/longitudinal_memory/summary_bs_golden.py",
+        "scripts/build_anf_summary_bs_workbook_projection.py",
+        "scripts/build_anf_summary_bs_lossless_preview.py",
+        "scripts/build_anf_summary_bs_golden.py"
+      ],
+      "producer": "build_summary_bs_projection_plan and materialize_summary_bs_preview",
+      "consumers": [
+        "deterministic Summary/BS golden replay",
+        "future separately authorized workbook cutover"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Consume the immutable 452-field plan and apply only authorized value, clear and presentation mutations to a scratch copy of the protected shell.",
+      "prohibited_ownership": [
+        "economic source selection",
+        "production-default routing",
+        "artifact-tool XLSX authoring",
+        "protected workbook overwrite"
+      ],
+      "notes": "The preview/golden materializer is accepted, but no production consumer or default route is wired. Lifecycle remains target_not_wired."
     },
     {
       "component_id": "component:normalized-package-contract@1",
@@ -627,7 +686,8 @@
       "canonical_owner": "tests and reviewed fixture contracts",
       "repository_paths": [
         "tests/fixtures/longitudinal_memory",
-        "tests/fixtures/promise_progress"
+        "tests/fixtures/promise_progress",
+        "tests/fixtures/summary_bs"
       ],
       "producer": "reviewed acceptance passes",
       "consumers": [

@@ -1378,8 +1378,8 @@ def test_registries_are_strict_closed_and_cross_referenced(registries) -> None:
 def test_registry_vocabularies_and_checkpoint_are_closed(registries) -> None:
     for name, payload in registries.items():
         assert payload["registry_id"] == EXPECTED_REGISTRY_IDS[name]
-        assert payload["checkpoint"] == "ce1f1aea07d98e566a142c8221e53efe2ce692de"
-        assert payload["registry_version"] == "1.1.0"
+        assert payload["checkpoint"] == "05b9446b272ed91a7068affd0716ed66bd9046cc"
+        assert payload["registry_version"] == "1.2.0"
 
     lifecycle = registries["lifecycle"]
     assert lifecycle["lifecycle_states"] == [
@@ -1446,6 +1446,12 @@ def test_lifecycle_states_do_not_claim_a_promise_progress_workbook_bridge(regist
     bridge = by_id["component:promise-progress-workbook-bridge@1"]
     assert bridge["lifecycle_state"] == "target_not_wired"
     assert bridge["production_status"] == "not_implemented"
+    summary_bs_product = by_id["component:summary-bs-source-native-product@1"]
+    assert summary_bs_product["lifecycle_state"] == "active"
+    assert summary_bs_product["production_status"] == "accepted_not_workbook_wired"
+    summary_bs_bridge = by_id["component:summary-bs-workbook-bridge@1"]
+    assert summary_bs_bridge["lifecycle_state"] == "target_not_wired"
+    assert summary_bs_bridge["production_status"] == "accepted_not_workbook_wired"
     oracle = by_id["component:legacy-workbook-oracles@1"]
     assert oracle["lifecycle_state"] == "oracle"
     assert oracle["authority_level"] == "parity_oracle"
@@ -1476,6 +1482,8 @@ def test_required_ownership_and_change_classes_are_complete(registries) -> None:
         "concept:product-row-ordering@1",
         "concept:product-display-text@1",
         "concept:promise-progress-projection@1",
+        "concept:summary-bs-source-native-product@1",
+        "concept:summary-bs-workbook-projection@1",
         "concept:normalized-package@1",
         "concept:workbook-binding@1",
         "concept:workbook-style@1",

@@ -1,7 +1,7 @@
 {
   "registry_id": "registry:approval-gates@1",
-  "registry_version": "1.1.0",
-  "checkpoint": "ce1f1aea07d98e566a142c8221e53efe2ce692de",
+  "registry_version": "1.2.0",
+  "checkpoint": "05b9446b272ed91a7068affd0716ed66bd9046cc",
   "purpose": "Explicit stop conditions for changes that alter authority, compatibility, accepted semantics, sources or delivered workbook state.",
   "review_modes": [
     "human_review",

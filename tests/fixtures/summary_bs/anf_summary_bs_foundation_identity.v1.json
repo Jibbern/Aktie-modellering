@@ -1,0 +1,14 @@
+{
+  "accepted_upstream_foundation_id": "evidence-foundation:anf:product-v2-1-successor@1",
+  "accepted_upstream_foundation_sha256": "8dc5b59fd1128e5837e4a2ecc0eb9ad3bb69b70c146aea7f71078d46dc6ddf5b",
+  "canonical_fact_count": 468,
+  "derivation_count": 141,
+  "evidence_foundation_id": "evidence-foundation:anf:summary-bs-source-native@1",
+  "evidence_foundation_sha256": "24323be41bf98547dae0b34ab5597b455a8d3c6bdb5f4aae1cada58ff8433369",
+  "profile_id": "ticker-profile:anf:summary-bs-source-native@1",
+  "schema": "SummaryBSEvidenceFoundationIdentity@1",
+  "semantic_identity_migration_contract": "contract:anf-summary-durable-semantic-identity-migration@1",
+  "semantic_identity_migration_digest": "806f72c383f32de41358863ec460e8617cc71a9863a2ebf97934b0ee3c26f8da",
+  "source_set_id": "source-set:anf:reviewed-evidence-foundation-successor@4",
+  "source_set_sha256": "2c7c51768e2d2ec426f3155c43610fe2c5ee1a4f81b8664925bc30c9d0037217"
+}

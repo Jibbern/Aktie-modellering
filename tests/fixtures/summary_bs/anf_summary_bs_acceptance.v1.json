@@ -1,0 +1,96 @@
+{
+  "accepted_audit_manifests": [
+    {
+      "data_root_relative_path": "audit/summary_bs_repository_integration_2026-08-14/audit_manifest.json",
+      "role": "repository_integration",
+      "sha256": "096c442be41eba6d8a8f35a4aa312972879256ca618259b8e9b938916a29ce94"
+    },
+    {
+      "data_root_relative_path": "audit/summary_bs_source_native_projection_2026-08-14/audit_manifest.json",
+      "role": "source_native_projection",
+      "sha256": "943792c38fe65c193cf4a7a3ea8da29153fa44293e3336532cb45c88a467edd8"
+    },
+    {
+      "data_root_relative_path": "audit/summary_bs_lossless_materialization_2026-08-14/audit_manifest.json",
+      "role": "lossless_materialization",
+      "sha256": "5ba3cd5940896f8fae42dfc99352a56aea9b5e19172ac0981aa86afe854fd0df"
+    },
+    {
+      "data_root_relative_path": "audit/summary_bs_exhaustive_preview_recheck_2026-08-14/audit_manifest.json",
+      "role": "exhaustive_preview_recheck",
+      "sha256": "8692794831ac0f35eacfb412036af96dea7ccd60a8119b2cd3a80a9d7373d8d4"
+    },
+    {
+      "data_root_relative_path": "audit/summary_bs_bounded_golden_readiness_fix_2026-08-14/audit_manifest.json",
+      "role": "bounded_golden_readiness_fix",
+      "sha256": "bdc5d77708e752ca4ac61924b2d276525ff24929f11d3192bb19d613c0221e77"
+    }
+  ],
+  "binding_readback_mismatch_count": 0,
+  "blank_closure": {
+    "correctable_blank_count": 92,
+    "passed_count": 92
+  },
+  "bs_segments": {
+    "available": 361,
+    "needs_review": 24,
+    "readback_passed": 417,
+    "total": 417,
+    "unavailable": 32
+  },
+  "defect_closure": {
+    "closed_count": 122,
+    "reopened_count": 0,
+    "still_defective_count": 0,
+    "total": 122
+  },
+  "derivation_mismatch_count": 0,
+  "formula_ownership": {
+    "target_formula_count": 0,
+    "workbook_owned_economic_formula_count": 0
+  },
+  "legacy_capability_parity": {
+    "missing_supported_capability_count": 0,
+    "unexplained_capability_difference_count": 0
+  },
+  "lineage": {
+    "available_field_count": 388,
+    "traceable_count": 388,
+    "untraceable_count": 0
+  },
+  "lossless_preservation": {
+    "defined_name_delta_count": 0,
+    "formula_cache_delta_count": 0,
+    "formula_text_delta_count": 0,
+    "new_cached_formula_error_count": 0,
+    "relationship_delta_count": 0,
+    "sheet_metadata_delta_count": 0,
+    "sheet_state_delta_count": 0,
+    "unrelated_layout_delta_count": 0,
+    "unrelated_literal_delta_count": 0,
+    "unrelated_style_delta_count": 0,
+    "unrelated_workbook_delta_count": 0
+  },
+  "missing_to_zero_count": 0,
+  "passed": true,
+  "period_header_mismatch_count": 0,
+  "schema": "SummaryBSSourceNativeGoldenAcceptance@1",
+  "semantic_identity_failure_count": 0,
+  "stale_legacy_economic_survivor_count": 0,
+  "summary": {
+    "available": 27,
+    "needs_review": 2,
+    "readback_passed": 35,
+    "total": 35,
+    "unavailable": 6
+  },
+  "visual_receipt": {
+    "accepted_candidate_bs_segments_render_sha256": "710e72d758deee89acc2590aef682a60897391b4c0737e2a0525f1934b1f65d8",
+    "accepted_candidate_summary_render_sha256": "7f00d6149af79445f490a7cc1d0d4054037e299629fa355e2d6d6ffd149ef99f",
+    "bs_segments_render_sha256": "710e72d758deee89acc2590aef682a60897391b4c0737e2a0525f1934b1f65d8",
+    "environment": "artifact-tool bundled runtime 26.812.11052",
+    "render_contract": "artifact-tool-import-render-png@1; scale=1.5",
+    "summary_render_sha256": "7f00d6149af79445f490a7cc1d0d4054037e299629fa355e2d6d6ffd149ef99f",
+    "unexplained_visual_delta_count": 0
+  }
+}

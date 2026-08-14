@@ -37,7 +37,7 @@ This repository builds and verifies the delivered `PBI` and `GPRE` Excel workboo
 ## Runtime Model
 - For the active legacy production path, the saved and readback-validated workbook is the delivered product artifact.
 - Source authority and canonical source-native semantics belong to their closed source, longitudinal-memory, and product contracts; a workbook is not upstream economic authority.
-- The accepted source-native Promise Progress product is active in memory and fixtures, but has no workbook bridge. The normalized/frozen-shell engine is a validated transition path, not a universal production replacement.
+- The accepted source-native Promise Progress product is active in memory and fixtures, but has no workbook bridge. Summary/BS golden `summary-bs-source-native:anf@1.0.0` is accepted with a lossless scratch replay bridge that remains `target_not_wired` and nonproduction. The normalized/frozen-shell engine is a validated transition path, not a universal production replacement.
 - Use `docs/SYSTEM_LIFECYCLE_REGISTRY.json` to select the current lifecycle surface before choosing implementation files.
 - `sec_cache` is a mixed runtime store:
   - source-like SEC and local-document cache

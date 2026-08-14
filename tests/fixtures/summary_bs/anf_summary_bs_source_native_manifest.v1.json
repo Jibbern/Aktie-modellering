@@ -1,0 +1,71 @@
+{
+  "artifact_count": 12,
+  "artifact_type": "ANFSourceNativeSummaryBSSegmentCandidateManifest@1",
+  "artifacts": [
+    {
+      "path": "balance_sheet_reconciliation.json",
+      "sha256": "8a5028d1142f5071a76b0b7b5210d07ece281b48f5b78d3e4982e03608544d06",
+      "size": 16775
+    },
+    {
+      "path": "bs_segment_product.json",
+      "sha256": "fbc8be16938c18db8a99a1a791760c88b5d50160da4cda38b80fc4485da1c709",
+      "size": 665818
+    },
+    {
+      "path": "bs_segment_shadow.json",
+      "sha256": "108e087754d301ee03ea649b872778be9d34e9c315768466892a7cec6a9b41c2",
+      "size": 2003989
+    },
+    {
+      "path": "defect_closure_report.json",
+      "sha256": "7d33b41107e516cb79802d846247b9aa1856ff84e0d44501f5936e0f735e6129",
+      "size": 54088
+    },
+    {
+      "path": "derivation_reconciliation.json",
+      "sha256": "b45cd82e38d33860319aea3791e0d114c85e1805797aff735ce196bcedeee608",
+      "size": 382351
+    },
+    {
+      "path": "foundation_gap_remaining.json",
+      "sha256": "20ebc1d2a81b460b53a93080ff750d2fd9cfe47492eadf19252012ae82436352",
+      "size": 25548
+    },
+    {
+      "path": "product_count_reconciliation.json",
+      "sha256": "00e28756d14beb80324cd456dabb8774ffda6a8b8fb57b9791fa639caa9e2092",
+      "size": 1572
+    },
+    {
+      "path": "segment_reconciliation.json",
+      "sha256": "2ad5a25d0bc865832f7cf1f2a2cfa451e3a7d08a6e79954a6d3188b73ab3d436",
+      "size": 23537
+    },
+    {
+      "path": "source_disposition.json",
+      "sha256": "3897b5166785683d649fc7865c1528066bd646a0d329456e2304201dfe4186c9",
+      "size": 73392
+    },
+    {
+      "path": "summary_product.json",
+      "sha256": "48a197e49921709b07f83d13aa021c290787bd39d2b5ee4ba5474dc4eb78f7f3",
+      "size": 58409
+    },
+    {
+      "path": "summary_shadow.json",
+      "sha256": "0078c29c7a1e3fad4fbc8bb6f1586a82df6b9fc096e12f3e008fb41d32bdf2f6",
+      "size": 1352784
+    },
+    {
+      "path": "zero_missing_reconciliation.json",
+      "sha256": "f0cf07e7e1d62dd6092ce11b9ab426b750a9e42c7d849ace9d906a4f34207513",
+      "size": 179879
+    }
+  ],
+  "manifest_digest": "dc985e0cfdaf39817858cf1be0de5879063ba7e038ed796e5953d0ce355e98b8",
+  "production_default": false,
+  "source_set_id": "source-set:anf:reviewed-evidence-foundation-successor@4",
+  "source_set_sha256": "2c7c51768e2d2ec426f3155c43610fe2c5ee1a4f81b8664925bc30c9d0037217",
+  "workbook_binding_status": "not_wired"
+}

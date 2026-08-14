@@ -1,0 +1,172 @@
+{
+  "acceptance": {
+    "acceptance_fixture": "anf_summary_bs_acceptance.v1.json",
+    "acceptance_fixture_sha256": "50bdf9ce8101e451b849f82f190650443f79960903372c7fed65334e3e539662",
+    "approval_gate_ids": [
+      "gate:semantic-golden-regeneration@1",
+      "gate:product-contract-change@1",
+      "gate:workbook-presentation-layout@1"
+    ],
+    "available_field_count": 388,
+    "blank_closure": "92/92",
+    "bs_readback": "417/417",
+    "defect_closure": "122/122",
+    "lineage_trace": "388/388",
+    "passed": true,
+    "summary_readback": "35/35",
+    "unrelated_workbook_delta_count": 0
+  },
+  "acceptance_status": "golden_accepted",
+  "binding": {
+    "availability_disposition_counts": {
+      "available": 388,
+      "needs_review": 26,
+      "unavailable": 38
+    },
+    "binding_count": 452,
+    "formula_ownership_count": 0,
+    "plan_digest": "481fd188c95090b96f810e192c6927a5f5f910672d076a9acc2ebf2591f4a215",
+    "plan_fixture": "anf_summary_bs_binding_plan.v1.json",
+    "plan_fixture_sha256": "8e2562de05850b21f5d547780d30a99b258fd177432f7d60c294a49de21fbac8",
+    "surface_digest": "90f1e0cf2eaf8e8a1d719b067739a16d0ce650e3235694d65d405effd89ab694",
+    "surface_map_fixture": "anf_summary_bs_surface_map.v1.json",
+    "surface_map_fixture_sha256": "15599547d329ba9e595244f3e1e2a067c1ae6446e5bdbc4af89089606c8b2642"
+  },
+  "checkpoint": {
+    "commit_reference": "git commit containing this manifest",
+    "pre_summary_bs_checkpoint": "05b9446b272ed91a7068affd0716ed66bd9046cc",
+    "rollback_requires_protected_workbook_modification": false
+  },
+  "economic_product": {
+    "bs_product": {
+      "field_count": 417,
+      "fixture": "anf_bs_segment_product.v1.json",
+      "product_id": "source-native-product:v1|co=ANF|surface=bs-segment|version=1.0.0-candidate",
+      "sha256": "fbc8be16938c18db8a99a1a791760c88b5d50160da4cda38b80fc4485da1c709"
+    },
+    "bs_shadow": {
+      "fixture": "anf_bs_segment_shadow.v1.json",
+      "sha256": "108e087754d301ee03ea649b872778be9d34e9c315768466892a7cec6a9b41c2"
+    },
+    "evidence_foundation": {
+      "canonical_fact_count": 468,
+      "derivation_count": 141,
+      "fixture": "anf_summary_bs_foundation_identity.v1.json",
+      "foundation_id": "evidence-foundation:anf:summary-bs-source-native@1",
+      "sha256": "24323be41bf98547dae0b34ab5597b455a8d3c6bdb5f4aae1cada58ff8433369"
+    },
+    "field_universe_count": 452,
+    "source_native_manifest": {
+      "fixture": "anf_summary_bs_source_native_manifest.v1.json",
+      "manifest_digest": "dc985e0cfdaf39817858cf1be0de5879063ba7e038ed796e5953d0ce355e98b8",
+      "sha256": "b7971f3bccadc8a44bbeeb671833ba7df9cd68aa9f0c7eba6a552a3d7838b033"
+    },
+    "source_set_id": "source-set:anf:reviewed-evidence-foundation-successor@4",
+    "source_set_sha256": "2c7c51768e2d2ec426f3155c43610fe2c5ee1a4f81b8664925bc30c9d0037217",
+    "summary_product": {
+      "field_count": 35,
+      "fixture": "anf_summary_product.v1.json",
+      "product_id": "source-native-product:v1|co=ANF|surface=summary|version=1.0.0-candidate",
+      "sha256": "48a197e49921709b07f83d13aa021c290787bd39d2b5ee4ba5474dc4eb78f7f3"
+    },
+    "summary_shadow": {
+      "fixture": "anf_summary_shadow.v1.json",
+      "sha256": "0078c29c7a1e3fad4fbc8bb6f1586a82df6b9fc096e12f3e008fb41d32bdf2f6"
+    }
+  },
+  "fixture_artifacts": [
+    {
+      "relative_path": "anf_bs_segment_product.v1.json",
+      "sha256": "fbc8be16938c18db8a99a1a791760c88b5d50160da4cda38b80fc4485da1c709"
+    },
+    {
+      "relative_path": "anf_bs_segment_shadow.v1.json",
+      "sha256": "108e087754d301ee03ea649b872778be9d34e9c315768466892a7cec6a9b41c2"
+    },
+    {
+      "relative_path": "anf_summary_bs_acceptance.v1.json",
+      "sha256": "50bdf9ce8101e451b849f82f190650443f79960903372c7fed65334e3e539662"
+    },
+    {
+      "relative_path": "anf_summary_bs_binding_plan.v1.json",
+      "sha256": "8e2562de05850b21f5d547780d30a99b258fd177432f7d60c294a49de21fbac8"
+    },
+    {
+      "relative_path": "anf_summary_bs_foundation_identity.v1.json",
+      "sha256": "78e09d0f42f07646a4023442c7c355f8e676ed69bf03403cf4b099f141e3801b"
+    },
+    {
+      "relative_path": "anf_summary_bs_source_native_manifest.v1.json",
+      "sha256": "b7971f3bccadc8a44bbeeb671833ba7df9cd68aa9f0c7eba6a552a3d7838b033"
+    },
+    {
+      "relative_path": "anf_summary_bs_surface_map.v1.json",
+      "sha256": "15599547d329ba9e595244f3e1e2a067c1ae6446e5bdbc4af89089606c8b2642"
+    },
+    {
+      "relative_path": "anf_summary_product.v1.json",
+      "sha256": "48a197e49921709b07f83d13aa021c290787bd39d2b5ee4ba5474dc4eb78f7f3"
+    },
+    {
+      "relative_path": "anf_summary_shadow.v1.json",
+      "sha256": "0078c29c7a1e3fad4fbc8bb6f1586a82df6b9fc096e12f3e008fb41d32bdf2f6"
+    }
+  ],
+  "fixture_hash_contract": "checkout-lf-normalized-file-sha256@1",
+  "generated_timestamp": null,
+  "golden_id": "summary-bs-source-native:anf@1.0.0",
+  "golden_version": "1.0.0",
+  "implementation_artifacts": [
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/summary_bs_products.py",
+      "sha256": "c0186804d5ede96d7c23992d5ae0a65f2beeeb14d4281d8869905c725217abd8"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/summary_bs_workbook_materialization.py",
+      "sha256": "8ae3176b5e6a03cdb8920cce3578a09f2c4ce6b94f3508be7358267abb6ee8f5"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/summary_bs_workbook_projection.py",
+      "sha256": "eab5446071bbbcaa497b966690a3058b09d31ecf1872529e564ec1dd2c6dddb8"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/ticker_profiles/anf_summary_bs_foundation.py",
+      "sha256": "30c7cfcc347dd2df131cd46240aac2302146a647624cc180ea7b805bdbed9b91"
+    },
+    {
+      "repository_path": "scripts/build_anf_summary_bs_lossless_preview.py",
+      "sha256": "64dcff2db7e333cf3ad2deaf8e5b1affa5ddd52d87b5b22faddd2f219d08f319"
+    },
+    {
+      "repository_path": "scripts/build_anf_summary_bs_source_native.py",
+      "sha256": "aafd196456b0df31fbe26b5360f3570325e8736741ed144593a74256263f033c"
+    },
+    {
+      "repository_path": "scripts/build_anf_summary_bs_workbook_projection.py",
+      "sha256": "998ad848c93e3ae8f3cf826a5db333900e8f023c0df14ab6ecf75817b9e9cdc2"
+    }
+  ],
+  "lifecycle": "target_not_wired",
+  "manifest_digest": "693e9839cdf184ec908d6a0496d7c90b2d78ce270d798f63d53219931008fdb1",
+  "manifest_type": "SummaryBSSourceNativeGoldenManifest@1",
+  "materialization": {
+    "artifact_tool_role": "READ / INSPECTION / RENDER ONLY",
+    "canonical_ooxml_hash_contract": "ordered-uncompressed-ooxml-members-sha256@1",
+    "implementation_hash_contract": "checkout-lf-normalized-file-sha256@1",
+    "materializer_contract": "summary-bs-lossless-workbook-materializer@2",
+    "source_selection_performed": false,
+    "target_formula_count": 0,
+    "workbook_owned_economic_formula_count": 0
+  },
+  "production_default": false,
+  "workbook_golden": {
+    "canonical_ooxml_sha256": "cc1c0f6d4f811acb1a6214fa9f854816efcf22562975aa5ed243426cc4601c9e",
+    "data_root_relative_path": "audit/summary_bs_golden_acceptance_2026-08-14/golden/ANF_summary_bs_source_native_golden_v1.xlsx",
+    "protected_oracle_sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
+    "raw_sha256": "f57854d278b27bf206222d1979cba218d79aa355b5a36239f84af4950d6cbda2",
+    "semantic_hash_contract": "workbook-semantic-snapshot-sha256@1",
+    "semantic_sha256": "c370caffe141fcabc27eb12f191f2e6a78c5d40d249486cd5122bb4f3a19c2a7",
+    "size_bytes": 8876835,
+    "workbook_id": "summary-bs-source-native-workbook:anf@1.0.0"
+  }
+}
