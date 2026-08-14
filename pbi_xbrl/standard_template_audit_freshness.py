@@ -206,7 +206,7 @@ def build_unverified_stale_receipt(
         "reason": reason.strip(),
         "artifact": {
             "path": artifact.path,
-            "sha256": _file_sha256(artifact_path),
+            "sha256": _artifact_file_sha256(artifact_path, artifact.output_schema),
             "output_schema": artifact.output_schema,
             "output_version": actual_output_version,
         },
@@ -217,11 +217,11 @@ def build_unverified_stale_receipt(
         "generator": {
             "path": contract.generator,
             "contract_version": contract.contract_version,
-            "implementation_sha256": _file_sha256(
+            "implementation_sha256": _portable_file_sha256(
                 _resolve_path(contract.generator, root=root, data_root=data_root)
             ),
-            "receipt_engine_sha256": _file_sha256(Path(__file__).resolve()),
-            "runner_implementation_sha256": _file_sha256(_runner_module_path()),
+            "receipt_engine_sha256": _portable_file_sha256(Path(__file__).resolve()),
+            "runner_implementation_sha256": _portable_file_sha256(_runner_module_path()),
             "execution_contract_sha256": compute_audit_generator_execution_contract_signature(contract),
             "dependencies": [
                 _file_digest_record(path, root=root, data_root=data_root)
@@ -305,7 +305,9 @@ def validate_generation_receipt(
     if str(artifact_row.get("path") or "") != artifact.path:
         issues.append("receipt artifact path mismatch")
     if expected_artifact_path.exists():
-        if str(artifact_row.get("sha256") or "") != _file_sha256(expected_artifact_path):
+        if str(artifact_row.get("sha256") or "") != _artifact_file_sha256(
+            expected_artifact_path, artifact.output_schema
+        ):
             issues.append("receipt artifact digest drifted")
         actual_version = _output_version(expected_artifact_path, artifact.output_schema)
         if str(artifact_row.get("output_version") or "") != actual_version:
@@ -332,15 +334,15 @@ def validate_generation_receipt(
     generator_path = _resolve_path(contract.generator, root=root, data_root=data_root)
     if not generator_path.exists():
         issues.append("receipt generator is missing")
-    elif str(generator_row.get("implementation_sha256") or "") != _file_sha256(generator_path):
+    elif str(generator_row.get("implementation_sha256") or "") != _portable_file_sha256(generator_path):
         issues.append("receipt generator implementation drifted")
     receipt_engine_path = Path(__file__).resolve()
-    if str(generator_row.get("receipt_engine_sha256") or "") != _file_sha256(receipt_engine_path):
+    if str(generator_row.get("receipt_engine_sha256") or "") != _portable_file_sha256(receipt_engine_path):
         issues.append("receipt engine implementation drifted")
     runner_path = _runner_module_path()
     if not runner_path.exists():
         issues.append("audit generation runner is missing")
-    elif str(generator_row.get("runner_implementation_sha256") or "") != _file_sha256(runner_path):
+    elif str(generator_row.get("runner_implementation_sha256") or "") != _portable_file_sha256(runner_path):
         issues.append("audit generation runner implementation drifted")
     if str(generator_row.get("execution_contract_sha256") or "") != compute_audit_generator_execution_contract_signature(contract):
         issues.append("receipt generator execution contract drifted")
@@ -449,7 +451,7 @@ def build_audit_freshness(
                 issues.append("audit generation receipt is missing")
                 receipt_hash = ""
             else:
-                receipt_hash = _file_sha256(receipt_path)
+                receipt_hash = _portable_file_sha256(receipt_path)
                 try:
                     loaded = load_json_strict(receipt_path)
                     if not isinstance(loaded, Mapping):
@@ -505,8 +507,8 @@ def build_audit_freshness(
             "shell_sha256": _file_sha256(shell_path),
             "manifest_contract_signature": compute_manifest_contract_signature(manifest),
             "binding_contract_signature": compute_binding_contract_signature(binding_payload),
-            "receipt_schema_sha256": _file_sha256(receipt_schema_path),
-            "receipt_engine_sha256": _file_sha256(Path(__file__).resolve()),
+            "receipt_schema_sha256": _portable_file_sha256(receipt_schema_path),
+            "receipt_engine_sha256": _portable_file_sha256(Path(__file__).resolve()),
             "generator_contract_signature": _generator_contract_signature(
                 contracts,
                 root=root,
@@ -600,10 +602,10 @@ def _generator_contract_signature(
             {
                 "generator": contract.generator,
                 "contract_version": contract.contract_version,
-                "implementation_sha256": _file_sha256(
+                "implementation_sha256": _portable_file_sha256(
                     _resolve_path(contract.generator, root=root, data_root=data_root)
                 ),
-                "receipt_engine_sha256": _file_sha256(Path(__file__).resolve()),
+                "receipt_engine_sha256": _portable_file_sha256(Path(__file__).resolve()),
                 "dependencies": [
                     _file_digest_record(path, root=root, data_root=data_root)
                     for path in contract.dependencies
@@ -691,7 +693,8 @@ def canonical_audit_content_sha256(path: Path, output_schema: str) -> str:
 
 def _file_digest_record(path_spec: str, *, root: Path, data_root: Path) -> dict[str, str]:
     path = _resolve_path(path_spec, root=root, data_root=data_root)
-    return {"path": _path_label(path, root=root), "sha256": _file_sha256(path)}
+    label = path_spec if path_spec.startswith("@stock_model:") else _path_label(path, root=root)
+    return {"path": label, "sha256": _portable_file_sha256(path)}
 
 
 def _resolve_path(path_spec: str, *, root: Path, data_root: Path) -> Path:
@@ -734,8 +737,58 @@ def _runner_module_path() -> Path:
     return Path(__file__).with_name("standard_template_audit_runner.py")
 
 
+_PORTABLE_TEXT_IDENTITY_SUFFIXES = frozenset(
+    {
+        ".csv",
+        ".html",
+        ".htm",
+        ".json",
+        ".md",
+        ".py",
+        ".toml",
+        ".tsv",
+        ".txt",
+        ".xml",
+        ".xsd",
+        ".yaml",
+        ".yml",
+    }
+)
+
+
 def _file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _portable_payload_sha256(payload: bytes) -> str:
+    normalized = payload.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    return hashlib.sha256(normalized).hexdigest()
+
+
+def _portable_file_sha256(path: Path) -> str:
+    """Hash declared text contracts portably without weakening binary identity.
+
+    Git may materialize declared text contracts with LF or CRLF in different
+    worktrees.  Their audit identity therefore normalizes only newline encoding.
+    Binary and unclassified artifacts retain exact raw-byte identity.
+    """
+
+    payload = path.read_bytes()
+    if path.suffix.casefold() in _PORTABLE_TEXT_IDENTITY_SUFFIXES:
+        return _portable_payload_sha256(payload)
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _artifact_file_sha256(path: Path, output_schema: str) -> str:
+    if output_schema == "json" or output_schema.startswith("text/"):
+        return _portable_payload_sha256(path.read_bytes())
+    return _file_sha256(path)
+
+
+def _artifact_payload_sha256(payload: bytes, output_schema: str) -> str:
+    if output_schema == "json" or output_schema.startswith("text/"):
+        return _portable_payload_sha256(payload)
+    return hashlib.sha256(payload).hexdigest()
 
 
 def _payload_sha256(value: Any) -> str:

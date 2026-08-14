@@ -15,6 +15,8 @@ from pbi_xbrl.standard_template_audit_freshness import (
     build_audit_freshness,
     build_unverified_stale_receipt,
     canonical_audit_content_sha256,
+    _file_sha256,
+    _portable_file_sha256,
     receipt_path_for_artifact,
     record_stale_audit_receipts,
     validate_audit_freshness,
@@ -133,6 +135,45 @@ def test_checked_in_audit_freshness_matches_current_receipts() -> None:
         receipt = _load(receipt_path_for_artifact(path, receipt_root=RECEIPTS))
         assert receipt["verification"]["mode"] == "controlled_isolated_generator_run"
         assert receipt["verification"]["successful_completion"] is True
+
+
+def test_audit_file_identity_normalizes_only_text_newlines(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    lf_json = tmp_path / "lf.json"
+    crlf_json = tmp_path / "crlf.json"
+    mixed_json = tmp_path / "mixed.json"
+    copied_json = tmp_path / "nested" / "copied.json"
+    changed_json = tmp_path / "changed.json"
+    trailing_content_json = tmp_path / "trailing_content.json"
+    lf_json.write_bytes(b'{\n  "value": 1\n}\n')
+    crlf_json.write_bytes(b'{\r\n  "value": 1\r\n}\r\n')
+    mixed_json.write_bytes(b'{\r\n  "value": 1\n}\r\n')
+    copied_json.parent.mkdir()
+    copied_json.write_bytes(lf_json.read_bytes())
+    changed_json.write_bytes(b'{\n  "value": 2\n}\n')
+    trailing_content_json.write_bytes(b'{\n  "value": 1\n} \n')
+
+    assert lf_json.read_bytes() != crlf_json.read_bytes()
+    assert _file_sha256(lf_json) != _file_sha256(crlf_json)
+    canonical = _portable_file_sha256(lf_json.resolve())
+    assert canonical == _portable_file_sha256(crlf_json)
+    assert canonical == _portable_file_sha256(mixed_json)
+    assert canonical == _portable_file_sha256(copied_json.resolve())
+    assert _portable_file_sha256(lf_json) != _portable_file_sha256(changed_json)
+    assert _portable_file_sha256(lf_json) != _portable_file_sha256(trailing_content_json)
+
+    other_cwd = tmp_path / "other_cwd"
+    other_cwd.mkdir()
+    monkeypatch.chdir(other_cwd)
+    assert _portable_file_sha256(lf_json.resolve()) == canonical
+
+    lf_binary = tmp_path / "lf.xlsx"
+    crlf_binary = tmp_path / "crlf.xlsx"
+    lf_binary.write_bytes(b"raw\nbytes")
+    crlf_binary.write_bytes(b"raw\r\nbytes")
+    assert _file_sha256(lf_binary) != _file_sha256(crlf_binary)
+    assert _portable_file_sha256(lf_binary) != _portable_file_sha256(crlf_binary)
 
 
 def test_actual_isolated_generator_run_records_metadata_and_replay_establishes_current(tmp_path: Path) -> None:

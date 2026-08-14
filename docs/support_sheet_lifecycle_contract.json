@@ -1,7 +1,7 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-08-01T08:52:57+00:00",
-  "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
+  "generated_at": "2026-08-13T00:09:06+00:00",
+  "template_path": "templates/standard_stock_model_template.xlsx",
   "support_sheets": [
     {
       "sheet_name": "Adjusted_Metrics",

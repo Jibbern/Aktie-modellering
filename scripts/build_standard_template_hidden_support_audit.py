@@ -362,9 +362,9 @@ def scan_hidden_support_package(
         return {
             "version": "0.1.0",
             "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
-            "template_path": str(template_path),
-            "lab_source_path": str(lab_path),
-            "module_manifest_path": str(module_manifest_path),
+            "template_path": template_path.resolve().relative_to(ROOT.resolve()).as_posix(),
+            "lab_source_path": lab_path.resolve().relative_to(ROOT.resolve()).as_posix(),
+            "module_manifest_path": module_manifest_path.resolve().relative_to(ROOT.resolve()).as_posix(),
             "allowed_hidden_shell_sheets": allowed_hidden_sheets,
             "pre_neutralization_summary": {
                 "candidate_hidden_sheet_count": len(candidate_names),

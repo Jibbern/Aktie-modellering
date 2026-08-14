@@ -126,6 +126,14 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _portable_template_lab_paths(
+    *, source_path: Path, source_dir: Path, lab_path: Path
+) -> tuple[str, str]:
+    source_relative = source_path.resolve().relative_to(source_dir.resolve()).as_posix()
+    lab_relative = lab_path.resolve().relative_to(ROOT.resolve()).as_posix()
+    return f"@source_dir/{source_relative}", lab_relative
+
+
 def _bounds(range_ref: str) -> Bounds:
     min_col, min_row, max_col, max_row = range_boundaries(range_ref)
     return Bounds(int(min_col), int(min_row), int(max_col), int(max_row))
@@ -506,10 +514,13 @@ def _copy_template_lab(source_dir: Path, lab_path: Path) -> dict[str, Any]:
     shutil.copyfile(source_path, lab_path)
     source_hash = _sha256(source_path)
     lab_hash = _sha256(lab_path)
+    source_label, lab_label = _portable_template_lab_paths(
+        source_path=source_path, source_dir=source_dir, lab_path=lab_path
+    )
     return {
         "purpose": "Read-only-derived ANF workbook lab copy for template analysis; not canonical output.",
-        "source_path": str(source_path),
-        "lab_path": str(lab_path),
+        "source_path": source_label,
+        "lab_path": lab_label,
         "source_sha256": source_hash,
         "lab_sha256": lab_hash,
         "byte_identical": source_hash == lab_hash,
@@ -522,21 +533,26 @@ def _existing_template_lab(source_dir: Path, lab_path: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"Existing template lab is required in read-only mode: {lab_path}")
     source_hash = _sha256(source_path)
     lab_hash = _sha256(lab_path)
+    source_label, lab_label = _portable_template_lab_paths(
+        source_path=source_path, source_dir=source_dir, lab_path=lab_path
+    )
     return {
         "purpose": "Read-only-derived ANF workbook lab copy for template analysis; not canonical output.",
-        "source_path": str(source_path),
-        "lab_path": str(lab_path),
+        "source_path": source_label,
+        "lab_path": lab_label,
         "source_sha256": source_hash,
         "lab_sha256": lab_hash,
         "byte_identical": source_hash == lab_hash,
     }
 
 
-def _source_workbook_meta(paths: dict[str, Path]) -> dict[str, dict[str, Any]]:
+def _source_workbook_meta(
+    paths: dict[str, Path], *, source_dir: Path
+) -> dict[str, dict[str, Any]]:
     meta: dict[str, dict[str, Any]] = {}
     for ticker, path in paths.items():
         meta[ticker] = {
-            "path": str(path),
+            "path": f"@source_dir/{path.resolve().relative_to(source_dir.resolve()).as_posix()}",
             "sha256": _sha256(path) if path.exists() else "",
             "exists": path.exists(),
         }
@@ -908,7 +924,9 @@ def build(
         architecture = {
             "version": "0.1.0",
             "generated_at": generated_at,
-            "source_workbooks": _source_workbook_meta(source_paths),
+            "source_workbooks": _source_workbook_meta(
+                source_paths, source_dir=source_dir
+            ),
             "template_lab": template_lab,
             "standard_visible_sheets": STANDARD_VISIBLE_SHEETS,
             "optional_sector_packs": OPTIONAL_SECTOR_PACKS,
@@ -918,7 +936,9 @@ def build(
         coverage = {
             "version": "0.1.0",
             "generated_at": generated_at,
-            "source_workbooks": _source_workbook_meta(source_paths),
+            "source_workbooks": _source_workbook_meta(
+                source_paths, source_dir=source_dir
+            ),
             "coverage_rows": [_coverage_row(block, workbooks) for block in blocks],
             "excluded_sector_overlays": _excluded_sector_overlays(workbooks),
         }

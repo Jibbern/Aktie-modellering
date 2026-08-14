@@ -1,9 +1,9 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-08-01T08:53:32+00:00",
-  "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
-  "lab_source_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\lab\\ANF_template_lab.xlsx",
-  "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
+  "generated_at": "2026-08-13T00:09:35+00:00",
+  "template_path": "templates/standard_stock_model_template.xlsx",
+  "lab_source_path": "templates/lab/ANF_template_lab.xlsx",
+  "module_manifest_path": "docs/workbook_module_manifest.json",
   "allowed_hidden_shell_sheets": {
     "REPORT_IS_Q": {
       "classification": "keep_neutral_helper_shell",
@@ -49,7 +49,7 @@
     },
     "Debt_Profile": {
       "classification": "keep_optional_runtime_output_shell",
-      "reason": "Hidden until a validated facility resolves at least four useful product rows.",
+      "reason": "Hidden until independently validated debt economics resolve at least four useful product rows.",
       "module_id": "debt_liquidity",
       "legacy_class": "C"
     },

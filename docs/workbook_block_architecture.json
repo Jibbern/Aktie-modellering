@@ -1,27 +1,27 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-08-01T08:53:20+00:00",
+  "generated_at": "2026-08-13T00:09:25+00:00",
   "source_workbooks": {
     "ANF": {
-      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
+      "path": "@source_dir/ANF_model.xlsx",
       "sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
       "exists": true
     },
     "PBI": {
-      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\PBI_model.xlsx",
+      "path": "@source_dir/PBI_model.xlsx",
       "sha256": "6482617ad4f412dc5a1e130dc56c72bba5113ddacea5f7d1ab166fad8ddf5689",
       "exists": true
     },
     "GPRE": {
-      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\GPRE_model.xlsm",
+      "path": "@source_dir/GPRE_model.xlsm",
       "sha256": "f7c23c9c0d9e3a52c708553e5fc6f964aa3fc58c8b4805d235f7ccfce5bde41b",
       "exists": true
     }
   },
   "template_lab": {
     "purpose": "Read-only-derived ANF workbook lab copy for template analysis; not canonical output.",
-    "source_path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
-    "lab_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\lab\\ANF_template_lab.xlsx",
+    "source_path": "@source_dir/ANF_model.xlsx",
+    "lab_path": "templates/lab/ANF_template_lab.xlsx",
     "source_sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
     "lab_sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
     "byte_identical": true

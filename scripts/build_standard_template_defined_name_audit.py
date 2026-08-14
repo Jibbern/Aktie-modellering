@@ -81,7 +81,7 @@ def build_audit(*, template_path: Path, manifest_path: Path, binding_map_path: P
     rows.sort(key=lambda row: row["name"])
     return {
         "version": "1.0.0",
-        "template_path": str(template_path),
+        "template_path": template_path.resolve().relative_to(ROOT.resolve()).as_posix(),
         "summary": {
             "retained_count": len(rows),
             "classification_counts": dict(sorted(Counter(row["classification"] for row in rows).items())),

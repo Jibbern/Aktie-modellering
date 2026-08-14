@@ -4,7 +4,7 @@
   "reason": "",
   "artifact": {
     "path": "docs/workbook_block_coverage_matrix.md",
-    "sha256": "3e8de461b0371633afac713e7aee5d29255cb0c20f148b5ca198df695ccd46a6",
+    "sha256": "3f772a2fa094bd76882fd42088682da7f596c09187ccf04cb89df6a6024ed5a0",
     "output_schema": "text/markdown",
     "output_version": "markdown-v1"
   },
@@ -15,26 +15,26 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "e3bbae82169fc8381c3dde1635d874bfe708b938a940ca1d33cedac31bff208d"
+      "sha256": "355fff922786232c51321b11c3ec447949c9549741e35de6da00c0805502fc4e"
     },
     {
       "path": "docs/workbook_binding_map.json",
-      "sha256": "7659ffef32d8f8f62fb82fde48523fdc4ffbaf50bc2f0830b176f6b228280e54"
+      "sha256": "a0c581b2e2f2f7bc44171a989aaba91ca8608ed08033889a75de3d6550979ef7"
     },
     {
       "path": "docs/sheet_data_flow_map.json",
       "sha256": "104ca9b309551331b4011185d8f4806cdcdef7f99a630e9b40ceaf54a7a9e185"
     },
     {
-      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\PBI_model.xlsx",
+      "path": "@stock_model:PBI",
       "sha256": "6482617ad4f412dc5a1e130dc56c72bba5113ddacea5f7d1ab166fad8ddf5689"
     },
     {
-      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\GPRE_model.xlsm",
+      "path": "@stock_model:GPRE",
       "sha256": "f7c23c9c0d9e3a52c708553e5fc6f964aa3fc58c8b4805d235f7ccfce5bde41b"
     },
     {
-      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
+      "path": "@stock_model:ANF",
       "sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd"
     }
   ],
@@ -47,47 +47,47 @@
       }
     ],
     "execution_contract_sha256": "0fb39fbf730299788f9b9df975c32190c8b735c9e7d704bb765dec966f43527e",
-    "implementation_sha256": "be97dce24dd2a7ae09f44504cac1bfcca345cdc773b947a057926b683e456415",
+    "implementation_sha256": "b23b4b0eda74473ed8398eddb5e3405ea9ac18bed1f556ee4363793ff065c570",
     "path": "scripts/build_workbook_block_architecture.py",
-    "receipt_engine_sha256": "7a235734fe4851f27b7b5daf946b874f716d2a8e24eab75ab66c6069e39e3336",
-    "runner_implementation_sha256": "a2d09fd4edefa35cbadb27ffbf3dd569c1bd3d0b306eaa12bd95555511b46291"
+    "receipt_engine_sha256": "5db16c0ddbdd0fcabade4bf631d81686939331a1d4d0618d94e763a924e2a4df",
+    "runner_implementation_sha256": "ee8130ef68853e4a344d5cd063c111e2d97f7bf0775bb9932a1aef930135963c"
   },
   "verification": {
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "2b69509ddee9d199ec9dab0df1721987f2c8434888d58999a38bb4b6cc8c9ed6",
+    "run_generation_id": "4f2c2cea94e1416eb42f505ec49ecb1640b6f655c9a7a0d2134dbc59ff3763a9",
     "generated_outputs": [
       {
-        "canonical_content_sha256": "de1bb15be0a504cccadf516a031c693b8da52633435c2e02430dec4fb248cf64",
+        "canonical_content_sha256": "bc50eadd026e7f59ed20cbb5eb8972b96ce6d84d8b9055db60e5b9087a292ff8",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_architecture.json",
-        "sha256": "16d6d393ff8b31b7bb7d84cd42808404a60b10263ce06ca93def4ef216dd9685"
+        "sha256": "e839cb2cf05c21acd6e2f0089f63bc34613f1fb91ee38ddd0a260c03cf9adea1"
       },
       {
-        "canonical_content_sha256": "e30de08ffc9f4c4e55d67011f6c3a3d0a2509867c72a1feac36925653d9cf2b7",
+        "canonical_content_sha256": "3abfdb19391ff6e76f96d9c18c907069136d39951d5d87234da3eb2d440e7513",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/workbook_block_architecture.md",
-        "sha256": "232cc1d8d09afa7d299216f8854b97dc763003ba0271e7480a3874db50d8c06a"
+        "sha256": "3abfdb19391ff6e76f96d9c18c907069136d39951d5d87234da3eb2d440e7513"
       },
       {
-        "canonical_content_sha256": "bdfc4833b427842cd46fc5a7f70f25dd731571ac15964db2b36540c40d29b08b",
+        "canonical_content_sha256": "c3ff52c35a2c1d66d5dd90d6221b2e10ae6aadc000360bed726785187f67ada8",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/workbook_block_coverage_matrix.json",
-        "sha256": "6dc09be388d077192edd89dc50f3422c672aae5d7b01eaf970177b23a95dc80c"
+        "sha256": "997f75fd917948bd6987e7663bdcc38328928df54cd24838c508a05d38ec6559"
       },
       {
         "canonical_content_sha256": "3f772a2fa094bd76882fd42088682da7f596c09187ccf04cb89df6a6024ed5a0",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/workbook_block_coverage_matrix.md",
-        "sha256": "3e8de461b0371633afac713e7aee5d29255cb0c20f148b5ca198df695ccd46a6"
+        "sha256": "3f772a2fa094bd76882fd42088682da7f596c09187ccf04cb89df6a6024ed5a0"
       }
     ]
   },
-  "generated_at_utc": "2026-08-01T08:53:22+00:00",
-  "generation_id": "f40e48b2767bba77cf5f95b00ae87ba4dba4e308d290c47f4b2be1da870cf575"
+  "generated_at_utc": "2026-08-13T00:09:27+00:00",
+  "generation_id": "e569837e7f75ab6c909860abab9d04607b97a5129e480aa9f4c9774ff3428939"
 }

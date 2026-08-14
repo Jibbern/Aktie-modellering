@@ -7,6 +7,7 @@ from openpyxl import load_workbook
 
 
 ROOT = Path(__file__).resolve().parents[1]
+MODULE_MANIFEST = ROOT / "docs" / "workbook_module_manifest.json"
 
 
 def _data_root() -> Path:
@@ -96,6 +97,17 @@ def test_sheet_inventory_covers_every_pbi_gpre_anf_sheet() -> None:
         assert REQUIRED_FIELDS <= set(row)
         assert row["classification"] in ALLOWED_CLASSIFICATIONS
         assert isinstance(row["reason"], str) and row["reason"].strip()
+
+    module_manifest = json.loads(MODULE_MANIFEST.read_text(encoding="utf-8"))
+    legacy_rows = {
+        row["legacy_sheet"]: row for row in module_manifest["legacy_sheet_inventory"]
+    }
+    for retired_sheet in ("Valuation_Summary", "Valuation_Grid"):
+        assert rows[retired_sheet]["classification"] == "rejected_redundant_sheet"
+        assert rows[retired_sheet]["present_in_standard_shell"] is False
+        assert rows[retired_sheet]["legacy_disposition"] == "rejected_redundant"
+        assert legacy_rows[retired_sheet]["disposition"] == "rejected_redundant"
+        assert legacy_rows[retired_sheet]["replacement"] == "Valuation"
 
 
 def test_support_lifecycle_contract_covers_non_visible_inventory_outputs() -> None:

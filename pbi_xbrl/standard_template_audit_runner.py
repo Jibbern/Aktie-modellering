@@ -18,8 +18,11 @@ from pbi_xbrl.standard_template_audit_freshness import (
     ROOT,
     AuditGeneratorContract,
     _default_data_root,
+    _artifact_file_sha256,
+    _artifact_payload_sha256,
     _file_digest_record,
     _file_sha256,
+    _portable_file_sha256,
     _now,
     _output_version,
     _path_label,
@@ -272,7 +275,7 @@ def _execute_generator(
         output_rows.append(
             {
                 "path": artifact.path,
-                "sha256": _file_sha256(path),
+                "sha256": _artifact_file_sha256(path, artifact.output_schema),
                 "canonical_content_sha256": canonical_audit_content_sha256(path, artifact.output_schema),
                 "output_schema": artifact.output_schema,
                 "output_version": version,
@@ -280,7 +283,7 @@ def _execute_generator(
         )
     run_shell = {
         "runner_contract_version": GENERATION_RUNNER_CONTRACT_VERSION,
-        "runner_implementation_sha256": _file_sha256(Path(__file__).resolve()),
+        "runner_implementation_sha256": _portable_file_sha256(Path(__file__).resolve()),
         "generator": generator_before,
         "authoritative_inputs": inputs_before,
         "generated_outputs": output_rows,
@@ -321,7 +324,7 @@ def _validate_generation_run_result(
         raise ValueError("Verified generation token does not represent successful completion.")
     if payload.get("runner_contract_version") != GENERATION_RUNNER_CONTRACT_VERSION:
         raise ValueError("Verified generation token uses an unsupported runner contract.")
-    if payload.get("runner_implementation_sha256") != _file_sha256(Path(__file__).resolve()):
+    if payload.get("runner_implementation_sha256") != _portable_file_sha256(Path(__file__).resolve()):
         raise ValueError("Verified generation token no longer matches the runner implementation.")
     expected_run_id = _run_generation_id(payload)
     if payload.get("run_generation_id") != expected_run_id:
@@ -330,7 +333,9 @@ def _validate_generation_run_result(
     if len(outputs) != len(token._generated_output_bytes) or len(outputs) != len(contract.artifacts):
         raise ValueError("Verified generation token output cardinality is invalid.")
     for artifact, output, raw in zip(contract.artifacts, outputs, token._generated_output_bytes, strict=True):
-        if output.get("path") != artifact.path or _payload_sha256_bytes(raw) != output.get("sha256"):
+        if output.get("path") != artifact.path or _artifact_payload_sha256(
+            raw, artifact.output_schema
+        ) != output.get("sha256"):
             raise ValueError("Verified generation token output bytes do not match its declaration.")
 
 
@@ -350,7 +355,7 @@ def _promote_generation_outputs(
             temporary = Path(handle.name)
             handle.write(raw)
         os.replace(temporary, target)
-        if _file_sha256(target) != output["sha256"]:
+        if _artifact_file_sha256(target, artifact.output_schema) != output["sha256"]:
             raise RuntimeError(f"Promoted audit digest mismatch: {artifact.path}")
 
 
@@ -402,11 +407,11 @@ def _generator_identity(
     return {
         "path": contract.generator,
         "contract_version": contract.contract_version,
-        "implementation_sha256": _file_sha256(
+        "implementation_sha256": _portable_file_sha256(
             _resolve_path(contract.generator, root=root, data_root=data_root)
         ),
-        "receipt_engine_sha256": _file_sha256(freshness_path),
-        "runner_implementation_sha256": _file_sha256(Path(__file__).resolve()),
+        "receipt_engine_sha256": _portable_file_sha256(freshness_path),
+        "runner_implementation_sha256": _portable_file_sha256(Path(__file__).resolve()),
         "execution_contract_sha256": compute_audit_generator_execution_contract_signature(contract),
         "dependencies": [
             _file_digest_record(path, root=root, data_root=data_root)
@@ -471,7 +476,7 @@ def _existing_artifact_state(
     for artifact in contract.artifacts:
         path = _resolve_path(artifact.path, root=root, data_root=data_root)
         rows[artifact.path] = {
-            "sha256": _file_sha256(path) if path.exists() else "",
+            "sha256": _artifact_file_sha256(path, artifact.output_schema) if path.exists() else "",
             "canonical_content_sha256": (
                 canonical_audit_content_sha256(path, artifact.output_schema) if path.exists() else ""
             ),

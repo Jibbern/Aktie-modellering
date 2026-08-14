@@ -34,6 +34,7 @@ from pbi_xbrl.standard_template_formula_contract import (
     FORMULA_CONTRACT_VERSION,
     FORMULA_ROWS,
 )
+from pbi_xbrl.standard_template_audit_freshness import _portable_file_sha256
 from scripts.build_anf_shadow_normalized_package import (
     _anf_history_source_evidence,
     _anf_legacy_guidance_horizon,
@@ -180,17 +181,17 @@ ANNUAL_POINT_IN_TIME_FIELDS = {
 
 SCALAR_REQUIREMENTS = (
     ("valuation_inputs", "valuation_inputs.price", "intentionally_rejected"),
-    ("valuation_inputs", "valuation_inputs.as_of_date", "must_reproduce"),
+    ("valuation_inputs", "valuation_inputs.as_of_date", "intentionally_rejected"),
     ("valuation_inputs", "valuation_inputs.shares_outstanding", "unavailable_missing_evidence"),
-    ("valuation_inputs", "valuation_inputs.diluted_shares", "must_reproduce"),
+    ("valuation_inputs", "valuation_inputs.diluted_shares", "intentionally_rejected"),
     ("valuation_inputs", "valuation_inputs.net_debt", "unavailable_missing_evidence"),
-    ("valuation_inputs", "valuation_inputs.base_ebitda_ttm", "must_reproduce"),
-    ("valuation_inputs", "valuation_inputs.adjusted_ebitda_ttm", "must_reproduce"),
-    ("valuation_inputs", "valuation_inputs.revenue_ttm", "must_reproduce"),
-    ("valuation_inputs", "valuation_inputs.operating_cash_flow_ttm", "must_reproduce"),
-    ("valuation_inputs", "valuation_inputs.free_cash_flow_ttm", "must_reproduce"),
-    ("valuation_inputs", "valuation_inputs.capex_ttm", "must_reproduce"),
-    ("valuation_inputs", "valuation_inputs.eps_ttm", "must_reproduce"),
+    ("valuation_inputs", "valuation_inputs.base_ebitda_ttm", "intentionally_rejected"),
+    ("valuation_inputs", "valuation_inputs.adjusted_ebitda_ttm", "intentionally_rejected"),
+    ("valuation_inputs", "valuation_inputs.revenue_ttm", "intentionally_rejected"),
+    ("valuation_inputs", "valuation_inputs.operating_cash_flow_ttm", "intentionally_rejected"),
+    ("valuation_inputs", "valuation_inputs.free_cash_flow_ttm", "intentionally_rejected"),
+    ("valuation_inputs", "valuation_inputs.capex_ttm", "intentionally_rejected"),
+    ("valuation_inputs", "valuation_inputs.eps_ttm", "intentionally_rejected"),
     ("valuation_inputs", "valuation_inputs.adjusted_eps_ttm", "unavailable_missing_evidence"),
     ("valuation_inputs", "valuation_inputs.book_value_per_share", "unavailable_missing_evidence"),
     ("valuation_inputs", "valuation_inputs.tangible_book_value_per_share", "unavailable_missing_evidence"),
@@ -203,6 +204,20 @@ SCALAR_REQUIREMENTS = (
     ("valuation_inputs", "valuation_inputs.recurring_cash_costs", "intentionally_rejected"),
     ("valuation_inputs", "valuation_inputs.working_capital_normalization", "intentionally_rejected"),
     ("valuation_inputs", "valuation_inputs.per_share_denominator", "intentionally_rejected"),
+)
+
+RETIRED_DUPLICATE_VALUATION_INPUT_PATHS = frozenset(
+    {
+        "valuation_inputs.as_of_date",
+        "valuation_inputs.diluted_shares",
+        "valuation_inputs.base_ebitda_ttm",
+        "valuation_inputs.adjusted_ebitda_ttm",
+        "valuation_inputs.revenue_ttm",
+        "valuation_inputs.operating_cash_flow_ttm",
+        "valuation_inputs.free_cash_flow_ttm",
+        "valuation_inputs.capex_ttm",
+        "valuation_inputs.eps_ttm",
+    }
 )
 
 # These keys are inventoried from stable visible legacy business rows before the
@@ -1899,6 +1914,7 @@ def build_parity_matrix(
     for domain, path, requirement in SCALAR_REQUIREMENTS:
         value, status, source_ref = _field_state(_path_get(package, path))
         effective = requirement
+        retired_duplicate = path in RETIRED_DUPLICATE_VALUATION_INPUT_PATHS
         inventory_class = "duplicate_display_use" if domain == "valuation_inputs" else "source_fact"
         inventory_origin = (
             "legacy_visible_display_contract"
@@ -1922,6 +1938,13 @@ def build_parity_matrix(
                 inventory_class=inventory_class,
                 inventory_origin=inventory_origin,
                 disposition="duplicate_display_binding" if domain == "valuation_inputs" and status == "populated" else "",
+                current_status="explicitly_rejected_with_evidence" if retired_duplicate else None,
+                rejection_reason=(
+                    "B2 retired the duplicate Valuation display binding; the accepted canonical "
+                    "quarterly-series and Investment Case formula owners remain authoritative."
+                    if retired_duplicate
+                    else ""
+                ),
             )
         )
 
@@ -2084,7 +2107,7 @@ def build_parity_matrix(
     )
     return {
         "$schema": "./anf_new_ticker_parity_matrix.schema.json",
-        "version": "1.3.0",
+        "version": "1.4.0",
         "contract_name": "ANF legacy-oracle parity matrix",
         "architectural_scope": "legacy_adapter_fixture_only; generic engine remains ticker-neutral",
         "inventory_method": "legacy workbook business keys are inventoried first; normalized package and plan are comparison targets only",
@@ -2094,7 +2117,7 @@ def build_parity_matrix(
             "normalized_package_sha256": hashlib.sha256(json.dumps(package, sort_keys=True, default=str).encode()).hexdigest(),
             "binding_plan_sha256": hashlib.sha256(json.dumps(plan, sort_keys=True, default=str).encode()).hexdigest(),
             "shell_sha256": _sha(shell_path),
-            "binding_map_sha256": _sha(binding_path),
+            "binding_map_sha256": _portable_file_sha256(binding_path),
         },
         "summary": {
             "entry_count": len(entries),

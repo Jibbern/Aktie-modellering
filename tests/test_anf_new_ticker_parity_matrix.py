@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.utils import range_boundaries
 
 from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_schema
 from pbi_xbrl.new_ticker_binding_planner import (
     DEFAULT_MANIFEST,
     reproduce_binding_plan,
 )
+from pbi_xbrl.path_config import (
+    resolve_effective_data_root_from_ancestors,
+    write_config_data_root,
+)
+from pbi_xbrl.standard_template_audit_freshness import _portable_file_sha256
 from scripts.build_anf_new_ticker_parity_matrix import (
     GUIDANCE_MODULE_ID,
     GUIDANCE_PROJECTION_AUTHORITY,
@@ -26,10 +33,17 @@ MATRIX = ROOT / "docs" / "anf_new_ticker_parity_matrix.json"
 SCHEMA = ROOT / "docs" / "anf_new_ticker_parity_matrix.schema.json"
 SHELL = ROOT / "templates" / "standard_stock_model_template.xlsx"
 BINDING_MAP = ROOT / "docs" / "workbook_binding_map.json"
-DATA_ROOT = ROOT.parents[2] / "StockModelData"
+
+
+DATA_ROOT_RESOLUTION = resolve_effective_data_root_from_ancestors(ROOT)
+if DATA_ROOT_RESOLUTION.data_root is None:
+    raise FileNotFoundError("No healthy registered StockModelData root is available for the parity fixture")
+DATA_ROOT = DATA_ROOT_RESOLUTION.data_root
 ANF_DIR = DATA_ROOT / "outputs" / "stress_tests" / "ANF_new_ticker_engine"
 PACKAGE = ANF_DIR / "ANF_normalized_data_package.json"
 LEGACY = DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
+PRODUCT_V2_MANIFEST = ROOT / "tests" / "fixtures" / "promise_progress" / "anf_product_v2_golden_manifest.v1.json"
+PRODUCT_V2_1_MANIFEST = ROOT / "tests" / "fixtures" / "promise_progress" / "anf_product_v2_1_golden_manifest.v1.json"
 
 
 def _matrix() -> dict:
@@ -66,12 +80,103 @@ def _active_guidance_binding_ids(binding_document: dict) -> set[str]:
     }
 
 
+def _target_cells(worksheet, target: str) -> tuple:
+    min_col, min_row, max_col, max_row = range_boundaries(target)
+    return tuple(
+        cell
+        for row in worksheet.iter_rows(
+            min_row=min_row,
+            max_row=max_row,
+            min_col=min_col,
+            max_col=max_col,
+        )
+        for cell in row
+    )
+
+
+def test_binding_map_digest_is_checkout_eol_portable(tmp_path: Path) -> None:
+    canonical = BINDING_MAP.read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+    variants = {
+        "lf": canonical,
+        "crlf": canonical.replace(b"\n", b"\r\n"),
+        "mixed": canonical.replace(b"\n", b"\r\n", 1),
+    }
+    package = load_json_strict(PACKAGE)
+    plan = _fresh_plan()
+    matrices = []
+    raw_hashes = set()
+
+    for name, payload in variants.items():
+        binding_path = tmp_path / name / "workbook_binding_map.json"
+        binding_path.parent.mkdir()
+        binding_path.write_bytes(payload)
+        raw_hashes.add(hashlib.sha256(payload).hexdigest())
+        matrices.append(
+            build_parity_matrix(
+                package=package,
+                plan=plan,
+                legacy_path=LEGACY,
+                shell_path=SHELL,
+                binding_path=binding_path.resolve(),
+            )
+        )
+
+    assert matrices[0] == matrices[1] == matrices[2]
+    binding_digest = matrices[0]["source_digests"]["binding_map_sha256"]
+    assert binding_digest == _portable_file_sha256(BINDING_MAP)
+    assert binding_digest == hashlib.sha256(canonical).hexdigest()
+    assert len(raw_hashes) == 3
+    assert binding_digest not in raw_hashes - {hashlib.sha256(canonical).hexdigest()}
+
+
 def test_parity_matrix_is_schema_valid_and_has_unique_business_keys() -> None:
     matrix = _matrix()
+    assert matrix["version"] == "1.4.0"
     assert validate_json_schema(matrix, load_json_strict(SCHEMA)) == []
     parity_ids = [row["parity_id"] for row in matrix["entries"]]
     assert len(parity_ids) == len(set(parity_ids))
     assert matrix["summary"]["entry_count"] == len(parity_ids)
+
+
+def test_registered_data_root_resolution_is_secondary_worktree_independent(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    secondary_worktree = workspace / "Code.worktrees" / "secondary"
+    data_root = workspace / "StockModelData"
+    secondary_worktree.mkdir(parents=True)
+    (data_root / "sec_cache").mkdir(parents=True)
+    (data_root / "tickers").mkdir()
+    write_config_data_root(workspace, data_root)
+
+    result = resolve_effective_data_root_from_ancestors(secondary_worktree, env={})
+    assert result.data_root == data_root.resolve()
+    assert result.source == "config"
+
+
+def test_parity_authorities_are_registered_and_not_transient_audit_outputs() -> None:
+    for path in (PACKAGE, LEGACY):
+        assert path.is_relative_to(DATA_ROOT)
+        lowered_parts = {part.casefold() for part in path.parts}
+        assert "audit" not in lowered_parts
+        assert not any("candidate" in part or "rendered" in part for part in lowered_parts)
+
+    source = Path(__file__).read_text(encoding="utf-8")
+    assert "ROOT.parents" + "[2]" not in source
+    assert "C:" + "\\\\Users\\\\" not in source
+
+
+def test_product_golden_fixture_versions_remain_isolated_from_parity_schema() -> None:
+    product_v2 = load_json_strict(PRODUCT_V2_MANIFEST)
+    product_v2_1 = load_json_strict(PRODUCT_V2_1_MANIFEST)
+
+    assert product_v2["product_version"] == "2.0.0-candidate"
+    assert product_v2_1["product_version"] == "2.1.0"
+    product_v2_1_sha = next(
+        artifact["sha256"]
+        for artifact in product_v2_1["fixture_artifacts"]
+        if artifact["relative_path"].endswith("anf_product.v2_1.json")
+    )
+    assert product_v2["product_sha256"] != product_v2_1_sha
+    assert _matrix()["version"] == "1.4.0"
 
 
 def test_all_available_required_items_are_reproduced() -> None:
@@ -380,14 +485,31 @@ def test_valuation_input_parity_covers_actual_optional_and_user_input_contracts(
         for row in _matrix()["entries"]
         if row["domain"] == "valuation_inputs"
     }
-    required_destinations = {
-        "valuation_inputs.operating_cash_flow_ttm": "Valuation!D202",
-        "valuation_inputs.capex_ttm": "Valuation!D211",
+    retired_duplicate_inputs = {
+        "valuation_inputs.as_of_date",
+        "valuation_inputs.diluted_shares",
+        "valuation_inputs.base_ebitda_ttm",
+        "valuation_inputs.adjusted_ebitda_ttm",
+        "valuation_inputs.revenue_ttm",
+        "valuation_inputs.operating_cash_flow_ttm",
+        "valuation_inputs.free_cash_flow_ttm",
+        "valuation_inputs.capex_ttm",
+        "valuation_inputs.eps_ttm",
     }
-    for path, destination in required_destinations.items():
-        assert rows[path]["parity_requirement"] == "must_reproduce"
-        assert rows[path]["current_status"] == "reproduced_correctly"
-        assert rows[path]["expected_new_workbook_destination"] == [destination]
+    for path in retired_duplicate_inputs:
+        assert rows[path]["parity_requirement"] == "intentionally_rejected"
+        assert rows[path]["current_status"] == "explicitly_rejected_with_evidence"
+        assert rows[path]["disposition"] == "duplicate_display_binding"
+        assert rows[path]["expected_new_workbook_destination"] == []
+        assert "B2 retired the duplicate Valuation display binding" in rows[path]["rejection_reason"]
+
+    matrix_rows = {row["parity_id"]: row for row in _matrix()["entries"]}
+    assert matrix_rows["formula:operating_cash_flow_ttm:2026-Q1"]["expected_new_workbook_destination"] == [
+        "Valuation!M271"
+    ]
+    assert matrix_rows["formula:free_cash_flow_ttm:2026-Q1"]["expected_new_workbook_destination"] == [
+        "Valuation!M49"
+    ]
 
     for path in (
         "valuation_inputs.shares_outstanding",
@@ -424,9 +546,10 @@ def test_formula_improvements_exist_in_protected_cells() -> None:
                 continue
             assert len(row["expected_new_workbook_destination"]) == 1
             sheet, coordinate = row["expected_new_workbook_destination"][0].split("!", 1)
-            cell = wb[sheet][coordinate]
-            assert isinstance(cell.value, str) and cell.value.startswith("="), row["parity_id"]
-            assert cell.protection.locked is True
+            cells = _target_cells(wb[sheet], coordinate)
+            assert cells
+            assert all(isinstance(cell.value, str) and cell.value.startswith("=") for cell in cells), row["parity_id"]
+            assert all(cell.protection.locked is True for cell in cells)
             assert row["formula_contract_status"] == "present_protected"
             assert row["economic_calculability"] in {
                 "economically_calculable",
@@ -524,9 +647,7 @@ def test_missing_fail_zero_placeholders_are_unavailable_and_make_formulas_blank(
 
 
 def test_segment_plan_preserves_dimension_identity() -> None:
-    data_root = ROOT.parents[2] / "StockModelData"
-    plan_path = data_root / "outputs" / "stress_tests" / "ANF_new_ticker_engine" / "ANF_binding_plan.json"
-    plan = load_json_strict(plan_path)
+    plan = _fresh_plan()
     labels = {
         str(write["value"])
         for write in plan["planned_writes"]
@@ -538,8 +659,7 @@ def test_segment_plan_preserves_dimension_identity() -> None:
 
 
 def test_segment_parity_is_exactly_inventoried_from_legacy_visible_cells() -> None:
-    legacy = ROOT.parents[2] / "StockModelData" / "outputs" / "Excel stock models" / "ANF_model.xlsx"
-    wb = load_workbook(legacy, read_only=True, data_only=True)
+    wb = load_workbook(LEGACY, read_only=True, data_only=True)
     try:
         ws = wb["BS_Segments"]
         expected = set()

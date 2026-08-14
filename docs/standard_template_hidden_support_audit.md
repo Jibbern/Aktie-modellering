@@ -1,8 +1,8 @@
 # Standard Template Hidden Support Audit
 
-Generated at: 2026-08-01T08:53:32+00:00
-Template: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\standard_stock_model_template.xlsx`
-ANF lab source: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\lab\ANF_template_lab.xlsx`
+Generated at: 2026-08-13T00:09:35+00:00
+Template: `templates/standard_stock_model_template.xlsx`
+ANF lab source: `templates/lab/ANF_template_lab.xlsx`
 
 ## Summary
 

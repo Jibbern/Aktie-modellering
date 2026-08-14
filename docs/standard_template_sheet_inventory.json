@@ -1,14 +1,14 @@
 {
   "version": "0.1.0",
-  "generated_at": "2026-08-01T08:52:57+00:00",
-  "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
-  "module_manifest_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\docs\\workbook_module_manifest.json",
+  "generated_at": "2026-08-13T00:09:06+00:00",
+  "template_path": "templates/standard_stock_model_template.xlsx",
+  "module_manifest_path": "docs/workbook_module_manifest.json",
   "module_manifest_version": "1.0.0",
   "module_profile_id": "full_union",
   "source_workbooks": {
-    "PBI": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\PBI_model.xlsx",
-    "GPRE": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\GPRE_model.xlsm",
-    "ANF": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx"
+    "PBI": "@data_root/outputs/Excel stock models/PBI_model.xlsx",
+    "GPRE": "@data_root/outputs/Excel stock models/GPRE_model.xlsm",
+    "ANF": "@data_root/outputs/Excel stock models/ANF_model.xlsx"
   },
   "sheets": [
     {
@@ -1907,6 +1907,44 @@
       "module_id": "segments_dimensions",
       "legacy_class": "D",
       "legacy_disposition": "external_detail"
+    },
+    {
+      "sheet_name": "Valuation_Grid",
+      "classification": "rejected_redundant_sheet",
+      "present_in_standard_shell": false,
+      "present_in_PBI": true,
+      "present_in_GPRE": true,
+      "present_in_ANF": true,
+      "standard_shell_state": "missing",
+      "PBI_state": "visible",
+      "GPRE_state": "visible",
+      "ANF_state": "visible",
+      "reason": "B2 retired the duplicate valuation grid; current scenario and market-implied ownership remains in the canonical Valuation and Investment Case contracts.",
+      "visible_formula_or_binding_dependency": false,
+      "visible_formula_references": [],
+      "runtime_must_create_or_fill": false,
+      "module_id": "investment_case_market_implied",
+      "legacy_class": "F",
+      "legacy_disposition": "rejected_redundant"
+    },
+    {
+      "sheet_name": "Valuation_Summary",
+      "classification": "rejected_redundant_sheet",
+      "present_in_standard_shell": false,
+      "present_in_PBI": true,
+      "present_in_GPRE": true,
+      "present_in_ANF": true,
+      "standard_shell_state": "missing",
+      "PBI_state": "visible",
+      "GPRE_state": "visible",
+      "ANF_state": "visible",
+      "reason": "B2 retired the duplicate valuation-summary engine; canonical valuation and investment-case outputs remain on Valuation and the tokenized Investment Case product.",
+      "visible_formula_or_binding_dependency": false,
+      "visible_formula_references": [],
+      "runtime_must_create_or_fill": false,
+      "module_id": "investment_case_market_implied",
+      "legacy_class": "F",
+      "legacy_disposition": "rejected_redundant"
     },
     {
       "sheet_name": "economics_market_raw",

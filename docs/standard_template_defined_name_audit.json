@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "template_path": "C:\\Users\\Jibbe\\Aktier\\Code\\.worktrees\\refactor-new-ticker-template-engine\\templates\\standard_stock_model_template.xlsx",
+  "template_path": "templates/standard_stock_model_template.xlsx",
   "summary": {
     "retained_count": 225,
     "classification_counts": {

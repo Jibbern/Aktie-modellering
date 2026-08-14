@@ -1,6 +1,6 @@
 {
   "$schema": "./anf_new_ticker_parity_matrix.schema.json",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "contract_name": "ANF legacy-oracle parity matrix",
   "architectural_scope": "legacy_adapter_fixture_only; generic engine remains ticker-neutral",
   "inventory_method": "legacy workbook business keys are inventoried first; normalized package and plan are comparison targets only",
@@ -8,15 +8,15 @@
   "source_digests": {
     "legacy_workbook_sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
     "normalized_package_sha256": "69202dae23617a745fe6c82dfcfd7bbe9cb77e3685683b0e68298b207b42fd60",
-    "binding_plan_sha256": "0928e12e47b680f12e629e44edecfc4e2d1a3e43eceef830b026a7424d7875c5",
+    "binding_plan_sha256": "dc02f52c1ef14d517f3ba353475125021fc463b0abacf058e5a15bab78422ab7",
     "shell_sha256": "b47064e42f61666147835be1a75508ec8926a94a9911da27697236e1f3cf1e6f",
-    "binding_map_sha256": "7659ffef32d8f8f62fb82fde48523fdc4ffbaf50bc2f0830b176f6b228280e54"
+    "binding_map_sha256": "a0c581b2e2f2f7bc44171a989aaba91ca8608ed08033889a75de3d6550979ef7"
   },
   "summary": {
     "entry_count": 1789,
-    "required_count": 939,
+    "required_count": 930,
     "required_reproduced_count": 930,
-    "required_missing_count": 9,
+    "required_missing_count": 0,
     "independent_source_fact_count": 952,
     "independent_source_fact_reproduced_count": 952,
     "inventory_class_counts": {
@@ -2481,7 +2481,8 @@
         "reproduced_correctly": 20
       },
       "valuation_inputs": {
-        "missing_or_explicitly_unavailable": 24
+        "missing_or_explicitly_unavailable": 15,
+        "explicitly_rejected_with_evidence": 9
       }
     }
   },
@@ -35211,9 +35212,9 @@
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [],
       "minimum_coverage_requirement": 1,
-      "parity_requirement": "must_reproduce",
-      "rejection_reason": "",
-      "current_status": "missing_or_explicitly_unavailable"
+      "parity_requirement": "intentionally_rejected",
+      "rejection_reason": "B2 retired the duplicate Valuation display binding; the accepted canonical quarterly-series and Investment Case formula owners remain authoritative.",
+      "current_status": "explicitly_rejected_with_evidence"
     },
     {
       "parity_id": "scalar:valuation_inputs.shares_outstanding",
@@ -35267,9 +35268,9 @@
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [],
       "minimum_coverage_requirement": 1,
-      "parity_requirement": "must_reproduce",
-      "rejection_reason": "",
-      "current_status": "missing_or_explicitly_unavailable"
+      "parity_requirement": "intentionally_rejected",
+      "rejection_reason": "B2 retired the duplicate Valuation display binding; the accepted canonical quarterly-series and Investment Case formula owners remain authoritative.",
+      "current_status": "explicitly_rejected_with_evidence"
     },
     {
       "parity_id": "scalar:valuation_inputs.net_debt",
@@ -35323,9 +35324,9 @@
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [],
       "minimum_coverage_requirement": 1,
-      "parity_requirement": "must_reproduce",
-      "rejection_reason": "",
-      "current_status": "missing_or_explicitly_unavailable"
+      "parity_requirement": "intentionally_rejected",
+      "rejection_reason": "B2 retired the duplicate Valuation display binding; the accepted canonical quarterly-series and Investment Case formula owners remain authoritative.",
+      "current_status": "explicitly_rejected_with_evidence"
     },
     {
       "parity_id": "scalar:valuation_inputs.adjusted_ebitda_ttm",
@@ -35351,9 +35352,9 @@
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [],
       "minimum_coverage_requirement": 1,
-      "parity_requirement": "must_reproduce",
-      "rejection_reason": "",
-      "current_status": "missing_or_explicitly_unavailable"
+      "parity_requirement": "intentionally_rejected",
+      "rejection_reason": "B2 retired the duplicate Valuation display binding; the accepted canonical quarterly-series and Investment Case formula owners remain authoritative.",
+      "current_status": "explicitly_rejected_with_evidence"
     },
     {
       "parity_id": "scalar:valuation_inputs.revenue_ttm",
@@ -35379,9 +35380,9 @@
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [],
       "minimum_coverage_requirement": 1,
-      "parity_requirement": "must_reproduce",
-      "rejection_reason": "",
-      "current_status": "missing_or_explicitly_unavailable"
+      "parity_requirement": "intentionally_rejected",
+      "rejection_reason": "B2 retired the duplicate Valuation display binding; the accepted canonical quarterly-series and Investment Case formula owners remain authoritative.",
+      "current_status": "explicitly_rejected_with_evidence"
     },
     {
       "parity_id": "scalar:valuation_inputs.operating_cash_flow_ttm",
@@ -35407,9 +35408,9 @@
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [],
       "minimum_coverage_requirement": 1,
-      "parity_requirement": "must_reproduce",
-      "rejection_reason": "",
-      "current_status": "missing_or_explicitly_unavailable"
+      "parity_requirement": "intentionally_rejected",
+      "rejection_reason": "B2 retired the duplicate Valuation display binding; the accepted canonical quarterly-series and Investment Case formula owners remain authoritative.",
+      "current_status": "explicitly_rejected_with_evidence"
     },
     {
       "parity_id": "scalar:valuation_inputs.free_cash_flow_ttm",
@@ -35435,9 +35436,9 @@
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [],
       "minimum_coverage_requirement": 1,
-      "parity_requirement": "must_reproduce",
-      "rejection_reason": "",
-      "current_status": "missing_or_explicitly_unavailable"
+      "parity_requirement": "intentionally_rejected",
+      "rejection_reason": "B2 retired the duplicate Valuation display binding; the accepted canonical quarterly-series and Investment Case formula owners remain authoritative.",
+      "current_status": "explicitly_rejected_with_evidence"
     },
     {
       "parity_id": "scalar:valuation_inputs.capex_ttm",
@@ -35463,9 +35464,9 @@
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [],
       "minimum_coverage_requirement": 1,
-      "parity_requirement": "must_reproduce",
-      "rejection_reason": "",
-      "current_status": "missing_or_explicitly_unavailable"
+      "parity_requirement": "intentionally_rejected",
+      "rejection_reason": "B2 retired the duplicate Valuation display binding; the accepted canonical quarterly-series and Investment Case formula owners remain authoritative.",
+      "current_status": "explicitly_rejected_with_evidence"
     },
     {
       "parity_id": "scalar:valuation_inputs.eps_ttm",
@@ -35491,9 +35492,9 @@
       "formula_ownership": "value_only_binding",
       "expected_new_workbook_destination": [],
       "minimum_coverage_requirement": 1,
-      "parity_requirement": "must_reproduce",
-      "rejection_reason": "",
-      "current_status": "missing_or_explicitly_unavailable"
+      "parity_requirement": "intentionally_rejected",
+      "rejection_reason": "B2 retired the duplicate Valuation display binding; the accepted canonical quarterly-series and Investment Case formula owners remain authoritative.",
+      "current_status": "explicitly_rejected_with_evidence"
     },
     {
       "parity_id": "scalar:valuation_inputs.adjusted_eps_ttm",

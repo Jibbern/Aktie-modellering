@@ -377,7 +377,11 @@ def build_inventory(
     for states in source_states.values():
         all_sheet_names.update(states)
     all_sheet_names.update(RESERVED_RUNTIME_SHEETS)
-    all_sheet_names.difference_update(PHYSICALLY_RETIRED_STANDARD_SHEETS)
+    # Physically retired sheets remain in the inventory when the versioned
+    # legacy contract gives them an explicit rejected/retired disposition.
+    all_sheet_names.difference_update(
+        PHYSICALLY_RETIRED_STANDARD_SHEETS - set(legacy_inventory)
+    )
 
     rows: list[dict[str, Any]] = []
     lifecycle_rows: list[dict[str, Any]] = []
@@ -419,20 +423,28 @@ def build_inventory(
         if lifecycle is not None:
             lifecycle_rows.append(lifecycle)
 
+    template_label = template_path.resolve().relative_to(ROOT.resolve()).as_posix()
+    module_manifest_label = (
+        module_manifest_path.resolve().relative_to(ROOT.resolve()).as_posix()
+    )
+    source_labels = {
+        ticker: f"@data_root/{path.resolve().relative_to(data_root.resolve()).as_posix()}"
+        for ticker, path in source_paths.items()
+    }
     inventory = {
         "version": "0.1.0",
         "generated_at": datetime.now(UTC).replace(microsecond=0).isoformat(),
-        "template_path": str(template_path),
-        "module_manifest_path": str(module_manifest_path),
+        "template_path": template_label,
+        "module_manifest_path": module_manifest_label,
         "module_manifest_version": str(module_payload["version"]),
         "module_profile_id": str(manifest.get("module_profile", {}).get("profile_id") or ""),
-        "source_workbooks": {ticker: str(path) for ticker, path in source_paths.items()},
+        "source_workbooks": source_labels,
         "sheets": rows,
     }
     lifecycle = {
         "version": "0.1.0",
         "generated_at": inventory["generated_at"],
-        "template_path": str(template_path),
+        "template_path": template_label,
         "support_sheets": sorted(lifecycle_rows, key=lambda row: row["sheet_name"]),
         "visible_qa_surfaces": VISIBLE_QA_SURFACE_CONTRACTS,
     }

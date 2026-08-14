@@ -513,8 +513,8 @@ def scan_neutrality_workbook(
         return {
             "version": "0.1.0",
             "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-            "template_path": str(template_path),
-            "module_manifest_path": str(module_manifest_path),
+            "template_path": template_path.resolve().relative_to(ROOT.resolve()).as_posix(),
+            "module_manifest_path": module_manifest_path.resolve().relative_to(ROOT.resolve()).as_posix(),
             "visible_sheets": visible_sheets,
             "retained_hidden_sheets": retained_hidden_sheets,
             "classification_counts": dict(sorted(classification_counts.items())),

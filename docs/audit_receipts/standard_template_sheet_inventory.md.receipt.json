@@ -4,7 +4,7 @@
   "reason": "",
   "artifact": {
     "path": "docs/standard_template_sheet_inventory.md",
-    "sha256": "e183aef7c6a030623497fe53b32dcaab1123555927b52bc10bc7720a8f04da94",
+    "sha256": "c2e7481e9a5a41aed5a8add66da883713bd346160589d768b05603ab42185415",
     "output_schema": "text/markdown",
     "output_version": "markdown-v1"
   },
@@ -15,26 +15,26 @@
     },
     {
       "path": "docs/standard_template_shell_manifest.json",
-      "sha256": "e3bbae82169fc8381c3dde1635d874bfe708b938a940ca1d33cedac31bff208d"
+      "sha256": "355fff922786232c51321b11c3ec447949c9549741e35de6da00c0805502fc4e"
     },
     {
       "path": "docs/workbook_binding_map.json",
-      "sha256": "7659ffef32d8f8f62fb82fde48523fdc4ffbaf50bc2f0830b176f6b228280e54"
+      "sha256": "a0c581b2e2f2f7bc44171a989aaba91ca8608ed08033889a75de3d6550979ef7"
     },
     {
       "path": "docs/workbook_module_manifest.json",
-      "sha256": "262887fc0253c8101f4ec7bac59a6d01fb651eb69a2d976dbfb62e389358072a"
+      "sha256": "5450a8111e1672dfa940ca494734a097db9bc3cef919761fc3a8714d446221af"
     },
     {
-      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\PBI_model.xlsx",
+      "path": "@stock_model:PBI",
       "sha256": "6482617ad4f412dc5a1e130dc56c72bba5113ddacea5f7d1ab166fad8ddf5689"
     },
     {
-      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\GPRE_model.xlsm",
+      "path": "@stock_model:GPRE",
       "sha256": "f7c23c9c0d9e3a52c708553e5fc6f964aa3fc58c8b4805d235f7ccfce5bde41b"
     },
     {
-      "path": "C:\\Users\\Jibbe\\Aktier\\StockModelData\\outputs\\Excel stock models\\ANF_model.xlsx",
+      "path": "@stock_model:ANF",
       "sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd"
     }
   ],
@@ -43,7 +43,7 @@
     "dependencies": [
       {
         "path": "pbi_xbrl/workbook_modules.py",
-        "sha256": "56963fbe5573e13b1f3432f5b1f00bcecc3af45ebc2e8010e304b5cd050cac75"
+        "sha256": "584a0235f4994da425d69e2992cdad48f0cfdfb4639bc343f9014f9c34122e16"
       },
       {
         "path": "pbi_xbrl/json_schema_validation.py",
@@ -51,47 +51,47 @@
       }
     ],
     "execution_contract_sha256": "79921e717c418416abdafec570ab6f4530ecbf9a52b9412b1f630175bd51c3c5",
-    "implementation_sha256": "44a2f63458929cb9ad5c86ac11951d383aa72e3bad0d232e29460f1d990a2d2e",
+    "implementation_sha256": "eaf512ccff08cc38650651d00caaffa05fca53fb7d9e1eb69f5ce7360719de88",
     "path": "scripts/build_standard_template_sheet_inventory.py",
-    "receipt_engine_sha256": "7a235734fe4851f27b7b5daf946b874f716d2a8e24eab75ab66c6069e39e3336",
-    "runner_implementation_sha256": "a2d09fd4edefa35cbadb27ffbf3dd569c1bd3d0b306eaa12bd95555511b46291"
+    "receipt_engine_sha256": "5db16c0ddbdd0fcabade4bf631d81686939331a1d4d0618d94e763a924e2a4df",
+    "runner_implementation_sha256": "ee8130ef68853e4a344d5cd063c111e2d97f7bf0775bb9932a1aef930135963c"
   },
   "verification": {
     "mode": "controlled_isolated_generator_run",
     "runner_contract_version": "2.0.0",
     "successful_completion": true,
-    "run_generation_id": "6db6a40215e5bdb6dfdd7d92d52a83bb4626318f74d0d6025e0e6ff094406c17",
+    "run_generation_id": "3f01347ab9b977d9cdcf6cf62e7d9a18dc6f00a1a4d374590d0fc39c2cd417a9",
     "generated_outputs": [
       {
-        "canonical_content_sha256": "da47370aac678f1f7e2e542964c378b628ab0b7396274c0ea40fa80d2ace56e5",
+        "canonical_content_sha256": "3b9aec87e8d3eade2f06f7ed58b6a8440ccb022228ed78905d96a13b351be1e4",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/standard_template_sheet_inventory.json",
-        "sha256": "fe2f8ac083b259e020ffe3bd566978e78696392824fa9da2d0c44f9c1ac13af4"
+        "sha256": "8401b7686328780c69d2b0c1597246fc67819bdc5026fb56b032d68b0f5f1a49"
       },
       {
-        "canonical_content_sha256": "c2e18111ed8103ac6ff1367f38099ca2fc37673e4d26b502fcdc1adaeed2cc9d",
+        "canonical_content_sha256": "c2e7481e9a5a41aed5a8add66da883713bd346160589d768b05603ab42185415",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/standard_template_sheet_inventory.md",
-        "sha256": "e183aef7c6a030623497fe53b32dcaab1123555927b52bc10bc7720a8f04da94"
+        "sha256": "c2e7481e9a5a41aed5a8add66da883713bd346160589d768b05603ab42185415"
       },
       {
-        "canonical_content_sha256": "25afeff2ceb7d9c4053dfbd7c5a950db8a9382af6e390a0d6fd35de31ef7f6d3",
+        "canonical_content_sha256": "70430713f29615b243dc787bcae7b4c7dde9df8429ec4da9f47bbbb4e6c679cb",
         "output_schema": "json",
         "output_version": "0.1.0",
         "path": "docs/support_sheet_lifecycle_contract.json",
-        "sha256": "70e8337da498c49e65faf77e92bc0b75b420923ed12b6d42b8b290860216acab"
+        "sha256": "0ea8d488f15945723ae481f3549d768bee5bb423d8bf9acfe1ac631930b266d6"
       },
       {
         "canonical_content_sha256": "5fa467a51e339882900692630738300f0e44fa53c17fe202a07895d282a8458b",
         "output_schema": "text/markdown",
         "output_version": "markdown-v1",
         "path": "docs/support_sheet_lifecycle_contract.md",
-        "sha256": "f06cc4368a12d522ab7a4865db70a0e785a9a7394391e775e4d72a1992caa21a"
+        "sha256": "5fa467a51e339882900692630738300f0e44fa53c17fe202a07895d282a8458b"
       }
     ]
   },
-  "generated_at_utc": "2026-08-01T08:52:57+00:00",
-  "generation_id": "563a8940dbeb6f4b298f861558221449f5cf9480891b17ffad9d0d859f3e7d65"
+  "generated_at_utc": "2026-08-13T00:09:06+00:00",
+  "generation_id": "e013e66dae0b46f127968fcf4952749d00ff61ac6c8c290bc14173dd9ca098df"
 }

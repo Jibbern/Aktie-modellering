@@ -3,8 +3,8 @@
 ANF is a read-only migration oracle. This matrix locks business-key coverage without moving ANF logic into the generic engine.
 
 - Entries: 1789
-- Required reproduced: 930 / 939
-- Required missing: 9
+- Required reproduced: 930 / 930
+- Required missing: 0
 - Independently inventoried legacy source facts reproduced: 952 / 952
 - Inventory classes: {"duplicate_display_use": 56, "formula_improvement": 728, "parser_internal_text": 5, "source_fact": 956, "unsupported_legacy_content": 44}
 - Formula contracts: {"present_protected": 728}
@@ -29,4 +29,4 @@ ANF is a read-only migration oracle. This matrix locks business-key coverage wit
 | segments | 52 | 0 | 0 |
 | summary | 0 | 0 | 0 |
 | valuation_forward_summary | 20 | 0 | 0 |
-| valuation_inputs | 0 | 0 | 24 |
+| valuation_inputs | 0 | 0 | 15 |

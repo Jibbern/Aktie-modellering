@@ -22,6 +22,8 @@ def _data_root() -> Path:
 DATA_ROOT = _data_root()
 ARCHITECTURE_PATH = ROOT / "docs" / "workbook_block_architecture.json"
 BINDING_MAP_PATH = ROOT / "docs" / "workbook_binding_map.json"
+SHELL_MANIFEST_PATH = ROOT / "docs" / "standard_template_shell_manifest.json"
+MODULE_MANIFEST_PATH = ROOT / "docs" / "workbook_module_manifest.json"
 LAB_PATH = ROOT / "templates" / "lab" / "ANF_template_lab.xlsx"
 
 STANDARD_VISIBLE_SHEETS = {
@@ -82,6 +84,14 @@ def _binding_map() -> dict:
     return json.loads(BINDING_MAP_PATH.read_text(encoding="utf-8"))
 
 
+def _shell_manifest() -> dict:
+    return json.loads(SHELL_MANIFEST_PATH.read_text(encoding="utf-8"))
+
+
+def _module_manifest() -> dict:
+    return json.loads(MODULE_MANIFEST_PATH.read_text(encoding="utf-8"))
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -118,6 +128,15 @@ def _cell_in_range(coord: str, target: str) -> bool:
     return left <= col <= right and top <= row <= bottom
 
 
+def _range_contains(outer: str, inner: str) -> bool:
+    outer_left, outer_top, outer_right, outer_bottom = _parse_range(outer)
+    inner_left, inner_top, inner_right, inner_bottom = _parse_range(inner)
+    return (
+        outer_left <= inner_left <= inner_right <= outer_right
+        and outer_top <= inner_top <= inner_bottom <= outer_bottom
+    )
+
+
 def _looks_numeric(value: object) -> bool:
     if isinstance(value, (int, float)):
         return True
@@ -140,10 +159,10 @@ def test_template_lab_is_byte_identical_macro_free_copy_of_anf_source() -> None:
 
     payload = _architecture()
     lab_meta = payload["template_lab"]
-    source_path = Path(lab_meta["source_path"])
+    source_path = DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
 
-    assert source_path == DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
-    assert lab_meta["lab_path"] == str(LAB_PATH)
+    assert lab_meta["source_path"] == "@source_dir/ANF_model.xlsx"
+    assert lab_meta["lab_path"] == "templates/lab/ANF_template_lab.xlsx"
     assert lab_meta["byte_identical"] is True
     assert lab_meta["source_sha256"] == _sha256(source_path)
     assert lab_meta["lab_sha256"] == _sha256(LAB_PATH)
@@ -280,8 +299,38 @@ def test_every_writable_binding_resolves_to_a_block() -> None:
         for entry in bindings
         if entry.get("block_id") in architecture_blocks
     }
+    visible_product_owned = block_binding_ids | direct_block_ids
 
-    assert writable_binding_ids <= block_binding_ids | direct_block_ids
+    # Hidden/support products are intentionally outside the visible investor
+    # block architecture.  Their exact owner is the frozen shell zone plus the
+    # module contract; they must not be forced into a visible block merely to
+    # satisfy block coverage.
+    shell_zones = {
+        (sheet["sheet"], zone["zone_id"]): zone
+        for sheet in _shell_manifest()["sheets"]
+        for zone in sheet.get("writable_zones", [])
+    }
+    module_roles: dict[tuple[str, str], str] = {}
+    module_binding_ids: dict[str, set[str]] = {}
+    for module in _module_manifest()["modules"]:
+        module_id = module["module_id"]
+        module_binding_ids[module_id] = set(module.get("binding_ids", []))
+        for sheet in module["sheets"]:
+            module_roles[(module_id, sheet["sheet"])] = sheet["role"]
+
+    hidden_support_owned: set[str] = set()
+    for entry in bindings:
+        if entry["binding_id"] in visible_product_owned:
+            continue
+        owner_key = (entry["sheet"], entry.get("shell_zone"))
+        assert owner_key in shell_zones, entry["binding_id"]
+        assert _range_contains(shell_zones[owner_key]["target"], entry["target"])
+        module_key = (entry["module_id"], entry["sheet"])
+        assert module_roles.get(module_key) in {"hidden_support", "module_capacity"}
+        assert entry["binding_id"] in module_binding_ids[entry["module_id"]]
+        hidden_support_owned.add(entry["binding_id"])
+
+    assert writable_binding_ids == visible_product_owned | hidden_support_owned
 
 
 def test_guardrails_do_not_create_gtx_or_macro_outputs() -> None:

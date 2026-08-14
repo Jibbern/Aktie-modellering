@@ -6,8 +6,8 @@ It is not a runtime filler and it must not be used to patch or promote ticker wo
 
 ## Template Lab
 
-- Lab workbook: `C:\Users\Jibbe\Aktier\Code\.worktrees\refactor-new-ticker-template-engine\templates\lab\ANF_template_lab.xlsx`
-- Source workbook: `C:\Users\Jibbe\Aktier\StockModelData\outputs\Excel stock models\ANF_model.xlsx`
+- Lab workbook: `templates/lab/ANF_template_lab.xlsx`
+- Source workbook: `@source_dir/ANF_model.xlsx`
 - Byte-identical copy: `True`
 - Source SHA256: `ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd`
 
