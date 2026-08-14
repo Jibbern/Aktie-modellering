@@ -5,15 +5,121 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from pbi_xbrl.derivative_oci_bridge import DERIVATIVE_EXPOSURE_COLUMNS, build_derivative_oci_bridge_from_sources
+from pbi_xbrl.derivative_oci_bridge import (
+    DERIVATIVE_EXPOSURE_COLUMNS,
+    DerivativeSourceResolutionError,
+    _source_paths_for_ticker,
+    build_derivative_oci_bridge_from_sources,
+)
+from pbi_xbrl.excel_writer_economics_overlay_derivatives import (
+    GpreEconomicsOverlayDerivativeSideEffectDeps,
+    write_gpre_derivative_crush_tests_side_effect,
+)
+from tests.workbook_test_resources import registered_ticker_dir
+
+
+def _gpre_financial_statement_files() -> tuple[Path, ...]:
+    source_dir = registered_ticker_dir("GPRE", Path(__file__).resolve()) / "financial_statement"
+    paths = sorted(
+        {
+            *source_dir.glob("GPRE_Q*_10Q_*_financial_statement.htm"),
+            *source_dir.glob("GPRE_FY*_10K_*_financial_statement.htm"),
+        },
+        key=lambda path: path.name,
+    )
+    assert paths, f"Required registered GPRE derivative/OCI filings are unavailable under {source_dir}"
+    return tuple(paths)
+
+
+def test_derivative_source_resolution_is_order_stable_and_missing_fails_closed(
+    tmp_path: Path,
+) -> None:
+    source_dir = tmp_path / "GPRE" / "financial_statement"
+    source_dir.mkdir(parents=True)
+    later = source_dir / "GPRE_Q2_2026_10Q_2026-06-30_financial_statement.htm"
+    earlier = source_dir / "GPRE_Q1_2026_10Q_2026-03-31_financial_statement.htm"
+    later.write_text("<html>later</html>", encoding="utf-8")
+    earlier.write_text("<html>earlier</html>", encoding="utf-8")
+
+    assert _source_paths_for_ticker("GPRE", tmp_path) == [
+        earlier.resolve(),
+        later.resolve(),
+    ]
+    with pytest.raises(DerivativeSourceResolutionError, match="source directory is missing"):
+        _source_paths_for_ticker("PBI", tmp_path)
+
+
+def test_pack_owned_derivative_crush_materialization_requires_valid_dependencies() -> None:
+    writes: list[dict[str, pd.DataFrame]] = []
+
+    class _Result:
+        def as_dict(self) -> dict[str, pd.DataFrame]:
+            return {"reconciliation": pd.DataFrame([{"status": "PASS"}])}
+
+    def _build(*_args):
+        return _Result()
+
+    ready = GpreEconomicsOverlayDerivativeSideEffectDeps(
+        runtime_sheet_owned=True,
+        derivative_oci_bridge_df=pd.DataFrame([{"quarter": "2026-03-31"}]),
+        derivative_oci_exposure_df=pd.DataFrame(),
+        operating_driver_history_rows=[{"quarter": "2026-03-31", "gallons": 1.0}],
+        gpre_basis_model_result={"quarterly_df": pd.DataFrame([{"quarter": "2026-03-31"}])},
+        info_log=[],
+        build_derivative_crush_tests=_build,
+        write_derivative_crush_tests_sheet=lambda payload: writes.append(payload),
+    )
+    result = write_gpre_derivative_crush_tests_side_effect(ready)
+    assert result.wrote_sheet is True
+    assert result.warning_count == 0
+    assert len(writes) == 1
+    assert writes[0]["reconciliation"].iloc[0]["status"] == "PASS"
+
+    for blocked in (
+        {**vars(ready), "runtime_sheet_owned": False},
+        {**vars(ready), "derivative_oci_bridge_df": pd.DataFrame()},
+        {**vars(ready), "gpre_basis_model_result": {"quarterly_df": pd.DataFrame()}},
+    ):
+        writes.clear()
+        blocked_result = write_gpre_derivative_crush_tests_side_effect(
+            GpreEconomicsOverlayDerivativeSideEffectDeps(**blocked)
+        )
+        assert blocked_result.wrote_sheet is False
+        assert writes == []
+
+
+def test_pack_owned_derivative_crush_materialization_failure_is_material() -> None:
+    class _Result:
+        def as_dict(self) -> dict[str, pd.DataFrame]:
+            return {"reconciliation": pd.DataFrame([{"status": "PASS"}])}
+
+    def _write_failure(_payload: dict[str, pd.DataFrame]) -> None:
+        raise RuntimeError("Derivative_Crush_Tests renderer failed")
+
+    deps = GpreEconomicsOverlayDerivativeSideEffectDeps(
+        runtime_sheet_owned=True,
+        derivative_oci_bridge_df=pd.DataFrame([{"quarter": "2026-03-31"}]),
+        derivative_oci_exposure_df=pd.DataFrame(),
+        operating_driver_history_rows=[{"quarter": "2026-03-31", "gallons": 1.0}],
+        gpre_basis_model_result={"quarterly_df": pd.DataFrame([{"quarter": "2026-03-31"}])},
+        info_log=[],
+        build_derivative_crush_tests=lambda *_args: _Result(),
+        write_derivative_crush_tests_sheet=_write_failure,
+    )
+
+    with pytest.raises(RuntimeError, match="Derivative_Crush_Tests renderer failed"):
+        write_gpre_derivative_crush_tests_side_effect(deps)
+
+    assert deps.info_log == []
 
 
 def test_gpre_derivative_oci_bridge_keeps_pnl_and_oci_separate() -> None:
-    source_path = Path(
-        r"C:\Users\Jibbe\Aktier\GPRE\financial_statement\GPRE_Q1_2026_10Q_2026-03-31_financial_statement.htm"
+    source_path = (
+        registered_ticker_dir("GPRE", Path(__file__).resolve())
+        / "financial_statement"
+        / "GPRE_Q1_2026_10Q_2026-03-31_financial_statement.htm"
     )
-    if not source_path.exists():
-        pytest.skip(f"GPRE Q1 2026 10-Q fixture missing: {source_path}")
+    assert source_path.is_file(), f"Required registered GPRE Q1 2026 10-Q is unavailable: {source_path}"
 
     result = build_derivative_oci_bridge_from_sources("GPRE", [source_path])
     rows = result.rows
@@ -111,10 +217,9 @@ def test_derivative_oci_bridge_fixture_flags_oci_pnl_mixup(tmp_path: Path) -> No
 
 
 def test_gpre_derivative_oci_bridge_builds_recent_historical_quarters() -> None:
-    result = build_derivative_oci_bridge_from_sources("GPRE")
+    result = build_derivative_oci_bridge_from_sources("GPRE", _gpre_financial_statement_files())
     rows = result.rows
-    if rows.empty:
-        pytest.skip("GPRE derivative/OCI source filings are unavailable.")
+    assert not rows.empty
 
     quarters = set(rows["quarter"].astype(str))
     assert {"2025-03-31", "2025-06-30", "2025-09-30", "2025-12-31", "2026-03-31"} <= quarters

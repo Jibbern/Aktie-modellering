@@ -69,6 +69,29 @@
       "type": "array",
       "items": {"type": "string", "minLength": 1}
     },
+    "sheetReadiness": {
+      "type": "object",
+      "required": ["mode", "visibility_mode", "ready_state"],
+      "properties": {
+        "mode": {
+          "enum": [
+            "minimum_useful_rows",
+            "minimum_source_backed_periods",
+            "minimum_coherent_periods",
+            "minimum_typed_rows",
+            "explicit_reconciled_complete_schedule"
+          ]
+        },
+        "visibility_mode": {"const": "readiness_overlay"},
+        "ready_state": {"const": "visible"},
+        "economic_validation_contract": {
+          "type": "string",
+          "pattern": "^contract:[a-z][a-z0-9-]*@[1-9][0-9]*$"
+        },
+        "minimum_count": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
     "sheet": {
       "type": "object",
       "required": [
@@ -110,6 +133,7 @@
           "items": {"type": "string", "pattern": "^[A-Z]+$"}
         },
         "zoom_scale": {"type": "integer", "minimum": 10, "maximum": 400},
+        "readiness": {"$ref": "#/$defs/sheetReadiness"},
         "empty_state": {"type": "string", "minLength": 1},
         "style_owner": {"type": "string", "minLength": 1},
         "formula_owner": {"type": "string", "minLength": 1},
@@ -202,7 +226,7 @@
     },
     "profilePack": {
       "type": "object",
-      "required": ["pack_id", "display_name", "host_module_id", "normalized_contracts", "scenario_driver_ids", "visible_blocks", "activation_mode"],
+      "required": ["pack_id", "display_name", "host_module_id", "normalized_contracts", "scenario_driver_ids", "visible_blocks", "runtime_sheets", "activation_mode"],
       "properties": {
         "pack_id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
         "display_name": {"type": "string", "minLength": 1},
@@ -210,7 +234,23 @@
         "normalized_contracts": {"$ref": "#/$defs/stringList"},
         "scenario_driver_ids": {"$ref": "#/$defs/stringList"},
         "visible_blocks": {"type": "array", "items": {"$ref": "#/$defs/visibleBlock"}},
+        "runtime_sheets": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/runtimeSheet"}
+        },
         "activation_mode": {"const": "explicit_profile_only"}
+      },
+      "additionalProperties": false
+    },
+    "runtimeSheet": {
+      "type": "object",
+      "required": ["sheet", "lifecycle", "visibility", "order_after", "materialization_contract"],
+      "properties": {
+        "sheet": {"type": "string", "minLength": 1, "maxLength": 31},
+        "lifecycle": {"const": "optional_sector_output"},
+        "visibility": {"enum": ["visible", "hidden", "veryHidden"]},
+        "order_after": {"type": "string", "minLength": 1, "maxLength": 31},
+        "materialization_contract": {"type": "string", "pattern": "^contract:[a-z0-9][a-z0-9:-]*@[1-9][0-9]*$"}
       },
       "additionalProperties": false
     },

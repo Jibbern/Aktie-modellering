@@ -27,8 +27,10 @@ from .excel_writer_segment_sources import (
     _anf_annual_segment_data_from_slides_segments,
     _anf_fill_brand_quarter_revenue_from_annual_segments_for_bs,
     _filter_anf_quarterly_segment_actual_rows,
+    _merge_quarterly_segment_packages_per_period,
     _pbi_add_corporate_reconciliation_from_release_text,
     _pbi_repair_total_reportable_segment_quarterly_totals_for_bs,
+    _segment_residual_ledger_payload,
 )
 from .excel_writer_segments import (
     annual_segment_label as ew_annual_segment_label,
@@ -48,6 +50,12 @@ from .legacy_support import (
     _path_belongs_to_ticker,
 )
 from .non_gaap import infer_quarter_end_from_text, strip_html
+from .segment_normalization import (
+    SEGMENT_RESIDUAL_LEDGER_CONTRACT_ID,
+    SegmentNormalizationError,
+    SegmentResidualInputFact,
+    segment_residual_input_fact_from_legacy_row,
+)
 
 
 @dataclass
@@ -885,6 +893,12 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
                 "adj_segment_ebitda": "Adjusted EBITDA",
                 "adjusted segment ebitda": "Adjusted EBITDA",
             }
+            residual_metric_ids = {
+                "Revenue": "metric:core:revenue@1",
+                "Adjusted EBIT": "metric:business-services:adjusted-segment-ebit@1",
+                "Depreciation & amortization": "metric:core:depreciation-amortization@1",
+                "Adjusted EBITDA": "metric:core:adjusted-ebitda@1",
+            }
             dollar_metric_labels = {
                 "Revenue",
                 "Adjusted EBIT",
@@ -956,16 +970,52 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
                     source_docs.append(doc_txt)
 
             store: Dict[str, Dict[str, Dict[pd.Timestamp, float]]] = {}
+            source_facts: List[SegmentResidualInputFact] = []
             for _score_tuple, rec in sorted(rows_scored, key=lambda item: item[0], reverse=True):
                 metric_label = str(rec.get("_metric_label") or "")
                 seg_label = str(rec.get("_segment_label") or "")
                 q_ts = pd.Timestamp(rec.get("quarter"))
                 bucket = store.setdefault(metric_label, {}).setdefault(seg_label, {})
                 if q_ts not in bucket:
-                    bucket[q_ts] = float(rec.get("_normalized_value"))
+                    normalized_value = float(rec.get("_normalized_value"))
+                    bucket[q_ts] = normalized_value
+                    if is_pbi_profile and metric_label in residual_metric_ids:
+                        page = pd.to_numeric(rec.get("page"), errors="coerce")
+                        locator = (
+                            f"page:{int(page)}"
+                            if pd.notna(page)
+                            else f"table:{str(rec.get('metric') or '').strip().lower()}"
+                        )
+                        try:
+                            source_facts.append(
+                                segment_residual_input_fact_from_legacy_row(
+                                    company_id="PBI",
+                                    metric_label=metric_label,
+                                    metric_id=residual_metric_ids[metric_label],
+                                    segment_member=seg_label,
+                                    value_millions=normalized_value / 1_000_000.0,
+                                    period_end=q_ts.date(),
+                                    period_id=f"period:pbi:cy{q_ts.year}-q{q_ts.quarter}@1",
+                                    source_doc=rec.get("doc"),
+                                    source_type=rec.get("source") or "earnings-release",
+                                    source_locator=locator,
+                                    aggregation_role=(
+                                        "reported_total"
+                                        if seg_label == "Total reportable segments"
+                                        else "component"
+                                    ),
+                                )
+                            )
+                        except SegmentNormalizationError:
+                            pass
 
+            residual_derivations: List[Dict[str, Any]] = []
             if is_pbi_profile:
-                store = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(store)
+                store = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+                    store,
+                    source_facts=source_facts,
+                    derivations_out=residual_derivations,
+                )
 
             revenue_map = dict(store.get("Revenue") or {})
             op_map = dict(store.get("Adjusted EBIT") or {})
@@ -1002,12 +1052,18 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
             )
             if not store or not quarters:
                 return {}
-            return {
+            result = {
                 "metrics": store,
                 "quarters": quarters,
                 "source_doc": " | ".join(source_docs[:3]) if source_docs else "Slides_Segments",
                 "source_qd": max(quarters),
             }
+            if residual_derivations:
+                result["segment_derivation_ledger"] = _segment_residual_ledger_payload(
+                    source_facts,
+                    residual_derivations,
+                )
+            return result
 
         def _parsed_pbi_segment_release_tables_for_bs() -> Dict[str, Any]:
             if not is_pbi_profile:
@@ -1035,14 +1091,48 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
                 segment_name: str,
                 q_ts: pd.Timestamp,
                 value_in: Any,
+                *,
+                source_doc: Path,
+                source_locator: str,
             ) -> None:
                 value_num = _parse_money_thousands(value_in)
                 if value_num is None:
                     return
                 store_in.setdefault(metric_name, {}).setdefault(segment_name, {})[q_ts] = float(value_num)
+                metric_id = {
+                    "Revenue": "metric:core:revenue@1",
+                    "Adjusted EBIT": "metric:business-services:adjusted-segment-ebit@1",
+                    "Depreciation & amortization": "metric:core:depreciation-amortization@1",
+                    "Adjusted EBITDA": "metric:core:adjusted-ebitda@1",
+                }.get(metric_name)
+                if metric_id is None:
+                    return
+                try:
+                    source_facts.append(
+                        segment_residual_input_fact_from_legacy_row(
+                            company_id="PBI",
+                            metric_label=metric_name,
+                            metric_id=metric_id,
+                            segment_member=segment_name,
+                            value_millions=float(value_num) / 1_000_000.0,
+                            period_end=q_ts.date(),
+                            period_id=f"period:pbi:cy{q_ts.year}-q{q_ts.quarter}@1",
+                            source_doc=source_doc,
+                            source_type="earnings-release",
+                            source_locator=source_locator,
+                            aggregation_role=(
+                                "reported_total"
+                                if segment_name == "Total reportable segments"
+                                else "component"
+                            ),
+                        )
+                    )
+                except SegmentNormalizationError:
+                    pass
 
             store: Dict[str, Dict[str, Dict[pd.Timestamp, float]]] = {}
             source_docs: List[str] = []
+            source_facts: List[SegmentResidualInputFact] = []
             for root in material_roots:
                 er_dir = root / "earnings_release"
                 if not er_dir.exists() or not er_dir.is_dir():
@@ -1080,9 +1170,33 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
                     )
                     rev_match = re.search(rev_pat, txt, flags=re.I | re.S)
                     if rev_match:
-                        _add_metric(store, "Revenue", "SendTech Solutions", q_ts, rev_match.group(1))
-                        _add_metric(store, "Revenue", "Presort Services", q_ts, rev_match.group(2))
-                        _add_metric(store, "Revenue", "Total reportable segments", q_ts, rev_match.group(3))
+                        _add_metric(
+                            store,
+                            "Revenue",
+                            "SendTech Solutions",
+                            q_ts,
+                            rev_match.group(1),
+                            source_doc=path_in,
+                            source_locator="table:business-segment-revenue",
+                        )
+                        _add_metric(
+                            store,
+                            "Revenue",
+                            "Presort Services",
+                            q_ts,
+                            rev_match.group(2),
+                            source_doc=path_in,
+                            source_locator="table:business-segment-revenue",
+                        )
+                        _add_metric(
+                            store,
+                            "Revenue",
+                            "Total reportable segments",
+                            q_ts,
+                            rev_match.group(3),
+                            source_doc=path_in,
+                            source_locator="table:business-segment-revenue",
+                        )
 
                     ebit_pat = (
                         r"Adjusted\s+Segment\s+EBIT\s*&\s*EBITDA.*?"
@@ -1098,9 +1212,33 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
                             ("Presort Services", 3),
                             ("Total reportable segments", 6),
                         ):
-                            _add_metric(store, "Adjusted EBIT", seg_name, q_ts, groups[offset])
-                            _add_metric(store, "Depreciation & amortization", seg_name, q_ts, groups[offset + 1])
-                            _add_metric(store, "Adjusted EBITDA", seg_name, q_ts, groups[offset + 2])
+                            _add_metric(
+                                store,
+                                "Adjusted EBIT",
+                                seg_name,
+                                q_ts,
+                                groups[offset],
+                                source_doc=path_in,
+                                source_locator="table:adjusted-segment-ebit-ebitda",
+                            )
+                            _add_metric(
+                                store,
+                                "Depreciation & amortization",
+                                seg_name,
+                                q_ts,
+                                groups[offset + 1],
+                                source_doc=path_in,
+                                source_locator="table:adjusted-segment-ebit-ebitda",
+                            )
+                            _add_metric(
+                                store,
+                                "Adjusted EBITDA",
+                                seg_name,
+                                q_ts,
+                                groups[offset + 2],
+                                source_doc=path_in,
+                                source_locator="table:adjusted-segment-ebit-ebitda",
+                            )
                         _pbi_add_corporate_reconciliation_from_release_text(
                             store,
                             txt,
@@ -1112,7 +1250,12 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
 
             if not store:
                 return {}
-            store = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(store)
+            residual_derivations: List[Dict[str, Any]] = []
+            store = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+                store,
+                source_facts=source_facts,
+                derivations_out=residual_derivations,
+            )
             revenue_map = dict(store.get("Revenue") or {})
             op_map = dict(store.get("Adjusted EBIT") or {})
             if revenue_map and op_map:
@@ -1135,12 +1278,18 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
                     for q in q_map.keys()
                 }
             )
-            return {
+            result = {
                 "metrics": store,
                 "quarters": quarters,
                 "source_doc": " | ".join(dict.fromkeys(source_docs[-3:])),
                 "source_qd": max(quarters) if quarters else None,
             }
+            if residual_derivations:
+                result["segment_derivation_ledger"] = _segment_residual_ledger_payload(
+                    source_facts,
+                    residual_derivations,
+                )
+            return result
 
         workbook_path = _latest_segment_financials_workbook()
         parsed: Dict[str, Any] = {}
@@ -1148,7 +1297,14 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
             parsed = _parse_quarterly_segment_data_from_workbook(workbook_path)
             if parsed:
                 if is_pbi_profile and parsed.get("metrics"):
-                    parsed["metrics"] = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(parsed.get("metrics") or {})
+                    # The legacy workbook parser does not expose source
+                    # occurrences.  Preserve reported cells, but fail closed
+                    # on residual creation until typed lineage is available.
+                    parsed["metrics"] = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+                        parsed.get("metrics") or {},
+                        source_facts=(),
+                        derivations_out=[],
+                    )
                 parsed["source_doc"] = str(workbook_path)
                 parsed["source_qd"] = _parse_quarter_from_filename(workbook_path.name)
 
@@ -1180,8 +1336,6 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
 
             _copy_metrics(base_metrics, replace_existing=True)
             _copy_metrics(overlay_metrics, replace_existing=False)
-            if is_pbi_profile:
-                merged_metrics = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(merged_metrics)
             if is_anf_profile:
                 merged_metrics = _anf_add_total_company_quarter_revenue_from_history(
                     merged_metrics,
@@ -1221,7 +1375,12 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
         ]
         latest_q = max(quarter_list) if quarter_list else None
         visible_latest_q = pd.Timestamp(max(qs)).date() if qs else None
-        if metric_store and quarter_list and (visible_latest_q is None or latest_q == visible_latest_q):
+        if (
+            not is_pbi_profile
+            and metric_store
+            and quarter_list
+            and (visible_latest_q is None or latest_q == visible_latest_q)
+        ):
             return parsed
         parsed_slides = _parsed_quarterly_segments_from_slides_for_bs()
         slide_qs = [
@@ -1235,6 +1394,17 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
             for qd in list(parsed_release.get("quarters") or [])
             if isinstance(qd, (pd.Timestamp, date))
         ]
+        if is_pbi_profile:
+            # PBI segment schedules may validly lag the consolidated filing by
+            # one quarter.  Merge source-supported cells per period instead of
+            # discarding the entire overlay when its latest quarter is older
+            # than the latest visible consolidated quarter.  Unsupported later
+            # quarters remain absent.
+            return _merge_quarterly_segment_packages_per_period(
+                primary=parsed,
+                authoritative_overlay=parsed_release,
+                supplemental_overlay=parsed_slides,
+            )
         if parsed_release and release_qs and (visible_latest_q is None or max(release_qs) == visible_latest_q):
             merged = _merge_quarterly_segment_data(parsed, parsed_release) if metric_store and quarter_list else parsed_release
             if parsed_slides and slide_qs and (visible_latest_q is None or max(slide_qs) == visible_latest_q):
@@ -1858,6 +2028,18 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
 
     quarterly_segment_data = _load_latest_quarterly_segment_data()
     quarterly_metrics = dict(quarterly_segment_data.get("metrics") or {})
+    quarterly_derivations_by_business_cell: Dict[Tuple[str, str, pd.Timestamp], Dict[str, Any]] = {}
+    segment_derivation_ledger = dict(quarterly_segment_data.get("segment_derivation_ledger") or {})
+    if segment_derivation_ledger.get("contract_id") == SEGMENT_RESIDUAL_LEDGER_CONTRACT_ID:
+        for derivation_in in segment_derivation_ledger.get("derivations", ()):
+            derivation = dict(derivation_in or {})
+            period_ts = pd.to_datetime(derivation.get("period_end"), errors="coerce")
+            metric_label = str(derivation.get("metric_label") or "")
+            target_member = str(derivation.get("target_member") or "")
+            if pd.notna(period_ts) and metric_label and target_member:
+                quarterly_derivations_by_business_cell[
+                    (metric_label, target_member, pd.Timestamp(period_ts))
+                ] = derivation
     if quarterly_metrics and "Revenue" in quarterly_metrics:
         revenue_for_margin = dict(quarterly_metrics.get("Revenue") or {})
         for margin_metric in ("EBIT margin %", "Segment operating margin %"):
@@ -1972,7 +2154,30 @@ def write_bs_segments_sheet(deps: BsSegmentsWriterDeps, quarters_shown: int = 8)
                     cell.number_format = number_format
                     cell.border = thin_border
                     cell.alignment = Alignment(horizontal="right")
-                    if quarterly_source_note and idx_q == 0:
+                    derivation = quarterly_derivations_by_business_cell.get((metric_label, seg, qk))
+                    if derivation:
+                        _set_comment(
+                            cell,
+                            "\n".join(
+                                (
+                                    f"Derived exact zero — {derivation.get('rule_id')}",
+                                    f"economic_identity={derivation.get('economic_identity')}",
+                                    f"derivation_id={derivation.get('derivation_id')}",
+                                    f"direct_total_input_id={derivation.get('direct_total_input_id')}",
+                                    "direct_component_input_ids="
+                                    + " | ".join(
+                                        str(value)
+                                        for value in derivation.get("direct_component_input_ids", ())
+                                    ),
+                                    "evidence_occurrence_ids="
+                                    + " | ".join(
+                                        str(value)
+                                        for value in derivation.get("evidence_occurrence_ids", ())
+                                    ),
+                                )
+                            ),
+                        )
+                    elif quarterly_source_note and idx_q == 0:
                         _set_comment(cell, quarterly_source_note)
                 row_hidden_source_values[row_idx] = {
                     pd.Timestamp(src_q).to_period("Q").end_time.normalize(): (

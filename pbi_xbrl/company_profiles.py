@@ -66,6 +66,29 @@ class SourceMaterialSeed:
 
 
 @dataclasses.dataclass(frozen=True)
+class GaapMetricTagPolicy:
+    """Declarative issuer/profile semantics for one generic GAAP metric."""
+
+    policy_id: str
+    metric_name: str
+    accepted_tags: Tuple[str, ...]
+    rejected_tags: Tuple[str, ...]
+    rejection_reason: str
+
+
+@dataclasses.dataclass(frozen=True)
+class GaapMetricTagResolution:
+    """Validated deterministic tag selection plus rejection provenance."""
+
+    metric_name: str
+    input_tags: Tuple[str, ...]
+    selected_tags: Tuple[str, ...]
+    rejected_tags: Tuple[str, ...]
+    policy_id: str
+    rejection_reason: str
+
+
+@dataclasses.dataclass(frozen=True)
 class CompanyProfile:
     ticker: str
     has_bank: bool
@@ -94,6 +117,8 @@ class CompanyProfile:
     economics_overlay_bridge_rows: Tuple[EconomicsOverlayBridgeRow, ...] = tuple()
     enabled_market_sources: Tuple[str, ...] = tuple()
     official_source_seeds: Tuple[SourceMaterialSeed, ...] = tuple()
+    debt_evidence_adapter_id: str = ""
+    gaap_metric_tag_policies: Tuple[GaapMetricTagPolicy, ...] = tuple()
     source_material_coverage_quarters: int = 16
     source_material_quarter_alias_mode: str = ""
     thesis_bridge_labels: Tuple[str, ...] = tuple()
@@ -102,6 +127,65 @@ class CompanyProfile:
     summary_segment_operating_model_fallbacks: Tuple[str, ...] = tuple()
     summary_dependency_fallbacks: Tuple[str, ...] = tuple()
     summary_wrong_thesis_fallbacks: Tuple[str, ...] = tuple()
+
+
+def resolve_gaap_metric_tag_policy(
+    profile: CompanyProfile,
+    metric_name: str,
+    input_tags: Tuple[str, ...],
+) -> GaapMetricTagResolution:
+    """Apply one profile-owned tag policy without ticker or registration-order fallbacks."""
+
+    metric = str(metric_name or "").strip()
+    tags = tuple(str(tag or "").strip() for tag in input_tags)
+    if not metric or any(not tag for tag in tags) or len(set(tags)) != len(tags):
+        raise ValueError("GAAP metric identity and any tag inputs must be non-empty and unique.")
+    matches = tuple(
+        policy
+        for policy in profile.gaap_metric_tag_policies
+        if str(policy.metric_name or "").strip() == metric
+    )
+    if len(matches) > 1:
+        raise ValueError(f"Ambiguous GAAP metric tag policy for {metric!r}.")
+    if not matches:
+        return GaapMetricTagResolution(
+            metric_name=metric,
+            input_tags=tags,
+            selected_tags=tags,
+            rejected_tags=(),
+            policy_id="",
+            rejection_reason="",
+        )
+
+    policy = matches[0]
+    policy_id = str(policy.policy_id or "").strip()
+    if not re.fullmatch(r"gaap-tag-policy:[a-z0-9][a-z0-9-]*@[1-9][0-9]*", policy_id):
+        raise ValueError(f"Invalid GAAP metric tag policy ID {policy_id!r}.")
+    accepted = tuple(str(tag or "").strip() for tag in policy.accepted_tags)
+    rejected = tuple(str(tag or "").strip() for tag in policy.rejected_tags)
+    reason = str(policy.rejection_reason or "").strip()
+    if (
+        not accepted
+        or not rejected
+        or not reason
+        or any(not tag for tag in (*accepted, *rejected))
+        or len(set(accepted)) != len(accepted)
+        or len(set(rejected)) != len(rejected)
+        or set(accepted) & set(rejected)
+    ):
+        raise ValueError(f"Invalid GAAP metric tag policy {policy_id!r}.")
+    if set(tags) != set(accepted) | set(rejected):
+        raise ValueError(
+            f"GAAP metric tag policy {policy_id!r} does not exactly own the current tag set."
+        )
+    return GaapMetricTagResolution(
+        metric_name=metric,
+        input_tags=tags,
+        selected_tags=accepted,
+        rejected_tags=rejected,
+        policy_id=policy_id,
+        rejection_reason=reason,
+    )
 
 
 def _compile_segments(
@@ -680,6 +764,7 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
     "ANF": CompanyProfile(
         ticker="ANF",
         has_bank=False,
+        debt_evidence_adapter_id="debt-source-adapter:anf-sec-abl@1",
         industry_keywords=(
             "apparel",
             "retail",
@@ -1503,6 +1588,24 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
             "local_barchart_corn_futures",
             "local_barchart_gas_futures",
         ),
+        gaap_metric_tag_policies=(
+            GaapMetricTagPolicy(
+                policy_id="gaap-tag-policy:gpre-debt-issuance@1",
+                metric_name="debt_issuance",
+                accepted_tags=(
+                    "ProceedsFromIssuanceOfLongTermDebt",
+                    "ProceedsFromLongTermDebt",
+                    "ProceedsFromLongTermDebtAndCapitalSecurities",
+                    "ProceedsFromCommercialPaper",
+                ),
+                rejected_tags=("ProceedsFromShortTermDebt",),
+                rejection_reason=(
+                    "GPRE reports ProceedsFromShortTermDebt as high-turnover borrowings "
+                    "with an initial repayment term within one year and paired short-term "
+                    "repayments; it is not the long-term debt-issuance product concept."
+                ),
+            ),
+        ),
         official_source_seeds=(
             SourceMaterialSeed(
                 family="earnings_presentation",
@@ -1654,10 +1757,10 @@ def get_company_profile(ticker: Optional[str]) -> CompanyProfile:
                 ),
             )
         ),
-        economics_overlay_coefficients=_DEFAULT_ECONOMICS_OVERLAY_COEFFICIENTS,
-        economics_overlay_market_inputs=_DEFAULT_ECONOMICS_OVERLAY_MARKET_INPUTS,
-        economics_overlay_hedge_templates=_DEFAULT_ECONOMICS_OVERLAY_HEDGES,
-        economics_overlay_bridge_rows=_DEFAULT_ECONOMICS_OVERLAY_BRIDGE_ROWS,
+        economics_overlay_coefficients=tuple(),
+        economics_overlay_market_inputs=tuple(),
+        economics_overlay_hedge_templates=tuple(),
+        economics_overlay_bridge_rows=tuple(),
         thesis_bridge_labels=(
             "Base Adj EBITDA FY",
             "Policy / regulatory uplift",

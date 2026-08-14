@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 from copy import deepcopy
+from dataclasses import replace
 import json
 from pathlib import Path
 
@@ -14,12 +15,20 @@ from pbi_xbrl.new_ticker_debt_projection import (
     DebtProjectionError,
     build_debt_workbook_projection,
 )
+from pbi_xbrl.new_ticker_debt_scope import (
+    resolve_debt_collections,
+    validate_resolved_debt_facility_for_profile,
+)
 from pbi_xbrl.new_ticker_style_planner import reproduce_style_plan
 from pbi_xbrl.new_ticker_value_filler import fill_standard_template_from_package
+from pbi_xbrl.path_config import resolve_effective_data_root_from_ancestors
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_ROOT = ROOT.parents[2] / "StockModelData"
+DATA_ROOT_RESOLUTION = resolve_effective_data_root_from_ancestors(ROOT)
+if DATA_ROOT_RESOLUTION.data_root is None:
+    raise FileNotFoundError("No healthy registered StockModelData root is available for debt projection tests")
+DATA_ROOT = DATA_ROOT_RESOLUTION.data_root
 ANF_PACKAGE = DATA_ROOT / "outputs" / "stress_tests" / "ANF_new_ticker_engine" / "ANF_normalized_data_package.json"
 BINDING_MAP = ROOT / "docs" / "workbook_binding_map.json"
 SHELL_MANIFEST = ROOT / "docs" / "standard_template_shell_manifest.json"
@@ -247,6 +256,79 @@ def test_anf_debt_product_rows_are_exact_and_row_order_independent(anf_package: 
         "Debt_Buckets": "hidden",
         "Debt_Recon": "hidden",
     }
+
+
+def _latest_resolved_facility(anf_package: dict):
+    facilities = resolve_debt_collections(anf_package["debt_liquidity"])["facilities"]
+    return max(facilities, key=lambda row: (row.as_of_date, row.facility_id))
+
+
+def test_debt_profile_economic_validation_is_independent_and_fail_closed(anf_package: dict) -> None:
+    facility = _latest_resolved_facility(anf_package)
+    accepted = validate_resolved_debt_facility_for_profile(facility)
+
+    assert accepted.passed
+    assert accepted.subject_kind == "facility"
+    assert accepted.subject_ids == ("anf_abl_facility",)
+    assert accepted.as_of_date == "2026-05-02"
+    assert accepted.evidence_keys == ("anf_abl_2026_05_02_4bb925d6957c",)
+    assert accepted.evidence_refs
+    assert accepted.source_refs
+    assert accepted.source_row_refs
+
+    no_occurrence = replace(
+        facility,
+        evidence_refs=(),
+        source_refs=(),
+        source_row_ref="",
+    )
+    wrong_amount_period = replace(
+        facility,
+        net_availability=replace(facility.net_availability, as_of_date="2026-01-31"),
+    )
+    wrong_amount_unit = replace(
+        facility,
+        net_availability=replace(facility.net_availability, unit="USD"),
+    )
+    wrong_amount_currency = replace(
+        facility,
+        net_availability=replace(facility.net_availability, currency="EUR"),
+    )
+    invalid_gross_relationship = replace(
+        facility,
+        gross_capacity=replace(facility.gross_capacity, value=498.0),
+    )
+    invalid_net_relationship = replace(
+        facility,
+        net_availability=replace(facility.net_availability, value=448.0),
+    )
+
+    for mutation in (
+        no_occurrence,
+        wrong_amount_period,
+        wrong_amount_unit,
+        wrong_amount_currency,
+        invalid_gross_relationship,
+        invalid_net_relationship,
+    ):
+        assert not validate_resolved_debt_facility_for_profile(mutation).passed
+
+
+def test_invalid_facility_economics_fail_before_complete_profile_presentation(
+    anf_package: dict,
+) -> None:
+    mutated = deepcopy(anf_package)
+    latest = max(
+        mutated["debt_liquidity"]["facilities"],
+        key=lambda row: (row["as_of_date"], row["facility_id"]),
+    )
+    latest["net_availability"]["value"] = 448.0
+    latest["net_availability"]["source_value"] = 448_000.0
+
+    with pytest.raises(DebtProjectionError) as exc_info:
+        build_debt_workbook_projection(mutated)
+
+    assert exc_info.value.rule_id == "debt_facility_net_availability_mismatch"
 
 
 def test_funded_debt_maturity_visibility_requires_exact_reconciliation() -> None:

@@ -10042,13 +10042,13 @@
   "shell_identity": {
     "semantic_contract_version": "1.8.0",
     "workbook_sha256": "b47064e42f61666147835be1a75508ec8926a94a9911da27697236e1f3cf1e6f",
-    "manifest_contract_signature": "8d370d6dbe7883b1df23f5e5a301b5ee99fc129bd4231d29c191566af0d83c97",
+    "manifest_contract_signature": "85f362eaa8872bb042117f4c316c6e5c03bca56ea6a27562d74be7c25520ea99",
     "sheet_order_visibility_signature": "e6935c63c7976ff2c337dce141e35dad61763719f765246a468499c15d376159",
     "sheet_view_signature": "7739c24e505b2fc50af59725414bd128460c19233e17181b282b00685485b6a5",
     "merge_signature": "53a1120b25a06407d85840a45f52c643ba2b05a7733fd6a97fea5e0e868dcf7e",
     "defined_name_signature": "29990531bd1f310bc27068e4827f66342d0d3c47d02095a0f780e7f39a2e2614",
     "writable_target_signature": "3b23ba583eaba052e6a5391cc60698515b5168462389fc6d00b5eaf680ae8a87",
-    "binding_contract_signature": "460c019af7d4b78b2189ca74a6c5e5b94ff5befd8f0eb0a1b1ccd1197889beb8",
+    "binding_contract_signature": "601bbfbf8ba8f8dd8471947843a3bcb92087792ff801d097c2b57ba8182f74fa",
     "formula_static_zone_signature": "708e39dd560c3418176589f0353af550d8a13cc9e93e1dd3f121f54d4c21cd88",
     "worksheet_protection_signature": "66f4953849b53ff410928b51204a8689ab44ed4ba5833dcb8497522563798019",
     "editable_surface_signature": "9be323479b498413fd1c8a1c3a1dfff4be5c800e3b58826b59ae3fc4faf80078",
@@ -10371,7 +10371,7 @@
       "valuation_debt_anchor",
       "valuation_share_count_anchor"
     ],
-    "signature": "4a71d053b4f67b65f40ec0991f971bc637803730417cebc292c01b30ad3da7b7"
+    "signature": "a77a0e9616c0042403e3f38135c2aef53fb582b9936034d79aa0f5067fdc78d1"
   },
   "external_detail_sheets": [
     "Guidance_Raw",

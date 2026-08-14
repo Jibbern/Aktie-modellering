@@ -6,6 +6,15 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
+from pbi_xbrl.debt_sheet_visibility import (
+    DEBT_CREDIT_NOTES_SHEET,
+    DEBT_MATURITY_SHEET,
+    DEBT_PROFILE_SHEET,
+    LEVERAGE_LIQUIDITY_SHEET,
+    REVOLVER_HISTORY_SHEET,
+    debt_sheet_default_states,
+    debt_sheet_readiness_contracts,
+)
 from pbi_xbrl.new_ticker_debt_scope import (
     DebtResolutionError,
     ResolvedDebtAmount,
@@ -16,6 +25,8 @@ from pbi_xbrl.new_ticker_debt_scope import (
     canonical_debt_id,
     resolve_debt_collections,
     select_latest_debt_facilities,
+    validate_resolved_debt_facility_for_profile,
+    validate_resolved_funded_debt_for_profile,
 )
 
 
@@ -1050,6 +1061,11 @@ def build_debt_workbook_projection(
     role_by_facility_id = _facility_role_index(facility_policy)
     profile_facility, profile_issues = _select_current_profile_facility(facilities, role_by_facility_id)
     profile_rows = _debt_profile_rows(profile_facility, instruments) if not profile_issues else ()
+    profile_economic_validation = (
+        validate_resolved_debt_facility_for_profile(profile_facility)
+        if profile_facility is not None
+        else validate_resolved_funded_debt_for_profile(instruments)
+    )
     history_rows = _revolver_history_rows(
         facilities,
         notes,
@@ -1066,12 +1082,54 @@ def build_debt_workbook_projection(
     blocking_issues = (*profile_issues, *liquidity_issues, *maturity_issues)
 
     useful_profile_rows = sum(row.value is not None or row.state == "unavailable" for row in profile_rows)
-    states = {sheet: "hidden" for sheet in DEBT_PRODUCT_SHEETS}
-    states["Debt_Profile"] = "visible" if useful_profile_rows >= 4 and not blocking_issues else "hidden"
-    states["Revolver_History"] = "visible" if len(history_rows) >= 4 and not blocking_issues else "hidden"
-    states["Leverage_Liquidity"] = "visible" if len(leverage_rows) >= 4 and not blocking_issues else "hidden"
-    states["Debt_Credit_Notes"] = "visible" if len(credit_rows) >= 2 and not blocking_issues else "hidden"
-    states["Debt_Maturity_Ladder"] = "visible" if maturity_rows and not blocking_issues else "hidden"
+    conditional_sheets = (
+        DEBT_PROFILE_SHEET,
+        REVOLVER_HISTORY_SHEET,
+        LEVERAGE_LIQUIDITY_SHEET,
+        DEBT_CREDIT_NOTES_SHEET,
+        DEBT_MATURITY_SHEET,
+    )
+    readiness_contracts = debt_sheet_readiness_contracts(conditional_sheets)
+    visibility_minimums = {
+        sheet_name: contract.minimum_count
+        for sheet_name, contract in readiness_contracts.items()
+        if contract.minimum_count is not None
+    }
+    states = debt_sheet_default_states()
+    if set(states) != set(DEBT_PRODUCT_SHEETS):
+        raise DebtProjectionError(
+            "debt_projection_visibility_manifest_mismatch",
+            "Debt product sheets must exactly match the manifest-owned debt sheet inventory.",
+            missing_sheets=sorted(set(DEBT_PRODUCT_SHEETS) - set(states)),
+            unexpected_sheets=sorted(set(states) - set(DEBT_PRODUCT_SHEETS)),
+        )
+    states[DEBT_PROFILE_SHEET] = (
+        readiness_contracts[DEBT_PROFILE_SHEET].ready_state
+        if profile_economic_validation.passed
+        and useful_profile_rows >= visibility_minimums[DEBT_PROFILE_SHEET]
+        and not blocking_issues
+        else states[DEBT_PROFILE_SHEET]
+    )
+    states[REVOLVER_HISTORY_SHEET] = (
+        readiness_contracts[REVOLVER_HISTORY_SHEET].ready_state
+        if len(history_rows) >= visibility_minimums[REVOLVER_HISTORY_SHEET] and not blocking_issues
+        else states[REVOLVER_HISTORY_SHEET]
+    )
+    states[LEVERAGE_LIQUIDITY_SHEET] = (
+        readiness_contracts[LEVERAGE_LIQUIDITY_SHEET].ready_state
+        if len(leverage_rows) >= visibility_minimums[LEVERAGE_LIQUIDITY_SHEET] and not blocking_issues
+        else states[LEVERAGE_LIQUIDITY_SHEET]
+    )
+    states[DEBT_CREDIT_NOTES_SHEET] = (
+        readiness_contracts[DEBT_CREDIT_NOTES_SHEET].ready_state
+        if len(credit_rows) >= visibility_minimums[DEBT_CREDIT_NOTES_SHEET] and not blocking_issues
+        else states[DEBT_CREDIT_NOTES_SHEET]
+    )
+    states[DEBT_MATURITY_SHEET] = (
+        readiness_contracts[DEBT_MATURITY_SHEET].ready_state
+        if maturity_rows and not blocking_issues
+        else states[DEBT_MATURITY_SHEET]
+    )
 
     selected_history_keys = {row.row_key.removeprefix("revolver_history|") for row in history_rows}
     audit = tuple(

@@ -36,8 +36,12 @@ except Exception:  # pragma: no cover - optional dependency in this pipeline
     BeautifulSoup = None
 
 from .debt_parser import build_debt_schedule_tier2, build_debt_tranches_tier2, coerce_number, read_html_tables_any
+from .cache_semantics import PIPELINE_STAGE_CACHE_VERSION, REVOLVER_CACHE_VERSION
+from .debt_sheet_visibility import (
+    mark_debt_maturity_reconciliation,
+)
 from .doc_intel import build_doc_intel_outputs, extract_pdf_text_cached, validate_quarter_notes
-from .company_profiles import get_company_profile
+from .company_profiles import get_company_profile, resolve_gaap_metric_tag_policy
 from .guidance_lexicon import (
     FORWARD_NOTES_LABEL,
     GUIDANCE_UI_METRIC_PRIORITY,
@@ -123,9 +127,6 @@ REVOLVER_TABLE_HINTS: Tuple[str, ...] = (
 )
 REVOLVER_TABLE_MAX_CANDIDATES = 15
 REVOLVER_DOC_MAX_PER_FILING = 8
-REVOLVER_CACHE_VERSION = 4
-# Bump whenever stage-level extraction logic changes so stale pickles don't mask fixes.
-PIPELINE_STAGE_CACHE_VERSION = 8
 
 
 def _resolve_path_safe(p: Path) -> Path:
@@ -2250,6 +2251,23 @@ def build_debt_profile(
             "value": near_term_total - float(principal_total),
             "message": f"Near-term principal {near_term_total/1e6:,.3f}m vs total principal {principal_total/1e6:,.3f}m.",
         })
+
+    direct_schedule_reconciled = bool(
+        not needs_tranche_review
+        and tieout_diff_pct is not None
+        and tieout_diff_pct <= 0.02
+        and bad_maturity_parse_count == 0
+    )
+    fallback_schedule_reconciled = bool(
+        needs_tranche_review
+        and not schedule_latest.empty
+        and schedule_diff_pct is not None
+        and schedule_diff_pct <= 0.02
+    )
+    mark_debt_maturity_reconciliation(
+        maturity_df,
+        reconciled=direct_schedule_reconciled or fallback_schedule_reconciled,
+    )
 
     qa_df = pd.DataFrame(qa_rows)
     info_df = pd.DataFrame(info_rows)
@@ -8707,6 +8725,7 @@ def build_gaap_history(
     profile_timings: bool = False,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     gaap_stage_timings = stage_timings if stage_timings is not None else {}
+    gaap_profile = get_company_profile(ticker)
     ends, fy_fp_to_end = build_quarter_calendar_from_revenue(df_all, max_quarters=max_quarters)
     submission_period_map = _submission_period_end_map(submissions)
     non_calendar_reporting = _uses_non_calendar_reporting_dates(submissions)
@@ -8852,6 +8871,7 @@ def build_gaap_history(
         ends = [d for d in ends if d and d.year >= min_year]
 
     audit_rows: List[Dict[str, Any]] = []
+    gaap_tag_policy_audit: Dict[str, Dict[str, str]] = {}
     qfd_preview_rows: List[Dict[str, Any]] = []
     qfd_unused_rows: List[Dict[str, Any]] = []
     hist = pd.DataFrame({"quarter": ends})
@@ -9080,9 +9100,18 @@ def build_gaap_history(
     derived_formula_keys: set[Tuple[str, str]] = set()
 
     for spec in GAAP_SPECS:
-        spec_tags = list(spec.tags or [])
-        if str(ticker or "").strip().upper() == "GPRE" and spec.name == "debt_issuance":
-            spec_tags = [t for t in spec_tags if t != "ProceedsFromShortTermDebt"]
+        tag_policy_resolution = resolve_gaap_metric_tag_policy(
+            gaap_profile,
+            spec.name,
+            tuple(spec.tags or ()),
+        )
+        spec_tags = list(tag_policy_resolution.selected_tags)
+        if tag_policy_resolution.policy_id:
+            gaap_tag_policy_audit[spec.name] = {
+                "tag_policy_id": tag_policy_resolution.policy_id,
+                "tag_policy_rejected_tags": " | ".join(tag_policy_resolution.rejected_tags),
+                "tag_policy_rejection_reason": tag_policy_resolution.rejection_reason,
+            }
         spec_for_pick = spec if tuple(spec_tags) == tuple(spec.tags or []) else MetricSpec(
             spec.name,
             spec_tags,
@@ -10879,6 +10908,15 @@ def build_gaap_history(
     qfd_preview_df = pd.DataFrame(qfd_preview_rows)
     qfd_unused_df = pd.DataFrame(qfd_unused_rows)
     if not audit.empty:
+        if gaap_tag_policy_audit:
+            for column in (
+                "tag_policy_id",
+                "tag_policy_rejected_tags",
+                "tag_policy_rejection_reason",
+            ):
+                audit[column] = audit["metric"].map(
+                    lambda metric, field=column: gaap_tag_policy_audit.get(str(metric), {}).get(field, "")
+                )
         audit["source_class"] = audit["source"].apply(_source_class)
         audit["method"] = audit["source"].apply(_source_method)
         audit["qa_severity"] = audit["source"].apply(_source_qa)
@@ -11565,6 +11603,7 @@ def write_excel(
     rebuild_doc_text_cache: bool = False,
     profile_timings: bool = False,
     quarter_notes_audit: bool = False,
+    quarter_notes_intentionally_empty: bool = False,
     capture_saved_workbook_provenance: bool = True,
     excel_debug_scope: str = 'full',
 ) -> Any:
@@ -11626,6 +11665,7 @@ def write_excel(
         rebuild_doc_text_cache=rebuild_doc_text_cache,
         profile_timings=profile_timings,
         quarter_notes_audit=quarter_notes_audit,
+        quarter_notes_intentionally_empty=quarter_notes_intentionally_empty,
         capture_saved_workbook_provenance=capture_saved_workbook_provenance,
         excel_debug_scope=excel_debug_scope,
     )

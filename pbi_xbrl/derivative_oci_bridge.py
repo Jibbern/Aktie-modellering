@@ -23,6 +23,8 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import pandas as pd
 
+from .path_config import resolve_effective_data_root_from_ancestors
+
 
 # Stable dataframe contract for the Derivative_OCI_Bridge sheet and downstream
 # diagnostic builders. Add new fields here only when the writer/readback surface
@@ -489,14 +491,28 @@ def _value_for_quarter(df: Optional[pd.DataFrame], quarter: date, columns: Seque
     return pd.NA
 
 
+class DerivativeSourceResolutionError(RuntimeError):
+    """Raised when an owned derivative surface has no unambiguous source root."""
+
+
 def _source_paths_for_ticker(ticker: str, root: Optional[Path] = None) -> List[Path]:
     ticker_norm = str(ticker or "").upper().strip()
     if not ticker_norm:
-        return []
-    workspace_root = root or Path(__file__).resolve().parents[2]
-    source_dir = workspace_root / ticker_norm / "financial_statement"
-    if not source_dir.exists():
-        return []
+        raise DerivativeSourceResolutionError("Derivative source resolution requires a ticker identity.")
+    if root is not None:
+        ticker_root = Path(root)
+    else:
+        resolution = resolve_effective_data_root_from_ancestors(Path(__file__).resolve())
+        if resolution.data_root is None:
+            raise DerivativeSourceResolutionError(
+                "No registered StockModelData root is available for derivative source resolution."
+            )
+        ticker_root = Path(resolution.data_root) / "tickers"
+    source_dir = ticker_root / ticker_norm / "financial_statement"
+    if not source_dir.is_dir():
+        raise DerivativeSourceResolutionError(
+            f"Registered derivative source directory is missing: {source_dir}"
+        )
     paths = list(source_dir.glob(f"{ticker_norm}_Q*_10Q_*_financial_statement.htm"))
     paths.extend(source_dir.glob(f"{ticker_norm}_FY*_10K_*_financial_statement.htm"))
     recent_paths = [
@@ -504,7 +520,20 @@ def _source_paths_for_ticker(ticker: str, root: Optional[Path] = None) -> List[P
         for p in paths
         if (_quarter_from_source(p) or date.min) >= date(2023, 1, 1)
     ]
-    return sorted(recent_paths, key=lambda p: (_quarter_from_source(p) or date.min, p.name))
+    ordered = sorted(
+        {path.resolve() for path in recent_paths},
+        key=lambda p: (_quarter_from_source(p) or date.min, p.name.casefold()),
+    )
+    if not ordered:
+        raise DerivativeSourceResolutionError(
+            f"No compatible derivative filing sources were found under {source_dir}."
+        )
+    folded_names = [path.name.casefold() for path in ordered]
+    if len(folded_names) != len(set(folded_names)):
+        raise DerivativeSourceResolutionError(
+            f"Ambiguous derivative filing identities were found under {source_dir}."
+        )
+    return ordered
 
 
 def _source_period_type(path: Path) -> str:

@@ -14,10 +14,18 @@ import pandas as pd
 from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 
 from pbi_xbrl.new_ticker_debt_scope import (
+    DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR,
     DebtResolutionError,
     dispositions_to_package_section,
     normalize_debt_currency_to_millions,
+    resolve_debt_facilities,
     resolve_debt_collections,
+    validate_resolved_debt_facility_for_profile,
+)
+from pbi_xbrl.longitudinal_memory.identity import source_document_identity
+from pbi_xbrl.inline_xbrl_text import (
+    InlineXbrlContinuationError,
+    reconstruct_inline_xbrl_fact_text,
 )
 
 
@@ -40,6 +48,7 @@ ANF_EXPECTED_ABL_PERIODS = (
 )
 ANF_EXPECTED_ABL_PERIOD_COUNT = len(ANF_EXPECTED_ABL_PERIODS)
 ANF_LATEST_ABL_HISTORY_LIMIT = 12
+ANF_DEBT_EVIDENCE_ADAPTER_ID = "debt-source-adapter:anf-sec-abl@1"
 
 _DOCUMENT_RE = re.compile(r"^doc_(?P<accession>[0-9]{18})_anf-(?P<period>[0-9]{8})\.htm$", re.I)
 _BORROWINGS_HEADING_RE = re.compile(r"(?<![A-Z0-9])(?P<number>[0-9]{1,2})\.\s*BORROWINGS\b", re.I)
@@ -311,45 +320,18 @@ def _borrowings_note(soup: BeautifulSoup, *, source_path: Path | str) -> tuple[i
             matching_note_numbers=sorted(note_numbers),
         )
     (note_number,) = note_numbers
-    parts = [_clean_text(fact.get_text(" "))]
-    continuation_id = _clean_text(fact.get("continuedat"))
-    seen_continuation_ids: set[str] = set()
-    while continuation_id:
-        if continuation_id in seen_continuation_ids:
-            raise DebtResolutionError(
-                "anf_debt_note_continuation_conflict",
-                "The authoritative debt disclosure continuation chain contains a cycle.",
-                source_path=str(source_path),
-                fact_id=str(fact.get("id") or ""),
-                continuation_id=continuation_id,
-                visited_continuation_ids=sorted(seen_continuation_ids),
-            )
-        seen_continuation_ids.add(continuation_id)
-        continuations = soup.find_all(id=continuation_id)
-        if len(continuations) != 1:
-            raise DebtResolutionError(
-                "anf_debt_note_continuation_conflict",
-                "Every continuedAt identity must resolve exactly one Inline-XBRL continuation.",
-                source_path=str(source_path),
-                fact_id=str(fact.get("id") or ""),
-                continuation_id=continuation_id,
-                matching_node_count=len(continuations),
-                matching_node_tags=[str(node.name or "") for node in continuations],
-            )
-        (continuation,) = continuations
-        if not str(continuation.name or "").casefold().endswith(":continuation"):
-            raise DebtResolutionError(
-                "anf_debt_note_continuation_conflict",
-                "Every continuedAt identity must resolve an Inline-XBRL continuation element.",
-                source_path=str(source_path),
-                fact_id=str(fact.get("id") or ""),
-                continuation_id=continuation_id,
-                matching_node_count=1,
-                matching_node_tags=[str(continuation.name or "")],
-            )
-        parts.append(_clean_text(continuation.get_text(" ")))
-        continuation_id = _clean_text(continuation.get("continuedat"))
-    note = _clean_text(f"{note_number}. {' '.join(part for part in parts if part)}")
+    try:
+        reconstructed = reconstruct_inline_xbrl_fact_text(soup, fact)
+    except InlineXbrlContinuationError as exc:
+        raise DebtResolutionError(
+            "anf_debt_note_continuation_conflict",
+            "The authoritative debt disclosure continuation chain is invalid.",
+            source_path=str(source_path),
+            fact_id=str(fact.get("id") or ""),
+            continuation_error_code=exc.code,
+            **dict(exc.context),
+        ) from exc
+    note = _clean_text(f"{note_number}. {reconstructed.text}")
     if "ABL Facility" not in note:
         raise DebtResolutionError(
             "anf_debt_note_scope_conflict",
@@ -1041,4 +1023,179 @@ def build_anf_debt_collections(sec_cache_root: Path) -> ANFDebtSourceExtraction:
         maturities=tuple(canonical["maturities"]),
         credit_notes=tuple(canonical["credit_notes"]),
         source_documents=tuple(sorted(source_documents, key=lambda row: (str(row["as_of_date"]), str(row["accession"])))),
+    )
+
+
+def _anf_debt_cache_with_evidence(cache_root: Path) -> Path | None:
+    """Locate one local ANF cache without guessing from an unrelated ticker."""
+
+    root = Path(cache_root).expanduser()
+    candidates = (root, root / "ANF", root / "sec_cache" / "ANF")
+    matches: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate.resolve()).casefold() if candidate.exists() else str(candidate.absolute()).casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        if candidate.is_dir() and any(candidate.glob("doc_0001018840*_anf-*.htm")):
+            matches.append(candidate)
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise DebtResolutionError(
+            "anf_debt_cache_ambiguous",
+            "ANF debt evidence must resolve to one local SEC cache.",
+            candidates=[str(path) for path in matches],
+        )
+    return matches[0]
+
+
+def _legacy_source_type(source_row_ref: str) -> str:
+    locator = str(source_row_ref or "").strip().lower()
+    if locator.startswith("table["):
+        return "table"
+    if locator.startswith("xbrl:") or locator.startswith("us-gaap:"):
+        return "xbrl"
+    return "text"
+
+
+def _legacy_amount_metadata(prefix: str, amount: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        f"{prefix}_source_type": _legacy_source_type(str(amount.get("source_row_ref") or "")),
+        f"{prefix}_source_ref": str(amount.get("source_ref") or ""),
+        f"{prefix}_source_row_ref": str(amount.get("source_row_ref") or ""),
+        f"{prefix}_evidence_classification": str(amount.get("evidence_classification") or ""),
+        f"{prefix}_evidence_refs": json.dumps(
+            list(amount.get("evidence_refs") or ()),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ),
+    }
+
+
+def _legacy_usd_value(amount: Mapping[str, Any], *, amount_key: str) -> float | None:
+    if amount.get("status") != "populated":
+        return None
+    value = amount.get("value")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or str(amount.get("currency") or "") != "USD"
+        or str(amount.get("unit") or "") != "$m"
+    ):
+        raise DebtResolutionError(
+            "anf_legacy_debt_amount_unit_invalid",
+            "ANF legacy revolver projection requires an explicit USD-millions canonical amount.",
+            amount_key=amount_key,
+            value=value,
+            currency=amount.get("currency"),
+            unit=amount.get("unit"),
+        )
+    return float(value) * 1_000_000.0
+
+
+def anf_debt_extraction_to_legacy_revolver_history(
+    extraction: ANFDebtSourceExtraction,
+) -> pd.DataFrame:
+    """Bridge canonical ANF facilities into the legacy writer with full lineage."""
+
+    documents = {str(row["as_of_date"]): dict(row) for row in extraction.source_documents}
+    rows: list[dict[str, Any]] = []
+    for facility in sorted(extraction.facilities, key=lambda row: str(row["as_of_date"])):
+        as_of_date = str(facility["as_of_date"])
+        document = documents.get(as_of_date)
+        if document is None:
+            raise DebtResolutionError(
+                "anf_debt_document_lineage_missing",
+                "Every ANF facility row requires its exact SEC document identity.",
+                as_of_date=as_of_date,
+            )
+        amount_specs = {
+            "commitment": ("revolver_commitment", "commitment"),
+            "facility": ("revolver_facility_size", "loan_cap"),
+            "drawn": ("revolver_drawn", "drawn_balance"),
+            "lc": ("revolver_letters_of_credit", "letters_of_credit"),
+            "gross_capacity": ("revolver_gross_capacity", "gross_capacity"),
+            "minimum_excess_availability": (
+                "revolver_minimum_excess_availability",
+                "minimum_excess_availability",
+            ),
+            "availability": ("revolver_availability", "net_availability"),
+            "cash": ("same_date_cash", "cash_and_equivalents"),
+            "liquidity": ("same_date_liquidity", "same_date_liquidity"),
+        }
+        row: dict[str, Any] = {
+            "quarter": pd.Timestamp(as_of_date),
+            "facility_id": str(facility["facility_id"]),
+            "facility_name": str(facility["facility_name"]),
+            "facility_expiry_date": str(facility.get("facility_expiry_date") or ""),
+            "publication_date": str(facility["publication_date"]),
+            "debt_evidence_adapter_id": ANF_DEBT_EVIDENCE_ADAPTER_ID,
+            "source_document_id": source_document_identity(
+                company_id="ANF",
+                publisher_id="sec",
+                document_type="sec-filing",
+                publication_date=str(document["publication_date"]),
+                document_key=f"sec-accession-{document['accession']}",
+            ),
+            "source_document_accession": str(document["accession"]),
+            "source_document_form": str(document["document_type"]),
+            "source_document_sha256": str(facility["source_document_sha256"]),
+            "source_ref": str(facility["source_ref"]),
+            "source_row_ref": str(facility["source_row_ref"]),
+            "evidence_key": str(facility["evidence_key"]),
+            "business_key": str(facility["business_key"]),
+            "drawn_status": str(facility["drawn_status"]),
+            "source_type": "table",
+            "note": "Source-native reviewed ANF ABL facility evidence.",
+        }
+        for prefix, (legacy_column, amount_key) in amount_specs.items():
+            amount = dict(facility[amount_key])
+            row[legacy_column] = _legacy_usd_value(amount, amount_key=amount_key)
+            row.update(_legacy_amount_metadata(prefix, amount))
+        commitment = row["revolver_commitment"]
+        drawn = row["revolver_drawn"]
+        row["revolver_utilization"] = (
+            float(drawn) / float(commitment)
+            if commitment not in (None, 0) and drawn is not None
+            else None
+        )
+        row["utilization_evidence_classification"] = "source_backed_calculation"
+        row["utilization_derivation"] = "drawn_balance / commitment"
+        row["source_snippet"] = (
+            f"{facility['facility_name']} at {as_of_date}; exact reviewed SEC evidence; "
+            f"accession {document['accession']}."
+        )
+        rows.append(row)
+    frame = pd.DataFrame(rows).sort_values("quarter", kind="stable").reset_index(drop=True)
+    resolved_facilities = resolve_debt_facilities(extraction.facilities)
+    current_facilities = tuple(
+        facility for facility in resolved_facilities if facility.period_role == "current"
+    )
+    if len(current_facilities) != 1:
+        raise DebtResolutionError(
+            "anf_current_debt_facility_ambiguous",
+            "ANF legacy projection requires exactly one validated current facility.",
+            current_business_keys=[facility.business_key for facility in current_facilities],
+        )
+    economic_validation = validate_resolved_debt_facility_for_profile(current_facilities[0])
+    if not economic_validation.passed:
+        raise DebtResolutionError(
+            "anf_current_debt_facility_validation_failed",
+            "ANF current facility did not pass the canonical debt-profile economic contract.",
+            validation=economic_validation.to_dict(),
+        )
+    frame.attrs[DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR] = economic_validation
+    return frame
+
+
+def build_anf_legacy_revolver_history(cache_root: Path) -> pd.DataFrame:
+    """Build legacy writer rows only when the complete local ANF evidence set exists."""
+
+    sec_cache_root = _anf_debt_cache_with_evidence(Path(cache_root))
+    if sec_cache_root is None:
+        return pd.DataFrame()
+    return anf_debt_extraction_to_legacy_revolver_history(
+        build_anf_debt_collections(sec_cache_root)
     )

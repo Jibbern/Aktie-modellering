@@ -10,6 +10,8 @@ from typing import Any, Iterable, Mapping, Sequence
 DEBT_SOURCE_SCALES = frozenset({"ones", "thousands", "millions", "not_applicable"})
 DEBT_SOURCE_STATUSES = frozenset({"accepted", "manual_review_required", "rejected"})
 DEBT_PERIOD_ROLES = frozenset({"current", "historical"})
+DEBT_PROFILE_ECONOMIC_VALIDATION_CONTRACT = "contract:debt-profile-economic-validation@1"
+DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR = "debt_profile_economic_validation"
 
 _FACILITY_TYPES = frozenset({"asset_based_revolver", "revolving_credit_facility"})
 _INSTRUMENT_TYPES = frozenset(
@@ -37,6 +39,12 @@ _CREDIT_NOTE_TYPES = frozenset(
 _RATE_TYPES = frozenset({"fixed", "floating", "mixed", "not_reported", "not_applicable"})
 _SECURED_STATUSES = frozenset({"secured", "unsecured", "mixed", "not_reported", "not_applicable"})
 _SENIORITY_STATUSES = frozenset({"senior", "subordinated", "mixed", "not_reported", "not_applicable"})
+_DEBT_PROFILE_SUBJECT_SOURCE_CONTRACTS = {
+    "facility": frozenset({"legacy_revolver_history", "resolved_debt_facility_disposition"}),
+    "funded_debt": frozenset(
+        {"legacy_xbrl_debt_facts", "resolved_debt_instrument_dispositions"}
+    ),
+}
 
 
 class DebtResolutionError(ValueError):
@@ -625,6 +633,324 @@ class ResolvedDebtCreditNoteDisposition:
             "resolution_status": self.resolution_status,
             "reason": self.reason,
         }
+
+
+@dataclass(frozen=True)
+class DebtProfileEconomicValidationResult:
+    """Independent economic identity required before Debt_Profile presentation gates."""
+
+    contract_id: str
+    subject_kind: str
+    subject_ids: tuple[str, ...]
+    as_of_date: str
+    evidence_keys: tuple[str, ...]
+    evidence_refs: tuple[str, ...]
+    source_refs: tuple[str, ...]
+    source_row_refs: tuple[str, ...]
+    source_contract: str
+    business_key: str
+    economic_validated: bool
+    issue_ids: tuple[str, ...]
+
+    @property
+    def passed(self) -> bool:
+        return self.economic_validated and not self.issue_ids
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "contract_id": self.contract_id,
+            "subject_kind": self.subject_kind,
+            "subject_ids": list(self.subject_ids),
+            "as_of_date": self.as_of_date,
+            "evidence_keys": list(self.evidence_keys),
+            "evidence_refs": list(self.evidence_refs),
+            "source_refs": list(self.source_refs),
+            "source_row_refs": list(self.source_row_refs),
+            "source_contract": self.source_contract,
+            "business_key": self.business_key,
+            "economic_validated": self.economic_validated,
+            "issue_ids": list(self.issue_ids),
+            "passed": self.passed,
+        }
+
+
+def validate_debt_profile_economic_subject(
+    *,
+    subject_kind: Any,
+    subject_ids: Sequence[Any],
+    as_of_date: Any,
+    evidence_keys: Sequence[Any],
+    evidence_refs: Sequence[Any],
+    source_refs: Sequence[Any],
+    source_row_refs: Sequence[Any],
+    source_contract: Any,
+    economic_validated: bool,
+) -> DebtProfileEconomicValidationResult:
+    """Validate stable facility/funded-debt identity without using presentation geometry."""
+
+    issues: list[str] = []
+    kind = _token(subject_kind)
+    if kind not in _DEBT_PROFILE_SUBJECT_SOURCE_CONTRACTS:
+        issues.append("debt_profile_subject_kind_invalid")
+
+    canonical_subject_ids: list[str] = []
+    for raw_id in subject_ids if isinstance(subject_ids, Sequence) and not isinstance(subject_ids, (str, bytes)) else ():
+        try:
+            canonical_subject_ids.append(canonical_debt_id(raw_id, field="debt_profile_subject_id"))
+        except DebtResolutionError:
+            issues.append("debt_profile_subject_identity_invalid")
+    canonical_subjects = tuple(sorted(set(canonical_subject_ids)))
+    if not canonical_subjects:
+        issues.append("debt_profile_subject_identity_missing")
+    if len(canonical_subjects) != len(canonical_subject_ids):
+        issues.append("debt_profile_subject_identity_duplicate")
+    if kind == "facility" and len(canonical_subjects) != 1:
+        issues.append("debt_profile_facility_identity_ambiguous")
+
+    canonical_evidence_keys: list[str] = []
+    for raw_key in evidence_keys if isinstance(evidence_keys, Sequence) and not isinstance(evidence_keys, (str, bytes)) else ():
+        try:
+            canonical_evidence_keys.append(canonical_debt_id(raw_key, field="debt_profile_evidence_key"))
+        except DebtResolutionError:
+            issues.append("debt_profile_evidence_identity_invalid")
+    canonical_evidence = tuple(sorted(set(canonical_evidence_keys)))
+    if not canonical_evidence:
+        issues.append("debt_profile_evidence_identity_missing")
+    if len(canonical_evidence) != len(canonical_evidence_keys):
+        issues.append("debt_profile_evidence_identity_duplicate")
+    if kind in {"facility", "funded_debt"} and len(canonical_evidence) != len(canonical_subjects):
+        issues.append("debt_profile_subject_evidence_cardinality_mismatch")
+
+    def _refs(values: Sequence[Any]) -> tuple[str, ...]:
+        if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+            return ()
+        return tuple(sorted({str(value).strip() for value in values if str(value).strip()}))
+
+    normalized_evidence_refs = _refs(evidence_refs)
+    normalized_source_refs = _refs(source_refs)
+    normalized_source_row_refs = _refs(source_row_refs)
+    if not normalized_evidence_refs or not normalized_source_refs or not normalized_source_row_refs:
+        issues.append("debt_profile_evidence_lineage_missing")
+
+    try:
+        canonical_as_of = _iso_date(as_of_date, field="debt_profile_as_of_date")
+    except DebtResolutionError:
+        canonical_as_of = ""
+        issues.append("debt_profile_subject_as_of_invalid")
+
+    canonical_source_contract = _token(source_contract)
+    if canonical_source_contract not in _DEBT_PROFILE_SUBJECT_SOURCE_CONTRACTS.get(kind, frozenset()):
+        issues.append("debt_profile_source_contract_invalid")
+    if not economic_validated:
+        issues.append("debt_profile_economic_validation_failed")
+
+    issue_ids = tuple(sorted(set(issues)))
+    business_key = (
+        f"debt_profile_subject|{kind}|{'+'.join(canonical_subjects)}|{canonical_as_of}"
+        if kind and canonical_subjects and canonical_as_of
+        else ""
+    )
+    return DebtProfileEconomicValidationResult(
+        contract_id=DEBT_PROFILE_ECONOMIC_VALIDATION_CONTRACT,
+        subject_kind=kind,
+        subject_ids=canonical_subjects,
+        as_of_date=canonical_as_of,
+        evidence_keys=canonical_evidence,
+        evidence_refs=normalized_evidence_refs,
+        source_refs=normalized_source_refs,
+        source_row_refs=normalized_source_row_refs,
+        source_contract=canonical_source_contract,
+        business_key=business_key,
+        economic_validated=bool(economic_validated),
+        issue_ids=issue_ids,
+    )
+
+
+def validate_resolved_debt_facility_for_profile(
+    facility: ResolvedDebtFacilityDisposition | None,
+) -> DebtProfileEconomicValidationResult:
+    """Project one canonical resolved facility into the profile-validation contract."""
+
+    if facility is None:
+        return validate_debt_profile_economic_subject(
+            subject_kind="facility",
+            subject_ids=(),
+            as_of_date="",
+            evidence_keys=(),
+            evidence_refs=(),
+            source_refs=(),
+            source_row_refs=(),
+            source_contract="resolved_debt_facility_disposition",
+            economic_validated=False,
+        )
+    amounts = (
+        facility.commitment,
+        facility.loan_cap,
+        facility.drawn_balance,
+        facility.letters_of_credit,
+        facility.gross_capacity,
+        facility.minimum_excess_availability,
+        facility.net_availability,
+    )
+    compatible_amounts = bool(
+        all(
+            amount.as_of_date == facility.as_of_date
+            and amount.currency == facility.currency
+            and amount.unit == "$m"
+            for amount in amounts
+        )
+    )
+
+    def _source_backed(amount: ResolvedDebtAmount) -> bool:
+        return bool(
+            amount.status == "populated"
+            and amount.value is not None
+            and amount.source_ref
+            and amount.source_row_ref
+            and amount.evidence_refs
+            and amount.evidence_classification
+            in {"source_backed_fact", "source_backed_calculation"}
+        )
+
+    source_backed_amounts = tuple(
+        amount
+        for amount in amounts
+        if _source_backed(amount)
+    )
+    capacity_backed = _source_backed(facility.commitment) or _source_backed(facility.loan_cap)
+    drawn_state_valid = bool(
+        (
+            facility.drawn_status == "not_reported"
+            and facility.drawn_balance.status != "populated"
+            and facility.drawn_balance.value is None
+        )
+        or (
+            facility.drawn_status in {"reported_zero", "reported_value"}
+            and _source_backed(facility.drawn_balance)
+        )
+    )
+    net_availability_backed = _source_backed(facility.net_availability)
+    loan_cap = facility.loan_cap.value
+    loc = facility.letters_of_credit.value
+    gross = facility.gross_capacity.value
+    minimum = facility.minimum_excess_availability.value
+    net = facility.net_availability.value
+    gross_components_populated = any(value is not None for value in (loc, gross))
+    gross_reconciles = bool(
+        not gross_components_populated
+        or (
+            None not in (loan_cap, loc, gross)
+            and _source_backed(facility.letters_of_credit)
+            and _source_backed(facility.gross_capacity)
+            and abs(float(gross) - (float(loan_cap) - float(loc))) <= 0.000001
+        )
+    )
+    net_components_populated = any(value is not None for value in (gross, minimum))
+    net_reconciles = bool(
+        not net_components_populated
+        or (
+            None not in (gross, minimum, net)
+            and _source_backed(facility.gross_capacity)
+            and _source_backed(facility.minimum_excess_availability)
+            and abs(float(net) - (float(gross) - float(minimum))) <= 0.000001
+        )
+    )
+    facility_lineage_valid = bool(
+        facility.evidence_key
+        and facility.evidence_refs
+        and facility.source_refs
+        and facility.source_row_ref
+        and re.fullmatch(r"[0-9a-f]{64}", facility.source_document_sha256)
+    )
+    economic_validated = bool(
+        facility.source_status == "accepted"
+        and facility.resolution_status == "populated"
+        and facility.period_role == "current"
+        and facility.aggregation_role == "liquidity_capacity"
+        and facility_lineage_valid
+        and compatible_amounts
+        and capacity_backed
+        and drawn_state_valid
+        and net_availability_backed
+        and gross_reconciles
+        and net_reconciles
+    )
+    return validate_debt_profile_economic_subject(
+        subject_kind="facility",
+        subject_ids=(facility.facility_id,),
+        as_of_date=facility.as_of_date,
+        evidence_keys=(facility.evidence_key,),
+        evidence_refs=(
+            *facility.evidence_refs,
+            *(ref for amount in source_backed_amounts for ref in amount.evidence_refs),
+        ),
+        source_refs=(*facility.source_refs, *(amount.source_ref for amount in source_backed_amounts)),
+        source_row_refs=(facility.source_row_ref, *(amount.source_row_ref for amount in source_backed_amounts)),
+        source_contract="resolved_debt_facility_disposition",
+        economic_validated=economic_validated,
+    )
+
+
+def validate_resolved_funded_debt_for_profile(
+    instruments: Sequence[ResolvedDebtInstrumentDisposition],
+) -> DebtProfileEconomicValidationResult:
+    """Validate a source-typed funded-debt subject independently of projected row count."""
+
+    current_core = tuple(
+        sorted(
+            (
+                row
+                for row in instruments
+                if row.period_role == "current"
+                and row.source_status == "accepted"
+                and row.resolution_status == "populated"
+                and row.aggregation_role == "core_debt"
+                and row.balance.status == "populated"
+                and row.balance.value is not None
+            ),
+            key=lambda row: (row.instrument_id, row.business_key),
+        )
+    )
+    dates = {row.as_of_date for row in current_core}
+    currencies = {row.currency for row in current_core}
+    source_backed = bool(
+        current_core
+        and len(dates) == 1
+        and len(currencies) == 1
+        and all(
+            row.evidence_key
+            and row.evidence_refs
+            and row.source_refs
+            and row.source_row_ref
+            and row.balance.source_ref
+            and row.balance.source_row_ref
+            and row.balance.evidence_refs
+            and row.balance.evidence_classification
+            in {"source_backed_fact", "source_backed_calculation"}
+            and row.balance.as_of_date == row.as_of_date
+            and row.balance.currency == row.currency
+            and row.balance.unit == "$m"
+            and re.fullmatch(r"[0-9a-f]{64}", row.source_document_sha256)
+            for row in current_core
+        )
+    )
+    return validate_debt_profile_economic_subject(
+        subject_kind="funded_debt",
+        subject_ids=tuple(row.instrument_id for row in current_core),
+        as_of_date=next(iter(dates)) if len(dates) == 1 else "",
+        evidence_keys=tuple(row.evidence_key for row in current_core),
+        evidence_refs=tuple(
+            ref
+            for row in current_core
+            for ref in (*row.evidence_refs, *row.balance.evidence_refs)
+        ),
+        source_refs=tuple(ref for row in current_core for ref in (*row.source_refs, row.balance.source_ref)),
+        source_row_refs=tuple(
+            ref for row in current_core for ref in (row.source_row_ref, row.balance.source_row_ref)
+        ),
+        source_contract="resolved_debt_instrument_dispositions",
+        economic_validated=source_backed,
+    )
 
 
 def _common_row(

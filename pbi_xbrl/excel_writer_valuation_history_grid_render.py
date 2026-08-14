@@ -15,6 +15,7 @@ import pandas as pd
 from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Font, PatternFill
 
+from .adjusted_metric_history import select_adjusted_metric_history
 
 @dataclass(frozen=True)
 class ValuationHistoryGridRenderDeps:
@@ -377,24 +378,6 @@ def render_valuation_history_grid(
             lease_total_map[q] = float(lease_current_map.get(q) or 0.0) + float(lease_noncurrent_map.get(q) or 0.0)
     eps_direct_map = _hist_series_map_local("eps_diluted")
 
-    if is_anf_profile:
-        for q in _quarter_key_union_local(cash_map, debt_core_map):
-            if cash_map.get(q) is not None and debt_core_map.get(q) is None:
-                debt_core_map[q] = 0.0
-        abl_start = pd.Timestamp(date(2026, 1, 31))
-        for q in _quarter_key_union_local(cash_map, rev_commit_map, rev_facility_map, rev_drawn_map, rev_avail_map):
-            q = pd.Timestamp(q).normalize()
-            if q < abl_start:
-                continue
-            rev_commit_map[q] = 500_000_000.0
-            rev_facility_map[q] = 500_000_000.0
-            rev_drawn_map[q] = 0.0
-            rev_lc_map[q] = 454_000.0
-            rev_avail_map[q] = 449_546_000.0
-            if cash_map.get(q) is not None:
-                liquidity_map[q] = float(cash_map.get(q) or 0.0) + 449_546_000.0
-
-
     def _safe_float_or_none_local(value: Any) -> Optional[float]:
         try:
             coerced = pd.to_numeric(value, errors="coerce")
@@ -550,57 +533,10 @@ def render_valuation_history_grid(
                 return False
         return True
 
-    # Adjusted EBITDA from EX-99: strict first, optional relaxed (when excel_mode != clean)
+    # Typed per-metric ownership below resolves strict, relaxed, recast, and local
+    # rows together; physical row order must not own any adjusted metric.
     adj_ebitda_map: Dict[pd.Timestamp, Any] = {}
-    adj_source_df = adj_metrics
-    if (adj_source_df is None or adj_source_df.empty or "adj_ebitda" not in adj_source_df.columns) and excel_mode != "clean":
-        if adj_metrics_relaxed is not None and not adj_metrics_relaxed.empty:
-            adj_source_df = adj_metrics_relaxed
-    if adj_source_df is not None and not adj_source_df.empty and "quarter" in adj_source_df.columns:
-        am = adj_source_df.copy()
-        am["quarter"] = pd.to_datetime(am["quarter"], errors="coerce")
-        if "period_type" in am.columns:
-            _period_order = {"annual": 0, "year": 0, "fy": 0, "ytd": 1, "quarter": 2, "": 2}
-            am["_period_order"] = am["period_type"].astype(str).str.strip().str.lower().map(_period_order).fillna(2)
-            am = am.sort_values(["quarter", "_period_order"], kind="stable")
-        if "adj_ebitda" in am.columns:
-            for _, r in am.dropna(subset=["quarter"]).iterrows():
-                vv = _safe_float_or_none_local(r.get("adj_ebitda"))
-                if vv is not None and _adj_metric_value_usable_local("adj_ebitda", vv, r):
-                    adj_ebitda_map[pd.Timestamp(r["quarter"])] = vv
-
-    # Adjusted FCF (from filings/slides)
     adj_fcf_map: Dict[pd.Timestamp, Any] = {}
-    if adj_source_df is not None and not adj_source_df.empty and "quarter" in adj_source_df.columns:
-        am = adj_source_df.copy()
-        am["quarter"] = pd.to_datetime(am["quarter"], errors="coerce")
-        if "period_type" in am.columns:
-            _period_order = {"annual": 0, "year": 0, "fy": 0, "ytd": 1, "quarter": 2, "": 2}
-            am["_period_order"] = am["period_type"].astype(str).str.strip().str.lower().map(_period_order).fillna(2)
-            am = am.sort_values(["quarter", "_period_order"], kind="stable")
-        if "adj_fcf" in am.columns:
-            for _, r in am.dropna(subset=["quarter"]).iterrows():
-                vv = _safe_float_or_none_local(r.get("adj_fcf"))
-                if vv is not None and _adj_metric_value_usable_local("adj_fcf", vv, r):
-                    adj_fcf_map[pd.Timestamp(r["quarter"])] = vv
-    adj_ebitda_diff_map: Dict[pd.Timestamp, Any] = {}
-    for q in _quarter_key_union_local(adj_ebitda_map, ebitda_map):
-        q = pd.Timestamp(q).normalize()
-        ae = _safe_float_or_none_local(adj_ebitda_map.get(q))
-        ge = _safe_float_or_none_local(ebitda_map.get(q))
-        if ae is None or ge is None:
-            adj_ebitda_diff_map[q] = None
-        else:
-            adj_ebitda_diff_map[q] = ae - ge
-    adj_fcf_diff_map: Dict[pd.Timestamp, Any] = {}
-    for q in _quarter_key_union_local(adj_fcf_map, fcf_map):
-        q = pd.Timestamp(q).normalize()
-        af = _safe_float_or_none_local(adj_fcf_map.get(q))
-        gf = _safe_float_or_none_local(fcf_map.get(q))
-        if af is None or gf is None:
-            adj_fcf_diff_map[q] = None
-        else:
-            adj_fcf_diff_map[q] = af - gf
 
     def _iter_adj_metric_frames_local() -> List[pd.DataFrame]:
         frames: List[pd.DataFrame] = []
@@ -617,20 +553,46 @@ def render_valuation_history_grid(
         return frames
 
     def _build_adj_metric_map_local(*candidate_cols: str) -> Dict[pd.Timestamp, Any]:
+        frames = _iter_adj_metric_frames_local()
+        if not frames:
+            return {}
+        typed_col = next(
+            (col for col in candidate_cols if col in {"adj_ebit", "adj_ebitda", "adj_fcf"}),
+            None,
+        )
+        if typed_col is not None:
+            selected = select_adjusted_metric_history(
+                pd.concat(frames, ignore_index=True, sort=False)
+            )
+            if selected.empty:
+                return {}
+            metric_rows = selected[selected["metric_id"] == typed_col]
+            return {
+                pd.Timestamp(row["quarter"]).normalize(): float(row["value"])
+                for row in metric_rows.to_dict("records")
+            }
+
+        # Adjusted EPS has a distinct per-share/source review contract and is not
+        # part of the amount-metric ownership change in this pass.
         out: Dict[pd.Timestamp, Any] = {}
-        for frame in _iter_adj_metric_frames_local():
+        for frame in frames:
             selected_col = next((col for col in candidate_cols if col in frame.columns), None)
             if not selected_col:
                 continue
-            for _, r in frame.dropna(subset=["quarter"]).iterrows():
-                qv = pd.Timestamp(r["quarter"])
-                vv = _safe_float_or_none_local(r.get(selected_col))
-                if vv is None or not _adj_metric_value_usable_local(selected_col, vv, r):
+            for _, row in frame.dropna(subset=["quarter"]).iterrows():
+                value = _safe_float_or_none_local(row.get(selected_col))
+                if value is None or not _adj_metric_value_usable_local(selected_col, value, row):
                     continue
-                out[qv] = vv
+                out[pd.Timestamp(row["quarter"]).normalize()] = value
         return out
 
     def _low_confidence_adj_metric_quarters_local(*candidate_cols: str) -> set[pd.Timestamp]:
+        """Preserve the existing adjusted-EPS review seam.
+
+        EBIT, EBITDA, and FCF ownership is resolved by the typed selector above;
+        adjusted EPS still uses its existing source-specific extraction path.
+        """
+
         out: set[pd.Timestamp] = set()
         if not is_pbi_profile:
             return out
@@ -638,90 +600,22 @@ def render_valuation_history_grid(
             selected_col = next((col for col in candidate_cols if col in frame.columns), None)
             if not selected_col:
                 continue
-            for _, r in frame.dropna(subset=["quarter"]).iterrows():
-                vv = _safe_float_or_none_local(r.get(selected_col))
-                if vv is None:
+            for _, row in frame.dropna(subset=["quarter"]).iterrows():
+                value = _safe_float_or_none_local(row.get(selected_col))
+                if value is None:
                     continue
-                confidence = str(r.get("confidence") or "").strip().lower()
-                source_col = str(r.get("col") or "").strip().lower()
-                source_note = str(r.get("source_snippet") or r.get("source") or "").strip().lower()
+                confidence = str(row.get("confidence") or "").strip().lower()
+                source_col = str(row.get("col") or "").strip().lower()
+                source_note = str(
+                    row.get("source_snippet") or row.get("source") or ""
+                ).strip().lower()
                 if "low" in confidence or "ocr" in source_col or "ocr" in source_note:
-                    out.add(pd.Timestamp(r["quarter"]).normalize())
+                    out.add(pd.Timestamp(row["quarter"]).normalize())
         return out
 
-    def _pbi_segment_adjusted_operating_maps_local() -> Tuple[Dict[pd.Timestamp, float], Dict[pd.Timestamp, float]]:
-        """Fill PBI company adjusted EBIT/EBITDA gaps from source-backed segment workbook data."""
-        if not is_pbi_profile:
-            return {}, {}
-        try:
-            seg_dir = _first_existing_material_dir("segment_financials", "historical_segment")
-            workbook_path = ew_latest_segment_financials_workbook(seg_dir) if seg_dir else None
-            if not workbook_path:
-                return {}, {}
-            parsed = ew_parse_quarterly_segment_data_from_workbook(
-                workbook_path,
-                annual_segment_alias_patterns=annual_segment_alias_patterns,
-                company_segment_alias_patterns=company_profile.segment_alias_patterns,
-            )
-        except Exception:
-            return {}, {}
-        metric_store = parsed.get("metrics") if isinstance(parsed, dict) else {}
-        if not isinstance(metric_store, dict):
-            return {}, {}
-
-        def _company_component_sum(metric_name: str) -> Dict[pd.Timestamp, float]:
-            metric_values = metric_store.get(metric_name)
-            if not isinstance(metric_values, dict):
-                return {}
-            totals: Dict[pd.Timestamp, float] = {}
-            counts: Dict[pd.Timestamp, int] = {}
-            for seg_name, series in metric_values.items():
-                seg_low = str(seg_name or "").strip().lower()
-                if not seg_low or "total" in seg_low or "margin" in seg_low:
-                    continue
-                if not isinstance(series, dict):
-                    continue
-                for q_raw, v_raw in series.items():
-                    vv = _safe_float_or_none_local(v_raw)
-                    if vv is None:
-                        continue
-                    try:
-                        q_ts = pd.Timestamp(q_raw).normalize()
-                    except Exception:
-                        continue
-                    totals[q_ts] = float(totals.get(q_ts, 0.0) + vv)
-                    counts[q_ts] = int(counts.get(q_ts, 0) + 1)
-            return {q: total for q, total in totals.items() if counts.get(q, 0) >= 2}
-
-        seg_adj_ebit = _company_component_sum("Adjusted EBIT")
-        seg_adj_ebitda = _company_component_sum("Adjusted EBITDA")
-        if not seg_adj_ebitda:
-            seg_da = _company_component_sum("Depreciation & amortization")
-            for q_ts, adj_ebit_v in seg_adj_ebit.items():
-                da_v = _safe_float_or_none_local(seg_da.get(q_ts))
-                if da_v is not None:
-                    seg_adj_ebitda[q_ts] = float(adj_ebit_v + da_v)
-        return seg_adj_ebit, seg_adj_ebitda
-
-    for qv, vv in _build_adj_metric_map_local("adj_fcf").items():
-        if vv is not None and adj_fcf_map.get(pd.Timestamp(qv)) is None:
-            adj_fcf_map[pd.Timestamp(qv)] = vv
-    for qv, vv in _build_adj_metric_map_local("adj_ebitda").items():
-        q_ts = pd.Timestamp(qv)
-        if vv is not None and _safe_float_or_none_local(adj_ebitda_map.get(q_ts)) is None:
-            adj_ebitda_map[q_ts] = vv
+    adj_fcf_map.update(_build_adj_metric_map_local("adj_fcf"))
+    adj_ebitda_map.update(_build_adj_metric_map_local("adj_ebitda"))
     adj_ebit_map: Dict[pd.Timestamp, Any] = _build_adj_metric_map_local("adj_ebit")
-    pbi_low_conf_adj_ebit_quarters = _low_confidence_adj_metric_quarters_local("adj_ebit")
-    pbi_low_conf_adj_ebitda_quarters = _low_confidence_adj_metric_quarters_local("adj_ebitda")
-    pbi_segment_adj_ebit_map, pbi_segment_adj_ebitda_map = _pbi_segment_adjusted_operating_maps_local()
-    for qv, vv in pbi_segment_adj_ebit_map.items():
-        q_ts = pd.Timestamp(qv).normalize()
-        if _safe_float_or_none_local(adj_ebit_map.get(q_ts)) is None or q_ts in pbi_low_conf_adj_ebit_quarters:
-            adj_ebit_map[q_ts] = vv
-    for qv, vv in pbi_segment_adj_ebitda_map.items():
-        q_ts = pd.Timestamp(qv).normalize()
-        if _safe_float_or_none_local(adj_ebitda_map.get(q_ts)) is None or q_ts in pbi_low_conf_adj_ebitda_quarters:
-            adj_ebitda_map[q_ts] = vv
     if is_anf_profile:
         for qv, vv in ebitda_map.items():
             q_ts = pd.Timestamp(qv).normalize()

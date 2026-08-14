@@ -10,6 +10,10 @@ from typing import Any, Mapping
 from lxml import html as lxml_html
 
 from pbi_xbrl.longitudinal_memory.types import canonical_decimal
+from pbi_xbrl.inline_xbrl_text import (
+    InlineXbrlContinuationError,
+    reconstruct_inline_xbrl_fact_text,
+)
 
 from .types import DiscoveredDocument, ExtractedEvidence, LocatorError, text_sha256
 
@@ -60,30 +64,13 @@ def _descendants(node: Any, local_name: str) -> list[Any]:
 
 
 def _continuations(root: Any, fact: Any) -> tuple[str, tuple[str, ...], tuple[str, ...], str | None]:
-    text_parts = [_text(fact)]
-    ids: list[str] = []
-    paths: list[str] = []
-    seen: set[str] = set()
-    next_id = fact.get("continuedat")
-    while next_id:
-        continuation_id = str(next_id)
-        if continuation_id in seen:
-            raise LocatorError("Inline XBRL continuation chain contains a cycle.")
-        seen.add(continuation_id)
-        continuation = _one(
-            root,
-            f"//*[@id={_xpath_literal(continuation_id)}]",
-            subject=f"continuation {continuation_id!r}",
-        )
-        if str(continuation.tag).casefold() != "ix:continuation":
-            raise LocatorError("Inline XBRL continuedAt endpoint is not an ix:continuation node.")
-        ids.append(continuation_id)
-        paths.append(_node_path(continuation))
-        text_parts.append(_text(continuation))
-        next_id = continuation.get("continuedat")
-    joined = _text(" ".join(text_parts))
-    digest = text_sha256(joined) if ids else None
-    return joined, tuple(ids), tuple(paths), digest
+    try:
+        reconstructed = reconstruct_inline_xbrl_fact_text(root, fact)
+    except InlineXbrlContinuationError as exc:
+        raise LocatorError(f"{exc.code}: {exc}") from exc
+    paths = tuple(_node_path(node) for node in reconstructed.continuation_nodes)
+    digest = text_sha256(reconstructed.text) if reconstructed.continuation_ids else None
+    return reconstructed.text, reconstructed.continuation_ids, paths, digest
 
 
 def _xpath_literal(value: str) -> str:

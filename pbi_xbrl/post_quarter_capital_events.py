@@ -11,6 +11,12 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import pandas as pd
 
+from .debt_detail_lineage import (
+    DEBT_DETAIL_LINEAGE_DISPOSITION_COLUMN,
+    DebtDetailLineageDisposition,
+    normalize_debt_detail_lineage_dispositions,
+)
+
 
 POST_QUARTER_EVENT_COLUMNS = (
     "ticker",
@@ -555,4 +561,8 @@ def apply_pbi_current_debt_overlay(
     current.loc[term_loan_mask, "near_term"] = False
     current.loc[term_loan_mask, "source_kind"] = "PostQuarter_Capital_Events"
     current.loc[term_loan_mask, "source_basis"] = "current_principal_overlay"
-    return current.reset_index(drop=True)
+    current.loc[
+        term_loan_mask,
+        DEBT_DETAIL_LINEAGE_DISPOSITION_COLUMN,
+    ] = DebtDetailLineageDisposition.NOT_APPLICABLE
+    return normalize_debt_detail_lineage_dispositions(current.reset_index(drop=True))

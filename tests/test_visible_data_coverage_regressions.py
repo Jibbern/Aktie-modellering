@@ -1,16 +1,38 @@
 from __future__ import annotations
 
+import datetime as dt
 import os
 import re
+from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import pytest
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 
 from pbi_xbrl.excel_writer_bs_segments import _should_render_carbon_equipment_liabilities
 from pbi_xbrl.excel_writer_coloring import _hidden_source_comparison_metric
+from pbi_xbrl.excel_writer_segment_sources import (
+    _merge_quarterly_segment_packages_per_period,
+    _pbi_add_corporate_reconciliation_from_release_text,
+    _pbi_repair_total_reportable_segment_quarterly_totals_for_bs,
+    _segment_residual_ledger_payload,
+    _segment_package_ledger_merge_validation,
+)
+from pbi_xbrl.pipeline_orchestration import _parse_local_non_gaap_segment_rows_from_text
+from pbi_xbrl.segment_normalization import (
+    SEGMENT_EXACT_RESIDUAL_RULE_ID,
+    SEGMENT_EXACT_ZERO_CLASSIFICATION,
+    SEGMENT_RESIDUAL_LEDGER_CONTRACT_ID,
+    SegmentNormalizationError,
+    SegmentResidualInputFact,
+    derive_exact_zero_segment_residual,
+    segment_residual_input_fact_from_legacy_row,
+    validate_segment_residual_ledger_payload,
+)
 
 
 WORKBOOK_DIR = Path(
@@ -590,13 +612,196 @@ def test_gpre_operating_driver_volume_rows_color_only_with_source_backed_yoy() -
         wb.close()
 
 
-def test_pbi_bs_segments_2026_q1_source_backed_residual_and_corporate_values() -> None:
-    wb = _load_model("PBI")
-    ws = wb["BS_Segments"]
-    header = _find_row(ws, "Quarter")
-    q1_2026 = _quarter_col(ws, header, "2026-Q1")
+_PBI_Q1_REVENUE_SCHEDULE = """
+Pitney Bowes Inc.
+Business Segment Revenue
+(Unaudited; in thousands)
+Three Months Ended March 31,
+2026 2025 % Change
+Sending Technology Solutions $313,947 $315,606 (1%)
+Presort Services 163,466 177,814 (8%)
+Total revenue $477,413 $493,420 (3%)
+"""
 
-    expected = {
+_PBI_Q1_EBITDA_SCHEDULE = """
+Pitney Bowes Inc.
+Adjusted Segment EBIT & EBITDA
+(Unaudited; in thousands)
+Three Months Ended March 31,
+2026 2025 % change
+Adjusted Adjusted Adjusted Adjusted Adjusted Adjusted
+Segment Segment Segment Segment Segment Segment
+EBIT (1) D&A EBITDA EBIT (1) D&A EBITDA EBIT EBITDA
+Sending Technology Solutions $113,530 $9,875 $123,405 $97,027 $11,680 $108,707 17% 14%
+Presort Services 39,178 8,736 47,914 54,779 9,269 64,048 (28%) (25%)
+Total reportable segments $152,708 $18,611 171,319 $151,806 $20,949 172,755 1% (1%)
+Reconciliation of Reported Consolidated Results to Adjusted Results
+Adjusted EBIT $130,377
+Depreciation and amortization $25,641
+Adjusted EBITDA $156,018
+Corporate expenses (22,331)
+"""
+
+
+def _parse_money_thousands_for_segment_test(value: Any) -> float | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    negative = "(" in text and ")" in text
+    normalized = re.sub(r"[^0-9.\-]", "", text)
+    if not normalized:
+        return None
+    parsed = float(normalized) * 1_000.0
+    return -abs(parsed) if negative else parsed
+
+
+def _pbi_q1_source_backed_segment_package() -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    q_end = dt.date(2026, 3, 31)
+    q_ts = pd.Timestamp(q_end)
+    source_doc = "fixture:PBI_Q1_2026_earnings_release.pdf#pages=8-9"
+    rows = _parse_local_non_gaap_segment_rows_from_text(_PBI_Q1_REVENUE_SCHEDULE, q_end)
+    rows += _parse_local_non_gaap_segment_rows_from_text(_PBI_Q1_EBITDA_SCHEDULE, q_end)
+    for row in rows:
+        row.update(
+            {
+                "doc": source_doc,
+                "page": 8 if row["metric"] == "revenue" else 9,
+                "source": "earnings_release",
+            }
+        )
+
+    metric_names = {
+        "revenue": "Revenue",
+        "adj_segment_ebit": "Adjusted EBIT",
+        "adj_segment_da": "Depreciation & amortization",
+        "adj_segment_ebitda": "Adjusted EBITDA",
+    }
+    metric_ids = {
+        "Revenue": "metric:core:revenue@1",
+        "Adjusted EBIT": "metric:business-services:adjusted-segment-ebit@1",
+        "Depreciation & amortization": "metric:core:depreciation-amortization@1",
+        "Adjusted EBITDA": "metric:core:adjusted-ebitda@1",
+    }
+    metrics: dict[str, dict[str, dict[pd.Timestamp, float]]] = {}
+    source_facts: list[SegmentResidualInputFact] = []
+    for row in rows:
+        metric_name = metric_names[str(row["metric"])]
+        segment_name = str(row["segment"])
+        metrics.setdefault(metric_name, {}).setdefault(segment_name, {})[q_ts] = float(row["value"])
+        source_facts.append(
+            segment_residual_input_fact_from_legacy_row(
+                company_id="PBI",
+                metric_label=metric_name,
+                metric_id=metric_ids[metric_name],
+                segment_member=segment_name,
+                value_millions=float(row["value"]) / 1_000_000.0,
+                period_end=q_end,
+                period_id="period:pbi:cy2026-q1@1",
+                source_doc=source_doc,
+                source_type="earnings-release",
+                source_locator=f"page:{row['page']}",
+                aggregation_role=(
+                    "reported_total"
+                    if segment_name == "Total reportable segments"
+                    else "component"
+                ),
+            )
+        )
+
+    derivations: list[dict[str, Any]] = []
+    metrics = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+        metrics,
+        source_facts=source_facts,
+        derivations_out=derivations,
+    )
+    _pbi_add_corporate_reconciliation_from_release_text(
+        metrics,
+        _PBI_Q1_EBITDA_SCHEDULE,
+        q_ts,
+        _parse_money_thousands_for_segment_test,
+    )
+    return (
+        {
+            "metrics": metrics,
+            "quarters": [q_end],
+            "source_doc": source_doc,
+            "source_qd": q_end,
+            "segment_derivation_ledger": _segment_residual_ledger_payload(source_facts, derivations),
+        },
+        rows,
+    )
+
+
+def test_pbi_bs_segments_2026_q1_source_backed_residual_and_corporate_values() -> None:
+    release_package, source_rows = _pbi_q1_source_backed_segment_package()
+    q4_2025 = pd.Timestamp("2025-12-31")
+    q1_2026 = pd.Timestamp("2026-03-31")
+    q2_2026 = pd.Timestamp("2026-06-30")
+    primary = {
+        "metrics": {"Revenue": {"Other operations": {q4_2025: 0.0}}},
+        "quarters": [q4_2025.date()],
+        "source_doc": "fixture:Historical Segment Financials Q4 2025.xlsx",
+    }
+    merged = _merge_quarterly_segment_packages_per_period(
+        primary=primary,
+        authoritative_overlay=release_package,
+        supplemental_overlay={},
+    )
+
+    total_revenue_row = next(
+        row
+        for row in source_rows
+        if row["segment"] == "Total reportable segments" and row["metric"] == "revenue"
+    )
+    assert total_revenue_row == {
+        "quarter": dt.date(2026, 3, 31),
+        "segment": "Total reportable segments",
+        "metric": "revenue",
+        "value": 477_413_000.0,
+        "unit": "USD",
+        "period_type": "quarter",
+        "source_period_label": "quarter",
+        "is_table_total": True,
+        "evidence_role": "independent_table_total",
+        "doc": "fixture:PBI_Q1_2026_earnings_release.pdf#pages=8-9",
+        "page": 8,
+        "source": "earnings_release",
+    }
+    assert 313_947_000.0 + 163_466_000.0 == 477_413_000.0
+    assert "PBI_Q1_2026_earnings_release.pdf#pages=8-9" in merged["source_doc"]
+    ledger = merged["segment_derivation_ledger"]
+    assert ledger["contract_id"] == SEGMENT_RESIDUAL_LEDGER_CONTRACT_ID
+    source_facts_by_id = {row["record_id"]: row for row in ledger["source_facts"]}
+    revenue_derivation = next(
+        row
+        for row in ledger["derivations"]
+        if row["metric_label"] == "Revenue" and row["target_member"] == "Other operations"
+    )
+    assert revenue_derivation["rule_id"] == SEGMENT_EXACT_RESIDUAL_RULE_ID
+    assert revenue_derivation["classification"] == SEGMENT_EXACT_ZERO_CLASSIFICATION
+    assert revenue_derivation["value"] == {"kind": "exact", "value": "0"}
+    assert revenue_derivation["period_id"] == "period:pbi:cy2026-q1@1"
+    assert revenue_derivation["basis_id"] == "basis:core:reported@1"
+    assert revenue_derivation["unit_id"] == "unit:core:usd-millions@1"
+    assert revenue_derivation["currency"] == "USD"
+    assert revenue_derivation["scope"] == "reportable_segments"
+    assert revenue_derivation["direct_total_input_id"] in source_facts_by_id
+    assert set(revenue_derivation["direct_component_input_ids"]) <= set(source_facts_by_id)
+    assert len(revenue_derivation["direct_component_input_ids"]) == 2
+    total_input = source_facts_by_id[revenue_derivation["direct_total_input_id"]]
+    component_inputs = [source_facts_by_id[record_id] for record_id in revenue_derivation["direct_component_input_ids"]]
+    assert total_input["aggregation_role"] == "reported_total"
+    assert total_input["assertion_mode"] == "reported"
+    assert total_input["value"] == {"kind": "exact", "value": "477.413"}
+    assert {row["value"]["value"] for row in component_inputs} == {"313.947", "163.466"}
+    assert all(row["assertion_mode"] == "reported" for row in component_inputs)
+    assert total_input["source_document_id"] in revenue_derivation["source_document_ids"]
+    assert revenue_derivation["evidence_occurrence_ids"]
+    assert all(record_id in source_facts_by_id for record_id in revenue_derivation["input_record_ids"])
+    assert "cell" not in revenue_derivation["economic_identity"].lower()
+    assert "coordinate" not in revenue_derivation["economic_identity"].lower()
+
+    expected_millions = {
         ("Revenue", "Other operations"): 0.0,
         ("Adjusted EBIT", "Other operations"): 0.0,
         ("Adjusted EBIT", "Corporate expense"): -22.331,
@@ -605,12 +810,501 @@ def test_pbi_bs_segments_2026_q1_source_backed_residual_and_corporate_values() -
         ("Adjusted EBITDA", "Other operations"): 0.0,
         ("Adjusted EBITDA", "Corporate expense"): -15.301,
     }
-    for group, segment in expected:
-        row = _find_segment_row_after_group(ws, group, segment, start=header)
-        assert _num(ws.cell(row, q1_2026).value) == pytest.approx(expected[(group, segment)], abs=0.02), (
-            f"PBI BS_Segments {group}/{segment} 2026-Q1 should come from or reconcile to the Q1 release"
+    for (metric, segment), expected in expected_millions.items():
+        series = merged["metrics"][metric][segment]
+        assert series[q1_2026] / 1_000_000.0 == pytest.approx(expected, abs=0.000001)
+        assert q2_2026 not in series
+
+
+def test_pbi_segment_residual_missing_total_stays_missing_and_is_not_rebuilt() -> None:
+    q_ts = pd.Timestamp("2026-03-31")
+    repaired = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+        {
+            "Revenue": {
+                "SendTech Solutions": {q_ts: 313_947_000.0},
+                "Presort Services": {q_ts: 163_466_000.0},
+            }
+        },
+        source_facts=(),
+        derivations_out=[],
+    )
+
+    assert "Other operations" not in repaired["Revenue"]
+    assert "Total reportable segments" not in repaired["Revenue"]
+
+
+def test_pbi_segment_residual_non_exact_or_incompatible_total_fails_closed() -> None:
+    q1 = pd.Timestamp("2026-03-31")
+    q2 = pd.Timestamp("2026-06-30")
+    non_exact = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+        {
+            "Revenue": {
+                "SendTech Solutions": {q1: 313_947_000.0},
+                "Presort Services": {q1: 163_466_000.0},
+                "Total reportable segments": {q1: 477_414_000.0},
+            }
+        },
+        source_facts=(),
+        derivations_out=[],
+    )
+    incompatible_period = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+        {
+            "Revenue": {
+                "SendTech Solutions": {q1: 313_947_000.0},
+                "Presort Services": {q2: 163_466_000.0},
+                "Total reportable segments": {q1: 477_413_000.0},
+            }
+        },
+        source_facts=(),
+        derivations_out=[],
+    )
+
+    assert "Other operations" not in non_exact["Revenue"]
+    assert non_exact["Revenue"]["Total reportable segments"][q1] == 477_414_000.0
+    assert "Other operations" not in incompatible_period["Revenue"]
+
+
+def test_segment_residual_typed_contract_rejects_incompatible_or_circular_inputs() -> None:
+    common = {
+        "company_id": "PBI",
+        "metric_label": "Revenue",
+        "metric_id": "metric:core:revenue@1",
+        "period_end": dt.date(2026, 3, 31),
+        "period_id": "period:pbi:cy2026-q1@1",
+        "source_doc": "fixture:PBI_Q1_2026_earnings_release.pdf",
+        "source_type": "earnings-release",
+        "source_locator": "page:8",
+    }
+    total = segment_residual_input_fact_from_legacy_row(
+        **common,
+        segment_member="Total reportable segments",
+        value_millions="477.413",
+        aggregation_role="reported_total",
+    )
+    sendtech = segment_residual_input_fact_from_legacy_row(
+        **common,
+        segment_member="SendTech Solutions",
+        value_millions="313.947",
+        aggregation_role="component",
+    )
+    presort = segment_residual_input_fact_from_legacy_row(
+        **common,
+        segment_member="Presort Services",
+        value_millions="163.466",
+        aggregation_role="component",
+    )
+
+    forward = derive_exact_zero_segment_residual(
+        total=total,
+        components=(sendtech, presort),
+        target_member="Other operations",
+    )
+    reverse = derive_exact_zero_segment_residual(
+        total=total,
+        components=(presort, sendtech),
+        target_member="Other operations",
+    )
+    assert forward is not None and reverse is not None
+    assert forward.to_dict() == reverse.to_dict()
+    assert forward.value == "0"
+
+    incompatible_mutations = (
+        replace(presort, period_id="period:pbi:cy2026-q2@1", period_end="2026-06-30"),
+        replace(presort, basis_id="basis:core:guided@1"),
+        replace(presort, unit_id="unit:core:currency-million@1"),
+        replace(presort, currency="EUR"),
+        replace(presort, scope="consolidated_company"),
+    )
+    for incompatible in incompatible_mutations:
+        with pytest.raises(SegmentNormalizationError):
+            derive_exact_zero_segment_residual(
+                total=total,
+                components=(sendtech, incompatible),
+                target_member="Other operations",
+            )
+
+    with pytest.raises(SegmentNormalizationError):
+        derive_exact_zero_segment_residual(
+            total=total,
+            components=(sendtech,),
+            target_member="Other operations",
         )
-    wb.close()
+    with pytest.raises(SegmentNormalizationError):
+        replace(total, assertion_mode="derived")
+
+
+def test_pbi_segment_exact_residual_and_package_merge_are_source_order_independent() -> None:
+    q_ts = pd.Timestamp("2026-03-31")
+    ordered_segments = [
+        ("SendTech Solutions", 313_947_000.0),
+        ("Presort Services", 163_466_000.0),
+        ("Total reportable segments", 477_413_000.0),
+    ]
+
+    def _package(rows: list[tuple[str, float]]) -> dict[str, Any]:
+        source_facts = [
+            segment_residual_input_fact_from_legacy_row(
+                company_id="PBI",
+                metric_label="Revenue",
+                metric_id="metric:core:revenue@1",
+                segment_member=segment,
+                value_millions=value / 1_000_000.0,
+                period_end=q_ts.date(),
+                period_id="period:pbi:cy2026-q1@1",
+                source_doc="fixture:source-order-independent-release",
+                source_type="earnings-release",
+                source_locator=f"table:revenue:{segment}",
+                aggregation_role=(
+                    "reported_total"
+                    if segment == "Total reportable segments"
+                    else "component"
+                ),
+            )
+            for segment, value in rows
+        ]
+        derivations: list[dict[str, Any]] = []
+        repaired = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+            {"Revenue": {segment: {q_ts: value} for segment, value in rows}},
+            source_facts=source_facts,
+            derivations_out=derivations,
+        )
+        return {
+            "metrics": repaired,
+            "quarters": [q_ts.date()],
+            "source_doc": "fixture:source-order-independent-release",
+            "segment_derivation_ledger": _segment_residual_ledger_payload(
+                source_facts,
+                derivations,
+            ),
+        }
+
+    forward = _merge_quarterly_segment_packages_per_period(
+        primary={},
+        authoritative_overlay=_package(ordered_segments),
+        supplemental_overlay={},
+    )
+    reverse = _merge_quarterly_segment_packages_per_period(
+        primary={},
+        authoritative_overlay=_package(list(reversed(ordered_segments))),
+        supplemental_overlay={},
+    )
+
+    assert forward == reverse
+    assert forward["metrics"]["Revenue"]["Other operations"][q_ts] == 0.0
+
+
+def test_pbi_unlineaged_primary_cannot_mint_or_suppress_lineaged_exact_zero() -> None:
+    q_ts = pd.Timestamp("2026-03-31")
+    raw_primary_metrics = {
+        "Revenue": {
+            "SendTech Solutions": {q_ts: 313_947_000.0},
+            "Presort Services": {q_ts: 163_466_000.0},
+            "Total reportable segments": {q_ts: 477_413_000.0},
+        }
+    }
+    unlineaged_derivations: list[dict[str, Any]] = []
+    fail_closed = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+        raw_primary_metrics,
+        source_facts=(),
+        derivations_out=unlineaged_derivations,
+    )
+    assert "Other operations" not in fail_closed["Revenue"]
+    assert unlineaged_derivations == []
+
+    lineaged_overlay, _ = _pbi_q1_source_backed_segment_package()
+    stale_unlineaged_primary = {
+        "metrics": {
+            "Revenue": {
+                **raw_primary_metrics["Revenue"],
+                "Other operations": {q_ts: 0.0},
+            }
+        },
+        "quarters": [q_ts.date()],
+        "source_doc": "fixture:unlineaged-primary",
+    }
+    merged = _merge_quarterly_segment_packages_per_period(
+        primary=stale_unlineaged_primary,
+        authoritative_overlay=lineaged_overlay,
+        supplemental_overlay={},
+    )
+
+    assert merged["metrics"]["Revenue"]["Other operations"][q_ts] == 0.0
+    revenue_derivations = [
+        row
+        for row in merged["segment_derivation_ledger"]["derivations"]
+        if row["metric_label"] == "Revenue"
+        and row["target_member"] == "Other operations"
+        and row["period_end"] == "2026-03-31"
+    ]
+    assert len(revenue_derivations) == 1
+    assert revenue_derivations[0]["classification"] == SEGMENT_EXACT_ZERO_CLASSIFICATION
+
+
+def test_pbi_merge_rejects_unresolved_duplicate_or_nonreplaying_residual_ledgers() -> None:
+    q_ts = pd.Timestamp("2026-03-31")
+    valid_overlay, _ = _pbi_q1_source_backed_segment_package()
+    valid_ledger = deepcopy(valid_overlay["segment_derivation_ledger"])
+    assert validate_segment_residual_ledger_payload(valid_ledger) == valid_ledger
+
+    revenue_derivation = next(
+        row
+        for row in valid_ledger["derivations"]
+        if row["metric_label"] == "Revenue" and row["target_member"] == "Other operations"
+    )
+    missing_total = deepcopy(valid_ledger)
+    missing_total["source_facts"] = [
+        row
+        for row in missing_total["source_facts"]
+        if row["record_id"] != revenue_derivation["direct_total_input_id"]
+    ]
+
+    missing_component = deepcopy(valid_ledger)
+    missing_component["source_facts"] = [
+        row
+        for row in missing_component["source_facts"]
+        if row["record_id"] != revenue_derivation["direct_component_input_ids"][0]
+    ]
+
+    duplicate_fact = deepcopy(valid_ledger)
+    duplicate_fact["source_facts"].append(deepcopy(duplicate_fact["source_facts"][0]))
+
+    duplicate_semantic_fact = deepcopy(valid_ledger)
+    duplicated = deepcopy(duplicate_semantic_fact["source_facts"][0])
+    duplicated["record_id"] = f"{duplicated['record_id']}|forged-duplicate"
+    duplicate_semantic_fact["source_facts"].append(duplicated)
+
+    nonreplaying_arithmetic = deepcopy(valid_ledger)
+    revenue_component = next(
+        row
+        for row in nonreplaying_arithmetic["source_facts"]
+        if row["metric_label"] == "Revenue" and row["segment_member"] == "SendTech Solutions"
+    )
+    revenue_component["value"]["value"] = "313.946"
+
+    inconsistent_target = deepcopy(valid_ledger)
+    inconsistent_target["derivations"][0]["target_member"] = "Unexpected operations"
+
+    unlineaged_primary = {
+        "metrics": {"Revenue": {"Other operations": {q_ts: 0.0}}},
+        "quarters": [q_ts.date()],
+        "source_doc": "fixture:unlineaged-primary",
+    }
+    for malformed_ledger in (
+        missing_total,
+        missing_component,
+        duplicate_fact,
+        duplicate_semantic_fact,
+        nonreplaying_arithmetic,
+        inconsistent_target,
+    ):
+        with pytest.raises(SegmentNormalizationError):
+            validate_segment_residual_ledger_payload(malformed_ledger)
+        malformed_overlay = deepcopy(valid_overlay)
+        malformed_overlay["segment_derivation_ledger"] = malformed_ledger
+        merged = _merge_quarterly_segment_packages_per_period(
+            primary=unlineaged_primary,
+            authoritative_overlay=malformed_overlay,
+            supplemental_overlay={},
+        )
+        assert merged["metrics"]["Revenue"]["Other operations"][q_ts] == 0.0
+        assert "segment_derivation_ledger" not in merged
+        overlay_only = _merge_quarterly_segment_packages_per_period(
+            primary={},
+            authoritative_overlay=malformed_overlay,
+            supplemental_overlay={},
+        )
+        assert overlay_only == {}
+
+    package_mismatch = deepcopy(valid_overlay)
+    package_mismatch["metrics"]["Revenue"]["SendTech Solutions"][q_ts] = 313_946_000.0
+    assert validate_segment_residual_ledger_payload(
+        package_mismatch["segment_derivation_ledger"]
+    ) == valid_ledger
+    merged_mismatch = _merge_quarterly_segment_packages_per_period(
+        primary=unlineaged_primary,
+        authoritative_overlay=package_mismatch,
+        supplemental_overlay={},
+    )
+    assert "segment_derivation_ledger" not in merged_mismatch
+    overlay_only_mismatch = _merge_quarterly_segment_packages_per_period(
+        primary={},
+        authoritative_overlay=package_mismatch,
+        supplemental_overlay={},
+    )
+    assert overlay_only_mismatch == {}
+
+    malformed_shape = deepcopy(valid_overlay)
+    malformed_shape["segment_derivation_ledger"]["derivations"] = {
+        "not": "a deterministic derivation array"
+    }
+    assert _merge_quarterly_segment_packages_per_period(
+        primary={},
+        authoritative_overlay=malformed_shape,
+        supplemental_overlay={},
+    ) == {}
+
+
+@pytest.mark.parametrize(
+    "malformed_ledger",
+    (
+        "not-a-ledger-mapping",
+        ["not", "a", "mapping"],
+        {
+            "contract_id": SEGMENT_RESIDUAL_LEDGER_CONTRACT_ID,
+            "source_facts": "not-an-array",
+            "derivations": [],
+        },
+        {
+            "contract_id": SEGMENT_RESIDUAL_LEDGER_CONTRACT_ID,
+            "source_facts": [],
+            "derivations": "not-an-array",
+        },
+        None,
+    ),
+    ids=(
+        "scalar",
+        "array",
+        "malformed-top-level-rows",
+        "malformed-derivations",
+        "explicit-null",
+    ),
+)
+def test_pbi_overlay_only_malformed_ledger_shape_cannot_own_numeric_residual(
+    malformed_ledger: Any,
+) -> None:
+    q_ts = pd.Timestamp("2026-03-31")
+    overlay = {
+        "metrics": {"Revenue": {"Other operations": {q_ts: 0.0}}},
+        "quarters": [q_ts.date()],
+        "source_doc": "fixture:malformed-ledger",
+        "segment_derivation_ledger": malformed_ledger,
+    }
+
+    with pytest.raises(SegmentNormalizationError):
+        validate_segment_residual_ledger_payload(malformed_ledger)
+    assert _merge_quarterly_segment_packages_per_period(
+        primary={},
+        authoritative_overlay=overlay,
+        supplemental_overlay={},
+    ) == {}
+
+
+def test_segment_package_ledger_merge_states_do_not_conflate_empty_and_unparseable() -> None:
+    valid_package, _ = _pbi_q1_source_backed_segment_package()
+    absent = _segment_package_ledger_merge_validation(
+        {"metrics": {"Revenue": {"Direct member": {pd.Timestamp("2026-03-31"): 1.0}}}}
+    )
+    valid = _segment_package_ledger_merge_validation(valid_package)
+
+    enumerable_invalid_package = deepcopy(valid_package)
+    enumerable_invalid_package["segment_derivation_ledger"]["source_facts"].append(
+        deepcopy(enumerable_invalid_package["segment_derivation_ledger"]["source_facts"][0])
+    )
+    enumerable_invalid = _segment_package_ledger_merge_validation(enumerable_invalid_package)
+
+    unenumerable_invalid_package = deepcopy(valid_package)
+    unenumerable_invalid_package["segment_derivation_ledger"]["source_facts"] = "not-an-array"
+    unenumerable_invalid_package["segment_derivation_ledger"]["derivations"] = []
+    unenumerable_invalid = _segment_package_ledger_merge_validation(unenumerable_invalid_package)
+
+    malformed_derivations_package = deepcopy(valid_package)
+    malformed_derivations_package["segment_derivation_ledger"]["source_facts"] = []
+    malformed_derivations_package["segment_derivation_ledger"]["derivations"] = "not-an-array"
+    malformed_derivations = _segment_package_ledger_merge_validation(
+        malformed_derivations_package
+    )
+
+    assert not absent.ledger_present
+    assert absent.target_enumeration_valid
+    assert absent.package_merge_allowed
+
+    assert valid.ledger_present and valid.ledger_valid
+    assert valid.target_enumeration_valid
+    assert valid.validated_targets
+    assert valid.package_merge_allowed
+
+    assert enumerable_invalid.ledger_present and not enumerable_invalid.ledger_valid
+    assert enumerable_invalid.target_enumeration_valid
+    assert enumerable_invalid.declared_targets
+    assert not enumerable_invalid.package_merge_allowed
+
+    for decision, reason in (
+        (unenumerable_invalid, "ledger_source_facts_type_invalid"),
+        (malformed_derivations, "ledger_derivations_type_invalid"),
+    ):
+        assert decision.ledger_present and not decision.ledger_valid
+        assert not decision.target_enumeration_valid
+        assert decision.declared_targets == frozenset()
+        assert decision.invalid_reason == reason
+        assert not decision.package_merge_allowed
+
+
+def test_malformed_package_precedence_is_atomic_and_valid_overlay_remains_authoritative() -> None:
+    q_ts = pd.Timestamp("2026-03-31")
+    valid_package, _ = _pbi_q1_source_backed_segment_package()
+
+    malformed = deepcopy(valid_package)
+    malformed["segment_derivation_ledger"]["source_facts"] = "not-an-array"
+    malformed["segment_derivation_ledger"]["derivations"] = []
+    malformed["metrics"]["Revenue"]["Unrelated direct-looking member"] = {q_ts: 25.0}
+
+    valid_primary = _merge_quarterly_segment_packages_per_period(
+        primary=valid_package,
+        authoritative_overlay=malformed,
+        supplemental_overlay={},
+    )
+    assert valid_primary["metrics"]["Revenue"]["Other operations"][q_ts] == 0.0
+    assert "Unrelated direct-looking member" not in valid_primary["metrics"]["Revenue"]
+    assert valid_primary["segment_derivation_ledger"] == valid_package["segment_derivation_ledger"]
+
+    valid_overlay = _merge_quarterly_segment_packages_per_period(
+        primary=malformed,
+        authoritative_overlay=valid_package,
+        supplemental_overlay={},
+    )
+    assert valid_overlay["metrics"]["Revenue"]["Other operations"][q_ts] == 0.0
+    assert "Unrelated direct-looking member" not in valid_overlay["metrics"]["Revenue"]
+    assert valid_overlay["segment_derivation_ledger"] == valid_package["segment_derivation_ledger"]
+
+
+def test_ledger_absent_direct_package_still_merges_but_invalid_claiming_package_is_atomic() -> None:
+    q_ts = pd.Timestamp("2026-03-31")
+    direct = {
+        "metrics": {"Revenue": {"Independent direct member": {q_ts: 25.0}}},
+        "quarters": [q_ts.date()],
+        "source_doc": "fixture:independent-direct-package",
+    }
+    assert _merge_quarterly_segment_packages_per_period(
+        primary=direct,
+        authoritative_overlay={},
+        supplemental_overlay={},
+    )["metrics"]["Revenue"]["Independent direct member"][q_ts] == 25.0
+
+    invalid_claim = deepcopy(direct)
+    invalid_claim["segment_derivation_ledger"] = {
+        "contract_id": SEGMENT_RESIDUAL_LEDGER_CONTRACT_ID,
+        "source_facts": "not-an-array",
+        "derivations": [],
+    }
+    assert _merge_quarterly_segment_packages_per_period(
+        primary=invalid_claim,
+        authoritative_overlay={},
+        supplemental_overlay={},
+    ) == {}
+
+
+def test_pbi_residual_contract_does_not_mint_other_for_anf_or_gpre_segments() -> None:
+    q_ts = pd.Timestamp("2026-03-31")
+    for segments in (
+        {"Americas": {q_ts: 600.0}, "EMEA": {q_ts: 200.0}, "APAC": {q_ts: 100.0}},
+        {"Ethanol production": {q_ts: 300.0}, "Agribusiness": {q_ts: 50.0}},
+    ):
+        metrics = {"Revenue": segments}
+        assert _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+            metrics,
+            source_facts=(),
+            derivations_out=[],
+        ) == metrics
 
 
 def test_pbi_promise_adjusted_ebit_and_eps_progress_are_source_backed() -> None:

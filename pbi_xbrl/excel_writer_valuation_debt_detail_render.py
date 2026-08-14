@@ -7,6 +7,11 @@ from typing import Any, MutableMapping, Optional
 import pandas as pd
 from openpyxl.styles import Alignment
 
+from .debt_detail_lineage import (
+    DebtDetailLineageDisposition,
+    normalize_debt_detail_lineage_dispositions,
+    require_debt_detail_lineage_disposition,
+)
 from .post_quarter_capital_events import apply_pbi_current_debt_overlay
 
 
@@ -75,6 +80,7 @@ def render_valuation_debt_detail(
     r = int(_rt_get("r"))
     section_fill = _rt_get("section_fill")
     slides_debt = _rt_get("slides_debt")
+    ticker = _rt_get("ticker")
     total_debt_map = _rt_get("total_debt_map")
     ws = _rt_get("ws")
 
@@ -166,11 +172,13 @@ def render_valuation_debt_detail(
             source_backed_debt_rows = _source_backed_debt_tranches_from_slides(
                 slides_debt,
                 qs[-1] if qs else None,
+                ticker,
             )
             if not source_backed_debt_rows.empty:
                 df = source_backed_debt_rows.copy()
         if pbi_event is not None:
             df = apply_pbi_current_debt_overlay(df, pbi_event)
+        df = normalize_debt_detail_lineage_dispositions(df)
         sum_listed_principal = 0.0
         near_term = 0.0
         carrying_total_m = None
@@ -290,7 +298,16 @@ def render_valuation_debt_detail(
             max_rows = 14
             if len(df) > max_rows:
                 df = df.head(max_rows)
-            for _, row in df.iterrows():
+            for row_index, row in df.iterrows():
+                lineage_disposition = require_debt_detail_lineage_disposition(
+                    row,
+                    row_identity=(
+                        f"row={row_index};instrument="
+                        f"{_safe_text_value(row.get('tranche_name')) or 'unknown'}"
+                    ),
+                )
+                if lineage_disposition is DebtDetailLineageDisposition.INVALID:
+                    continue
                 ws.cell(row=r, column=1, value=row.get("tranche_name"))
                 amt_pr = pd.to_numeric(row.get("amount_principal", row.get("amount")), errors="coerce")
                 amt_ca = pd.to_numeric(row.get("amount_carrying"), errors="coerce")
@@ -357,10 +374,25 @@ def render_valuation_debt_detail(
                         default="Debt_Tranches_Latest",
                     ),
                 )
+                lineage_comment_parts = []
+                if lineage_disposition is DebtDetailLineageDisposition.VALID:
+                    lineage_comment_parts = [
+                        "Source-backed debt projection",
+                        f"Economic ID: {_safe_text_value(row.get('economic_id'))}",
+                        f"Source document: {_safe_text_value(row.get('source_document_name'))}",
+                        f"Document ID: {_safe_text_value(row.get('source_document_id'))}",
+                        f"Occurrence ID: {_safe_text_value(row.get('source_occurrence_id'))}",
+                        f"Locator: {_safe_text_value(row.get('source_locator'))}",
+                        f"Reporting date: {_safe_text_value(row.get('reporting_date'))}",
+                        f"Metric: {_safe_text_value(row.get('metric_id'))}",
+                        f"Status: {_safe_text_value(row.get('value_status'))}",
+                    ]
                 row_conv_note = _safe_text_value(row.get("conversion_terms_note"))
-                if (pd.notna(conv_price) or pd.notna(conv_shares)) and row_conv_note:
+                if lineage_comment_parts or ((pd.notna(conv_price) or pd.notna(conv_shares)) and row_conv_note):
                     try:
-                        comment_parts = [row_conv_note]
+                        comment_parts = list(lineage_comment_parts)
+                        if row_conv_note:
+                            comment_parts.append(row_conv_note)
                         if pd.notna(pd.to_numeric(row.get("concurrent_repurchase_amount"), errors="coerce")):
                             comment_parts.append(
                                 f"Concurrent repurchase: ${float(pd.to_numeric(row.get('concurrent_repurchase_amount'), errors='coerce'))/1e6:,.1f}m"
@@ -378,7 +410,7 @@ def render_valuation_debt_detail(
                         _set_cell_comment_local(
                             ws.cell(row=r, column=17),
                             "\n".join([x for x in comment_parts if x])
-                            + f"\n\nSource: {_safe_text_value(row.get('conversion_terms_source')) or _safe_text_value(row.get('source_kind'))}",
+                            + f"\n\nSource: {_safe_text_value(row.get('conversion_terms_source')) or _safe_text_value(row.get('source_document_name')) or _safe_text_value(row.get('source_kind'))}",
                         )
                     except Exception:
                         pass

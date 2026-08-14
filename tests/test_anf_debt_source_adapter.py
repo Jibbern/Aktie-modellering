@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import hashlib
 import json
 import re
@@ -8,18 +9,31 @@ import shutil
 from pathlib import Path
 
 import pytest
+import pandas as pd
 
 import pbi_xbrl.anf_debt_source_adapter as debt_adapter
 from pbi_xbrl.anf_debt_source_adapter import (
+    ANF_DEBT_EVIDENCE_ADAPTER_ID,
     DebtSourceFactMissing,
     _abl_subsection,
     _borrowings_note,
     _context_dates,
     _ix_amount_fact,
     _soup,
+    anf_debt_extraction_to_legacy_revolver_history,
+    build_anf_legacy_revolver_history,
     build_anf_debt_collections,
     parse_anf_debt_filing,
 )
+from pbi_xbrl.company_profiles import get_company_profile
+import pbi_xbrl.debt_source_registry as debt_source_registry
+from pbi_xbrl.debt_source_registry import (
+    DebtEvidenceAdapter,
+    DebtEvidenceRoutingError,
+    merge_source_native_revolver_history,
+    resolve_profile_debt_revolver_history,
+)
+from pbi_xbrl.debt_sheet_visibility import DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR
 from pbi_xbrl.new_ticker_debt_scope import (
     DebtResolutionError,
     resolve_debt_facilities,
@@ -634,3 +648,139 @@ def test_anf_adapter_is_local_only_and_does_not_use_items_zero_selection() -> No
     assert "requests" not in source
     assert "urlopen" not in source
     assert "httpx" not in source
+
+
+def test_anf_legacy_bridge_preserves_exact_usd_values_and_per_field_lineage(extraction) -> None:
+    history = anf_debt_extraction_to_legacy_revolver_history(extraction)
+    assert len(history) == 13
+    jan = history.loc[history["quarter"].eq(pd.Timestamp("2026-01-31"))].iloc[0]
+    may = history.loc[history["quarter"].eq(pd.Timestamp("2026-05-02"))].iloc[0]
+    assert (
+        jan["revolver_commitment"],
+        jan["revolver_facility_size"],
+        jan["revolver_drawn"],
+        jan["revolver_letters_of_credit"],
+        jan["revolver_availability"],
+    ) == (500_000_000.0, 500_000_000.0, 0.0, 454_000.0, 449_546_000.0)
+    assert (
+        may["revolver_commitment"],
+        may["revolver_facility_size"],
+        may["revolver_drawn"],
+        may["revolver_letters_of_credit"],
+        may["revolver_availability"],
+    ) == (500_000_000.0, 500_000_000.0, 0.0, 469_000.0, 449_531_000.0)
+    assert may["source_document_accession"] == "0001018840-26-000036"
+    assert may["source_document_sha256"] == _sha256(MAY_SOURCE)
+    assert "key=sec-accession-0001018840-26-000036" in may["source_document_id"]
+    assert may["publication_date"] == "2026-06-05"
+    assert may["commitment_source_type"] == "text"
+    assert may["facility_source_type"] == "table"
+    assert may["drawn_source_type"] == "text"
+    assert may["lc_source_type"] == "table"
+    assert may["availability_source_type"] == "table"
+    assert may["commitment_evidence_classification"] == "source_backed_fact"
+    assert may["availability_evidence_classification"] == "source_backed_fact"
+    assert may["liquidity_evidence_classification"] == "source_backed_calculation"
+    assert may["drawn_status"] == "reported_zero"
+    validation = history.attrs[DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR]
+    assert validation.passed
+    assert validation.subject_ids == ("anf_abl_facility",)
+    assert validation.as_of_date == "2026-05-02"
+
+
+def test_anf_full_local_legacy_builder_resolves_complete_current_evidence() -> None:
+    history = build_anf_legacy_revolver_history(SEC_CACHE)
+    assert list(history["quarter"].dt.strftime("%Y-%m-%d")) == list(
+        debt_adapter.ANF_EXPECTED_ABL_PERIODS
+    )
+    latest = history.iloc[-1]
+    assert latest["revolver_letters_of_credit"] == 469_000.0
+    assert latest["revolver_availability"] == 449_531_000.0
+    assert history.attrs[DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR].passed
+
+
+def test_profile_owned_debt_adapter_isolated_from_other_and_unknown_tickers(extraction) -> None:
+    history = anf_debt_extraction_to_legacy_revolver_history(extraction)
+    adapter = DebtEvidenceAdapter(ANF_DEBT_EVIDENCE_ADAPTER_ID, lambda _root: history.copy())
+    assert get_company_profile("ANF").debt_evidence_adapter_id == ANF_DEBT_EVIDENCE_ADAPTER_ID
+    resolved = resolve_profile_debt_revolver_history(
+        ticker="ANF", cache_root=SEC_CACHE, adapters=(adapter,)
+    )
+    assert len(resolved) == 13
+    for ticker in ("PBI", "GPRE", "FRESHCO"):
+        assert get_company_profile(ticker).debt_evidence_adapter_id == ""
+        assert resolve_profile_debt_revolver_history(
+            ticker=ticker, cache_root=SEC_CACHE, adapters=(adapter,)
+        ).empty
+
+
+def test_unknown_and_duplicate_debt_adapter_ownership_fail_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    unknown_profile = dataclasses.replace(
+        get_company_profile("ANF"), debt_evidence_adapter_id="debt-source-adapter:unknown@1"
+    )
+    monkeypatch.setattr(debt_source_registry, "get_company_profile", lambda _ticker: unknown_profile)
+    with pytest.raises(DebtEvidenceRoutingError, match="unknown debt evidence adapter"):
+        resolve_profile_debt_revolver_history(ticker="ANF", cache_root=tmp_path)
+
+    duplicate = DebtEvidenceAdapter(ANF_DEBT_EVIDENCE_ADAPTER_ID, lambda _root: pd.DataFrame())
+    with pytest.raises(DebtEvidenceRoutingError, match="Duplicate debt evidence adapter"):
+        resolve_profile_debt_revolver_history(
+            ticker="ANF",
+            cache_root=tmp_path,
+            adapters=(duplicate, duplicate),
+        )
+
+
+def test_source_native_revolver_merge_is_order_independent_and_preserves_validation(extraction) -> None:
+    overlay = anf_debt_extraction_to_legacy_revolver_history(extraction)
+    base = pd.DataFrame(
+        [
+            {
+                "quarter": pd.Timestamp("2026-01-31"),
+                "revolver_commitment": 1.0,
+                "revolver_availability": 2.0,
+                "unrelated_direct_metric": 7.0,
+            },
+            {
+                "quarter": pd.Timestamp("2022-12-31"),
+                "revolver_commitment": 300_000_000.0,
+                "unrelated_direct_metric": 8.0,
+            },
+        ]
+    )
+    forward = merge_source_native_revolver_history(base, overlay)
+    reverse_overlay = overlay.iloc[::-1].copy()
+    reverse_overlay.attrs.update(overlay.attrs)
+    reverse = merge_source_native_revolver_history(base, reverse_overlay)
+    pd.testing.assert_frame_equal(forward, reverse)
+    jan = forward.loc[forward["quarter"].eq(pd.Timestamp("2026-01-31"))].iloc[0]
+    assert jan["revolver_commitment"] == 500_000_000.0
+    assert jan["revolver_availability"] == 449_546_000.0
+    assert jan["unrelated_direct_metric"] == 7.0
+    assert forward.attrs[DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR].passed
+
+
+def test_generic_runtime_contains_no_anf_abl_literal_or_missing_to_zero_fallback() -> None:
+    sources = {
+        path.name: path.read_text(encoding="utf-8")
+        for path in (
+            ROOT / "pbi_xbrl" / "pipeline_orchestration.py",
+            ROOT / "pbi_xbrl" / "excel_writer_core.py",
+            ROOT / "pbi_xbrl" / "excel_writer_valuation_history_grid_render.py",
+        )
+    }
+    joined = "\n".join(sources.values())
+    for forbidden in (
+        "anf_abl_row",
+        "anf_abl_q",
+        "449_546_000.0",
+        "454_000.0",
+        'debt_core_map[q] = 0.0',
+        '"10-K debt note"',
+    ):
+        assert forbidden not in joined
+    assert "resolve_profile_debt_revolver_history" in sources["pipeline_orchestration.py"]
+    assert "merge_source_native_revolver_history" in sources["pipeline_orchestration.py"]

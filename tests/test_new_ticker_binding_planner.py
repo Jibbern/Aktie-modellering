@@ -365,7 +365,8 @@ def test_planner_is_json_only_and_does_not_import_excel_io() -> None:
 
 
 def test_real_contract_plans_cross_module_business_flows_to_exact_cells() -> None:
-    plan = _plan()
+    package = _package()
+    plan = _plan(package)
 
     assert plan.status == "PASS", [issue.to_dict() for issue in plan.issues]
     writes = _writes(plan)
@@ -469,14 +470,55 @@ def test_real_contract_plans_cross_module_business_flows_to_exact_cells() -> Non
         assert writes[("Valuation", f"E{row}")].value == status
         assert writes[("Valuation", f"F{row}")].value == "synthetic_fixture:debt_liquidity"
         assert writes[("Valuation", f"F{row}")].source_ref == "synthetic_fixture:debt_liquidity"
-    assert writes[("Valuation", "D202")].value == 76.2
-    assert writes[("Valuation", "D202")].normalized_path == "valuation_inputs.operating_cash_flow_ttm"
-    assert writes[("Valuation", "D195")].value == "2026-03-31"
-    assert writes[("Valuation", "D196")].value == 42.0
-    assert writes[("Valuation", "D197")].value == 42.3
-    assert writes[("Valuation", "D198")].value == 70.0
-    assert writes[("Valuation", "D200")].value == 101.4
-    assert writes[("Valuation", "D203")].value == 470.8
+    # B2 retired the duplicate Valuation input display.  The normalized package is
+    # now the canonical owner, and the planner must preserve those exact semantics
+    # without recreating writes into the retired layout.
+    expected_valuation_inputs = {
+        "as_of_date": "2026-03-31",
+        "shares_outstanding": 42.0,
+        "diluted_shares": 42.3,
+        "net_debt": 70.0,
+        "adjusted_ebitda_ttm": 101.4,
+        "operating_cash_flow_ttm": 76.2,
+        "revenue_ttm": 470.8,
+    }
+    for field_name, expected_value in expected_valuation_inputs.items():
+        field = package["valuation_inputs"][field_name]
+        assert field["value"] == expected_value
+        assert field["status"] == "populated"
+        assert field["source_ref"] == "synthetic_fixture:valuation_inputs"
+
+    retired_valuation_binding_ids = {
+        "valuation_input_as_of",
+        "valuation_input_shares_outstanding",
+        "valuation_input_diluted_shares",
+        "valuation_input_net_debt",
+        "valuation_input_base_ebitda_ttm",
+        "valuation_input_adjusted_ebitda_ttm",
+        "valuation_input_fcf_ttm",
+        "valuation_input_operating_cash_flow_ttm",
+        "valuation_input_revenue_ttm",
+        "valuation_input_eps_ttm",
+        "valuation_input_adjusted_eps_ttm",
+        "valuation_input_book_value_per_share",
+        "valuation_input_tangible_book_value_per_share",
+        "valuation_input_capex_ttm",
+        "valuation_input_interest_paid_ttm",
+        "valuation_input_net_income_ttm",
+    }
+    assert retired_valuation_binding_ids.isdisjoint(
+        write.binding_id for write in plan.planned_writes
+    )
+    retired_exact_cells = {
+        ("Valuation", "D195"),
+        ("Valuation", "D196"),
+        ("Valuation", "D197"),
+        ("Valuation", "D198"),
+        ("Valuation", "D200"),
+        ("Valuation", "D202"),
+        ("Valuation", "D203"),
+    }
+    assert retired_exact_cells.isdisjoint(writes)
 
     assert len(writes) == len(plan.planned_writes)
     assert all(write.binding_id and write.normalized_path and write.row_key for write in plan.planned_writes)

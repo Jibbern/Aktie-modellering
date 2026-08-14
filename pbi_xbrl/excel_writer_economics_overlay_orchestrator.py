@@ -75,6 +75,7 @@ class EconomicsOverlayOrchestratorDeps:
     header_size: Any
     info_log: Any
     is_gpre_profile: Any
+    derivative_crush_tests_owned: Any
     is_pbi_profile: Any
     load_or_download_gpre_corn_bids_snapshot: Any
     market_build_gpre_proxy_implied_results_bundle: Any
@@ -165,6 +166,7 @@ def write_economics_overlay_sheet(
     header_size = deps.header_size
     info_log = deps.info_log
     is_gpre_profile = deps.is_gpre_profile
+    derivative_crush_tests_owned = bool(deps.derivative_crush_tests_owned)
     is_pbi_profile = deps.is_pbi_profile
     load_or_download_gpre_corn_bids_snapshot = deps.load_or_download_gpre_corn_bids_snapshot
     market_build_gpre_proxy_implied_results_bundle = deps.market_build_gpre_proxy_implied_results_bundle
@@ -1576,8 +1578,7 @@ def write_economics_overlay_sheet(
 
     write_gpre_derivative_crush_tests_side_effect(
         GpreEconomicsOverlayDerivativeSideEffectDeps(
-            is_gpre_profile=is_gpre_profile,
-            is_pbi_profile=is_pbi_profile,
+            runtime_sheet_owned=derivative_crush_tests_owned,
             derivative_oci_bridge_df=derivative_oci_bridge_df,
             derivative_oci_exposure_df=derivative_oci_exposure_df,
             operating_driver_history_rows=operating_driver_history_rows,

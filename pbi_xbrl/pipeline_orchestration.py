@@ -11,19 +11,74 @@ import datetime as dt
 import hashlib
 import json
 import re
+import warnings
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 try:  # optional in tests, available in the project environment
-    from bs4 import BeautifulSoup
+    from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 except Exception:  # pragma: no cover - dependency guard
     BeautifulSoup = None
+    XMLParsedAsHTMLWarning = Warning
 
+from .adjusted_metric_history import (
+    load_registered_issuer_recast_adjusted_metric_history,
+)
+from .cache_semantics import (
+    ADJUSTED_METRIC_HISTORY_SELECTION_VERSION,
+    ADJUSTED_METRIC_UNIT_NORMALIZATION_VERSION,
+    COMPANY_OVERVIEW_BEHAVIOR_VERSION,
+    DEBT_CREDIT_NOTES_STAGE_VERSION,
+    DEBT_RATE_SEMANTIC_OWNERSHIP_VERSION,
+    DEBT_SCHEDULE_STAGE_VERSION,
+    DEBT_TABLE_PERIOD_OWNERSHIP_VERSION,
+    DEBT_TRANCHES_STAGE_VERSION,
+    DOC_INTEL_BEHAVIOR_VERSION,
+    DOC_TEXT_EXTRACTOR_VERSION,
+    FINANCIAL_STATEMENT_DOCUMENT_PERIOD_VERSION,
+    GAAP_HISTORY_STAGE_VERSION,
+    INLINE_XBRL_FACT_TEXT_VERSION,
+    LOCAL_NON_GAAP_FALLBACK_VERSION,
+    LOCAL_NON_GAAP_PDF_MANIFEST_VERSION,
+    LOCAL_NON_GAAP_PDF_PAGE_CACHE_VERSION,
+    NON_GAAP_ADJUSTMENT_DOMAIN_VERSION,
+    PIPELINE_STAGE_CACHE_VERSION,
+    REVOLVER_STAGE_VERSION,
+    TIER3_NON_GAAP_STAGE_VERSION,
+    build_cache_identity,
+    content_file_set_identity,
+    file_content_sha256,
+    module_content_identity,
+    sec_cache_source_identity,
+)
 from .debt_parser import build_debt_schedule_tier2, build_debt_tranches_tier2, coerce_number
+from .debt_rate_semantics import (
+    DEBT_RATE_OWNERSHIP_CONTRACT_ID,
+    DebtRateAuthority,
+    DebtRateConflictError,
+    DebtRateFactCandidate,
+    DebtRateOwnershipError,
+    DebtRateRole,
+    classify_debt_rate_concept,
+    display_coupon_rate,
+    resolve_debt_rate_facts,
+    select_debt_detail_rate,
+)
+from .debt_source_registry import (
+    merge_source_native_revolver_history,
+    resolve_profile_debt_revolver_history,
+)
+from .debt_sheet_visibility import mark_debt_profile_readiness
+from .new_ticker_debt_scope import (
+    DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR,
+    DebtProfileEconomicValidationResult,
+    validate_resolved_debt_facility_for_profile,
+)
 from .doc_intel import build_doc_intel_outputs, extract_pdf_text_cached, validate_quarter_notes
 from .legacy_support import (
-    PIPELINE_STAGE_CACHE_VERSION,
     _coerce_prev_quarter_end,
     build_bridge_q,
     build_company_overview,
@@ -41,11 +96,22 @@ from .legacy_support import (
     compute_long_term_debt_instant,
     compute_total_debt_instant,
 )
+from .inline_xbrl_text import (
+    InlineXbrlContinuationError,
+    reconstruct_inline_xbrl_fact_text,
+)
 from .metrics import GAAP_SPECS, MetricSpec
-from .non_gaap import build_non_gaap_tier3, infer_quarter_end_from_text, parse_adjusted_from_ex99, parse_adjusted_from_plain_text, strip_html
+from .non_gaap import (
+    build_non_gaap_tier3,
+    infer_quarter_end_from_text,
+    parse_adjusted_from_ex99,
+    parse_adjusted_from_plain_text,
+    strip_html,
+)
 from .period_resolver import _duration_days, _filter_unit, classify_duration, pick_best_instant, self_check_period_logic
 from .pdf_utils import silence_pdfminer_warnings
 from .sec_xbrl import SecClient, SecConfig, cik10_from_int, cik_from_ticker, companyfacts_to_df, parse_date
+from .sec_ingest import parse_financial_statement_canonical_identity
 from .validators import info_log_from_audit, needs_review_from_audit, validate_debt_tieout, validate_history
 from .cache_layout import preferred_ticker_cache_root_from_base_dir
 from .conference_metadata import is_structured_metadata_path, metadata_source_file, parse_metadata_key_values
@@ -69,26 +135,51 @@ from .pipeline_types import PipelineArtifacts, PipelineConfig
 from .source_material_refresh import _looks_preliminary_results_guidance_update
 
 
-LOCAL_NON_GAAP_FALLBACK_VERSION = 32
-LOCAL_NON_GAAP_PDF_PAGE_CACHE_VERSION = 1
-DOC_INTEL_BEHAVIOR_VERSION = "v19_anf_operating_loss_non_gaap"
-COMPANY_OVERVIEW_BEHAVIOR_VERSION = "v9_anf_summary_sanitize"
+FINANCIAL_STATEMENT_DOCUMENT_PERIOD_CONTRACT_ID = "contract:financial-statement-document-period@1"
 
 
 def _module_code_signature(*relative_names: str) -> str:
-    rows: List[str] = []
     base_dir = Path(__file__).resolve().parent
-    for rel_name in relative_names:
-        try:
-            mod_path = (base_dir / rel_name).resolve()
-            st = mod_path.stat()
-            rows.append(f"{mod_path.name}:{int(st.st_size)}:{int(st.st_mtime)}")
-        except Exception:
-            rows.append(f"{Path(rel_name).name}:missing")
-    if not rows:
-        return "none"
-    return hashlib.sha1("||".join(rows).encode("utf-8", errors="ignore")).hexdigest()
+    return module_content_identity(
+        base_dir,
+        relative_names,
+        contract_id="pipeline-stage-code",
+    )
+
+
+def _stage_cache_key(stage_name: str, payload: Dict[str, Any], *, required_fields: Tuple[str, ...] = ()) -> str:
+    return build_cache_identity(
+        f"pipeline-stage:{str(stage_name or '').strip()}",
+        payload,
+        required_fields=required_fields,
+    ).key
+
+
 LOCAL_NON_GAAP_CANONICAL_METRICS: Tuple[str, ...] = ("adj_ebitda", "adj_ebit", "adj_eps", "adj_fcf")
+
+
+def _tier3_non_gaap_stage_cache_key(
+    *,
+    sec_source_identity: str,
+    submissions_signature: str,
+    mode_name: str,
+    max_quarters: int,
+) -> str:
+    return _stage_cache_key(
+        "tier3_non_gaap",
+        {
+            "code_identity": _module_code_signature("non_gaap.py"),
+            "configuration": {"max_quarters": int(max_quarters), "mode": str(mode_name)},
+            "semantic_versions": {
+                "adjustment_domain": NON_GAAP_ADJUSTMENT_DOMAIN_VERSION,
+                "stage": TIER3_NON_GAAP_STAGE_VERSION,
+                "unit_norm": ADJUSTED_METRIC_UNIT_NORMALIZATION_VERSION,
+            },
+            "sec_source_identity": str(sec_source_identity),
+            "submissions_identity": str(submissions_signature),
+        },
+        required_fields=("code_identity", "sec_source_identity", "submissions_identity"),
+    )
 
 
 def _local_non_gaap_page_scores(text: str) -> Dict[str, int]:
@@ -268,11 +359,15 @@ def _parse_local_non_gaap_segment_rows_from_text(
     for line in lines_3m:
         low = line.lower()
         segment = ""
+        is_independent_revenue_total = bool(
+            "business segment revenue" in page_low
+            and re.match(r"^total\s+revenue\b", low)
+        )
         if "sending technology" in low or re.search(r"\bsendtech\b", low):
             segment = "SendTech Solutions"
         elif "presort" in low:
             segment = "Presort Services"
-        elif "total reportable" in low:
+        elif "total reportable" in low or is_independent_revenue_total:
             segment = "Total reportable segments"
         elif re.match(r"^americas\b", low):
             segment = "Americas"
@@ -317,20 +412,22 @@ def _parse_local_non_gaap_segment_rows_from_text(
                     }
                 )
             continue
-        if is_revenue_schedule and segment != "Total reportable segments":
+        if is_revenue_schedule:
             picked = _pick_local_non_gaap_values_by_year(values, years, q_end, 1)
             if picked:
-                rows.append(
-                    {
-                        "quarter": q_end,
-                        "segment": segment,
-                        "metric": "revenue",
-                        "value": picked[0],
-                        "unit": "USD",
-                        "period_type": period_type,
-                        "source_period_label": period_type,
-                    }
-                )
+                row = {
+                    "quarter": q_end,
+                    "segment": segment,
+                    "metric": "revenue",
+                    "value": picked[0],
+                    "unit": "USD",
+                    "period_type": period_type,
+                    "source_period_label": period_type,
+                }
+                if is_independent_revenue_total:
+                    row["is_table_total"] = True
+                    row["evidence_role"] = "independent_table_total"
+                rows.append(row)
             continue
 
         picked3 = _pick_local_non_gaap_values_by_year(values, years, q_end, 3)
@@ -509,19 +606,1199 @@ def _drop_financial_statement_debt_rows_covered_by_slides(df: pd.DataFrame) -> p
     return trimmed.reset_index(drop=True)
 
 
+FINANCIAL_STATEMENT_DEBT_ROW_CONTRACT_ID = "contract:financial-statement-debt-table-row@1"
+DEBT_FACT_PERIOD_OWNERSHIP_CONTRACT_ID = "contract:debt-fact-period-ownership@1"
+class FinancialStatementDocumentPeriodError(ValueError):
+    """Raised when a filing has no unique document-level reporting identity."""
+
+
+@dataclass(frozen=True)
+class FinancialStatementDocumentPeriodCandidate:
+    source: str
+    reporting_date: dt.date
+    form: Optional[str] = None
+    detail: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class FinancialStatementDocumentPeriod:
+    contract_id: str
+    version: str
+    reporting_date: dt.date
+    form: Optional[str]
+    ticker: Optional[str]
+    selected_authority: str
+    candidates: Tuple[FinancialStatementDocumentPeriodCandidate, ...]
+
+
+def _base_financial_statement_form(value: Any) -> Optional[str]:
+    text = str(value or "").strip().upper().replace(" ", "")
+    if text in {"10-K", "10-K/A", "10K", "10K/A"}:
+        return "10-K"
+    if text in {"10-Q", "10-Q/A", "10Q", "10Q/A"}:
+        return "10-Q"
+    return None
+
+
+def _document_period_date(value: Any) -> Optional[dt.date]:
+    text = re.sub(r"\s+,", ",", str(value or "").strip())
+    if not text:
+        return None
+    month_name = (
+        r"(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+        r"Jul(?:y)?|Aug(?:ust)?|Sep(?:tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)"
+    )
+    complete_patterns = (
+        rf"{month_name}\s+\d{{1,2}}(?:st|nd|rd|th)?\s*,?\s*\d{{4}}",
+        rf"\d{{1,2}}(?:st|nd|rd|th)?\s+{month_name}\s*,?\s*\d{{4}}",
+        r"\d{4}[-/.]\d{1,2}[-/.]\d{1,2}",
+        r"\d{1,2}[-/.]\d{1,2}[-/.]\d{4}",
+        r"\d{8}",
+    )
+    if not any(re.fullmatch(pattern, text, re.I) for pattern in complete_patterns):
+        return None
+    parsed = pd.to_datetime(text, errors="coerce")
+    if pd.isna(parsed):
+        return None
+    return pd.Timestamp(parsed).date()
+
+
+def _matching_registered_statement_rows(path: Path) -> List[Dict[str, Any]]:
+    rows: List[Dict[str, Any]] = []
+    manifest_paths = sorted(path.parent.glob("*_financial_statement_manifest.csv"), key=lambda item: item.name.lower())
+    for manifest_path in manifest_paths:
+        try:
+            manifest = pd.read_csv(manifest_path, dtype=object)
+        except Exception as exc:
+            raise FinancialStatementDocumentPeriodError(
+                f"cannot read financial-statement registration manifest {manifest_path}: {exc}"
+            ) from exc
+        for row in manifest.to_dict("records"):
+            materialized = Path(str(row.get("materialized_path") or ""))
+            if materialized.name != path.name:
+                continue
+            row_out = dict(row)
+            row_out["_manifest_path"] = str(manifest_path)
+            rows.append(row_out)
+    return rows
+
+
+def _inline_xbrl_document_identity(path: Path) -> Dict[str, Any]:
+    if path.suffix.lower() not in {".htm", ".html"}:
+        return {}
+    if BeautifulSoup is None:
+        raise FinancialStatementDocumentPeriodError(
+            f"inline-XBRL document identity cannot be validated without BeautifulSoup: {path}"
+        )
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", XMLParsedAsHTMLWarning)
+            soup = BeautifulSoup(path.read_bytes(), "lxml")
+    except Exception as exc:
+        raise FinancialStatementDocumentPeriodError(
+            f"cannot parse inline-XBRL document identity from {path}: {exc}"
+        ) from exc
+
+    def _values(name: str) -> List[Tuple[str, Optional[str]]]:
+        found: List[Tuple[str, Optional[str]]] = []
+        for tag in soup.find_all(attrs={"name": re.compile(rf"^{re.escape(name)}$", re.I)}):
+            try:
+                value = reconstruct_inline_xbrl_fact_text(soup, tag).text
+            except InlineXbrlContinuationError as exc:
+                raise FinancialStatementDocumentPeriodError(
+                    f"cannot reconstruct inline-XBRL fact {tag.get('id')!r} in {path}: "
+                    f"{exc.code}: {exc}"
+                ) from exc
+            if value:
+                found.append((value, str(tag.get("contextref") or "").strip() or None))
+        return found
+
+    period_values = _values("dei:DocumentPeriodEndDate")
+    parsed_periods = {
+        parsed
+        for value, _context in period_values
+        for parsed in [_document_period_date(value)]
+        if parsed is not None
+    }
+    if len(parsed_periods) > 1:
+        raise FinancialStatementDocumentPeriodError(
+            f"conflicting inline-XBRL DocumentPeriodEndDate values in {path}: "
+            f"{sorted(value.isoformat() for value in parsed_periods)}"
+        )
+    raw_document_types = sorted({value.strip().upper() for value, _context in _values("dei:DocumentType")})
+    document_types = {
+        form
+        for value in raw_document_types
+        for form in [_base_financial_statement_form(value)]
+        if form is not None
+    }
+    if len(document_types) > 1:
+        raise FinancialStatementDocumentPeriodError(
+            f"conflicting inline-XBRL DocumentType values in {path}: {sorted(document_types)}"
+        )
+    fiscal_years = sorted({value for value, _context in _values("dei:DocumentFiscalYearFocus")})
+    fiscal_periods = sorted({value.upper() for value, _context in _values("dei:DocumentFiscalPeriodFocus")})
+    return {
+        "reporting_date": next(iter(parsed_periods), None),
+        "form": next(iter(document_types), None),
+        "raw_document_types": raw_document_types,
+        "period_contexts": sorted({context for _value, context in period_values if context}),
+        "fiscal_years": fiscal_years,
+        "fiscal_periods": fiscal_periods,
+    }
+
+
+def resolve_financial_statement_document_period(path: Path) -> FinancialStatementDocumentPeriod:
+    """Resolve document identity without borrowing periods from internal tables.
+
+    Registered manifest metadata is the highest authority.  Inline-XBRL DEI
+    document metadata is next, followed by the canonical filename generated by
+    the SEC materializer.  All available document-level authorities must agree;
+    table, fact, narrative, and physical-column periods are deliberately outside
+    this resolver and remain owned by their respective parsers.
+    """
+
+    source_path = Path(path)
+    candidates: List[FinancialStatementDocumentPeriodCandidate] = []
+    ticker: Optional[str] = None
+
+    manifest_rows = _matching_registered_statement_rows(source_path)
+    manifest_identities = {
+        (
+            _document_period_date(row.get("reportDate")),
+            _base_financial_statement_form(row.get("form")),
+            str(row.get("ticker") or "").strip().upper() or None,
+        )
+        for row in manifest_rows
+        if _document_period_date(row.get("reportDate")) is not None
+    }
+    if len(manifest_identities) > 1:
+        raise FinancialStatementDocumentPeriodError(
+            f"conflicting registered financial-statement identities for {source_path}: "
+            f"{sorted((date.isoformat(), form, tkr) for date, form, tkr in manifest_identities)}"
+        )
+    if manifest_identities:
+        manifest_date, manifest_form, manifest_ticker = next(iter(manifest_identities))
+        ticker = manifest_ticker
+        candidates.append(
+            FinancialStatementDocumentPeriodCandidate(
+                source="registered_manifest",
+                reporting_date=manifest_date,
+                form=manifest_form,
+                detail=str(manifest_rows[0].get("_manifest_path") or ""),
+            )
+        )
+
+    try:
+        filename_identity = parse_financial_statement_canonical_identity(source_path.name)
+    except ValueError as exc:
+        raise FinancialStatementDocumentPeriodError(str(exc)) from exc
+    if filename_identity is not None:
+        ticker = ticker or filename_identity.ticker
+        candidates.append(
+            FinancialStatementDocumentPeriodCandidate(
+                source="registered_canonical_filename",
+                reporting_date=filename_identity.reporting_date,
+                form=filename_identity.form,
+                detail=filename_identity.period_label,
+            )
+        )
+
+    inline_identity = _inline_xbrl_document_identity(source_path)
+    inline_date = inline_identity.get("reporting_date")
+    inline_form = inline_identity.get("form")
+    if inline_identity.get("raw_document_types") and inline_form is None:
+        raise FinancialStatementDocumentPeriodError(
+            f"unsupported inline-XBRL DocumentType for financial-statement routing in "
+            f"{source_path}: {inline_identity['raw_document_types']}"
+        )
+    if inline_date is not None:
+        detail_parts = []
+        if inline_identity.get("period_contexts"):
+            detail_parts.append("contexts=" + ",".join(inline_identity["period_contexts"]))
+        if inline_identity.get("fiscal_years"):
+            detail_parts.append("fiscal_year=" + ",".join(inline_identity["fiscal_years"]))
+        if inline_identity.get("fiscal_periods"):
+            detail_parts.append("fiscal_period=" + ",".join(inline_identity["fiscal_periods"]))
+        candidates.append(
+            FinancialStatementDocumentPeriodCandidate(
+                source="inline_xbrl_dei",
+                reporting_date=inline_date,
+                form=inline_form,
+                detail=";".join(detail_parts) or None,
+            )
+        )
+
+    if not candidates:
+        raise FinancialStatementDocumentPeriodError(
+            f"no registered or inline-XBRL document reporting identity for {source_path}"
+        )
+    distinct_dates = {candidate.reporting_date for candidate in candidates}
+    if len(distinct_dates) != 1:
+        by_source = {candidate.source: candidate.reporting_date.isoformat() for candidate in candidates}
+        raise FinancialStatementDocumentPeriodError(
+            f"conflicting document reporting periods for {source_path}: {by_source}"
+        )
+    distinct_forms = {candidate.form for candidate in candidates if candidate.form is not None}
+    if len(distinct_forms) > 1:
+        by_source = {candidate.source: candidate.form for candidate in candidates if candidate.form is not None}
+        raise FinancialStatementDocumentPeriodError(
+            f"conflicting document filing forms for {source_path}: {by_source}"
+        )
+
+    authority_order = {
+        "registered_manifest": 0,
+        "inline_xbrl_dei": 1,
+        "registered_canonical_filename": 2,
+    }
+    ordered_candidates = tuple(
+        sorted(candidates, key=lambda candidate: (authority_order[candidate.source], candidate.source))
+    )
+    selected = ordered_candidates[0]
+    return FinancialStatementDocumentPeriod(
+        contract_id=FINANCIAL_STATEMENT_DOCUMENT_PERIOD_CONTRACT_ID,
+        version=FINANCIAL_STATEMENT_DOCUMENT_PERIOD_VERSION,
+        reporting_date=selected.reporting_date,
+        form=selected.form or next(iter(distinct_forms), None),
+        ticker=ticker,
+        selected_authority=selected.source,
+        candidates=ordered_candidates,
+    )
+
+
+def is_owned_financial_statement_document(path: Path) -> bool:
+    """Return whether a local file belongs to the registered 10-Q/10-K route."""
+
+    source_path = Path(path)
+    try:
+        filename_identity = parse_financial_statement_canonical_identity(source_path.name)
+    except ValueError as exc:
+        raise FinancialStatementDocumentPeriodError(str(exc)) from exc
+    if filename_identity is not None or _matching_registered_statement_rows(source_path):
+        return True
+    inline_identity = _inline_xbrl_document_identity(source_path)
+    return bool(inline_identity.get("reporting_date") and inline_identity.get("form"))
+
+
+class DebtTablePeriodSelectionError(ValueError):
+    """Raised when a debt-table cell cannot be owned by one exact reporting period."""
+
+
+class DebtTableCellState(str, Enum):
+    REPORTED_NUMERIC = "reported_numeric"
+    EXPLICIT_ZERO = "explicit_zero"
+    NOT_APPLICABLE = "not_applicable"
+    MISSING = "missing"
+
+
+@dataclass(frozen=True)
+class FinancialStatementDebtTableRow:
+    issuer_instrument_label: str
+    reporting_date: str
+    comparative_date: str
+    amount: Optional[float]
+    comparative_amount: Optional[float]
+    selected_cell_state: DebtTableCellState
+    comparative_cell_state: DebtTableCellState
+    source_column_index: Optional[int]
+    source_column_header: str
+    period_role: str
+    rate_value: Optional[float]
+    rate_display: str
+    source_document: str
+    source_document_sha256: str
+    printed_page: Optional[int]
+    source_table_id: str
+    source_locator: str
+    source_context_id: str
+    source_member: str
+    source_fact_id: str
+    rate_context_id: str
+    rate_fact_id: str
+    rate_fact_name: str
+    rate_role: str
+    rate_authority: str
+    rate_reporting_date: str
+    rate_fact_ids: Tuple[str, ...]
+    debt_rate_facts: Tuple[Dict[str, Any], ...]
+    related_fact_ids: Tuple[str, ...]
+    currency: str
+    unit: str
+    maturity_year: Optional[int]
+    raw_selected_cell: str
+    raw_comparative_cell: str
+    period_ownership_basis: str = ""
+    context_reporting_date: str = ""
+    visual_reporting_date: str = ""
+
+    def to_record(self) -> Dict[str, Any]:
+        return {
+            "debt_table_row_contract_id": FINANCIAL_STATEMENT_DEBT_ROW_CONTRACT_ID,
+            "quarter": pd.Timestamp(self.reporting_date).date(),
+            "reporting_date": self.reporting_date,
+            "comparative_reporting_date": self.comparative_date or None,
+            "tranche": self.issuer_instrument_label,
+            "issuer_instrument_label": self.issuer_instrument_label,
+            "amount": self.amount,
+            "comparative_amount": self.comparative_amount,
+            "selected_cell_state": self.selected_cell_state.value,
+            "comparative_cell_state": self.comparative_cell_state.value,
+            "source_column_index": self.source_column_index,
+            "source_column_header": self.source_column_header,
+            "period_role": self.period_role,
+            "period_ownership_contract_id": DEBT_FACT_PERIOD_OWNERSHIP_CONTRACT_ID,
+            "period_ownership_basis": self.period_ownership_basis,
+            "context_reporting_date": self.context_reporting_date or None,
+            "visual_reporting_date": self.visual_reporting_date or None,
+            "rate_value": self.rate_value,
+            "rate_display": self.rate_display,
+            "doc": self.source_document,
+            "source_document_sha256": self.source_document_sha256,
+            "page": self.printed_page,
+            "printed_page": self.printed_page,
+            "source_table_id": self.source_table_id,
+            "source_locator": self.source_locator,
+            "source_context_id": self.source_context_id,
+            "source_member": self.source_member,
+            "source_fact_id": self.source_fact_id,
+            "rate_context_id": self.rate_context_id,
+            "rate_fact_id": self.rate_fact_id,
+            "rate_fact_name": self.rate_fact_name,
+            "rate_role": self.rate_role,
+            "rate_authority": self.rate_authority,
+            "rate_reporting_date": self.rate_reporting_date or None,
+            "rate_fact_ids": tuple(self.rate_fact_ids),
+            "debt_rate_facts": tuple(dict(item) for item in self.debt_rate_facts),
+            "rate_ownership_contract_id": DEBT_RATE_OWNERSHIP_CONTRACT_ID,
+            "related_fact_ids": tuple(self.related_fact_ids),
+            "unit": self.unit,
+            "currency": self.currency,
+            "maturity_year": self.maturity_year,
+            "is_table_total": False,
+            "asof_col_idx": self.source_column_index,
+            "asof_match_found": True,
+            "value_status": "direct_source",
+            "raw_selected_cell": self.raw_selected_cell,
+            "raw_comparative_cell": self.raw_comparative_cell,
+        }
+
+
+@dataclass(frozen=True)
+class DebtTableVisualPeriod:
+    reporting_date: dt.date
+    header_text: str
+    cell_index: int
+    grid_start: int
+    grid_end: int
+
+
+@dataclass(frozen=True)
+class DebtFactPeriodOwnership:
+    reporting_date: dt.date
+    context_id: str
+    context_member: str
+    source_column_index: Optional[int]
+    source_column_header: str
+    period_ownership_basis: str
+    visual_reporting_date: Optional[dt.date]
+
+
+def _positive_html_span(cell: Any, attribute: str) -> int:
+    raw = str(cell.get(attribute) or "1").strip()
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise DebtTablePeriodSelectionError(
+            f"Debt table cell has invalid {attribute}={raw!r}."
+        ) from exc
+    if value < 1:
+        raise DebtTablePeriodSelectionError(
+            f"Debt table cell has non-positive {attribute}={raw!r}."
+        )
+    return value
+
+
+def _debt_table_visual_periods(table: Any) -> List[DebtTableVisualPeriod]:
+    month_date = re.compile(
+        r"\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|"
+        r"Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|"
+        r"Dec(?:ember)?)\.?\s+\d{1,2},\s+20\d{2}\b",
+        re.I,
+    )
+    iso_date = re.compile(r"\b20\d{2}-\d{2}-\d{2}\b")
+    out: List[DebtTableVisualPeriod] = []
+    for tr in table.find_all("tr", recursive=False):
+        grid_start = 0
+        for cell_index, cell in enumerate(tr.find_all(["td", "th"], recursive=False)):
+            grid_end = grid_start + _positive_html_span(cell, "colspan") - 1
+            text = " ".join(cell.get_text(" ", strip=True).split())
+            for token in [*month_date.findall(text), *iso_date.findall(text)]:
+                parsed = pd.to_datetime(token, errors="coerce")
+                if pd.isna(parsed):
+                    continue
+                out.append(
+                    DebtTableVisualPeriod(
+                        reporting_date=pd.Timestamp(parsed).date(),
+                        header_text=token,
+                        cell_index=cell_index,
+                        grid_start=grid_start,
+                        grid_end=grid_end,
+                    )
+                )
+            grid_start = grid_end + 1
+    return out
+
+
+def _debt_table_date_headers(table: Any) -> List[Tuple[dt.date, str, int]]:
+    return [
+        (period.reporting_date, period.header_text, period.cell_index)
+        for period in _debt_table_visual_periods(table)
+    ]
+
+
+def _debt_table_row_cell_grid_range(tr: Any, target_cell: Any) -> Tuple[int, int]:
+    grid_start = 0
+    for cell in tr.find_all(["td", "th"], recursive=False):
+        grid_end = grid_start + _positive_html_span(cell, "colspan") - 1
+        if cell is target_cell:
+            return grid_start, grid_end
+        grid_start = grid_end + 1
+    raise DebtTablePeriodSelectionError(
+        "Inline-XBRL debt fact is not owned by a direct table-row cell."
+    )
+
+
+def _validate_debt_table_visual_periods(
+    visual_periods: List[DebtTableVisualPeriod],
+    *,
+    path_in: Path,
+) -> Dict[dt.date, DebtTableVisualPeriod]:
+    by_date: Dict[dt.date, List[DebtTableVisualPeriod]] = {}
+    for period in visual_periods:
+        by_date.setdefault(period.reporting_date, []).append(period)
+    duplicates = {
+        date_value: periods
+        for date_value, periods in by_date.items()
+        if len({(item.grid_start, item.grid_end) for item in periods}) > 1
+    }
+    if duplicates:
+        duplicate_text = ", ".join(
+            f"{date_value.isoformat()} ({len(periods)} columns)"
+            for date_value, periods in sorted(duplicates.items())
+        )
+        raise DebtTablePeriodSelectionError(
+            f"Debt table has ambiguous duplicate visual period columns in {path_in.name}: "
+            f"{duplicate_text}."
+        )
+    return {date_value: periods[0] for date_value, periods in by_date.items()}
+
+
+def _resolve_debt_fact_period_ownership(
+    fact: Any,
+    *,
+    tr: Any,
+    label: str,
+    contexts: Dict[str, Dict[str, str]],
+    visual_periods: List[DebtTableVisualPeriod],
+    visual_period_by_date: Dict[dt.date, DebtTableVisualPeriod],
+) -> DebtFactPeriodOwnership:
+    fact_id = str(fact.get("id") or "").strip()
+    context_id = str(fact.get("contextref") or "").strip()
+    context = contexts.get(context_id)
+    if not context:
+        raise DebtTablePeriodSelectionError(
+            f"Debt fact {fact_id!r} for {label!r} has no registered XBRL context."
+        )
+    context_date = pd.to_datetime(context.get("instant"), errors="coerce")
+    if pd.isna(context_date):
+        raise DebtTablePeriodSelectionError(
+            f"Debt fact {fact_id!r} for {label!r} has no resolvable instant context."
+        )
+    reporting_date = pd.Timestamp(context_date).date()
+    parent_cell = fact.find_parent(["td", "th"])
+    if parent_cell is None:
+        raise DebtTablePeriodSelectionError(
+            f"Debt fact {fact_id!r} for {label!r} is not owned by a table cell."
+        )
+    fact_grid_start, fact_grid_end = _debt_table_row_cell_grid_range(tr, parent_cell)
+    overlapping_visual = [
+        period
+        for period in visual_periods
+        if period.grid_start <= fact_grid_end and period.grid_end >= fact_grid_start
+    ]
+    visual_dates = {period.reporting_date for period in overlapping_visual}
+    if len(visual_dates) > 1:
+        raise DebtTablePeriodSelectionError(
+            f"Debt fact {fact_id!r} for {label!r} overlaps conflicting visual periods: "
+            f"{sorted(date_value.isoformat() for date_value in visual_dates)!r}."
+        )
+    visual_date = next(iter(visual_dates), None)
+    if visual_date is not None and visual_date != reporting_date:
+        raise DebtTablePeriodSelectionError(
+            f"Debt fact {fact_id!r} for {label!r} has visual period "
+            f"{visual_date.isoformat()} but XBRL context period {reporting_date.isoformat()}."
+        )
+    visual_period = visual_period_by_date.get(reporting_date)
+    if visual_date is not None and visual_period is None:
+        raise DebtTablePeriodSelectionError(
+            f"Debt fact {fact_id!r} for {label!r} has an unresolved visual period owner."
+        )
+    if visual_period is not None:
+        visual_order = sorted(
+            visual_period_by_date.values(),
+            key=lambda item: (item.grid_start, item.grid_end, item.reporting_date),
+        )
+        source_column_index: Optional[int] = visual_order.index(visual_period)
+        source_column_header = visual_period.header_text
+        period_ownership_basis = "visual_xbrl_agree"
+    else:
+        source_column_index = None
+        source_column_header = f"inline-XBRL context {reporting_date.isoformat()}"
+        period_ownership_basis = "inline_xbrl_context_fallback"
+    return DebtFactPeriodOwnership(
+        reporting_date=reporting_date,
+        context_id=context_id,
+        context_member=str(context.get("member") or "").strip(),
+        source_column_index=source_column_index,
+        source_column_header=source_column_header,
+        period_ownership_basis=period_ownership_basis,
+        visual_reporting_date=visual_date,
+    )
+
+
+def _select_semantically_unique_debt_fact(
+    owned_facts: List[Tuple[Any, DebtFactPeriodOwnership]],
+    *,
+    label: str,
+    reporting_date: dt.date,
+) -> Tuple[Optional[Any], Optional[DebtFactPeriodOwnership], Tuple[str, ...]]:
+    if not owned_facts:
+        return None, None, ()
+    semantic_groups: Dict[Tuple[Any, ...], List[Tuple[Any, DebtFactPeriodOwnership]]] = {}
+    for fact, ownership in owned_facts:
+        fact_id = str(fact.get("id") or "").strip()
+        if not fact_id:
+            raise DebtTablePeriodSelectionError(
+                f"Debt row {label!r} has a source fact without a stable fact ID."
+            )
+        value, state, _ = _inline_xbrl_fact_value(fact)
+        signature = (
+            ownership.reporting_date,
+            ownership.context_member,
+            str(fact.get("name") or "").strip().lower(),
+            str(fact.get("unitref") or "").strip().lower(),
+            state.value,
+            value,
+        )
+        semantic_groups.setdefault(signature, []).append((fact, ownership))
+    if len(semantic_groups) != 1:
+        identities = sorted(
+            str(fact.get("id") or "").strip()
+            for fact, _ in owned_facts
+        )
+        raise DebtTablePeriodSelectionError(
+            f"Debt row {label!r} has ambiguous duplicate facts for "
+            f"{reporting_date.isoformat()}: {identities!r}."
+        )
+    equivalent = next(iter(semantic_groups.values()))
+    equivalent.sort(
+        key=lambda item: (
+            item[1].context_id,
+            str(item[0].get("id") or "").strip(),
+        )
+    )
+    selected_fact, selected_ownership = equivalent[0]
+    duplicate_ids = tuple(
+        sorted(
+            str(fact.get("id") or "").strip()
+            for fact, _ in equivalent[1:]
+        )
+    )
+    return selected_fact, selected_ownership, duplicate_ids
+
+
+def _debt_table_contexts(soup: Any) -> Dict[str, Dict[str, str]]:
+    contexts: Dict[str, Dict[str, str]] = {}
+    for context in soup.find_all(
+        lambda tag: bool(
+            getattr(tag, "name", None)
+            and str(tag.name).lower().endswith(":context")
+        )
+    ):
+        context_id = str(context.get("id") or "").strip()
+        if not context_id:
+            continue
+        instant = context.find(
+            lambda tag: bool(
+                getattr(tag, "name", None)
+                and str(tag.name).lower().endswith(":instant")
+            )
+        )
+        instant_text = " ".join(instant.get_text(" ", strip=True).split()) if instant else ""
+        start = context.find(
+            lambda tag: bool(
+                getattr(tag, "name", None)
+                and str(tag.name).lower().endswith(":startdate")
+            )
+        )
+        end = context.find(
+            lambda tag: bool(
+                getattr(tag, "name", None)
+                and str(tag.name).lower().endswith(":enddate")
+            )
+        )
+        start_text = " ".join(start.get_text(" ", strip=True).split()) if start else ""
+        end_text = " ".join(end.get_text(" ", strip=True).split()) if end else ""
+        member = ""
+        scope_dimensions: List[str] = []
+        for candidate in context.find_all(
+            lambda tag: bool(
+                getattr(tag, "name", None)
+                and str(tag.name).lower().endswith(":explicitmember")
+            )
+        ):
+            dimension = str(candidate.get("dimension") or "").strip().lower()
+            member_value = " ".join(candidate.get_text(" ", strip=True).split())
+            if dimension.endswith("debtinstrumentaxis"):
+                member = member_value
+            else:
+                scope_dimensions.append(f"{dimension}={member_value}")
+        contexts[context_id] = {
+            "instant": instant_text,
+            "start": start_text,
+            "end": end_text,
+            "member": member,
+            "scope": "|".join(sorted(scope_dimensions)),
+        }
+    return contexts
+
+
+def _debt_table_printed_page(table: Any) -> Optional[int]:
+    boundary = table.find_next(
+        lambda tag: bool(
+            getattr(tag, "name", None) == "hr"
+            and "page-break-after" in str(tag.get("style") or "").lower()
+        )
+    )
+    if boundary is None:
+        return None
+    cursor = boundary.find_previous_sibling()
+    while cursor is not None:
+        text = " ".join(cursor.get_text(" ", strip=True).split())
+        if re.fullmatch(r"\d{1,4}", text):
+            return int(text)
+        cursor = cursor.find_previous_sibling()
+    return None
+
+
+def _debt_table_id(table: Any) -> str:
+    heading = table.find_previous(
+        lambda tag: bool(
+            getattr(tag, "name", None) in {"div", "span"}
+            and re.fullmatch(
+                r"\s*\d+\.\s+Debt\s*",
+                " ".join(tag.get_text(" ", strip=True).split()),
+                re.I,
+            )
+        )
+    )
+    if heading is not None:
+        heading_text = " ".join(heading.get_text(" ", strip=True).split())
+        match = re.search(r"(\d+)", heading_text)
+        if match:
+            return f"note-{match.group(1)}-debt"
+    return "debt-schedule"
+
+
+def _inline_xbrl_fact_value(fact: Any) -> Tuple[Optional[float], DebtTableCellState, str]:
+    raw = " ".join(fact.get_text(" ", strip=True).split())
+    format_id = str(fact.get("format") or "").strip().lower()
+    if format_id.endswith("fixed-zero"):
+        return 0.0, DebtTableCellState.EXPLICIT_ZERO, raw
+    if raw in {"—", "–", "-"}:
+        return None, DebtTableCellState.NOT_APPLICABLE, raw
+    value = coerce_number(raw)
+    if value is None:
+        return None, DebtTableCellState.MISSING, raw
+    try:
+        scale = int(str(fact.get("scale") or "0").strip())
+    except (TypeError, ValueError) as exc:
+        raise DebtTablePeriodSelectionError(
+            f"Debt fact {fact.get('id')!r} has an invalid inline-XBRL scale."
+        ) from exc
+    normalized = float(value) * (10.0 ** scale)
+    if str(fact.get("sign") or "").strip() == "-":
+        normalized = -abs(normalized)
+    state = (
+        DebtTableCellState.EXPLICIT_ZERO
+        if normalized == 0.0
+        else DebtTableCellState.REPORTED_NUMERIC
+    )
+    return normalized, state, raw
+
+
+def _debt_rate_fact_reporting_date(
+    *,
+    context: Dict[str, str],
+    fact_id: str,
+    label: str,
+) -> dt.date:
+    """Resolve a rate fact's own instant or duration-end period."""
+
+    instant_text = str(context.get("instant") or "").strip()
+    end_text = str(context.get("end") or "").strip()
+    if instant_text and end_text:
+        raise DebtTablePeriodSelectionError(
+            f"Debt-rate fact {fact_id!r} for {label!r} has both instant and duration-end periods."
+        )
+    period_text = instant_text or end_text
+    period_value = pd.to_datetime(period_text, errors="coerce")
+    if pd.isna(period_value):
+        raise DebtTablePeriodSelectionError(
+            f"Debt-rate fact {fact_id!r} for {label!r} has no resolvable context period."
+        )
+    return pd.Timestamp(period_value).date()
+
+
+def _debt_rate_candidates_from_row(
+    *,
+    tr: Any,
+    label: str,
+    source_table_id: str,
+    contexts: Dict[str, Dict[str, str]],
+) -> Tuple[DebtRateFactCandidate, ...]:
+    candidates: List[DebtRateFactCandidate] = []
+    for fact in tr.find_all(
+        lambda tag: bool(
+            getattr(tag, "name", None)
+            and str(tag.name).lower().endswith(":nonfraction")
+        )
+    ):
+        concept = str(fact.get("name") or "").strip()
+        role = classify_debt_rate_concept(concept)
+        if role is DebtRateRole.NOT_A_RATE:
+            continue
+        fact_id = str(fact.get("id") or "").strip()
+        context_id = str(fact.get("contextref") or "").strip()
+        context = contexts.get(context_id)
+        if not context:
+            raise DebtTablePeriodSelectionError(
+                f"Debt-rate fact {fact_id!r} for {label!r} has no registered XBRL context."
+            )
+        reporting_date = _debt_rate_fact_reporting_date(
+            context=context,
+            fact_id=fact_id,
+            label=label,
+        )
+        rate_value, rate_state, rate_raw = _inline_xbrl_fact_value(fact)
+        if rate_value is None or rate_state not in {
+            DebtTableCellState.REPORTED_NUMERIC,
+            DebtTableCellState.EXPLICIT_ZERO,
+        }:
+            raise DebtTablePeriodSelectionError(
+                f"Debt-rate fact {fact_id!r} for {label!r} has no source-backed numeric value."
+            )
+        start_value = pd.to_datetime(context.get("start"), errors="coerce")
+        end_value = pd.to_datetime(context.get("end"), errors="coerce")
+        candidates.append(
+            DebtRateFactCandidate(
+                instrument_identity=str(context.get("member") or label).strip(),
+                reporting_date=reporting_date,
+                role=role,
+                value=float(rate_value),
+                rendered_text=(
+                    f"{rate_raw}%" if rate_raw and "%" not in rate_raw else str(rate_raw or "")
+                ),
+                raw_scalar=str(rate_raw or ""),
+                concept=concept,
+                unit_ref=str(fact.get("unitref") or "").strip(),
+                canonical_unit="ratio",
+                context_id=context_id,
+                fact_id=fact_id,
+                basis_scope=str(context.get("scope") or "").strip(),
+                source_locator=(
+                    f"table:{source_table_id};instrument:{label};"
+                    f"context:{context_id};rate-fact:{fact_id}"
+                ),
+                authority=DebtRateAuthority.STRUCTURED_DIRECT,
+                direct=True,
+                effective_start=(
+                    pd.Timestamp(start_value).date() if pd.notna(start_value) else None
+                ),
+                effective_end=(
+                    pd.Timestamp(end_value).date() if pd.notna(end_value) else None
+                ),
+            )
+        )
+    return tuple(candidates)
+
+
+def _financial_statement_debt_rows_from_inline_xbrl(
+    path_in: Path,
+    q_end: dt.date,
+) -> List[Dict[str, Any]]:
+    if BeautifulSoup is None:
+        raise DebtTablePeriodSelectionError(
+            "Inline-XBRL debt-table extraction requires the registered HTML parser."
+        )
+    try:
+        source_bytes = path_in.read_bytes()
+        soup = BeautifulSoup(source_bytes, "html.parser")
+    except Exception as exc:
+        raise DebtTablePeriodSelectionError(
+            f"Unable to read registered debt-table source {path_in}."
+        ) from exc
+    contexts = _debt_table_contexts(soup)
+    source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    requested_date = pd.Timestamp(q_end).date()
+    tables_with_rows: List[List[Dict[str, Any]]] = []
+    instrument_pattern = re.compile(
+        r"(?:convertible\s+notes?\s+due|notes?\s+due|term\s+loan\s+due|"
+        r"tallgrass\s+term\s+loan\s+due|mezzanine\s+notes?\s+due|^other$)",
+        re.I,
+    )
+    for table in soup.find_all("table"):
+        visual_periods = _debt_table_visual_periods(table)
+        debt_rows = []
+        for tr in table.find_all("tr", recursive=False):
+            cells = tr.find_all(["td", "th"], recursive=False)
+            label = " ".join(cells[0].get_text(" ", strip=True).split()) if cells else ""
+            if not label or not instrument_pattern.search(label):
+                continue
+            amount_facts = [
+                fact
+                for fact in tr.find_all(
+                    lambda tag: bool(
+                        getattr(tag, "name", None)
+                        and str(tag.name).lower().endswith(":nonfraction")
+                    )
+                )
+                if str(fact.get("name") or "").lower().endswith("debtinstrumentcarryingamount")
+            ]
+            if amount_facts:
+                debt_rows.append((tr, label, amount_facts))
+        if not debt_rows:
+            continue
+        visual_period_by_date = _validate_debt_table_visual_periods(
+            visual_periods,
+            path_in=path_in,
+        )
+        resolved_debt_rows: List[
+            Tuple[Any, str, List[Tuple[Any, DebtFactPeriodOwnership]]]
+        ] = []
+        table_fact_dates: set[dt.date] = set()
+        for tr, label, amount_facts in debt_rows:
+            owned_facts: List[Tuple[Any, DebtFactPeriodOwnership]] = []
+            for fact in amount_facts:
+                ownership = _resolve_debt_fact_period_ownership(
+                    fact,
+                    tr=tr,
+                    label=label,
+                    contexts=contexts,
+                    visual_periods=visual_periods,
+                    visual_period_by_date=visual_period_by_date,
+                )
+                table_fact_dates.add(ownership.reporting_date)
+                owned_facts.append((fact, ownership))
+            resolved_debt_rows.append((tr, label, owned_facts))
+        table_period_dates = set(visual_period_by_date) | table_fact_dates
+        if requested_date not in table_period_dates:
+            raise DebtTablePeriodSelectionError(
+                "Debt table has no visual or inline-XBRL context owner for requested reporting date "
+                f"{requested_date.isoformat()} in {path_in.name}."
+            )
+        comparative_dates = sorted(table_period_dates - {requested_date})
+        if len(comparative_dates) > 1:
+            raise DebtTablePeriodSelectionError(
+                f"Debt table exposes multiple comparative reporting dates for "
+                f"{requested_date.isoformat()} in {path_in.name}: "
+                f"{[value.isoformat() for value in comparative_dates]!r}."
+            )
+        comparative_date = comparative_dates[0] if comparative_dates else None
+        requested_visual_period = visual_period_by_date.get(requested_date)
+        visual_order = sorted(
+            visual_period_by_date.values(),
+            key=lambda item: (item.grid_start, item.grid_end, item.reporting_date),
+        )
+        printed_page = _debt_table_printed_page(table)
+        source_table_id = _debt_table_id(table)
+        table_records: List[Dict[str, Any]] = []
+        for tr, label, owned_facts in resolved_debt_rows:
+            facts_by_date: Dict[
+                dt.date,
+                List[Tuple[Any, DebtFactPeriodOwnership]],
+            ] = {}
+            for fact, ownership in owned_facts:
+                facts_by_date.setdefault(ownership.reporting_date, []).append(
+                    (fact, ownership)
+                )
+            selected_facts = facts_by_date.get(requested_date, [])
+            selected_fact, selected_ownership, duplicate_fact_ids = (
+                _select_semantically_unique_debt_fact(
+                    selected_facts,
+                    label=label,
+                    reporting_date=requested_date,
+                )
+            )
+            if selected_fact is None:
+                amount = None
+                selected_state = DebtTableCellState.MISSING
+                raw_selected = ""
+                source_context_id = ""
+                source_member = ""
+                source_fact_id = ""
+                context_reporting_date = ""
+                if requested_visual_period is not None:
+                    source_column_index = visual_order.index(requested_visual_period)
+                    source_column_header = requested_visual_period.header_text
+                    period_ownership_basis = "visual_period_missing_fact"
+                    visual_reporting_date = requested_date.isoformat()
+                else:
+                    source_column_index = None
+                    source_column_header = (
+                        f"inline-XBRL table context {requested_date.isoformat()}"
+                    )
+                    period_ownership_basis = "table_context_period_missing_fact"
+                    visual_reporting_date = ""
+            else:
+                if selected_ownership is None:
+                    raise DebtTablePeriodSelectionError(
+                        f"Debt row {label!r} lost its selected fact period ownership."
+                    )
+                amount, selected_state, raw_selected = _inline_xbrl_fact_value(selected_fact)
+                source_context_id = selected_ownership.context_id
+                source_member = selected_ownership.context_member
+                source_fact_id = str(selected_fact.get("id") or "").strip()
+                context_reporting_date = selected_ownership.reporting_date.isoformat()
+                source_column_index = selected_ownership.source_column_index
+                source_column_header = selected_ownership.source_column_header
+                period_ownership_basis = selected_ownership.period_ownership_basis
+                visual_reporting_date = (
+                    selected_ownership.visual_reporting_date.isoformat()
+                    if selected_ownership.visual_reporting_date is not None
+                    else ""
+                )
+            comparative_fact = None
+            comparative_ownership = None
+            if comparative_date is not None:
+                comparative_facts = facts_by_date.get(comparative_date, [])
+                comparative_fact, comparative_ownership, _ = (
+                    _select_semantically_unique_debt_fact(
+                        comparative_facts,
+                        label=label,
+                        reporting_date=comparative_date,
+                    )
+                )
+            if comparative_fact is None:
+                comparative_amount = None
+                comparative_state = DebtTableCellState.MISSING
+                raw_comparative = ""
+            else:
+                if (
+                    comparative_ownership is None
+                    or comparative_ownership.reporting_date != comparative_date
+                ):
+                    raise DebtTablePeriodSelectionError(
+                        f"Debt row {label!r} lost its comparative fact period ownership."
+                    )
+                comparative_amount, comparative_state, raw_comparative = _inline_xbrl_fact_value(
+                    comparative_fact
+                )
+            try:
+                rate_candidates = _debt_rate_candidates_from_row(
+                    tr=tr,
+                    label=label,
+                    source_table_id=source_table_id,
+                    contexts=contexts,
+                )
+                resolved_rate_facts = resolve_debt_rate_facts(
+                    rate_candidates,
+                    requested_reporting_date=requested_date,
+                )
+                selected_rate = select_debt_detail_rate(resolved_rate_facts)
+            except (DebtRateOwnershipError, DebtRateConflictError) as exc:
+                raise DebtTablePeriodSelectionError(
+                    f"Debt row {label!r} has ambiguous rate facts: {exc}"
+                ) from exc
+            debt_rate_facts = tuple(item.as_record() for item in resolved_rate_facts)
+            if selected_rate is None:
+                rate_value = None
+                rate_display = ""
+                rate_context_id = ""
+                rate_fact_id = ""
+                rate_fact_name = ""
+                rate_role = ""
+                rate_authority = ""
+                rate_reporting_date = ""
+                rate_fact_ids: Tuple[str, ...] = ()
+            else:
+                selected_rate_fact = selected_rate.selected
+                rate_value = float(selected_rate_fact.value)
+                rate_display = selected_rate_fact.rendered_text
+                rate_context_id = selected_rate_fact.context_id
+                rate_fact_id = selected_rate_fact.fact_id
+                rate_fact_name = selected_rate_fact.concept
+                rate_role = selected_rate_fact.role.value
+                rate_authority = selected_rate_fact.authority.value
+                rate_reporting_date = selected_rate_fact.reporting_date.isoformat()
+                rate_fact_ids = selected_rate.evidence_fact_ids
+            maturity_match = re.search(r"\b(20\d{2})\b", label)
+            locator_parts = [
+                f"printed-page:{printed_page}" if printed_page is not None else "printed-page:unavailable",
+                f"table:{source_table_id}",
+                f"instrument:{label}",
+            ]
+            if source_context_id:
+                locator_parts.append(f"context:{source_context_id}")
+            if source_fact_id:
+                locator_parts.append(f"principal-fact:{source_fact_id}")
+            if rate_fact_id:
+                locator_parts.append(f"rate-fact:{rate_fact_id}")
+            typed = FinancialStatementDebtTableRow(
+                issuer_instrument_label=label,
+                reporting_date=requested_date.isoformat(),
+                comparative_date=comparative_date.isoformat() if comparative_date else "",
+                amount=amount,
+                comparative_amount=comparative_amount,
+                selected_cell_state=selected_state,
+                comparative_cell_state=comparative_state,
+                source_column_index=source_column_index,
+                source_column_header=source_column_header,
+                period_role="current" if requested_date == max(table_period_dates) else "comparative",
+                rate_value=rate_value,
+                rate_display=rate_display,
+                source_document=str(path_in),
+                source_document_sha256=source_sha256,
+                printed_page=printed_page,
+                source_table_id=source_table_id,
+                source_locator=";".join(locator_parts),
+                source_context_id=source_context_id,
+                source_member=source_member,
+                source_fact_id=source_fact_id,
+                rate_context_id=rate_context_id,
+                rate_fact_id=rate_fact_id,
+                rate_fact_name=rate_fact_name,
+                rate_role=rate_role,
+                rate_authority=rate_authority,
+                rate_reporting_date=rate_reporting_date,
+                rate_fact_ids=rate_fact_ids,
+                debt_rate_facts=debt_rate_facts,
+                related_fact_ids=tuple(
+                    sorted(
+                        {
+                            *duplicate_fact_ids,
+                            *(
+                                evidence_id
+                                for rate_record in resolved_rate_facts
+                                for evidence_id in rate_record.evidence_fact_ids
+                            ),
+                        }
+                    )
+                ),
+                currency="USD",
+                unit="USD",
+                maturity_year=int(maturity_match.group(1)) if maturity_match else None,
+                raw_selected_cell=raw_selected,
+                raw_comparative_cell=raw_comparative,
+                period_ownership_basis=period_ownership_basis,
+                context_reporting_date=context_reporting_date,
+                visual_reporting_date=visual_reporting_date,
+            )
+            if (
+                typed.reporting_date != requested_date.isoformat()
+                or (
+                    selected_ownership is not None
+                    and selected_ownership.reporting_date != requested_date
+                )
+            ):
+                raise DebtTablePeriodSelectionError(
+                    "Selected debt fact reporting date does not match the requested reporting date."
+                )
+            table_records.append(typed.to_record())
+        tables_with_rows.append(table_records)
+    if not tables_with_rows:
+        return []
+    tables_with_rows.sort(key=lambda rows: (-len(rows), str(rows[0].get("source_locator") or "")))
+    if len(tables_with_rows) > 1 and len(tables_with_rows[0]) == len(tables_with_rows[1]):
+        first_identity = [
+            (row["issuer_instrument_label"], row["source_fact_id"])
+            for row in tables_with_rows[0]
+        ]
+        second_identity = [
+            (row["issuer_instrument_label"], row["source_fact_id"])
+            for row in tables_with_rows[1]
+        ]
+        if first_identity != second_identity:
+            raise DebtTablePeriodSelectionError(
+                "Multiple debt tables claim incompatible source-row ownership."
+            )
+    return tables_with_rows[0]
+
+
 def _parse_financial_statement_debt_table_html(path_in: Path, q_end: Optional[dt.date]) -> List[Dict[str, Any]]:
+    if q_end is None:
+        raise DebtTablePeriodSelectionError(
+            "A requested reporting date is required before selecting a debt-table cell."
+        )
+    inline_rows = _financial_statement_debt_rows_from_inline_xbrl(path_in, q_end)
+    if inline_rows:
+        return inline_rows
     try:
         tables = pd.read_html(str(path_in))
     except Exception:
         return []
 
     def _norm_text(value: Any) -> str:
-        txt = str(value or "").strip()
-        return "" if txt.lower() == "nan" else txt
+        if value is None or pd.isna(value):
+            return ""
+        txt = str(value).strip()
+        return "" if txt.lower() in {"nan", "none"} else txt
+
+    def _column_text(value: Any) -> str:
+        if isinstance(value, tuple):
+            return " ".join(
+                token for token in (_norm_text(part) for part in value) if token
+            )
+        return _norm_text(value)
+
+    def _header_period(value: Any) -> Optional[dt.date]:
+        text = re.sub(r"\.\d+$", "", _column_text(value)).strip()
+        if re.fullmatch(r"20\d{2}", text):
+            return dt.date(int(text), 12, 31)
+        parsed = pd.to_datetime(text, errors="coerce")
+        if pd.isna(parsed):
+            return None
+        return pd.Timestamp(parsed).date()
+
+    def _plain_cell(value: Any) -> Tuple[Optional[float], DebtTableCellState, str]:
+        raw = _norm_text(value)
+        if not raw:
+            return None, DebtTableCellState.MISSING, raw
+        if raw in {"—", "–", "-"}:
+            # Plain HTML does not prove whether a dash is zero or not applicable.
+            return None, DebtTableCellState.NOT_APPLICABLE, raw
+        number = coerce_number(raw)
+        if number is None:
+            return None, DebtTableCellState.MISSING, raw
+        normalized = float(number) * 1000.0
+        state = (
+            DebtTableCellState.EXPLICIT_ZERO
+            if normalized == 0.0
+            else DebtTableCellState.REPORTED_NUMERIC
+        )
+        return normalized, state, raw
 
     best_rows: List[Dict[str, Any]] = []
-    for df in tables:
+    requested_date = pd.Timestamp(q_end).date()
+    source_sha256 = hashlib.sha256(path_in.read_bytes()).hexdigest()
+    for table_index, df in enumerate(tables):
         if df is None or df.empty:
+            continue
+        column_periods = [_header_period(column) for column in df.columns]
+        selected_columns = [
+            index for index, period in enumerate(column_periods) if period == requested_date
+        ]
+        if not selected_columns:
             continue
         candidate_rows: List[Dict[str, Any]] = []
         pending_debt_group = ""
@@ -576,33 +1853,145 @@ def _parse_financial_statement_debt_table_html(path_in: Path, q_end: Optional[dt
             ):
                 display_label = f"{pending_debt_group} {label}"
                 pending_debt_group = ""
-            nums: List[float] = []
-            for cell in nonempty[1:]:
-                cell_low = cell.lower()
-                if "%" in cell_low or "sofr" in cell_low or "libor" in cell_low or "interest rate" in cell_low:
-                    continue
-                if cell in {"—", "–", "-"}:
-                    continue
-                num = coerce_number(cell)
-                if num is None:
-                    continue
-                if abs(float(num)) <= 0:
-                    continue
-                nums.append(float(num))
-            if not nums:
-                continue
+            selected_candidates = [_plain_cell(row.iloc[index]) for index in selected_columns]
+            selected_semantics = {
+                (value, state.value) for value, state, _ in selected_candidates
+            }
+            if len(selected_semantics) != 1:
+                raise DebtTablePeriodSelectionError(
+                    f"Debt row {display_label!r} has ambiguous columns for "
+                    f"{requested_date.isoformat()}: {selected_candidates!r}."
+                )
+            amount, selected_state, raw_selected = selected_candidates[0]
+            selected_column_index = min(selected_columns)
+            selected_header = _column_text(df.columns[selected_column_index])
+            comparative_columns = [
+                index
+                for index, period in enumerate(column_periods)
+                if period is not None and period != requested_date
+            ]
+            comparative_date: Optional[dt.date] = None
+            comparative_amount: Optional[float] = None
+            comparative_state = DebtTableCellState.MISSING
+            raw_comparative = ""
+            if comparative_columns:
+                comparative_date = max(
+                    period
+                    for period in (column_periods[index] for index in comparative_columns)
+                    if period is not None
+                )
+                same_period_columns = [
+                    index
+                    for index in comparative_columns
+                    if column_periods[index] == comparative_date
+                ]
+                comparative_candidates = [
+                    _plain_cell(row.iloc[index]) for index in same_period_columns
+                ]
+                comparative_semantics = {
+                    (value, state.value) for value, state, _ in comparative_candidates
+                }
+                if len(comparative_semantics) != 1:
+                    raise DebtTablePeriodSelectionError(
+                        f"Debt row {display_label!r} has ambiguous comparative columns for "
+                        f"{comparative_date}: {comparative_candidates!r}."
+                    )
+                comparative_amount, comparative_state, raw_comparative = comparative_candidates[0]
+            display_rate = display_coupon_rate(display_label)
+            rate_value = display_rate[0] if display_rate is not None else None
+            rate_display = display_rate[1] if display_rate is not None else ""
+            rate_role = (
+                DebtRateRole.COUPON_STATED_RATE.value if display_rate is not None else ""
+            )
+            rate_authority = (
+                DebtRateAuthority.TABLE_DIRECT.value if display_rate is not None else ""
+            )
+            rate_fact_ids = (
+                (f"table-index-{table_index}:instrument-label:coupon",)
+                if display_rate is not None
+                else ()
+            )
+            debt_rate_facts = (
+                (
+                    {
+                        "rate_ownership_contract_id": DEBT_RATE_OWNERSHIP_CONTRACT_ID,
+                        "instrument_identity": display_label[:180],
+                        "reporting_date": requested_date.isoformat(),
+                        "rate_role": rate_role,
+                        "basis_scope": "instrument_description",
+                        "rate_value": rate_value,
+                        "rate_display": rate_display,
+                        "raw_scalar": rate_display.rstrip("%"),
+                        "rate_fact_name": "table:instrument-description-coupon",
+                        "rate_unit_ref": "table-percent",
+                        "rate_canonical_unit": "ratio",
+                        "rate_context_id": "",
+                        "rate_fact_id": rate_fact_ids[0],
+                        "rate_fact_ids": rate_fact_ids,
+                        "source_locator": (
+                            f"table-index:{table_index};instrument:{display_label[:180]}"
+                        ),
+                        "rate_authority": rate_authority,
+                        "rate_direct": True,
+                        "effective_start": None,
+                        "effective_end": None,
+                    },
+                )
+                if display_rate is not None
+                else ()
+            )
             maturity_match = re.search(r"\b(20\d{2})\b", low)
             candidate_rows.append(
-                {
-                    "quarter": q_end,
-                    "tranche": display_label[:180],
-                    "amount": nums[0] * 1000.0,
-                    "maturity_year": int(maturity_match.group(1)) if maturity_match else None,
-                    "unit": "USD",
-                    "is_table_total": False,
-                    "asof_col_idx": 0,
-                    "asof_match_found": bool(q_end is not None),
-                }
+                FinancialStatementDebtTableRow(
+                    issuer_instrument_label=display_label[:180],
+                    reporting_date=requested_date.isoformat(),
+                    comparative_date=(
+                        comparative_date.isoformat() if comparative_date is not None else ""
+                    ),
+                    amount=amount,
+                    comparative_amount=comparative_amount,
+                    selected_cell_state=selected_state,
+                    comparative_cell_state=comparative_state,
+                    source_column_index=selected_column_index,
+                    source_column_header=selected_header,
+                    period_role="current",
+                    rate_value=rate_value,
+                    rate_display=rate_display,
+                    source_document=str(path_in),
+                    source_document_sha256=source_sha256,
+                    printed_page=None,
+                    source_table_id=f"table-index-{table_index}",
+                    source_locator=(
+                        f"table-index:{table_index};instrument:{display_label[:180]};"
+                        f"column:{selected_column_index};header:{selected_header}"
+                    ),
+                    source_context_id="",
+                    source_member="",
+                    source_fact_id="",
+                    rate_context_id="",
+                    rate_fact_id=rate_fact_ids[0] if rate_fact_ids else "",
+                    rate_fact_name=(
+                        "table:instrument-description-coupon" if rate_fact_ids else ""
+                    ),
+                    rate_role=rate_role,
+                    rate_authority=rate_authority,
+                    rate_reporting_date=(
+                        requested_date.isoformat() if display_rate is not None else ""
+                    ),
+                    rate_fact_ids=rate_fact_ids,
+                    debt_rate_facts=debt_rate_facts,
+                    related_fact_ids=rate_fact_ids,
+                    currency="USD",
+                    unit="USD",
+                    maturity_year=(
+                        int(maturity_match.group(1)) if maturity_match else None
+                    ),
+                    raw_selected_cell=raw_selected,
+                    raw_comparative_cell=raw_comparative,
+                    period_ownership_basis="visual_table_header",
+                    context_reporting_date="",
+                    visual_reporting_date=requested_date.isoformat(),
+                ).to_record()
             )
         if len(candidate_rows) > len(best_rows):
             best_rows = candidate_rows
@@ -3292,20 +4681,37 @@ def _local_non_gaap_pdf_cache_dirs(base_dir: Path, src_name: str) -> Tuple[Path,
 
 
 def _local_non_gaap_pdf_cache_key(path_in: Path, *, src_name: str, page_number: int) -> str:
-    if str(src_name or "").strip().lower() == "slides":
-        return f"{path_in.stem}_p{page_number}"
-    try:
-        raw_key = str(path_in.resolve())
-    except Exception:
-        raw_key = str(path_in)
-    digest = hashlib.sha1(
-        f"{LOCAL_NON_GAAP_PDF_PAGE_CACHE_VERSION}|{str(src_name or '').strip().lower()}|{raw_key}".encode(
-            "utf-8",
-            errors="ignore",
-        )
-    ).hexdigest()[:16]
     src_key = re.sub(r"[^a-z0-9]+", "_", str(src_name or "other").strip().lower()).strip("_") or "other"
-    return f"{src_key}_{digest}_p{page_number}"
+    identity = build_cache_identity(
+        "local-non-gaap-pdf-page",
+        {
+            "page_number": int(page_number),
+            "source_content_sha256": file_content_sha256(path_in),
+            "source_role": src_key,
+            "version": LOCAL_NON_GAAP_PDF_PAGE_CACHE_VERSION,
+        },
+        required_fields=("source_content_sha256", "source_role"),
+    )
+    return f"{src_key}_{identity.digest[:24]}_p{int(page_number)}"
+
+
+def _local_non_gaap_pdf_manifest_entry_matches_source(
+    path_in: Path,
+    entry: Any,
+) -> bool:
+    """Return whether a PDF page manifest belongs to the current source bytes.
+
+    File statistics may still be recorded as diagnostics, but they do not own
+    cache correctness.  A legacy manifest without a verified content digest is
+    deliberately treated as a miss and rebuilt through the normal parser path.
+    """
+
+    if not isinstance(entry, dict) or not entry.get("pages"):
+        return False
+    recorded = str(entry.get("source_content_sha256") or "").strip().lower()
+    if not re.fullmatch(r"[0-9a-f]{64}", recorded):
+        return False
+    return file_content_sha256(path_in).lower() == recorded
 
 
 def run_pipeline_impl(
@@ -3348,6 +4754,7 @@ def run_pipeline_impl(
         raise RuntimeError("Must provide ticker or cik")
 
     cik10 = cik10_from_int(cik_int)
+    pipeline_profile_identity = tkr_u or f"CIK:{cik10}"
 
     cf = sec.companyfacts(cik10)
     sub = sec.submissions(cik10)
@@ -3388,20 +4795,28 @@ def run_pipeline_impl(
     _timed_stage = timed_stage
 
     submissions_sig = _sub_recent_signature(sub, forms_prefix=("10-Q", "10-K", "8-K", "DEF 14A", "DEFA14A"), max_rows=600)
+    sec_source_sig = sec_cache_source_identity(config.cache_dir)
     df_all_sig = _df_quick_sig(df_all, ["concept", "end_d", "start_d", "val", "fy_calc", "fp", "frame"])
     # GAAP history is the first expensive stage because many later stages depend on
     # quarter-normalized history, audit rows, and preview tables. Cache invalidation
     # is driven by recent submissions identity plus a compact signature of facts.
-    gaap_history_key = "|".join(
-        [
-            "v4",
-            f"sub={submissions_sig}",
-            f"facts={df_all_sig}",
-            f"max_q={config.max_quarters}",
-            f"min_year={config.min_year}",
-            f"strict={config.strictness}",
-            f"ticker={str(ticker or '').upper()}",
-        ]
+    gaap_history_key = _stage_cache_key(
+        "gaap_history_bundle",
+        {
+            "code_identity": _module_code_signature(
+                "cache_semantics.py", "period_resolver.py", "pipeline.py"
+            ),
+            "configuration": {
+                "max_quarters": int(config.max_quarters),
+                "min_year": None if config.min_year is None else int(config.min_year),
+                "strictness": str(config.strictness),
+            },
+            "facts_identity": df_all_sig,
+            "semantic_versions": {"stage": GAAP_HISTORY_STAGE_VERSION},
+            "submissions_identity": submissions_sig,
+            "ticker_profile": pipeline_profile_identity,
+        },
+        required_fields=("code_identity", "facts_identity", "submissions_identity", "ticker_profile"),
     )
     gaap_cached = _load_stage_cache("gaap_history_bundle", gaap_history_key)
     if isinstance(gaap_cached, dict):
@@ -3456,15 +4871,25 @@ def run_pipeline_impl(
     if config.enable_tier2_debt:
         # Tier-2 debt is cached independently because it is expensive, SEC-driven,
         # and reused by both workbook debt tabs and downstream QA.
-        debt_tranches_key = "|".join(
-            [
-                # v2 invalidates stale debt-table parses after summary rows with
-                # shifted current-period amounts were aligned to the date header.
-                "v2",
-                f"sub={submissions_sig}",
-                f"max_q={config.max_quarters}",
-                f"min_year={config.min_year}",
-            ]
+        debt_tranches_key = _stage_cache_key(
+            "debt_tranches_tier2",
+            {
+                "code_identity": _module_code_signature(
+                    "cache_semantics.py", "debt_parser.py", "sec_xbrl.py"
+                ),
+                "configuration": {
+                    "max_quarters": int(config.max_quarters),
+                    "min_year": None if config.min_year is None else int(config.min_year),
+                },
+                "semantic_versions": {
+                    "debt_period": DEBT_TABLE_PERIOD_OWNERSHIP_VERSION,
+                    "document_period": FINANCIAL_STATEMENT_DOCUMENT_PERIOD_VERSION,
+                    "stage": DEBT_TRANCHES_STAGE_VERSION,
+                },
+                "sec_source_identity": sec_source_sig,
+                "submissions_identity": submissions_sig,
+            },
+            required_fields=("code_identity", "sec_source_identity", "submissions_identity"),
         )
         debt_tranches_cached = _load_stage_cache("debt_tranches_tier2", debt_tranches_key)
         if isinstance(debt_tranches_cached, pd.DataFrame):
@@ -3512,13 +4937,11 @@ def run_pipeline_impl(
             # Tier-3 non-GAAP outputs are persisted per mode because strict and
             # relaxed runs intentionally have different evidence and suppression
             # rules while feeding the same workbook surfaces.
-            tier3_key = "|".join(
-                [
-                    "v2",
-                    f"sub={submissions_sig}",
-                    f"mode={mode_name}",
-                    f"max_q={config.max_quarters}",
-                ]
+            tier3_key = _tier3_non_gaap_stage_cache_key(
+                sec_source_identity=sec_source_sig,
+                submissions_signature=submissions_sig,
+                mode_name=mode_name,
+                max_quarters=config.max_quarters,
             )
             cached = _load_stage_cache(f"tier3_non_gaap_{mode_name}", tier3_key)
             if isinstance(cached, dict):
@@ -3663,6 +5086,32 @@ def run_pipeline_impl(
                     except Exception:
                         pass
             return None
+
+        document_period_cache: Dict[str, dt.date] = {}
+        unowned_financial_statement_paths: set[str] = set()
+
+        def _period_for_local_material(src_name: str, path_in: Path, txt: str) -> Optional[dt.date]:
+            if src_name == "financial_statement":
+                try:
+                    cache_key = str(path_in.resolve())
+                except Exception:
+                    cache_key = str(path_in)
+                if cache_key in unowned_financial_statement_paths:
+                    return None
+                reporting_date = document_period_cache.get(cache_key)
+                if reporting_date is None:
+                    if not is_owned_financial_statement_document(path_in):
+                        unowned_financial_statement_paths.add(cache_key)
+                        return None
+                    identity = resolve_financial_statement_document_period(path_in)
+                    reporting_date = identity.reporting_date
+                    document_period_cache[cache_key] = reporting_date
+                return _resolve_local_period_end(reporting_date)
+            return _resolve_local_period_end(
+                _three_month_end_from_text(txt)
+                or _infer_q_from_filename(path_in.name)
+                or infer_quarter_end_from_text(txt)
+            )
 
         def _pick_num_by_year(nums: List[float], years: List[int], q_end: Optional[dt.date]) -> Optional[float]:
             if not nums:
@@ -4189,12 +5638,26 @@ def run_pipeline_impl(
         pages_per_q: Dict[pd.Timestamp, int] = {}
         rows_m_candidates: List[Dict[str, Any]] = []
         pdf_manifest_path = preferred_ticker_cache_root_from_base_dir(base_dir) / "local_non_gaap_pdf_manifest.json"
-        pdf_manifest: Dict[str, Any] = {"version": 1, "files": {}}
+        pdf_manifest: Dict[str, Any] = {
+            "version": LOCAL_NON_GAAP_PDF_MANIFEST_VERSION,
+            "files": {},
+        }
         try:
             if pdf_manifest_path.exists():
-                pdf_manifest = json.loads(pdf_manifest_path.read_text(encoding="utf-8", errors="ignore"))
+                loaded_manifest = json.loads(
+                    pdf_manifest_path.read_text(encoding="utf-8", errors="ignore")
+                )
+                if (
+                    isinstance(loaded_manifest, dict)
+                    and loaded_manifest.get("version") == LOCAL_NON_GAAP_PDF_MANIFEST_VERSION
+                    and isinstance(loaded_manifest.get("files"), dict)
+                ):
+                    pdf_manifest = loaded_manifest
         except Exception:
-            pdf_manifest = {"version": 1, "files": {}}
+            pdf_manifest = {
+                "version": LOCAL_NON_GAAP_PDF_MANIFEST_VERSION,
+                "files": {},
+            }
         for src_name, folder in sources:
             if not folder.exists():
                 continue
@@ -4289,13 +5752,12 @@ def run_pipeline_impl(
                         text_cache_dir = None
                         ocr_cache_dir = None
                         try:
-                            st = p.stat()
                             try:
                                 manifest_key = str(p.resolve())
                             except Exception:
                                 manifest_key = str(p)
                             entry = (pdf_manifest.get("files", {}) or {}).get(manifest_key)
-                            if entry and entry.get("mtime") == st.st_mtime and entry.get("size") == st.st_size and entry.get("pages"):
+                            if _local_non_gaap_pdf_manifest_entry_matches_source(p, entry):
                                 cached_pages = int(entry.get("pages"))
                                 use_cache_only = True
                         except Exception:
@@ -4329,9 +5791,7 @@ def run_pipeline_impl(
                                 scores = _local_non_gaap_page_scores(txt)
                                 if max(scores.values()) == 0:
                                     continue
-                                q_end = _resolve_local_period_end(
-                                    _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
-                                )
+                                q_end = _period_for_local_material(src_name, p, txt)
                                 if q_end is None:
                                     continue
                                 actuals_allowed = _allow_actuals_from_local_page(src_name, p, txt)
@@ -4391,7 +5851,9 @@ def run_pipeline_impl(
                                         debt_rows = _parse_debt_profile_from_text(txt, q_end)
                                     if debt_rows:
                                         for r0 in debt_rows:
-                                            r0.update({"doc": str(p), "page": idx + 1, "source": src_name})
+                                            r0.setdefault("doc", str(p))
+                                            r0.setdefault("page", idx + 1)
+                                            r0["source"] = src_name
                                         rows_debt.extend(debt_rows)
                                 if scores.get("guidance", 0) >= 2:
                                     guid_rows = _parse_guidance_from_text(txt, q_end)
@@ -4461,7 +5923,7 @@ def run_pipeline_impl(
                                             scores = _local_non_gaap_page_scores(txt)
                                     if max(scores.values()) == 0:
                                         continue
-                                q_end = _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
+                                q_end = _period_for_local_material(src_name, p, txt)
                                 if q_end is None:
                                     continue
                                 actuals_allowed = _allow_actuals_from_local_page(src_name, p, txt)
@@ -4521,7 +5983,9 @@ def run_pipeline_impl(
                                         debt_rows = _parse_debt_profile_from_text(txt, q_end)
                                     if debt_rows:
                                         for r0 in debt_rows:
-                                            r0.update({"doc": str(p), "page": idx + 1, "source": src_name})
+                                            r0.setdefault("doc", str(p))
+                                            r0.setdefault("page", idx + 1)
+                                            r0["source"] = src_name
                                         rows_debt.extend(debt_rows)
                                 if scores.get("guidance", 0) >= 2:
                                     guid_rows = _parse_guidance_from_text(txt, q_end)
@@ -4536,12 +6000,15 @@ def run_pipeline_impl(
                                 except Exception:
                                     manifest_key = str(p)
                                 pdf_manifest.setdefault("files", {})[manifest_key] = {
+                                    "source_content_sha256": file_content_sha256(p),
                                     "mtime": st.st_mtime,
                                     "size": st.st_size,
                                     "pages": n_pages,
                                 }
                             except Exception:
                                 pass
+                    except FinancialStatementDocumentPeriodError:
+                        raise
                     except Exception:
                         continue
                 else:
@@ -4551,9 +6018,7 @@ def run_pipeline_impl(
                     scores = _local_non_gaap_page_scores(txt)
                     if max(scores.values()) == 0:
                         continue
-                    q_end = _resolve_local_period_end(
-                        _three_month_end_from_text(txt) or _infer_q_from_filename(p.name) or infer_quarter_end_from_text(txt)
-                    )
+                    q_end = _period_for_local_material(src_name, p, txt)
                     if q_end is None:
                         continue
                     if tkr_u == "ANF":
@@ -4632,7 +6097,9 @@ def run_pipeline_impl(
                             debt_rows = _parse_debt_profile_from_text(txt, q_end)
                         if debt_rows:
                             for r0 in debt_rows:
-                                r0.update({"doc": str(p), "page": None, "source": src_name})
+                                r0.setdefault("doc", str(p))
+                                r0.setdefault("page", None)
+                                r0["source"] = src_name
                             rows_debt.extend(debt_rows)
                     if scores.get("guidance", 0) >= 2:
                         guid_rows = _parse_guidance_from_text(txt, q_end)
@@ -4752,14 +6219,36 @@ def run_pipeline_impl(
         # The local fallback stage rescues adjusted metrics and slide-derived support
         # from curated local materials. It is keyed by local material signature so
         # new PDFs/TXTs invalidate the cache without touching SEC-driven stages.
-        local_fallback_key = "|".join(
-            [
-                f"v{LOCAL_NON_GAAP_FALLBACK_VERSION}",
-                f"materials={local_material_sig}",
-                f"max_q={config.max_quarters}",
-                f"quiet_pdf={int(bool(config.quiet_pdf_warnings))}",
-                "doc_text_cache=v2",
-            ]
+        local_fallback_key = _stage_cache_key(
+            "local_non_gaap_fallback",
+            {
+                "code_identity": _module_code_signature(
+                    "adjusted_metric_history.py",
+                    "cache_semantics.py",
+                    "debt_rate_semantics.py",
+                    "inline_xbrl_text.py",
+                    "non_gaap.py",
+                    "pipeline_orchestration.py",
+                ),
+                "configuration": {
+                    "max_quarters": int(config.max_quarters),
+                    "quiet_pdf_warnings": bool(config.quiet_pdf_warnings),
+                },
+                "materials_identity": local_material_sig,
+                "semantic_versions": {
+                    "adjusted_history": ADJUSTED_METRIC_HISTORY_SELECTION_VERSION,
+                    "adjustment_domain": NON_GAAP_ADJUSTMENT_DOMAIN_VERSION,
+                    "debt_period": DEBT_TABLE_PERIOD_OWNERSHIP_VERSION,
+                    "debt_rate": DEBT_RATE_SEMANTIC_OWNERSHIP_VERSION,
+                    "doc_text": DOC_TEXT_EXTRACTOR_VERSION,
+                    "document_period": FINANCIAL_STATEMENT_DOCUMENT_PERIOD_VERSION,
+                    "inline_xbrl_text": INLINE_XBRL_FACT_TEXT_VERSION,
+                    "stage": LOCAL_NON_GAAP_FALLBACK_VERSION,
+                    "unit_norm": ADJUSTED_METRIC_UNIT_NORMALIZATION_VERSION,
+                },
+                "ticker_profile": pipeline_profile_identity,
+            },
+            required_fields=("code_identity", "materials_identity", "ticker_profile"),
         )
         local_fallback_cached = None if config.rebuild_doc_text_cache else _load_stage_cache("local_non_gaap_fallback", local_fallback_key)
         if isinstance(local_fallback_cached, dict):
@@ -4800,6 +6289,15 @@ def run_pipeline_impl(
                     non_gaap_files = local_files
                 else:
                     non_gaap_files = pd.concat([non_gaap_files, local_files], ignore_index=True)
+        issuer_recast_metrics = load_registered_issuer_recast_adjusted_metric_history(
+            base_dir / "historical_segment"
+        )
+        if not issuer_recast_metrics.empty:
+            adj_metrics = pd.concat(
+                [adj_metrics, issuer_recast_metrics],
+                ignore_index=True,
+                sort=False,
+            )
         # stash local slide/segment/debt/guidance extracts for Excel (if any)
         slides_segments = local_segments
         slides_debt = local_debt
@@ -5215,8 +6713,25 @@ def run_pipeline_impl(
             if col not in ocr_log_df.columns:
                 ocr_log_df[col] = None
 
-    debt_schedule_key = (
-        f"v2|max_quarters={config.max_quarters}|sub={_sub_recent_signature(sub, forms_prefix=('10-Q', '10-K'), max_rows=300)}"
+    debt_schedule_key = _stage_cache_key(
+        "debt_schedule",
+        {
+            "code_identity": _module_code_signature("cache_semantics.py", "debt_parser.py"),
+            "configuration": {
+                "max_quarters": int(config.max_quarters),
+                "min_year": None if config.min_year is None else int(config.min_year),
+            },
+            "semantic_versions": {
+                "debt_period": DEBT_TABLE_PERIOD_OWNERSHIP_VERSION,
+                "document_period": FINANCIAL_STATEMENT_DOCUMENT_PERIOD_VERSION,
+                "stage": DEBT_SCHEDULE_STAGE_VERSION,
+            },
+            "sec_source_identity": sec_source_sig,
+            "submissions_identity": _sub_recent_signature(
+                sub, forms_prefix=("10-Q", "10-K"), max_rows=300
+            ),
+        },
+        required_fields=("code_identity", "sec_source_identity", "submissions_identity"),
     )
     debt_schedule_cached = _load_stage_cache("debt_schedule", debt_schedule_key)
     if isinstance(debt_schedule_cached, pd.DataFrame):
@@ -5232,8 +6747,18 @@ def run_pipeline_impl(
         slides_debt=slides_debt,
         debt_schedule=debt_schedule,
     )
-    debt_notes_key = (
-        f"v1|max_docs=8|sub={_sub_recent_signature(sub, forms_prefix=('10-Q', '10-K', '8-K'), max_rows=300)}"
+    debt_notes_key = _stage_cache_key(
+        "debt_credit_notes",
+        {
+            "code_identity": _module_code_signature("cache_semantics.py", "pipeline.py"),
+            "configuration": {"max_docs": 8},
+            "semantic_versions": {"stage": DEBT_CREDIT_NOTES_STAGE_VERSION},
+            "sec_source_identity": sec_source_sig,
+            "submissions_identity": _sub_recent_signature(
+                sub, forms_prefix=("10-Q", "10-K", "8-K"), max_rows=300
+            ),
+        },
+        required_fields=("code_identity", "sec_source_identity", "submissions_identity"),
     )
     debt_credit_notes_cached = _load_stage_cache("debt_credit_notes", debt_notes_key)
     if isinstance(debt_credit_notes_cached, pd.DataFrame):
@@ -5242,8 +6767,18 @@ def run_pipeline_impl(
         debt_credit_notes = build_debt_credit_notes(sec, cik_int, sub, max_docs=8)
         _save_stage_cache("debt_credit_notes", debt_notes_key, debt_credit_notes)
 
-    revolver_key = (
-        f"v2|max_docs=80|lookback=7|sub={_sub_recent_signature(sub, forms_prefix=('10-Q', '10-K', '8-K'), max_rows=500)}"
+    revolver_key = _stage_cache_key(
+        "revolver_df",
+        {
+            "code_identity": _module_code_signature("cache_semantics.py", "pipeline.py"),
+            "configuration": {"lookback_years": 7, "max_docs": 80},
+            "semantic_versions": {"stage": REVOLVER_STAGE_VERSION},
+            "sec_source_identity": sec_source_sig,
+            "submissions_identity": _sub_recent_signature(
+                sub, forms_prefix=("10-Q", "10-K", "8-K"), max_rows=500
+            ),
+        },
+        required_fields=("code_identity", "sec_source_identity", "submissions_identity"),
     )
     revolver_df_cached = _load_stage_cache("revolver_df", revolver_key)
     if isinstance(revolver_df_cached, pd.DataFrame):
@@ -5343,41 +6878,28 @@ def run_pipeline_impl(
             if missing_rows:
                 revolver_history = pd.concat([revolver_history, pd.DataFrame(missing_rows)], ignore_index=True, sort=False)
             revolver_history = revolver_history.sort_values("quarter").reset_index(drop=True)
-    if str(ticker or "").upper() == "ANF":
-        anf_abl_q = pd.Timestamp("2026-01-31")
-        anf_abl_row = {
-            "quarter": anf_abl_q,
-            "revolver_commitment": 500_000_000.0,
-            "revolver_facility_size": 500_000_000.0,
-            "revolver_drawn": 0.0,
-            "revolver_letters_of_credit": 454_000.0,
-            "revolver_availability": 449_546_000.0,
-            "revolver_utilization": 0.0,
-            "commitment_source_type": "10-K debt note",
-            "facility_source_type": "10-K debt note",
-            "drawn_source_type": "10-K debt note",
-            "lc_source_type": "10-K debt note",
-            "availability_source_type": "10-K debt note",
-            "source_type": "10-K debt note",
-            "source_snippet": (
-                "ABL Facility up to $500 million, matures August 2, 2029; no borrowings outstanding "
-                "as of January 31, 2026; borrowing capacity available $449.546m."
-            ),
-            "note": "ANF latest ABL facility from FY2025 10-K.",
-        }
-        if revolver_history is None or revolver_history.empty:
-            revolver_history = pd.DataFrame([anf_abl_row])
-        else:
-            revolver_history = revolver_history.copy()
-            revolver_history["quarter"] = pd.to_datetime(revolver_history["quarter"], errors="coerce")
-            mask = revolver_history["quarter"].dt.normalize().eq(anf_abl_q)
-            if mask.any():
-                idx = revolver_history.index[mask][-1]
-                for col, val in anf_abl_row.items():
-                    revolver_history.at[idx, col] = val
-            else:
-                revolver_history = pd.concat([revolver_history, pd.DataFrame([anf_abl_row])], ignore_index=True, sort=False)
-            revolver_history = revolver_history.sort_values("quarter").reset_index(drop=True)
+    source_native_revolver_history = resolve_profile_debt_revolver_history(
+        ticker=ticker,
+        cache_root=Path(config.cache_dir) if config.cache_dir is not None else None,
+    )
+    revolver_history = merge_source_native_revolver_history(
+        revolver_history,
+        source_native_revolver_history,
+    )
+    debt_profile_economic_validation = revolver_history.attrs.get(
+        DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR
+    )
+    if not isinstance(
+        debt_profile_economic_validation,
+        DebtProfileEconomicValidationResult,
+    ):
+        # A legacy rowset with no independently resolved facility cannot prove
+        # Debt_Profile economics merely through rendered/source metric counts.
+        debt_profile_economic_validation = validate_resolved_debt_facility_for_profile(None)
+    mark_debt_profile_readiness(
+        debt_profile,
+        economic_validation=debt_profile_economic_validation,
+    )
     debt_buckets, debt_bucket_qa = build_debt_buckets(debt_tranches_latest, hist, maturity_df=debt_maturity)
     try:
         if debt_buckets is not None and not debt_buckets.empty and debt_profile is not None and not debt_profile.empty:
@@ -5422,16 +6944,21 @@ def run_pipeline_impl(
         base_dir / "Press Release",
     ]
     earnings_release_dir = next((p for p in earnings_release_candidates if p.exists() and p.is_dir()), None)
-    earnings_release_sig = "none"
-    if earnings_release_dir is not None:
-        try:
-            rel_rows: List[str] = []
-            for fp in sorted([x for x in earnings_release_dir.glob("*.pdf") if x.is_file()], key=lambda x: x.name.lower())[:200]:
-                st = fp.stat()
-                rel_rows.append(f"{fp.name}:{int(st.st_size)}:{int(st.st_mtime)}")
-            earnings_release_sig = hashlib.sha1("||".join(rel_rows).encode("utf-8", errors="ignore")).hexdigest()
-        except Exception:
-            earnings_release_sig = "err"
+    earnings_release_files = (
+        sorted(
+            [path for path in earnings_release_dir.glob("*.pdf") if path.is_file()],
+            key=lambda path: path.name.casefold(),
+        )[:200]
+        if earnings_release_dir is not None
+        else []
+    )
+    earnings_release_sig = content_file_set_identity(
+        earnings_release_files,
+        contract_id="doc-intel-earnings-release-source-set",
+        logical_root=earnings_release_dir,
+        include_logical_names=True,
+        max_files=200,
+    )
 
     # `doc_intel_bundle` is the bridge from raw document text into visible evidence
     # products such as Quarter_Notes_UI, promises, and promise-progress rows.
@@ -5439,22 +6966,50 @@ def run_pipeline_impl(
     # filing/local text into visible Quarter_Notes, promises, promise-progress, and
     # non-GAAP credibility evidence. The key therefore tracks both input content and
     # behavior-sensitive code signatures.
-    doc_intel_key = "|".join(
-        [
-            DOC_INTEL_BEHAVIOR_VERSION,
-            f"sub={_sub_recent_signature(sub, forms_prefix=('10-Q', '10-K', '8-K'), max_rows=500)}",
-            f"hist={_df_quick_sig(hist, ['quarter', 'revenue', 'ebitda', 'fcf', 'debt', 'cash'])}",
-            f"adj={_df_quick_sig(adj_metrics, ['quarter', 'adj_ebitda', 'adj_ebit', 'adj_eps'])}",
-            f"revh={_df_quick_sig(revolver_history, ['quarter', 'revolver_commitment', 'revolver_drawn', 'revolver_availability'])}",
-            f"db={_df_quick_sig(debt_buckets, ['quarter', 'maturity_year', 'amount_total'])}",
-            f"er={earnings_release_sig}",
-            f"materials={local_material_sig}",
-            f"max_docs={config.doc_intel_max_docs}",
-            f"max_quarters={config.doc_intel_max_quarters}",
-            "doc_text_cache=v2",
-            f"code={_module_code_signature('doc_intel.py', 'quarter_notes.py')}",
-            f"quiet_pdf={int(bool(config.quiet_pdf_warnings))}",
-        ]
+    doc_intel_key = _stage_cache_key(
+        "doc_intel_bundle",
+        {
+            "code_identity": _module_code_signature(
+                "cache_semantics.py", "doc_intel.py", "quarter_notes.py"
+            ),
+            "configuration": {
+                "max_docs": int(config.doc_intel_max_docs),
+                "max_quarters": int(config.doc_intel_max_quarters),
+                "quiet_pdf_warnings": bool(config.quiet_pdf_warnings),
+            },
+            "input_identities": {
+                "adjusted_metrics": _df_quick_sig(
+                    adj_metrics, ["quarter", "adj_ebitda", "adj_ebit", "adj_eps"]
+                ),
+                "debt_buckets": _df_quick_sig(
+                    debt_buckets, ["quarter", "maturity_year", "amount_total"]
+                ),
+                "earnings_releases": earnings_release_sig,
+                "gaap_history": _df_quick_sig(
+                    hist, ["quarter", "revenue", "ebitda", "fcf", "debt", "cash"]
+                ),
+                "local_materials": local_material_sig,
+                "revolver_history": _df_quick_sig(
+                    revolver_history,
+                    [
+                        "quarter",
+                        "revolver_commitment",
+                        "revolver_drawn",
+                        "revolver_availability",
+                    ],
+                ),
+                "submissions": _sub_recent_signature(
+                    sub, forms_prefix=("10-Q", "10-K", "8-K"), max_rows=500
+                ),
+            },
+            "semantic_versions": {
+                "adjusted_history": ADJUSTED_METRIC_HISTORY_SELECTION_VERSION,
+                "doc_intel": DOC_INTEL_BEHAVIOR_VERSION,
+                "doc_text": DOC_TEXT_EXTRACTOR_VERSION,
+            },
+            "sec_source_identity": sec_source_sig,
+        },
+        required_fields=("code_identity", "input_identities", "sec_source_identity"),
     )
     doc_intel_cached = _load_stage_cache("doc_intel_bundle", doc_intel_key)
     if isinstance(doc_intel_cached, dict):
@@ -5521,14 +7076,25 @@ def run_pipeline_impl(
 
     # Company overview is cached independently because it is topic-aware summary text,
     # not just another generic dataframe side effect of the main pipeline.
-    company_overview_key = "|".join(
-        [
-            COMPANY_OVERVIEW_BEHAVIOR_VERSION,
-            f"sub={submissions_sig}",
-            f"materials={local_material_sig}",
-            f"ticker={str(ticker or '').upper()}",
-            f"code={_module_code_signature('summary_overview.py')}",
-        ]
+    company_overview_key = _stage_cache_key(
+        "company_overview",
+        {
+            "code_identity": _module_code_signature(
+                "cache_semantics.py", "summary_overview.py"
+            ),
+            "materials_identity": local_material_sig,
+            "semantic_versions": {"stage": COMPANY_OVERVIEW_BEHAVIOR_VERSION},
+            "sec_source_identity": sec_source_sig,
+            "submissions_identity": submissions_sig,
+            "ticker_profile": pipeline_profile_identity,
+        },
+        required_fields=(
+            "code_identity",
+            "materials_identity",
+            "sec_source_identity",
+            "submissions_identity",
+            "ticker_profile",
+        ),
     )
     company_overview_cached = _load_stage_cache("company_overview", company_overview_key)
     if isinstance(company_overview_cached, dict):

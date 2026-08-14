@@ -30,6 +30,10 @@ class ResolvedModuleProfile:
     dimensions: tuple[dict[str, str], ...]
     visible_sheet_order: tuple[str, ...]
     sheet_states: dict[str, str]
+    owned_runtime_sheets: tuple[str, ...] = ()
+    visible_runtime_sheets: tuple[str, ...] = ()
+    ordered_runtime_sheets: tuple[dict[str, str], ...] = ()
+    runtime_sheet_states: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -39,6 +43,41 @@ class ResolvedModuleProfile:
             "dimensions": [dict(row) for row in self.dimensions],
             "visible_sheet_order": list(self.visible_sheet_order),
             "sheet_states": dict(self.sheet_states),
+            "owned_runtime_sheets": list(self.owned_runtime_sheets),
+            "visible_runtime_sheets": list(self.visible_runtime_sheets),
+            "ordered_runtime_sheets": [dict(row) for row in self.ordered_runtime_sheets],
+            "runtime_sheet_states": dict(self.runtime_sheet_states or {}),
+        }
+
+
+@dataclass(frozen=True)
+class ResolvedTickerModuleRoute:
+    """Fail-closed ticker-to-profile routing result.
+
+    A route can be unsupported, but it can never silently borrow another ticker's
+    profile.  Callers may still render generic/core surfaces for an unsupported
+    route; profile-pack economics require an explicitly resolved profile.
+    """
+
+    ticker: str
+    status: str
+    profile_id: str
+    profile_pack_ids: tuple[str, ...]
+    resolved_profile: ResolvedModuleProfile | None
+    reason: str = ""
+
+    @property
+    def is_resolved(self) -> bool:
+        return self.resolved_profile is not None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "ticker": self.ticker,
+            "status": self.status,
+            "profile_id": self.profile_id,
+            "profile_pack_ids": list(self.profile_pack_ids),
+            "resolved_profile": self.resolved_profile.to_dict() if self.resolved_profile else None,
+            "reason": self.reason,
         }
 
 
@@ -228,6 +267,8 @@ def validate_workbook_module_manifest(payload: Mapping[str, Any]) -> list[str]:
     dimension_contract_set = set(dimension_contract_ids)
 
     pack_by_id = {str(row.get("pack_id") or ""): row for row in packs}
+    runtime_sheet_owners: dict[str, str] = {}
+    runtime_sheet_contracts: dict[str, Mapping[str, Any]] = {}
     for pack in packs:
         pack_id = str(pack.get("pack_id") or "")
         host = str(pack.get("host_module_id") or "")
@@ -240,6 +281,42 @@ def validate_workbook_module_manifest(payload: Mapping[str, Any]) -> list[str]:
             f"Profile pack {pack_id!r}: {issue}"
             for issue in _duplicate_issues(driver_ids, "scenario_driver_id")
         )
+        runtime_sheets = [
+            row for row in pack.get("runtime_sheets") or [] if isinstance(row, Mapping)
+        ]
+        runtime_names = [str(row.get("sheet") or "") for row in runtime_sheets]
+        issues.extend(
+            f"Profile pack {pack_id!r}: {issue}"
+            for issue in _duplicate_issues(runtime_names, "runtime sheet")
+        )
+        for runtime_sheet in runtime_sheets:
+            sheet_name = str(runtime_sheet.get("sheet") or "")
+            previous_owner = runtime_sheet_owners.get(sheet_name)
+            if previous_owner is not None and previous_owner != pack_id:
+                issues.append(
+                    f"Runtime sheet {sheet_name!r} is owned by both profile packs "
+                    f"{previous_owner!r} and {pack_id!r}."
+                )
+            else:
+                runtime_sheet_owners[sheet_name] = pack_id
+                runtime_sheet_contracts[sheet_name] = runtime_sheet
+            anchor = str(runtime_sheet.get("order_after") or "")
+            if anchor == sheet_name:
+                issues.append(f"Runtime sheet {sheet_name!r} cannot order itself after itself.")
+            if sheet_name in sheet_contracts:
+                issues.append(
+                    f"Runtime sheet {sheet_name!r} duplicates union-shell ownership; "
+                    "pack runtime sheets must remain outside union_sheet_order."
+                )
+    for start in sorted(runtime_sheet_contracts):
+        seen_runtime: set[str] = set()
+        current = start
+        while current in runtime_sheet_contracts:
+            if current in seen_runtime:
+                issues.append(f"Runtime sheet ordering contains a cycle at {current!r}.")
+                break
+            seen_runtime.add(current)
+            current = str(runtime_sheet_contracts[current].get("order_after") or "")
 
     profile_by_id = {str(row.get("profile_id") or ""): row for row in profiles}
     union_profile = str(payload.get("union_shell_profile_id") or "")
@@ -520,14 +597,86 @@ def resolve_module_profile(payload: Mapping[str, Any], profile_id: str) -> Resol
             visible.append(sheet_name)
     if not visible:
         raise ValueError(f"Workbook module profile {profile_id!r} would create a workbook with no visible sheets.")
+    selected_pack_ids = tuple(str(value) for value in profile.get("profile_pack_ids") or [])
+    selected_pack_set = set(selected_pack_ids)
+    runtime_rows = sorted(
+        (
+            {
+                "sheet": str(runtime_sheet.get("sheet") or ""),
+                "order_after": str(runtime_sheet.get("order_after") or ""),
+                "visibility": str(runtime_sheet.get("visibility") or "hidden"),
+                "lifecycle": str(runtime_sheet.get("lifecycle") or ""),
+                "materialization_contract": str(runtime_sheet.get("materialization_contract") or ""),
+                "owner_pack_id": str(pack.get("pack_id") or ""),
+            }
+            for pack in payload.get("profile_packs") or []
+            if isinstance(pack, Mapping) and str(pack.get("pack_id") or "") in selected_pack_set
+            for runtime_sheet in pack.get("runtime_sheets") or []
+            if isinstance(runtime_sheet, Mapping)
+        ),
+        key=lambda row: (row["sheet"].casefold(), row["owner_pack_id"]),
+    )
+    runtime_states = {row["sheet"]: row["visibility"] for row in runtime_rows}
     return ResolvedModuleProfile(
         profile_id=profile_id,
         enabled_modules=enabled,
-        profile_pack_ids=tuple(str(value) for value in profile.get("profile_pack_ids") or []),
+        profile_pack_ids=selected_pack_ids,
         dimensions=tuple(dict(row) for row in profile.get("dimensions") or []),
         visible_sheet_order=tuple(visible),
         sheet_states=states,
+        owned_runtime_sheets=tuple(row["sheet"] for row in runtime_rows),
+        visible_runtime_sheets=tuple(
+            row["sheet"] for row in runtime_rows if row["visibility"] == "visible"
+        ),
+        ordered_runtime_sheets=tuple(
+            {"sheet": row["sheet"], "order_after": row["order_after"]}
+            for row in runtime_rows
+        ),
+        runtime_sheet_states=runtime_states,
     )
+
+
+def apply_runtime_sheet_order(
+    base_order: Sequence[str],
+    ordered_runtime_sheets: Sequence[Mapping[str, str]],
+) -> tuple[str, ...]:
+    """Place owned runtime sheets without letting order imply ownership.
+
+    The caller supplies only already-resolved owned runtime contracts.  Missing
+    anchors and cycles fail closed; visibility and materialization are handled by
+    their independent contracts.
+    """
+
+    output = [str(name) for name in base_order]
+    pending = {
+        str(row.get("sheet") or ""): str(row.get("order_after") or "")
+        for row in ordered_runtime_sheets
+        if str(row.get("sheet") or "")
+    }
+    if len(pending) != len([row for row in ordered_runtime_sheets if str(row.get("sheet") or "")]):
+        raise ValueError("Runtime sheet order contains duplicate sheet identities.")
+    for sheet_name in pending:
+        if sheet_name in output:
+            raise ValueError(f"Runtime sheet {sheet_name!r} already belongs to the base sheet order.")
+    while pending:
+        ready = sorted(
+            (sheet, anchor) for sheet, anchor in pending.items() if anchor in output
+        )
+        if not ready:
+            raise ValueError(
+                "Runtime sheet order has an unknown anchor or cycle: "
+                + repr(sorted(pending.items()))
+            )
+        by_anchor: dict[str, list[str]] = {}
+        for sheet, anchor in ready:
+            by_anchor.setdefault(anchor, []).append(sheet)
+        for anchor in sorted(by_anchor, key=output.index, reverse=True):
+            insert_at = output.index(anchor) + 1
+            sheets = sorted(by_anchor[anchor], key=str.casefold)
+            output[insert_at:insert_at] = sheets
+            for sheet in sheets:
+                pending.pop(sheet, None)
+    return tuple(output)
 
 
 def profile_id_for_ticker(payload: Mapping[str, Any], ticker: str) -> str:
@@ -536,6 +685,69 @@ def profile_id_for_ticker(payload: Mapping[str, Any], ticker: str) -> str:
     if not profile_id:
         raise ValueError(f"Ticker {ticker!r} has no declarative workbook module profile.")
     return profile_id
+
+
+def resolve_ticker_module_route(
+    payload: Mapping[str, Any],
+    ticker: str,
+    *,
+    declared_profile_id: str = "",
+) -> ResolvedTickerModuleRoute:
+    """Resolve ticker/profile ownership without a first/last/default fallback.
+
+    The manifest is the independent routing authority.  An unregistered ticker
+    without an explicit profile is returned as unsupported with no profile packs;
+    an invalid or ambiguous declaration raises instead of guessing.
+    """
+
+    ticker_txt = str(ticker or "").strip().upper()
+    if not ticker_txt:
+        raise ValueError("Ticker is required for workbook module profile routing.")
+
+    semantic_issues = validate_workbook_module_manifest(payload)
+    if semantic_issues:
+        raise ValueError("Invalid workbook module manifest: " + "; ".join(semantic_issues[:10]))
+
+    raw_ticker_map = payload.get("ticker_profile_map")
+    ticker_map = raw_ticker_map if isinstance(raw_ticker_map, Mapping) else {}
+    normalized_map: dict[str, str] = {}
+    for raw_ticker, raw_profile_id in ticker_map.items():
+        normalized_ticker = str(raw_ticker or "").strip().upper()
+        if not normalized_ticker:
+            raise ValueError("Workbook module ticker_profile_map contains an empty ticker key.")
+        if normalized_ticker in normalized_map:
+            raise ValueError(
+                f"Ambiguous workbook module ticker registration for {normalized_ticker!r}."
+            )
+        normalized_map[normalized_ticker] = str(raw_profile_id or "").strip()
+
+    mapped_profile_id = normalized_map.get(ticker_txt, "")
+    explicit_profile_id = str(declared_profile_id or "").strip()
+    if explicit_profile_id and mapped_profile_id and explicit_profile_id != mapped_profile_id:
+        raise ValueError(
+            f"Ticker {ticker_txt!r} maps to profile {mapped_profile_id!r}, which conflicts with "
+            f"declared profile {explicit_profile_id!r}."
+        )
+
+    profile_id = explicit_profile_id or mapped_profile_id
+    if not profile_id:
+        return ResolvedTickerModuleRoute(
+            ticker=ticker_txt,
+            status="unsupported",
+            profile_id="",
+            profile_pack_ids=(),
+            resolved_profile=None,
+            reason="No declarative workbook module profile is registered for this ticker.",
+        )
+
+    resolved = resolve_module_profile(payload, profile_id)
+    return ResolvedTickerModuleRoute(
+        ticker=ticker_txt,
+        status="resolved_declared_profile" if explicit_profile_id else "resolved_ticker_map",
+        profile_id=profile_id,
+        profile_pack_ids=resolved.profile_pack_ids,
+        resolved_profile=resolved,
+    )
 
 
 def sheet_contracts(payload: Mapping[str, Any]) -> dict[str, dict[str, Any]]:

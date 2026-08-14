@@ -4,7 +4,6 @@ from copy import deepcopy
 
 import pytest
 
-from pbi_xbrl.standard_template_formula_contract import _scenario_revenue_route_formula
 from pbi_xbrl.valuation_scenario_economics import (
     CANONICAL_REVENUE_OUTPUT_METRIC,
     canonicalize_scenario_contract,
@@ -408,14 +407,15 @@ def test_canonical_route_aliases_match_python_and_workbook_support_exactly(
         scenario_id="base",
         horizon="FY2026",
     )
-    formula = _scenario_revenue_route_formula(
+    public_resolution = resolve_revenue_growth(
+        canonical_items,
+        canonical_bridges,
         scenario_id="base",
-        user_growth="'{ticker}_Investment_Case'!$C$24",
-        scenario_horizon="'{ticker}_Investment_Case'!$C$23",
+        horizon="FY2026",
     )
-    assert '="revenue_growth"' in formula
-    assert formula.count('="total_company"') == 4
-    assert all(function not in formula for function in ("LOWER(", "TRIM(", "SUBSTITUTE("))
+    assert public_resolution.value == pytest.approx(0.10)
+    assert public_resolution.route_mode == "profile_driver"
+    assert public_resolution.rule_id is None
     assert workbook_growth == pytest.approx(0.10)
     assert python_result["revenue_growth"] == pytest.approx(workbook_growth)
     assert python_result["revenue"] == pytest.approx(1_100.0)

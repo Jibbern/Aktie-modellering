@@ -291,6 +291,12 @@ from .excel_writer_sector_investment_case import (
     write_sector_investment_case_data_sheet,
     write_sector_investment_case_sheet,
 )
+from .workbook_modules import (
+    ResolvedTickerModuleRoute,
+    apply_runtime_sheet_order,
+    load_workbook_module_manifest,
+    resolve_ticker_module_route,
+)
 from .excel_writer_anf_investment_case import (
     AnfInvestmentCaseRenderDeps,
     write_anf_investment_case_data_sheet,
@@ -653,11 +659,13 @@ def _anf_visible_quarter_label(qd: Any) -> str:
 def _source_backed_debt_tranches_from_slides(
     slides_debt: Optional[pd.DataFrame],
     latest_quarter: Any,
+    ticker: Any,
 ) -> pd.DataFrame:
     return source_backed_debt_tranches_from_slides(
         ValuationDebtSupportDeps(runtime={"pd": pd, "re": re}),
         slides_debt,
         latest_quarter,
+        ticker,
     )
 
 
@@ -1305,6 +1313,13 @@ def _investment_case_support() -> InvestmentCaseSupport:
     )
 
 
+def _investment_case_profile_route(ticker: Any) -> ResolvedTickerModuleRoute:
+    return resolve_ticker_module_route(
+        load_workbook_module_manifest(),
+        str(ticker or "").strip().upper(),
+    )
+
+
 def _anf_investment_case_sheet_order(
     desired_sheet_order: Sequence[str],
     raw_sheet_cluster: Sequence[str],
@@ -1353,6 +1368,7 @@ def _anf_build_investment_case_data(
 def _sector_build_investment_case_data(
     *,
     ticker: str,
+    profile_route: Optional[ResolvedTickerModuleRoute] = None,
     hist: Any,
     operating_driver_rows: Sequence[Dict[str, Any]] = (),
     guidance_normalized: Any = None,
@@ -1362,6 +1378,7 @@ def _sector_build_investment_case_data(
 ) -> pd.DataFrame:
     return _investment_case_support().build_sector_investment_case_data(
         ticker=ticker,
+        profile_route=profile_route or _investment_case_profile_route(ticker),
         hist=hist,
         operating_driver_rows=operating_driver_rows,
         guidance_normalized=guidance_normalized,
@@ -1418,11 +1435,19 @@ def _write_sector_investment_case_data_sheet(wb: Workbook, ticker: Any, data: pd
     )
 
 
-def _write_sector_investment_case_sheet(wb: Workbook, ticker: Any, data: pd.DataFrame) -> None:
+def _write_sector_investment_case_sheet(
+    wb: Workbook,
+    ticker: Any,
+    data: pd.DataFrame,
+    *,
+    profile_route: Optional[ResolvedTickerModuleRoute] = None,
+) -> None:
+    ticker_txt = str(ticker or "").strip().upper()
     return write_sector_investment_case_sheet(
         _sector_investment_case_render_deps(wb),
         data,
-        ticker=str(ticker or "").strip().upper(),
+        ticker=ticker_txt,
+        profile_route=profile_route or _investment_case_profile_route(ticker_txt),
     )
 
 
@@ -2200,6 +2225,21 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     material_roots = _company_material_roots()
     company_profile = get_company_profile(ticker)
     profile_ticker = str(getattr(company_profile, "ticker", "") or ticker or "").strip().upper()
+    module_route = _investment_case_profile_route(profile_ticker)
+    resolved_module_profile = module_route.resolved_profile
+    owned_runtime_sheets = set(
+        resolved_module_profile.owned_runtime_sheets if resolved_module_profile is not None else ()
+    )
+    runtime_sheet_states = dict(
+        resolved_module_profile.runtime_sheet_states or {}
+        if resolved_module_profile is not None
+        else {}
+    )
+    ordered_runtime_sheets = tuple(
+        resolved_module_profile.ordered_runtime_sheets
+        if resolved_module_profile is not None
+        else ()
+    )
     is_pbi_profile = profile_ticker == "PBI"
     is_gpre_profile = profile_ticker == "GPRE"
     is_anf_profile = profile_ticker == "ANF"
@@ -4552,6 +4592,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             "header_size": header_size,
             "info_log": info_log,
             "is_gpre_profile": is_gpre_profile,
+            "derivative_crush_tests_owned": "Derivative_Crush_Tests" in owned_runtime_sheets,
             "is_pbi_profile": is_pbi_profile,
             "load_or_download_gpre_corn_bids_snapshot": load_or_download_gpre_corn_bids_snapshot,
             "market_build_gpre_proxy_implied_results_bundle": market_build_gpre_proxy_implied_results_bundle,
@@ -4614,8 +4655,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             guidance_for_case = _shared_guidance_normalized_frame(guidance_for_case)
         except Exception:
             guidance_for_case = slides_guidance
+        profile_route = _investment_case_profile_route(ticker_txt)
         case_data = _sector_build_investment_case_data(
             ticker=ticker_txt,
+            profile_route=profile_route,
             hist=hist,
             operating_driver_rows=operating_driver_history_rows,
             guidance_normalized=guidance_for_case,
@@ -4623,7 +4666,12 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             economics_market_rows=economics_market_rows,
             slides_segments=slides_segments,
         )
-        _write_sector_investment_case_sheet(wb, ticker_txt, case_data)
+        _write_sector_investment_case_sheet(
+            wb,
+            ticker_txt,
+            case_data,
+            profile_route=profile_route,
+        )
         _write_sector_investment_case_data_sheet(wb, ticker_txt, case_data)
         return case_data
 
@@ -4633,16 +4681,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
     def _write_quarter_notes_narrative_ui_surface() -> None:
         return _write_quarter_notes_narrative_ui_surface_impl(_quarter_notes_context_adapter_deps())
 
-    enable_derivative_oci_bridge_sheet = bool(
-        (is_gpre_profile or bool(getattr(company_profile, "enable_derivative_oci_bridge", False)))
-        and not is_pbi_profile
-    )
-    # The accounting bridge belongs next to Promise_Progress_UI, while the
-    # crush-testing surface sits after Basis_Proxy_Sandbox because it consumes
-    # that sheet's market/proxy quarterly frame. PBI stays excluded until it has
-    # an explicit derivative/OCI bridge use case.
-    derivative_sheet_order_slot = ("Derivative_OCI_Bridge",) if enable_derivative_oci_bridge_sheet else tuple()
-    derivative_crush_tests_order_slot = ("Derivative_Crush_Tests",) if (enable_derivative_oci_bridge_sheet and is_gpre_profile) else tuple()
+    enable_derivative_oci_bridge_sheet = "Derivative_OCI_Bridge" in owned_runtime_sheets
     desired_sheet_order = (
         "SUMMARY",
         "Valuation",
@@ -4651,9 +4690,7 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         "Economics_Overlay",
         "Quarter_Notes_UI",
         "Promise_Progress_UI",
-        *derivative_sheet_order_slot,
         "Basis_Proxy_Sandbox",
-        *derivative_crush_tests_order_slot,
         "Hidden_Value_Flags",
         "Revolver_History",
         "Debt_Tranches_Latest",
@@ -4672,6 +4709,10 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
         "Quarter_Notes_Evidence",
         "Quarter_Narrative_Data",
         "Quarter_Notes_Audit",
+    )
+    desired_sheet_order = apply_runtime_sheet_order(
+        desired_sheet_order,
+        ordered_runtime_sheets,
     )
     raw_sheet_cluster = ("History_Q", "operating_drivers_raw", "economics_market_raw")
     desired_sheet_order, raw_sheet_cluster = _investment_case_sheet_order(
@@ -4762,6 +4803,8 @@ def build_writer_context(inputs: WorkbookInputs) -> WriterContext:
             "derivative_oci_bridge_df": derivative_oci_bridge_df,
             "derivative_oci_qa_df": derivative_oci_qa_df,
             "derivative_oci_exposure_df": derivative_oci_exposure_df,
+            "owned_runtime_sheets": tuple(sorted(owned_runtime_sheets)),
+            "runtime_sheet_states": runtime_sheet_states,
             "company_profile": company_profile,
             "font_size": font_size,
             "header_size": header_size,

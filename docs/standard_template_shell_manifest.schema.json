@@ -116,6 +116,21 @@
         "dimensions": {"type": "array", "items": {"type": "object"}},
         "visible_sheet_order": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
         "sheet_states": {"type": "object", "minProperties": 44, "additionalProperties": {"enum": ["visible", "hidden", "veryHidden"]}},
+        "owned_runtime_sheets": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "visible_runtime_sheets": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "ordered_runtime_sheets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["sheet", "order_after"],
+            "properties": {
+              "sheet": {"type": "string", "minLength": 1},
+              "order_after": {"type": "string", "minLength": 1}
+            },
+            "additionalProperties": false
+          }
+        },
+        "runtime_sheet_states": {"type": "object", "additionalProperties": {"enum": ["visible", "hidden", "veryHidden"]}},
         "enabled_formula_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"}},
         "enabled_defined_name_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
         "signature": {"$ref": "#/$defs/sha256"}

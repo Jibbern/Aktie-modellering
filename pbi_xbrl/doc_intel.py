@@ -14,6 +14,15 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
+from .cache_semantics import (
+    DOC_TEXT_EXTRACTOR_VERSION,
+    build_cache_identity,
+    file_content_sha256,
+)
+from .adjusted_metric_history import (
+    AdjustedMetricScope,
+    select_adjusted_metric_history,
+)
 from .filing_evidence_shared import (
     build_parent_subject_key as _build_parent_subject_key,
     derive_lifecycle_state as _derive_lifecycle_state,
@@ -98,9 +107,6 @@ NON_GAAP_UNIT_PATTERNS: List[Tuple[str, re.Pattern[str]]] = [
     ),
     ("millions", re.compile(r"in\s+millions(?:\s*,\s*except\s+per\s+share\s+amounts?)?", re.I | re.S)),
 ]
-
-DOC_TEXT_EXTRACTOR_VERSION = "v2"
-
 
 @contextmanager
 def _timed_substage(stage_timings: Optional[Dict[str, float]], name: str, *, enabled: bool = False):
@@ -244,14 +250,20 @@ def _doc_text_cache_path(
     if cache_root is None:
         return None
     try:
-        st = pdf_path.stat()
+        source_sha256 = file_content_sha256(pdf_path)
     except Exception:
         return None
     cache_dir = Path(cache_root) / "doc_text_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
-    key_src = f"{pdf_path.name}|{int(st.st_size)}|{int(st.st_mtime)}|{extractor_version}"
-    key = hashlib.sha1(key_src.encode("utf-8", errors="ignore")).hexdigest()
-    return cache_dir / f"{key}.txt"
+    identity = build_cache_identity(
+        "document-pdf-text",
+        {
+            "extractor_version": str(extractor_version),
+            "source_content_sha256": source_sha256,
+        },
+        required_fields=("extractor_version", "source_content_sha256"),
+    )
+    return cache_dir / f"{identity.digest}.txt"
 
 
 def _extract_pdf_text_cached(
@@ -2675,6 +2687,8 @@ def _source_kind_from_row(row: pd.Series) -> str:
         return "slides_direct"
     if "derived" in src or "heuristic" in src or "fallback" in src or "fallback" in method:
         return "fallback_unknown"
+    if src == "issuer_recast_workbook" and src_type == "historical_recast":
+        return "issuer_recast_direct"
     if "ex99" in src or "filing" in src_type or src in {"direct", "xbrl"}:
         return "filing_direct"
     if "ocr" in col and conf in {"low", ""}:
@@ -2734,13 +2748,41 @@ def _build_non_gaap_cred(
                 "revenue": pd.to_numeric(rec.get("revenue"), errors="coerce"),
             }
 
-    a["_row_order"] = range(len(a))
-    if "confidence" in a.columns:
-        a["_rank"] = a["confidence"].astype(str).map(_confidence_rank).fillna(0)
-    else:
-        a["_rank"] = 0
-    a = a.sort_values(["quarter", "_rank", "_row_order"], kind="stable")
-    adj_rows = [dict(rec) for rec in a.groupby("quarter", sort=True).tail(1).drop(columns=["_rank", "_row_order"]).to_dict("records")]
+    selected_facts = select_adjusted_metric_history(a)
+    adj_rows: List[Dict[str, Any]] = []
+    if not selected_facts.empty:
+        for quarter, quarter_facts in selected_facts.groupby("quarter", sort=True):
+            relevant = quarter_facts[
+                quarter_facts["metric_id"].isin({"adj_ebit", "adj_ebitda"})
+            ]
+            if relevant.empty:
+                continue
+            by_metric = {
+                str(record["metric_id"]): record
+                for record in relevant.to_dict("records")
+            }
+            primary = by_metric.get("adj_ebit") or by_metric.get("adj_ebitda")
+            if primary is None:
+                continue
+            combined = dict(primary)
+            combined["quarter"] = pd.Timestamp(quarter)
+            combined["adj_ebit"] = (
+                float(by_metric["adj_ebit"]["value"])
+                if "adj_ebit" in by_metric
+                else None
+            )
+            combined["adj_ebitda"] = (
+                float(by_metric["adj_ebitda"]["value"])
+                if "adj_ebitda" in by_metric
+                else None
+            )
+            combined["adjusted_metric_owner_ids"] = tuple(
+                sorted(
+                    str(record.get("source_occurrence_id") or "")
+                    for record in by_metric.values()
+                )
+            )
+            adj_rows.append(combined)
     if not adj_rows:
         return pd.DataFrame()
 
@@ -2880,13 +2922,18 @@ def _build_non_gaap_cred(
                 str(row_a.get("doc") or ""),
             ]
         )
-        units_detected = _doc_registry_units_for(
-            doc_abs or doc_rel or doc_raw,
-            unit_text,
-            shared_doc_registry,
-            cache_dir=cache_dir,
-            rebuild_doc_text_cache=rebuild_doc_text_cache,
-            quiet_pdf_warnings=quiet_pdf_warnings,
+        typed_source_unit = str(row_a.get("source_unit") or "").strip().lower()
+        units_detected = (
+            typed_source_unit
+            if typed_source_unit in {"ones", "thousands", "millions"}
+            else _doc_registry_units_for(
+                doc_abs or doc_rel or doc_raw,
+                unit_text,
+                shared_doc_registry,
+                cache_dir=cache_dir,
+                rebuild_doc_text_cache=rebuild_doc_text_cache,
+                quiet_pdf_warnings=quiet_pdf_warnings,
+            )
         )
         units_known = units_detected is not None
         if not units_known:
@@ -2912,7 +2959,9 @@ def _build_non_gaap_cred(
                         reasons.append(f"FAIL: {metric_name} appears 1,000x scaled vs GAAP size")
 
         # 4) Reconciliation check (if recon exists)
-        recon_exists = bool(breakdown_info.get("has_values"))
+        recon_exists = bool(breakdown_info.get("has_values")) and str(
+            row_a.get("scope") or ""
+        ) != AdjustedMetricScope.CONTINUING_OPERATIONS_RECAST.value
         recon_diff = None
         if recon_exists and pd.notna(gaap_ebit) and pd.notna(adj_ebit):
             recon_sum = float(breakdown_info.get("recon_sum") or 0.0)

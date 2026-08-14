@@ -26,8 +26,10 @@ from .excel_writer_segment_sources import (
     _anf_fill_brand_quarter_revenue_from_annual_segments_for_bs,
     _anf_fiscal_year_from_quarter_end,
     _filter_anf_quarterly_segment_actual_rows,
+    _merge_quarterly_segment_packages_per_period,
     _pbi_add_corporate_reconciliation_from_release_text,
     _pbi_repair_total_reportable_segment_quarterly_totals_for_bs,
+    _segment_residual_ledger_payload,
 )
 from .excel_writer_segments import (
     latest_segment_financials_workbook as ew_latest_segment_financials_workbook,
@@ -38,6 +40,11 @@ from .filing_evidence_shared import looks_like_tabular_fragment as shared_looks_
 from .guidance_lexicon import normalize_text as glx_normalize_text, split_sentences as glx_split_sentences
 from .non_gaap import strip_html
 from .quarter_notes_lexicon import is_complete_signal_text as qn_is_complete_signal_text
+from .segment_normalization import (
+    SegmentNormalizationError,
+    SegmentResidualInputFact,
+    segment_residual_input_fact_from_legacy_row,
+)
 
 
 @dataclass
@@ -2481,14 +2488,48 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
                 segment_name: str,
                 q_ts: pd.Timestamp,
                 value_in: Any,
+                *,
+                source_doc: Path,
+                source_locator: str,
             ) -> None:
                 value_num = _parse_money_thousands(value_in)
                 if value_num is None:
                     return
                 store_in.setdefault(metric_name, {}).setdefault(segment_name, {})[q_ts] = float(value_num)
+                metric_id = {
+                    "Revenue": "metric:core:revenue@1",
+                    "Adjusted EBIT": "metric:business-services:adjusted-segment-ebit@1",
+                    "Depreciation & amortization": "metric:core:depreciation-amortization@1",
+                    "Adjusted EBITDA": "metric:core:adjusted-ebitda@1",
+                }.get(metric_name)
+                if metric_id is None:
+                    return
+                try:
+                    source_facts.append(
+                        segment_residual_input_fact_from_legacy_row(
+                            company_id="PBI",
+                            metric_label=metric_name,
+                            metric_id=metric_id,
+                            segment_member=segment_name,
+                            value_millions=float(value_num) / 1_000_000.0,
+                            period_end=q_ts.date(),
+                            period_id=f"period:pbi:cy{q_ts.year}-q{q_ts.quarter}@1",
+                            source_doc=source_doc,
+                            source_type="earnings-release",
+                            source_locator=source_locator,
+                            aggregation_role=(
+                                "reported_total"
+                                if segment_name == "Total reportable segments"
+                                else "component"
+                            ),
+                        )
+                    )
+                except SegmentNormalizationError:
+                    pass
 
             store: Dict[str, Dict[str, Dict[pd.Timestamp, float]]] = {}
             source_docs: List[str] = []
+            source_facts: List[SegmentResidualInputFact] = []
             for root in material_roots:
                 er_dir = root / "earnings_release"
                 if not er_dir.exists() or not er_dir.is_dir():
@@ -2527,9 +2568,33 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
                         flags=re.I | re.S,
                     )
                     if rev_match:
-                        _add_metric(store, "Revenue", "SendTech Solutions", q_ts, rev_match.group(1))
-                        _add_metric(store, "Revenue", "Presort Services", q_ts, rev_match.group(2))
-                        _add_metric(store, "Revenue", "Total reportable segments", q_ts, rev_match.group(3))
+                        _add_metric(
+                            store,
+                            "Revenue",
+                            "SendTech Solutions",
+                            q_ts,
+                            rev_match.group(1),
+                            source_doc=path_in,
+                            source_locator="table:business-segment-revenue",
+                        )
+                        _add_metric(
+                            store,
+                            "Revenue",
+                            "Presort Services",
+                            q_ts,
+                            rev_match.group(2),
+                            source_doc=path_in,
+                            source_locator="table:business-segment-revenue",
+                        )
+                        _add_metric(
+                            store,
+                            "Revenue",
+                            "Total reportable segments",
+                            q_ts,
+                            rev_match.group(3),
+                            source_doc=path_in,
+                            source_locator="table:business-segment-revenue",
+                        )
 
                     ebit_match = re.search(
                         r"Adjusted\s+Segment\s+EBIT\s*&\s*EBITDA.*?"
@@ -2546,9 +2611,33 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
                             ("Presort Services", 3),
                             ("Total reportable segments", 6),
                         ):
-                            _add_metric(store, "Adjusted EBIT", seg_name, q_ts, groups[offset])
-                            _add_metric(store, "Depreciation & amortization", seg_name, q_ts, groups[offset + 1])
-                            _add_metric(store, "Adjusted EBITDA", seg_name, q_ts, groups[offset + 2])
+                            _add_metric(
+                                store,
+                                "Adjusted EBIT",
+                                seg_name,
+                                q_ts,
+                                groups[offset],
+                                source_doc=path_in,
+                                source_locator="table:adjusted-segment-ebit-ebitda",
+                            )
+                            _add_metric(
+                                store,
+                                "Depreciation & amortization",
+                                seg_name,
+                                q_ts,
+                                groups[offset + 1],
+                                source_doc=path_in,
+                                source_locator="table:adjusted-segment-ebit-ebitda",
+                            )
+                            _add_metric(
+                                store,
+                                "Adjusted EBITDA",
+                                seg_name,
+                                q_ts,
+                                groups[offset + 2],
+                                source_doc=path_in,
+                                source_locator="table:adjusted-segment-ebit-ebitda",
+                            )
                         _pbi_add_corporate_reconciliation_from_release_text(
                             store,
                             txt,
@@ -2560,7 +2649,12 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
 
             if not store:
                 return {}
-            store = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(store)
+            residual_derivations: List[Dict[str, Any]] = []
+            store = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+                store,
+                source_facts=source_facts,
+                derivations_out=residual_derivations,
+            )
             revenue_map = dict(store.get("Revenue") or {})
             op_map = dict(store.get("Adjusted EBIT") or {})
             if revenue_map and op_map:
@@ -2583,12 +2677,18 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
                     for q in q_map.keys()
                 }
             )
-            return {
+            result = {
                 "metrics": store,
                 "quarters": quarters,
                 "source_doc": " | ".join(dict.fromkeys(source_docs[-3:])),
                 "source_qd": max(quarters) if quarters else None,
             }
+            if residual_derivations:
+                result["segment_derivation_ledger"] = _segment_residual_ledger_payload(
+                    source_facts,
+                    residual_derivations,
+                )
+            return result
 
         segment_dir = _first_existing_material_dir("segment_financials", "historical_segment")
         workbook_path = ew_latest_segment_financials_workbook(segment_dir)
@@ -2603,6 +2703,12 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
                 parsed["source_doc"] = str(workbook_path)
 
         def _merge_segment_support_data(base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]:
+            if is_pbi_profile:
+                return _merge_quarterly_segment_packages_per_period(
+                    primary=base,
+                    authoritative_overlay=overlay,
+                    supplemental_overlay={},
+                )
             base_metrics = dict(base.get("metrics") or {})
             overlay_metrics = dict(overlay.get("metrics") or {})
             if not base_metrics:
@@ -2627,8 +2733,6 @@ def write_operating_drivers_sheet(deps: OperatingDriversWriterDeps, rows: List[D
 
             _copy_metrics(base_metrics, replace_existing=True)
             _copy_metrics(overlay_metrics, replace_existing=False)
-            if is_pbi_profile:
-                merged_metrics = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(merged_metrics)
             if is_anf_profile:
                 merged_metrics = _anf_add_total_company_quarter_revenue_from_history(
                     merged_metrics,

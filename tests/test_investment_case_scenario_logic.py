@@ -1,4 +1,3 @@
-import os
 import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
@@ -6,20 +5,14 @@ from typing import Any, Dict, Iterable, List, Tuple
 import pytest
 from openpyxl import load_workbook
 
+from tests.workbook_test_resources import delivered_workbook_path
 
-WORKBOOK_DIR = Path(os.environ.get("STOCK_MODEL_WORKBOOK_DIR", r"C:\Users\Jibbe\Aktier\Excel stock models"))
 TICKERS = ("PBI", "GPRE", "ANF")
 YELLOW_INPUT_FILL = "00FFF2CC"
 
 
 def _load_workbook(ticker: str, *, data_only: bool = False):
-    xlsx_path = WORKBOOK_DIR / f"{ticker}_model.xlsx"
-    xlsm_path = WORKBOOK_DIR / f"{ticker}_model.xlsm"
-    path = xlsx_path
-    if xlsm_path.exists() and (not xlsx_path.exists() or xlsm_path.stat().st_mtime >= xlsx_path.stat().st_mtime):
-        path = xlsm_path
-    if not path.exists():
-        pytest.skip(f"{path} is not available for Investment_Case scenario regression tests")
+    path = delivered_workbook_path(ticker, Path(__file__).resolve())
     return load_workbook(path, data_only=data_only, read_only=False)
 
 
@@ -31,6 +24,12 @@ def _ic_sheet(wb: Any, ticker: str):
 
 def _text(value: Any) -> str:
     return str(value or "").strip()
+
+
+def _semantic_rgb(value: Any) -> str:
+    raw = _text(value).upper()
+    assert len(raw) in {6, 8}, f"Unsupported OOXML RGB encoding: {raw!r}"
+    return raw[-6:]
 
 
 def _formula(value: Any) -> str:
@@ -157,7 +156,7 @@ def test_manual_inputs_have_yellow_overrides_manual_first_active_formulas_and_ta
                 manual = ws.cell(rr, 6)
                 active = ws.cell(rr, 7).value
                 assert manual.fill.fill_type == "solid", f"{ticker} {label}: manual override cell lacks solid input fill"
-                assert _text(manual.fill.fgColor.rgb).upper() == YELLOW_INPUT_FILL, f"{ticker} {label}: manual override fill"
+                assert _semantic_rgb(manual.fill.fgColor.rgb) == _semantic_rgb(YELLOW_INPUT_FILL), f"{ticker} {label}: manual override fill"
                 _assert_contains(active, f"F{rr}<>\"\"", f"F{rr}", context=f"{ticker} {label} active value")
                 assert _compact_formula(active).find(f"F{rr}<>\"\"") < _compact_formula(active).find("IF(") + 5 or _compact_formula(active).startswith(f"=IF(F{rr}<>\"\""), (
                     f"{ticker} {label}: manual override should be first branch in active value formula {active!r}"
@@ -186,19 +185,37 @@ def test_valuation_hidden_value_flags_remain_formula_linked_to_audit_sheet() -> 
             assert "Hidden_Value_Flags" in wb.sheetnames, f"{ticker}: missing Hidden_Value_Flags audit sheet"
             ws = wb["Valuation"]
             flags_header_row = _row_by_label(ws, "Hidden value flags")
-            helper_formula = _text(ws.cell(flags_header_row + 2, 35).value)
-            label_formula = _text(ws.cell(flags_header_row + 2, 1).value)
-            title_formula = _text(ws.cell(flags_header_row + 2, 2).value)
-            score_formula = _text(ws.cell(flags_header_row + 2, 6).value)
-            support_formula = _text(ws.cell(flags_header_row + 2, 8).value)
-            assert helper_formula.replace("'", "").startswith("=IF(N(Hidden_Value_Flags!$L$2)>=1"), f"{ticker}: hidden flag helper is not formula-linked"
-            assert "$AI" in label_formula and "COUNTIF" in label_formula, f"{ticker}: visible flag label should respect helper flag"
-            title_formula_plain = title_formula.replace("'", "")
-            score_formula_plain = score_formula.replace("'", "")
-            support_formula_plain = support_formula.replace("'", "")
-            assert "INDEX(Hidden_Value_Flags!$C:$C,$AI" in title_formula_plain, f"{ticker}: flag summary should stay audit-linked"
-            assert "INDEX(Hidden_Value_Flags!$D:$D,$AI" in score_formula_plain, f"{ticker}: flag score should stay audit-linked"
-            assert "INDEX(Hidden_Value_Flags!$K:$K,$AI" in support_formula_plain, f"{ticker}: flag support should stay audit-linked"
+            first_visible_row = flags_header_row + 2
+            second_visible_row = flags_header_row + 3
+            first_helper_formula = _text(ws.cell(first_visible_row, 35).value)
+            second_helper_formula = _text(ws.cell(second_visible_row, 35).value)
+            label_value = _text(ws.cell(first_visible_row, 1).value)
+            title_value = _text(ws.cell(first_visible_row, 2).value)
+            score_value = ws.cell(first_visible_row, 6).value
+            support_value = _text(ws.cell(first_visible_row, 8).value)
+            assert first_helper_formula.replace("'", "") == '=IFERROR(MATCH(1,Hidden_Value_Flags!$L$2:$L$100,0)+1,"")', f"{ticker}: first hidden flag helper"
+            audit = wb["Hidden_Value_Flags"]
+            active_rows = [
+                rr
+                for rr in range(2, int(audit.max_row or 0) + 1)
+                if _text(audit.cell(rr, 12).value) == "1"
+            ]
+            if active_rows:
+                assert second_helper_formula.replace("'", "") == (
+                    f'=IF($AI{first_visible_row}="","",IFERROR(MATCH(1,'
+                    f'INDEX(Hidden_Value_Flags!$L:$L,$AI{first_visible_row}+1):'
+                    f'Hidden_Value_Flags!$L$100,0)+$AI{first_visible_row},""))'
+                ), f"{ticker}: subsequent hidden flag helper"
+                first_audit_row = active_rows[0]
+                assert label_value == "Flag 1", f"{ticker}: visible flag label identity"
+                assert title_value == _text(audit.cell(first_audit_row, 3).value), f"{ticker}: flag summary should stay audit-owned"
+                assert score_value == audit.cell(first_audit_row, 4).value, f"{ticker}: flag score should stay audit-owned"
+                assert support_value == _text(audit.cell(first_audit_row, 11).value), f"{ticker}: flag support should stay audit-owned"
+            else:
+                assert label_value == "No triggered flags", f"{ticker}: explicit empty flag state"
+                assert title_value == "No scored hidden-value flags currently triggered"
+                assert score_value in (None, "")
+                assert support_value == "Audit candidates remain in Hidden_Value_Flags / Hidden_Value_Audit."
         finally:
             wb.close()
 

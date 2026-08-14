@@ -3,14 +3,24 @@ from __future__ import annotations
 import datetime as dt
 import shutil
 from contextlib import contextmanager
+from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
 import pandas as pd
 from pandas.testing import assert_frame_equal
+import pytest
 
 from pbi_xbrl import excel_writer, pipeline, pipeline_orchestration
+from pbi_xbrl.company_profiles import get_company_profile, resolve_gaap_metric_tag_policy
 from pbi_xbrl.debt_parser import parse_debt_tranches_from_primary_doc
+from pbi_xbrl.debt_sheet_visibility import (
+    DEBT_MATURITY_NEEDS_REVIEW,
+    DEBT_MATURITY_RECONCILED,
+    DEBT_MATURITY_RECONCILIATION_ATTR,
+)
+from pbi_xbrl.new_ticker_debt_scope import DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR
+from pbi_xbrl.metrics import GAAP_SPECS
 from pbi_xbrl.pipeline_qa import finalize_needs_review, finalize_qa_checks
 from pbi_xbrl.pipeline_runtime import (
     PipelineStageCache,
@@ -21,13 +31,120 @@ from pbi_xbrl.pipeline_types import PipelineArtifacts, PipelineConfig, WorkbookI
 from pbi_xbrl.valuation_precompute_runtime import ValuationPrecomputeRuntime, analyze_cap_alloc_doc
 
 
+def _debt_issuance_tags() -> tuple[str, ...]:
+    spec = next(row for row in GAAP_SPECS if row.name == "debt_issuance")
+    return tuple(spec.tags)
+
+
+def test_gpre_debt_issuance_tag_policy_is_declarative_and_profile_isolated() -> None:
+    tags = _debt_issuance_tags()
+    resolution = resolve_gaap_metric_tag_policy(
+        get_company_profile("GPRE"),
+        "debt_issuance",
+        tags,
+    )
+
+    assert resolution.policy_id == "gaap-tag-policy:gpre-debt-issuance@1"
+    assert resolution.rejected_tags == ("ProceedsFromShortTermDebt",)
+    assert resolution.selected_tags == tuple(
+        tag for tag in tags if tag != "ProceedsFromShortTermDebt"
+    )
+    assert "initial repayment term within one year" in resolution.rejection_reason
+    assert "ProceedsFromIssuanceOfLongTermDebt" in resolution.selected_tags
+
+    for ticker in ("PBI", "ANF", "FRESHCO"):
+        neutral = resolve_gaap_metric_tag_policy(
+            get_company_profile(ticker),
+            "debt_issuance",
+            tags,
+        )
+        assert neutral.policy_id == ""
+        assert neutral.rejected_tags == ()
+        assert neutral.selected_tags == tags
+
+
+def test_gpre_tag_policy_is_source_order_independent_and_ambiguous_policy_fails_closed() -> None:
+    profile = get_company_profile("GPRE")
+    tags = _debt_issuance_tags()
+    forward = resolve_gaap_metric_tag_policy(profile, "debt_issuance", tags)
+    reverse = resolve_gaap_metric_tag_policy(profile, "debt_issuance", tuple(reversed(tags)))
+
+    assert forward.selected_tags == reverse.selected_tags
+    assert forward.rejected_tags == reverse.rejected_tags
+    policy = profile.gaap_metric_tag_policies[0]
+    ambiguous = replace(profile, gaap_metric_tag_policies=(policy, policy))
+    with pytest.raises(ValueError, match="Ambiguous GAAP metric tag policy"):
+        resolve_gaap_metric_tag_policy(ambiguous, "debt_issuance", tags)
+
+
+def test_generic_gaap_loop_consumes_policy_without_ticker_specific_branch() -> None:
+    source = Path(pipeline.__file__).read_text(encoding="utf-8")
+    loop_start = source.index("for spec in GAAP_SPECS:")
+    loop_end = source.index("audit = pd.DataFrame(audit_rows)", loop_start)
+    loop_source = source[loop_start:loop_end]
+
+    assert "resolve_gaap_metric_tag_policy(" in loop_source
+    assert 'ticker or "").strip().upper() == "GPRE"' not in loop_source
+    assert "ProceedsFromShortTermDebt" not in loop_source
+
+
+def test_gaap_history_applies_gpre_tag_policy_and_retains_rejection_provenance() -> None:
+    def fact(tag: str, value: float) -> dict[str, object]:
+        return {
+            "tag": tag,
+            "unit": "USD",
+            "fy": 2026,
+            "fy_calc": 2026,
+            "fp": "Q1",
+            "form": "10-Q",
+            "filed_d": dt.date(2026, 5, 7),
+            "start_d": dt.date(2026, 1, 1),
+            "end_d": dt.date(2026, 3, 31),
+            "val": value,
+            "accn": "fixture",
+            "frame": "CY2026Q1",
+        }
+
+    facts = pd.DataFrame(
+        [
+            fact("RevenueFromContractWithCustomerExcludingAssessedTax", 100.0),
+            fact("ProceedsFromShortTermDebt", 87.802),
+        ]
+    )
+    gpre_history, gpre_audit, *_ = pipeline.build_gaap_history(
+        facts,
+        max_quarters=4,
+        min_year=2026,
+        ticker="GPRE",
+    )
+    pbi_history, pbi_audit, *_ = pipeline.build_gaap_history(
+        facts,
+        max_quarters=4,
+        min_year=2026,
+        ticker="PBI",
+    )
+
+    assert pd.isna(gpre_history.iloc[0]["debt_issuance"])
+    gpre_row = gpre_audit[gpre_audit["metric"].eq("debt_issuance")].iloc[0]
+    assert gpre_row["source"] == "missing"
+    assert gpre_row["tag_policy_id"] == "gaap-tag-policy:gpre-debt-issuance@1"
+    assert gpre_row["tag_policy_rejected_tags"] == "ProceedsFromShortTermDebt"
+    assert "initial repayment term within one year" in gpre_row["tag_policy_rejection_reason"]
+
+    assert pbi_history.iloc[0]["debt_issuance"] == 87.802
+    pbi_row = pbi_audit[pbi_audit["metric"].eq("debt_issuance")].iloc[0]
+    assert pbi_row["tag"] == "ProceedsFromShortTermDebt"
+    assert "tag_policy_id" not in pbi_audit.columns
+
+
 def test_doc_intel_cache_key_tracks_local_source_material_signature() -> None:
     source = Path(pipeline_orchestration.__file__).read_text(encoding="utf-8")
     start = source.index("doc_intel_key =")
     end = source.index("doc_intel_cached =", start)
     doc_intel_block = source[start:end]
 
-    assert "materials={local_material_sig}" in doc_intel_block
+    assert '"local_materials": local_material_sig' in doc_intel_block
+    assert '"doc_text": DOC_TEXT_EXTRACTOR_VERSION' in doc_intel_block
 
 
 def test_debt_parser_keeps_summary_rows_on_current_period_column() -> None:
@@ -196,14 +313,24 @@ def test_local_non_gaap_pdf_cache_layout_is_stable_for_slides_and_other_sources(
         assert other_ocr_dir.name == "local_non_gaap_earnings_release_ocr"
 
         pdf_path = case_dir / "materials" / "demo deck.pdf"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_bytes(b"stable-pdf-source")
         slide_key = pipeline_orchestration._local_non_gaap_pdf_cache_key(pdf_path, src_name="slides", page_number=2)
         other_key = pipeline_orchestration._local_non_gaap_pdf_cache_key(pdf_path, src_name="earnings_release", page_number=2)
         other_key_again = pipeline_orchestration._local_non_gaap_pdf_cache_key(pdf_path, src_name="earnings_release", page_number=2)
 
-        assert slide_key == "demo deck_p2"
+        assert slide_key.startswith("slides_")
         assert other_key == other_key_again
         assert other_key.endswith("_p2")
         assert other_key != slide_key
+
+        pdf_path.write_bytes(b"changed-pdf-source")
+        assert (
+            pipeline_orchestration._local_non_gaap_pdf_cache_key(
+                pdf_path, src_name="slides", page_number=2
+            )
+            != slide_key
+        )
 
 
 def test_local_non_gaap_segment_parser_extracts_pbi_q1_2026_revenue_and_adjusted_segment_schedule() -> None:
@@ -482,9 +609,24 @@ def test_build_debt_profile_publishes_gpre_q1_tranches_against_debt_core_when_cu
     )
 
     assert len(tr_latest) == 7
+    # The legacy row builder cannot establish economic readiness from rendered
+    # tranche/metric counts. Orchestration attaches the independent typed
+    # facility validation only after declarative source resolution.
+    assert DEBT_PROFILE_ECONOMIC_VALIDATION_ATTR not in _profile.attrs
     assert "Needs review" not in " ".join(str(v) for v in tr_latest.get("tranche_name", []))
     guard_rows = qa_df[qa_df["metric"].astype(str) == "debt_latest_publish_guardrail"]
     assert guard_rows.empty
+    assert _maturity.attrs[DEBT_MATURITY_RECONCILIATION_ATTR] == DEBT_MATURITY_NEEDS_REVIEW
+
+    complete_tranches = debt_tranches[debt_tranches["maturity_year"].notna()].copy()
+    _profile, _tr_latest, complete_maturity, _qa_df, _info = pipeline.build_debt_profile(
+        hist,
+        df_all,
+        complete_tranches,
+        slides_debt=None,
+        debt_schedule=None,
+    )
+    assert complete_maturity.attrs[DEBT_MATURITY_RECONCILIATION_ATTR] == DEBT_MATURITY_RECONCILED
 
 
 def test_parse_financial_statement_debt_table_html_skips_interest_rate_cells() -> None:

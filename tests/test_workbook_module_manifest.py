@@ -12,6 +12,7 @@ from pbi_xbrl.json_schema_validation import load_json_strict, validate_json_sche
 from pbi_xbrl.standard_template_formula_contract import formula_target_contracts
 from pbi_xbrl.standard_template_shell_identity import verify_shell_identity
 from pbi_xbrl.workbook_modules import (
+    apply_runtime_sheet_order,
     binding_owners,
     build_profile_binding_payload,
     build_profile_shell_manifest,
@@ -19,6 +20,7 @@ from pbi_xbrl.workbook_modules import (
     load_workbook_module_manifest,
     profile_id_for_ticker,
     resolve_module_profile,
+    resolve_ticker_module_route,
     sheet_contracts,
     validate_binding_module_ownership,
     validate_workbook_module_manifest,
@@ -74,16 +76,27 @@ def test_debt_product_layout_is_bounded_in_the_module_manifest() -> None:
         assert sheets[sheet_name]["zoom_scale"] == zoom
 
 
-def test_active_legacy_inventory_excludes_physically_retired_valuation_sheets() -> None:
+def test_legacy_inventory_explicitly_classifies_retired_duplicate_valuation_sheets() -> None:
     payload = _payload()
     rows = payload["legacy_sheet_inventory"]
     wb = load_workbook(_legacy_anf_path(), read_only=True, data_only=False)
     try:
-        assert set(wb.sheetnames) - {"Valuation_Summary", "Valuation_Grid"} == {
-            row["legacy_sheet"] for row in rows
-        }
+        physical_sheets = set(wb.sheetnames)
     finally:
         wb.close()
+
+    inventory_sheets = {row["legacy_sheet"] for row in rows}
+    retired_sheets = {"Valuation_Summary", "Valuation_Grid"}
+    assert inventory_sheets == physical_sheets
+
+    retired_rows = {
+        row["legacy_sheet"]: row
+        for row in rows
+        if row["legacy_sheet"] in retired_sheets
+    }
+    assert set(retired_rows) == retired_sheets
+    assert all(row["disposition"] == "rejected_redundant" for row in retired_rows.values())
+    assert all(row["replacement"] == "Valuation" for row in retired_rows.values())
 
     assert Counter(row["legacy_class"] for row in rows) == {
         "A": 10,
@@ -91,7 +104,7 @@ def test_active_legacy_inventory_excludes_physically_retired_valuation_sheets() 
         "C": 15,
         "D": 10,
         "E": 7,
-        "F": 1,
+        "F": 3,
     }
     slides_guidance = next(row for row in rows if row["legacy_sheet"] == "Slides_Guidance")
     assert slides_guidance["disposition"] == "rejected_redundant"
@@ -147,6 +160,171 @@ def test_profiles_are_explicit_dependency_closed_and_pack_declarative() -> None:
     core_only = next(row for row in broken["profiles"] if row["profile_id"] == "core_only")
     core_only["enabled_modules"].remove("core_financial_history")
     assert any("without dependencies" in issue for issue in validate_workbook_module_manifest(broken))
+
+
+def test_commodity_pack_owns_derivative_runtime_sheets_without_cross_ticker_inheritance() -> None:
+    payload = _payload()
+    gpre = resolve_ticker_module_route(payload, "GPRE").resolved_profile
+    assert gpre is not None
+    assert set(gpre.owned_runtime_sheets) == {
+        "Derivative_OCI_Bridge",
+        "Derivative_Crush_Tests",
+    }
+    assert set(gpre.visible_runtime_sheets) == set(gpre.owned_runtime_sheets)
+    assert gpre.runtime_sheet_states == {
+        "Derivative_Crush_Tests": "visible",
+        "Derivative_OCI_Bridge": "visible",
+    }
+
+    ordered = apply_runtime_sheet_order(
+        ("Promise_Progress_UI", "Basis_Proxy_Sandbox", "Hidden_Value_Flags"),
+        gpre.ordered_runtime_sheets,
+    )
+    assert ordered == (
+        "Promise_Progress_UI",
+        "Derivative_OCI_Bridge",
+        "Basis_Proxy_Sandbox",
+        "Derivative_Crush_Tests",
+        "Hidden_Value_Flags",
+    )
+
+    for ticker in ("PBI", "ANF"):
+        resolved = resolve_ticker_module_route(payload, ticker).resolved_profile
+        assert resolved is not None
+        assert resolved.owned_runtime_sheets == ()
+        assert resolved.visible_runtime_sheets == ()
+        assert resolved.ordered_runtime_sheets == ()
+    assert resolve_ticker_module_route(payload, "FRESHCO").resolved_profile is None
+
+
+def test_runtime_sheet_ownership_is_independent_of_visibility_order_and_source_order() -> None:
+    payload = _payload()
+    baseline = resolve_module_profile(payload, "gpre")
+
+    hidden = deepcopy(payload)
+    commodity = next(
+        row for row in hidden["profile_packs"] if row["pack_id"] == "commodity_ethanol_pack"
+    )
+    commodity["runtime_sheets"] = list(reversed(commodity["runtime_sheets"]))
+    for row in commodity["runtime_sheets"]:
+        row["visibility"] = "hidden"
+    resolved_hidden = resolve_module_profile(hidden, "gpre")
+    assert resolved_hidden.owned_runtime_sheets == baseline.owned_runtime_sheets
+    assert resolved_hidden.visible_runtime_sheets == ()
+    assert resolved_hidden.runtime_sheet_states == {
+        "Derivative_Crush_Tests": "hidden",
+        "Derivative_OCI_Bridge": "hidden",
+    }
+    base_order = ("Promise_Progress_UI", "Basis_Proxy_Sandbox", "Hidden_Value_Flags")
+    assert apply_runtime_sheet_order(
+        base_order,
+        resolved_hidden.ordered_runtime_sheets,
+    ) == apply_runtime_sheet_order(
+        base_order,
+        baseline.ordered_runtime_sheets,
+    )
+
+    missing_anchor = tuple(
+        {**row, "order_after": "Missing_Anchor"}
+        if row["sheet"] == "Derivative_OCI_Bridge"
+        else row
+        for row in baseline.ordered_runtime_sheets
+    )
+    with pytest.raises(ValueError, match="unknown anchor or cycle"):
+        apply_runtime_sheet_order(base_order, missing_anchor)
+
+
+def test_runtime_sheet_duplicate_or_conflicting_pack_ownership_fails_closed() -> None:
+    payload = _payload()
+    commodity = next(
+        row for row in payload["profile_packs"] if row["pack_id"] == "commodity_ethanol_pack"
+    )
+    duplicate = deepcopy(payload)
+    duplicate_commodity = next(
+        row for row in duplicate["profile_packs"] if row["pack_id"] == "commodity_ethanol_pack"
+    )
+    duplicate_commodity["runtime_sheets"].append(
+        deepcopy(duplicate_commodity["runtime_sheets"][0])
+    )
+    assert any(
+        "Duplicate runtime sheet" in issue
+        for issue in validate_workbook_module_manifest(duplicate)
+    )
+
+    conflict = deepcopy(payload)
+    bank_pack = next(row for row in conflict["profile_packs"] if row["pack_id"] == "bank_pack")
+    bank_pack["runtime_sheets"].append(deepcopy(commodity["runtime_sheets"][0]))
+    assert any(
+        "owned by both profile packs" in issue
+        for issue in validate_workbook_module_manifest(conflict)
+    )
+
+
+def test_ticker_module_route_is_explicit_deterministic_and_fail_closed() -> None:
+    payload = _payload()
+
+    assert resolve_ticker_module_route(payload, "GPRE").profile_pack_ids == (
+        "commodity_ethanol_pack",
+    )
+    assert resolve_ticker_module_route(payload, "PBI").profile_pack_ids == (
+        "shipping_mail_pack",
+        "bank_pack",
+    )
+    assert resolve_ticker_module_route(payload, "ANF").profile_pack_ids == (
+        "retail_operating_pack",
+    )
+
+    unsupported = resolve_ticker_module_route(payload, "FRESHCO")
+    assert unsupported.status == "unsupported"
+    assert unsupported.profile_id == ""
+    assert unsupported.profile_pack_ids == ()
+    assert unsupported.resolved_profile is None
+
+    declared = resolve_ticker_module_route(
+        payload,
+        "FRESHCO",
+        declared_profile_id="core_only",
+    )
+    assert declared.status == "resolved_declared_profile"
+    assert declared.profile_id == "core_only"
+    assert declared.profile_pack_ids == ()
+
+    declared_gpre = resolve_ticker_module_route(
+        payload,
+        "FRESHCO",
+        declared_profile_id="gpre",
+    )
+    assert declared_gpre.status == "resolved_declared_profile"
+    assert declared_gpre.profile_pack_ids == ("commodity_ethanol_pack",)
+
+    reordered = deepcopy(payload)
+    reordered["profiles"] = list(reversed(reordered["profiles"]))
+    reordered["ticker_profile_map"] = dict(reversed(list(reordered["ticker_profile_map"].items())))
+    assert resolve_ticker_module_route(reordered, "GPRE").to_dict() == resolve_ticker_module_route(
+        payload,
+        "GPRE",
+    ).to_dict()
+    assert resolve_ticker_module_route(reordered, "FRESHCO").to_dict() == unsupported.to_dict()
+
+
+def test_ticker_module_route_rejects_unknown_conflicting_and_ambiguous_profiles() -> None:
+    payload = _payload()
+
+    with pytest.raises(ValueError, match="Unknown workbook module profile"):
+        resolve_ticker_module_route(payload, "FRESHCO", declared_profile_id="missing_profile")
+    with pytest.raises(ValueError, match="conflicts with declared profile"):
+        resolve_ticker_module_route(payload, "GPRE", declared_profile_id="pbi")
+
+    duplicate_profile = deepcopy(payload)
+    duplicate_profile["profiles"].append(deepcopy(duplicate_profile["profiles"][-1]))
+    with pytest.raises(ValueError, match="Duplicate profile_id"):
+        resolve_ticker_module_route(duplicate_profile, "GPRE")
+
+    ambiguous_ticker = deepcopy(payload)
+    ambiguous_ticker["ticker_profile_map"]["freshco"] = "core_only"
+    ambiguous_ticker["ticker_profile_map"]["FRESHCO"] = "full_union"
+    with pytest.raises(ValueError, match="Ambiguous workbook module ticker registration"):
+        resolve_ticker_module_route(ambiguous_ticker, "FRESHCO")
 
 
 def test_generic_shared_block_requires_sheet_owner_dependency() -> None:

@@ -3,12 +3,43 @@ from __future__ import annotations
 
 import math
 import re
+from dataclasses import dataclass
 from datetime import date
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Set, Tuple
+from decimal import Decimal, InvalidOperation
+from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Set, Tuple
 
 import pandas as pd
 
 from .guidance_lexicon import normalize_text as glx_normalize_text
+from .segment_normalization import (
+    SEGMENT_RESIDUAL_LEDGER_CONTRACT_ID,
+    SegmentNormalizationError,
+    SegmentResidualInputFact,
+    derive_exact_zero_segment_residual,
+    validate_segment_residual_ledger_payload,
+)
+
+
+def _segment_residual_ledger_payload(
+    source_facts: Iterable[SegmentResidualInputFact],
+    derivations: Iterable[Mapping[str, Any]],
+) -> Dict[str, Any]:
+    fact_rows = {fact.record_id: fact.to_dict() for fact in source_facts}
+    derivation_rows = {
+        str(row.get("derivation_id") or ""): dict(row)
+        for row in derivations
+        if str(row.get("derivation_id") or "").strip()
+    }
+    referenced_ids = {
+        str(input_id)
+        for row in derivation_rows.values()
+        for input_id in row.get("input_record_ids", ())
+    }
+    return {
+        "contract_id": SEGMENT_RESIDUAL_LEDGER_CONTRACT_ID,
+        "source_facts": [fact_rows[record_id] for record_id in sorted(referenced_ids) if record_id in fact_rows],
+        "derivations": [derivation_rows[record_id] for record_id in sorted(derivation_rows)],
+    }
 
 
 def _anf_fiscal_year_from_quarter_end(qd: Any) -> Optional[int]:
@@ -309,14 +340,334 @@ def _anf_fill_brand_quarter_revenue_from_annual_segments_for_bs(
     return out
 
 
-def _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(quarterly_metrics: Dict[str, Any]) -> Dict[str, Any]:
-    """Rebuild PBI reportable-segment totals from component rows.
+_SEGMENT_LEDGER_KEYS = frozenset({"contract_id", "source_facts", "derivations"})
+_SegmentTarget = Tuple[str, str, pd.Timestamp]
+
+
+@dataclass(frozen=True)
+class _SegmentPackageLedgerMergeValidation:
+    """Atomic ledger/package decision consumed by the segment merge owner."""
+
+    ledger_present: bool
+    ledger_valid: bool
+    target_enumeration_valid: bool
+    declared_targets: frozenset[_SegmentTarget]
+    validated_targets: frozenset[_SegmentTarget]
+    invalid_reason: str
+    package_merge_allowed: bool
+    validated_ledger: Optional[Dict[str, Any]]
+
+
+def _enumerate_segment_ledger_targets(
+    raw_ledger: Any,
+) -> Tuple[bool, Set[_SegmentTarget], str]:
+    """Enumerate declared targets only after strict container-shape validation."""
+
+    if not isinstance(raw_ledger, Mapping):
+        return False, set(), "ledger_container_not_mapping"
+    ledger = dict(raw_ledger)
+    if set(ledger) != _SEGMENT_LEDGER_KEYS:
+        return False, set(), "ledger_top_level_fields_invalid"
+    if not isinstance(ledger.get("contract_id"), str):
+        return False, set(), "ledger_contract_id_type_invalid"
+    if not isinstance(ledger.get("source_facts"), list):
+        return False, set(), "ledger_source_facts_type_invalid"
+    derivations = ledger.get("derivations")
+    if not isinstance(derivations, list):
+        return False, set(), "ledger_derivations_type_invalid"
+
+    targets: Set[_SegmentTarget] = set()
+    for row_in in derivations:
+        if not isinstance(row_in, Mapping):
+            return False, set(), "ledger_derivation_row_type_invalid"
+        row = dict(row_in)
+        period_ts = pd.to_datetime(row.get("period_end"), errors="coerce")
+        metric_name = str(row.get("metric_label") or "").strip()
+        target_member = str(row.get("target_member") or "").strip()
+        if pd.isna(period_ts) or not metric_name or not target_member:
+            return False, set(), "ledger_derivation_target_identity_invalid"
+        targets.add((metric_name, target_member, pd.Timestamp(period_ts)))
+    return True, targets, ""
+
+
+def _validated_ledger_targets_match_package(
+    package: Mapping[str, Any],
+    ledger: Mapping[str, Any],
+) -> Tuple[bool, Set[_SegmentTarget]]:
+    """Prove every validated derivation and input equals its package economic cell."""
+
+    package_metrics = dict(package.get("metrics") or {})
+    facts_by_id = {str(row["record_id"]): dict(row) for row in ledger["source_facts"]}
+    targets: Set[_SegmentTarget] = set()
+    for row_in in ledger.get("derivations", ()):
+        row = dict(row_in or {})
+        value_row = dict(row.get("value") or {})
+        period_ts = pd.to_datetime(row.get("period_end"), errors="coerce")
+        if pd.isna(period_ts):
+            return False, set()
+        period = pd.Timestamp(period_ts)
+        expected_cells: List[Tuple[str, str, Decimal]] = [
+            (
+                str(row.get("metric_label") or ""),
+                str(row.get("target_member") or ""),
+                Decimal(str(value_row.get("value"))) * Decimal("1000000"),
+            )
+        ]
+        for record_id in row.get("input_record_ids", ()):
+            fact = facts_by_id[str(record_id)]
+            expected_cells.append(
+                (
+                    str(fact.get("metric_label") or ""),
+                    str(fact.get("segment_member") or ""),
+                    Decimal(str(dict(fact.get("value") or {}).get("value")))
+                    * Decimal("1000000"),
+                )
+            )
+        for metric_name, segment_name, expected_value in expected_cells:
+            q_map = dict(dict(package_metrics.get(metric_name) or {}).get(segment_name) or {})
+            matching_values = [
+                value
+                for q_key, value in q_map.items()
+                if pd.notna(pd.to_datetime(q_key, errors="coerce"))
+                and pd.Timestamp(pd.to_datetime(q_key)) == period
+            ]
+            if len(matching_values) != 1:
+                return False, set()
+            try:
+                actual_value = Decimal(str(matching_values[0]))
+            except (InvalidOperation, ValueError):
+                return False, set()
+            if actual_value != expected_value:
+                return False, set()
+        targets.add(
+            (
+                str(row.get("metric_label") or ""),
+                str(row.get("target_member") or ""),
+                period,
+            )
+        )
+    return True, targets
+
+
+def _segment_package_ledger_merge_validation(
+    package: Mapping[str, Any],
+) -> _SegmentPackageLedgerMergeValidation:
+    """Classify absent, valid, enumerable-invalid, and unenumerable-invalid ledgers.
+
+    The current package schema has no independent per-cell direct-fact owner outside
+    this ledger.  A present-but-invalid ledger therefore rejects its package atomically,
+    even when its target rows happen to be structurally enumerable.
+    """
+
+    if "segment_derivation_ledger" not in package:
+        return _SegmentPackageLedgerMergeValidation(
+            ledger_present=False,
+            ledger_valid=False,
+            target_enumeration_valid=True,
+            declared_targets=frozenset(),
+            validated_targets=frozenset(),
+            invalid_reason="",
+            package_merge_allowed=True,
+            validated_ledger=None,
+        )
+
+    raw_ledger = package.get("segment_derivation_ledger")
+    enumeration_valid, declared_targets, enumeration_reason = _enumerate_segment_ledger_targets(
+        raw_ledger
+    )
+    try:
+        ledger = validate_segment_residual_ledger_payload(raw_ledger)
+    except SegmentNormalizationError as exc:
+        return _SegmentPackageLedgerMergeValidation(
+            ledger_present=True,
+            ledger_valid=False,
+            target_enumeration_valid=enumeration_valid,
+            declared_targets=frozenset(declared_targets),
+            validated_targets=frozenset(),
+            invalid_reason=enumeration_reason or str(exc),
+            package_merge_allowed=False,
+            validated_ledger=None,
+        )
+
+    package_matches, validated_targets = _validated_ledger_targets_match_package(package, ledger)
+    if not package_matches:
+        return _SegmentPackageLedgerMergeValidation(
+            ledger_present=True,
+            ledger_valid=True,
+            target_enumeration_valid=enumeration_valid,
+            declared_targets=frozenset(declared_targets),
+            validated_targets=frozenset(),
+            invalid_reason="ledger_package_economics_mismatch",
+            package_merge_allowed=False,
+            validated_ledger=None,
+        )
+    return _SegmentPackageLedgerMergeValidation(
+        ledger_present=True,
+        ledger_valid=True,
+        target_enumeration_valid=enumeration_valid,
+        declared_targets=frozenset(declared_targets),
+        validated_targets=frozenset(validated_targets),
+        invalid_reason="",
+        package_merge_allowed=True,
+        validated_ledger=ledger,
+    )
+
+
+def _merge_quarterly_segment_packages_per_period(
+    *,
+    primary: Mapping[str, Any] | None,
+    authoritative_overlay: Mapping[str, Any] | None,
+    supplemental_overlay: Mapping[str, Any] | None,
+) -> Dict[str, Any]:
+    """Merge quarterly segment packages without requiring the overlay's latest period.
+
+    Source roles, rather than caller/list order, define precedence: the primary
+    package wins existing cells, the authoritative overlay fills primary gaps,
+    and the supplemental overlay fills any remaining gaps.  A lagging overlay
+    can therefore contribute a supported quarter while later unsupported
+    quarters remain absent.
+    """
+
+    packages = (primary or {}, authoritative_overlay or {}, supplemental_overlay or {})
+    ledger_decisions = tuple(_segment_package_ledger_merge_validation(package) for package in packages)
+    validated_ledgers = [decision.validated_ledger for decision in ledger_decisions]
+    lineaged_zero_targets = [set(decision.validated_targets) for decision in ledger_decisions]
+    rejected_packages = [not decision.package_merge_allowed for decision in ledger_decisions]
+    merged_metrics: Dict[str, Dict[str, Dict[pd.Timestamp, float]]] = {}
+    source_docs: List[str] = []
+    selected_owner: Dict[Tuple[str, str, pd.Timestamp], int] = {}
+
+    for package_index, package in enumerate(packages):
+        if rejected_packages[package_index]:
+            continue
+        package_metrics = dict(package.get("metrics") or {})
+        if not package_metrics:
+            continue
+        for metric_name, seg_map in package_metrics.items():
+            metric_bucket = merged_metrics.setdefault(str(metric_name), {})
+            for seg_name, q_map in dict(seg_map or {}).items():
+                seg_bucket = metric_bucket.setdefault(str(seg_name), {})
+                normalized_rows: List[Tuple[pd.Timestamp, float]] = []
+                for q_key, value_in in dict(q_map or {}).items():
+                    q_ts = pd.to_datetime(q_key, errors="coerce")
+                    value_num = pd.to_numeric(value_in, errors="coerce")
+                    if pd.isna(q_ts) or pd.isna(value_num):
+                        continue
+                    normalized_rows.append((pd.Timestamp(q_ts), float(value_num)))
+                for q_ts, value_num in sorted(normalized_rows, key=lambda item: item[0]):
+                    target_key = (str(metric_name), str(seg_name), q_ts)
+                    if q_ts not in seg_bucket:
+                        seg_bucket[q_ts] = value_num
+                        selected_owner[target_key] = package_index
+                    elif target_key in lineaged_zero_targets[package_index]:
+                        prior_owner = selected_owner.get(target_key)
+                        prior_is_lineaged = (
+                            prior_owner is not None
+                            and target_key in lineaged_zero_targets[prior_owner]
+                        )
+                        existing_num = pd.to_numeric(seg_bucket.get(q_ts), errors="coerce")
+                        if (
+                            not prior_is_lineaged
+                            and pd.notna(existing_num)
+                            and float(existing_num) == 0.0
+                            and value_num == 0.0
+                        ):
+                            # Preserve the normal source-role precedence for economic
+                            # values, but never let an unlineaged zero suppress an
+                            # otherwise identical, typed exact-zero derivation.
+                            seg_bucket[q_ts] = value_num
+                            selected_owner[target_key] = package_index
+        for source_doc in str(package.get("source_doc") or "").split(" | "):
+            source_doc = source_doc.strip()
+            if source_doc and source_doc not in source_docs:
+                source_docs.append(source_doc)
+
+    merged_metrics = {
+        metric_name: {
+            segment_name: q_map
+            for segment_name, q_map in segment_map.items()
+            if q_map
+        }
+        for metric_name, segment_map in merged_metrics.items()
+    }
+    merged_metrics = {
+        metric_name: segment_map
+        for metric_name, segment_map in merged_metrics.items()
+        if segment_map
+    }
+    quarters = sorted(
+        {
+            pd.Timestamp(q_ts).date()
+            for seg_map in merged_metrics.values()
+            for q_map in seg_map.values()
+            for q_ts in q_map
+        }
+    )
+    if not merged_metrics or not quarters:
+        return {}
+    result: Dict[str, Any] = {
+        "metrics": merged_metrics,
+        "quarters": quarters,
+        "source_doc": " | ".join(source_docs),
+        "source_qd": max(quarters),
+    }
+    selected_derivations: Dict[str, Dict[str, Any]] = {}
+    selected_source_facts: Dict[str, Dict[str, Any]] = {}
+    for package_index, package in enumerate(packages):
+        ledger = validated_ledgers[package_index]
+        if ledger is None:
+            continue
+        fact_rows = {
+            str(row.get("record_id") or ""): dict(row)
+            for row in ledger.get("source_facts", ())
+            if str(row.get("record_id") or "").strip()
+        }
+        for row_in in ledger.get("derivations", ()):
+            row = dict(row_in or {})
+            period_ts = pd.to_datetime(row.get("period_end"), errors="coerce")
+            target_key = (
+                str(row.get("metric_label") or ""),
+                str(row.get("target_member") or ""),
+                pd.Timestamp(period_ts) if pd.notna(period_ts) else pd.NaT,
+            )
+            if (
+                pd.isna(target_key[2])
+                or target_key not in lineaged_zero_targets[package_index]
+                or selected_owner.get(target_key) != package_index
+            ):
+                continue
+            derivation_id = str(row.get("derivation_id") or "")
+            if not derivation_id:
+                continue
+            selected_derivations[derivation_id] = row
+            for record_id in row.get("input_record_ids", ()):
+                record_id = str(record_id)
+                if record_id in fact_rows:
+                    selected_source_facts[record_id] = fact_rows[record_id]
+    if selected_derivations:
+        result["segment_derivation_ledger"] = {
+            "contract_id": SEGMENT_RESIDUAL_LEDGER_CONTRACT_ID,
+            "source_facts": [selected_source_facts[key] for key in sorted(selected_source_facts)],
+            "derivations": [selected_derivations[key] for key in sorted(selected_derivations)],
+        }
+    return result
+
+
+def _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
+    quarterly_metrics: Dict[str, Any],
+    *,
+    source_facts: Sequence[SegmentResidualInputFact],
+    derivations_out: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Reconcile PBI reportable-segment totals without converting missing to zero.
 
     PBI source extraction can occasionally capture the table's reportable
     segment revenue total under adjacent EBIT/D&A/EBITDA metric labels.  The
-    component rows are cleaner and reconcile, so for the BS_Segments quarterly
-    grid we use SendTech/Presort (and Other operations if present) to repair
-    the total row instead of trusting a suspicious parsed total.
+    component rows can repair an existing total only when the complete
+    SendTech/Presort/Other component set is present.  A missing Other value is
+    minted as an explicit zero only when an independently present total exactly
+    equals the complete known component sum.  Missing totals are never built
+    from components and then reused as circular evidence for a zero residual.
     """
     if not quarterly_metrics:
         return quarterly_metrics
@@ -339,18 +690,6 @@ def _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(quarterly_metri
         return copied
 
     out = _copy_metric_store(quarterly_metrics)
-
-    def _is_component_segment(segment_name: Any) -> bool:
-        low = glx_normalize_text(str(segment_name or "")).lower()
-        if not low or "total reportable" in low or "corporate" in low or "intersegment" in low:
-            return False
-        return (
-            "sendtech" in low
-            or "sending technology" in low
-            or "presort" in low
-            or "other operations" in low
-            or low in {"sendtech solutions", "presort services"}
-        )
 
     adj_ebit_by_seg = dict(out.get("Adjusted EBIT") or {})
     da_by_seg = dict(out.get("Depreciation & amortization") or {})
@@ -377,7 +716,12 @@ def _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(quarterly_metri
         if ebitda_by_seg:
             out["Adjusted EBITDA"] = ebitda_by_seg
 
-    repair_metrics = {"Revenue", "Adjusted EBIT", "Depreciation & amortization", "Adjusted EBITDA"}
+    repair_metrics = ("Revenue", "Adjusted EBIT", "Depreciation & amortization", "Adjusted EBITDA")
+    fact_index = {
+        (fact.metric_label, fact.segment_member, pd.Timestamp(fact.period_end)): fact
+        for fact in source_facts
+    }
+    reconciled_total_periods: Dict[str, Set[pd.Timestamp]] = {}
     for metric_name in repair_metrics:
         seg_map = out.get(metric_name)
         if not seg_map:
@@ -398,14 +742,34 @@ def _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(quarterly_metri
             presort_num = pd.to_numeric(presort_bucket.get(q_ts), errors="coerce")
             if pd.isna(total_num) or pd.isna(send_num) or pd.isna(presort_num):
                 continue
-            residual = float(total_num) - float(send_num) - float(presort_num)
-            tolerance = max(abs(float(total_num)) * 0.002, 1_000.0)
-            if abs(residual) <= tolerance:
+            try:
+                residual = Decimal(str(total_num)) - Decimal(str(send_num)) - Decimal(str(presort_num))
+            except (InvalidOperation, ValueError):
+                continue
+            if residual == Decimal("0"):
+                total_fact = fact_index.get((metric_name, "Total reportable segments", q_ts))
+                send_fact = fact_index.get((metric_name, "SendTech Solutions", q_ts))
+                presort_fact = fact_index.get((metric_name, "Presort Services", q_ts))
+                if total_fact is None or send_fact is None or presort_fact is None:
+                    continue
+                try:
+                    derivation = derive_exact_zero_segment_residual(
+                        total=total_fact,
+                        components=(send_fact, presort_fact),
+                        target_member="Other operations",
+                    )
+                except SegmentNormalizationError:
+                    continue
+                if derivation is None:
+                    continue
+                derivation_row = derivation.to_dict()
                 other_bucket[q_ts] = 0.0
                 changed_other = True
-            elif residual > 0 and residual <= max(abs(float(total_num)) * 0.05, 5_000_000.0):
-                other_bucket[q_ts] = float(residual)
-                changed_other = True
+                if all(
+                    str(existing.get("derivation_id") or "") != derivation_row["derivation_id"]
+                    for existing in derivations_out
+                ):
+                    derivations_out.append(derivation_row)
         if changed_other:
             seg_map["Other operations"] = other_bucket
             out[metric_name] = seg_map
@@ -414,28 +778,28 @@ def _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(quarterly_metri
         seg_map = out.get(metric_name)
         if not seg_map:
             continue
-        by_quarter: Dict[pd.Timestamp, List[float]] = {}
-        for seg_name, q_map in dict(seg_map).items():
-            if not _is_component_segment(seg_name):
-                continue
-            for q_key, value_in in dict(q_map or {}).items():
-                value_num = pd.to_numeric(value_in, errors="coerce")
-                if pd.notna(value_num):
-                    by_quarter.setdefault(pd.Timestamp(q_key), []).append(float(value_num))
-        if not by_quarter:
-            continue
         total_bucket = dict(seg_map.get("Total reportable segments") or {})
-        changed = False
-        for q_key, values in by_quarter.items():
-            # PBI currently has SendTech + Presort.  Require at least two
-            # component values so a lone segment is not mislabeled as total.
-            if len(values) < 2:
+        if not total_bucket:
+            continue
+        send_bucket = dict(seg_map.get("SendTech Solutions") or {})
+        presort_bucket = dict(seg_map.get("Presort Services") or {})
+        other_bucket = dict(seg_map.get("Other operations") or {})
+        for q_key in sorted(total_bucket):
+            q_ts = pd.Timestamp(q_key)
+            component_values = [
+                pd.to_numeric(send_bucket.get(q_ts), errors="coerce"),
+                pd.to_numeric(presort_bucket.get(q_ts), errors="coerce"),
+                pd.to_numeric(other_bucket.get(q_ts), errors="coerce"),
+            ]
+            if any(pd.isna(value) for value in component_values):
                 continue
-            total_bucket[pd.Timestamp(q_key)] = float(sum(values))
-            changed = True
-        if changed:
-            seg_map["Total reportable segments"] = total_bucket
-            out[metric_name] = seg_map
+            try:
+                total_decimal = Decimal(str(total_bucket[q_ts]))
+                component_decimal = sum((Decimal(str(value)) for value in component_values), Decimal("0"))
+            except (InvalidOperation, ValueError):
+                continue
+            if total_decimal == component_decimal:
+                reconciled_total_periods.setdefault(metric_name, set()).add(q_ts)
 
     revenue_by_seg = dict(out.get("Revenue") or {})
     ebit_by_seg = dict(out.get("Adjusted EBIT") or {})
@@ -453,6 +817,11 @@ def _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(quarterly_metri
                 seg_bucket = margin_map.setdefault(str(seg_name), {})
                 for q_key, ebit_val in dict(ebit_series or {}).items():
                     q_ts = pd.Timestamp(q_key)
+                    if str(seg_name) == "Total reportable segments" and (
+                        q_ts not in reconciled_total_periods.get("Revenue", set())
+                        or q_ts not in reconciled_total_periods.get("Adjusted EBIT", set())
+                    ):
+                        continue
                     existing = pd.to_numeric(seg_bucket.get(q_ts), errors="coerce")
                     if pd.notna(existing):
                         continue
@@ -461,6 +830,8 @@ def _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(quarterly_metri
                     if pd.notna(rev_num) and pd.notna(ebit_num) and abs(float(rev_num)) > 1e-9:
                         seg_bucket[q_ts] = float(ebit_num) / float(rev_num)
                         changed = True
+                if not seg_bucket:
+                    margin_map.pop(str(seg_name), None)
             if changed:
                 out[margin_metric] = margin_map
     return out

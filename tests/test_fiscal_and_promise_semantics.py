@@ -1,5 +1,5 @@
 import datetime as dt
-import os
+import hashlib
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -12,21 +12,19 @@ from pbi_xbrl.excel_writer_context import (
     _history_q_latest_full_year_actuals_from_workbook,
     _history_q_latest_full_year_period_set,
 )
+from pbi_xbrl.adjusted_metric_history import (
+    build_adjusted_metric_history_selection,
+    load_registered_issuer_recast_adjusted_metric_history,
+)
 from pbi_xbrl.period_resolver import derive_quarter_from_ytd, self_check_period_logic
+from tests.workbook_test_resources import delivered_workbook_path, registered_ticker_dir
 
 
-WORKBOOK_DIR = Path(os.environ.get("STOCK_MODEL_WORKBOOK_DIR", r"C:\Users\Jibbe\Aktier\Excel stock models"))
 TICKERS = ("PBI", "GPRE", "ANF")
 
 
 def _load_model(ticker: str):
-    candidates = [WORKBOOK_DIR / f"{ticker}_model.xlsx", WORKBOOK_DIR / f"{ticker}_model.xlsm"]
-    for path in candidates:
-        if path.exists():
-            return load_workbook(path, data_only=True, read_only=False)
-    pytest.skip(
-        f"{candidates[0]} or {candidates[1]} is not available for workbook semantic regression tests"
-    )
+    return load_workbook(delivered_workbook_path(ticker, Path(__file__).resolve()), data_only=True, read_only=False)
 
 
 def _cell_text(value: Any) -> str:
@@ -329,81 +327,58 @@ def test_valuation_ttm_uses_hidden_prior_quarters_for_visible_2023() -> None:
 
 
 def test_pbi_adj_ebit_ttm_uses_source_backed_hidden_history_for_early_visible_quarters() -> None:
-    wb = _load_model("PBI")
-    try:
-        val = wb["Valuation"]
-        quarter_cols = _sheet_headers(val, 6)
-        adj_row = _row_by_label(val, "Adj EBIT (TTM)")
-        expected_m = {
-            "2023-Q2": 224.536,
-            "2023-Q3": 270.576,
-            "2023-Q4": 307.633,
-            "2024-Q1": 333.008,
-            "2024-Q2": 338.358,
-            "2024-Q3": 357.097,
-            "2024-Q4": 385.213,
-            "2025-Q4": 461.293,
-        }
-        for label, expected in expected_m.items():
-            assert label in quarter_cols, f"PBI Valuation missing visible quarter {label}"
-            actual = val.cell(adj_row, quarter_cols[label]).value
-            assert actual not in (None, ""), f"PBI Valuation {label} Adj EBIT (TTM) should not be blank"
-            assert float(actual) == pytest.approx(expected, abs=0.002), (
-                f"PBI Valuation {label} Adj EBIT (TTM) should use source-backed 2022/2023 adjusted EBIT history"
-            )
-        adj_ebitda_row = _row_by_label(val, "Adj EBITDA")
-        adj_ebitda_ttm_row = _row_by_label(val, "Adj EBITDA (TTM)")
-        expected_adj_ebitda_m = {
-            "2023-Q2": 97.307,
-            "2023-Q3": 112.115,
-            "2023-Q4": 114.548,
-            "2024-Q1": 122.181,
-            "2024-Q2": 103.140,
-            "2024-Q3": 131.349,
-            "2024-Q4": 143.028,
-            "2025-Q4": 159.048,
-        }
-        expected_adj_ebitda_ttm_m = {
-            "2023-Q2": 359.312,
-            "2023-Q3": 394.141,
-            "2023-Q4": 420.358,
-            "2024-Q1": 446.151,
-            "2024-Q2": 451.984,
-            "2024-Q3": 471.218,
-            "2024-Q4": 499.698,
-            "2025-Q4": 572.870,
-        }
-        for label, expected in expected_adj_ebitda_m.items():
-            actual = val.cell(adj_ebitda_row, quarter_cols[label]).value
-            assert actual not in (None, ""), f"PBI Valuation {label} Adj EBITDA should not be blank"
-            assert float(actual) == pytest.approx(expected, abs=0.002)
-        for label, expected in expected_adj_ebitda_ttm_m.items():
-            actual = val.cell(adj_ebitda_ttm_row, quarter_cols[label]).value
-            assert actual not in (None, ""), f"PBI Valuation {label} Adj EBITDA (TTM) should not be blank"
-            assert float(actual) == pytest.approx(expected, abs=0.002)
-        adj_eps_row = _row_by_label(val, "Adj EPS")
-        adj_eps_ttm_row = _row_by_label(val, "Adj EPS (TTM)")
-        expected_adj_eps = {
-            "2024-Q3": 0.21,
-            "2024-Q4": 0.32,
-            "2025-Q2": 0.27,
-            "2025-Q3": 0.31,
-            "2025-Q4": 0.45,
-        }
-        expected_adj_eps_ttm = {
-            "2024-Q4": 0.55,
-            "2025-Q4": 1.36,
-        }
-        for label, expected in expected_adj_eps.items():
-            actual = val.cell(adj_eps_row, quarter_cols[label]).value
-            assert actual not in (None, ""), f"PBI Valuation {label} Adj EPS should not be blank"
-            assert float(actual) == pytest.approx(expected, abs=0.002)
-        for label, expected in expected_adj_eps_ttm.items():
-            actual = val.cell(adj_eps_ttm_row, quarter_cols[label]).value
-            assert actual not in (None, ""), f"PBI Valuation {label} Adj EPS (TTM) should not be blank"
-            assert float(actual) == pytest.approx(expected, abs=0.002)
-    finally:
-        wb.close()
+    protected_path = delivered_workbook_path("PBI", Path(__file__).resolve())
+    assert hashlib.sha256(protected_path.read_bytes()).hexdigest() == (
+        "6482617ad4f412dc5a1e130dc56c72bba5113ddacea5f7d1ab166fad8ddf5689"
+    )
+
+    recast = load_registered_issuer_recast_adjusted_metric_history(
+        registered_ticker_dir("PBI", Path(__file__).resolve()) / "historical_segment"
+    )
+    expected_recast_m = {
+        pd.Timestamp("2023-03-31"): (68.028, 96.460),
+        pd.Timestamp("2023-06-30"): (69.313, 97.313),
+        pd.Timestamp("2023-09-30"): (84.044, 112.113),
+        pd.Timestamp("2023-12-31"): (86.334, 114.558),
+    }
+    for period, (ebit_m, ebitda_m) in expected_recast_m.items():
+        row = recast[recast["quarter"] == period].iloc[0]
+        assert row["adj_ebit"] == pytest.approx(ebit_m * 1_000_000.0)
+        assert row["adj_ebitda"] == pytest.approx(ebitda_m * 1_000_000.0)
+        assert row["adj_ebit_scope"] == "continuing_operations_current_presentation"
+        assert row["adj_ebitda_scope"] == "continuing_operations_current_presentation"
+        assert row["adj_ebit_source_occurrence_id"]
+        assert row["adj_ebitda_source_occurrence_id"]
+
+    reported_q4 = pd.DataFrame(
+        [
+            {
+                "quarter": pd.Timestamp("2022-12-31"),
+                "adj_ebit": 49_267_000.0,
+                "adj_ebitda": 88_331_000.0,
+                "source": "ex99",
+                "confidence": "high",
+                "period_type": "quarter",
+                "adj_ebit_definition_id": "definition:issuer-reported-consolidated-adjusted-ebit@1",
+                "adj_ebitda_definition_id": "definition:issuer-reported-consolidated-adjusted-ebitda@1",
+                "adj_ebit_scope": "reported_consolidated_at_period",
+                "adj_ebitda_scope": "reported_consolidated_at_period",
+                "adj_ebit_source_occurrence_id": "occurrence:pbi:q4-2022:adjusted-ebit",
+                "adj_ebitda_source_occurrence_id": "occurrence:pbi:q4-2022:adjusted-ebitda",
+            }
+        ]
+    )
+    quarters = pd.to_datetime(
+        ["2022-12-31", "2023-03-31", "2023-06-30", "2023-09-30", "2023-12-31"]
+    )
+    result = build_adjusted_metric_history_selection(
+        pd.concat([reported_q4, recast], ignore_index=True, sort=False),
+        quarters,
+    )
+    assert result.ttm_values["adj_ebit"][pd.Timestamp("2023-09-30")] is None
+    assert result.ttm_values["adj_ebitda"][pd.Timestamp("2023-09-30")] is None
+    assert result.ttm_values["adj_ebit"][pd.Timestamp("2023-12-31")] == pytest.approx(307_719_000.0)
+    assert result.ttm_values["adj_ebitda"][pd.Timestamp("2023-12-31")] == pytest.approx(420_444_000.0)
 
 
 def test_anf_real_workbook_latest_full_year_uses_exact_retail_fiscal_quarters() -> None:
@@ -502,7 +477,9 @@ def test_anf_bs_segments_derives_missing_geography_q4_from_annual_source() -> No
     wb = _load_model("ANF")
     try:
         ws = wb["BS_Segments"]
-        headers = _sheet_headers(ws, 11)
+        quarter_header_row = _row_by_label(ws, "Quarter")
+        assert _cell_text(ws.cell(quarter_header_row - 3, 1).value) == "Balance sheet & Segments"
+        headers = _sheet_headers(ws, quarter_header_row)
         q4_col = headers.get("2024-Q4")
         assert q4_col is not None
 

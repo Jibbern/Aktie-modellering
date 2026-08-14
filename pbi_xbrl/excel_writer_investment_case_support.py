@@ -9,6 +9,8 @@ from typing import Any, Dict, List, MutableMapping, Optional, Sequence, Tuple
 
 import pandas as pd
 
+from .workbook_modules import ResolvedTickerModuleRoute
+
 
 @dataclass(frozen=True)
 class InvestmentCaseSupportDeps:
@@ -652,6 +654,7 @@ class InvestmentCaseSupport:
         self,
         *,
         ticker: Any,
+        profile_route: ResolvedTickerModuleRoute,
         hist: Any,
         guidance_normalized: Any = None,
         operating_driver_rows: Sequence[Dict[str, Any]] = (),
@@ -666,6 +669,13 @@ class InvestmentCaseSupport:
         glx_normalize_text = self._rt("glx_normalize_text")
         """Build a compact sector-specific investment-case audit table for non-ANF tickers."""
         ticker_txt = str(ticker or "").strip().upper()
+        if profile_route.ticker != ticker_txt:
+            raise ValueError(
+                f"Investment-case profile route ticker {profile_route.ticker!r} does not match {ticker_txt!r}."
+            )
+        profile_pack_ids = frozenset(profile_route.profile_pack_ids)
+        has_pbi_profile_packs = {"shipping_mail_pack", "bank_pack"} <= profile_pack_ids
+        has_commodity_ethanol_pack = "commodity_ethanol_pack" in profile_pack_ids
         hist_df = hist.copy() if isinstance(hist, pd.DataFrame) else pd.DataFrame()
         if not hist_df.empty and "quarter" in hist_df.columns:
             hist_df["quarter"] = pd.to_datetime(hist_df["quarter"], errors="coerce")
@@ -933,7 +943,7 @@ class InvestmentCaseSupport:
                     share_price=round(eps * multiple),
                 )
 
-        if ticker_txt == "PBI":
+        if has_pbi_profile_packs:
             _add("Investment Snapshot", "Model read", "Turnaround/FCF case with debt and execution sensitivity.", investment_read="PBI needs durable adjusted EBIT/FCF improvement, not just one good quarter.")
             _add("Investment Snapshot", "Why it can work", "FCF conversion, cost actions, Presort execution and debt reduction can rebuild equity confidence.", source="Valuation / Operating_Drivers")
             _add("Investment Snapshot", "Key debate", "Can PBI sustain adjusted EBIT and FCF improvement while reducing/refinancing debt and stabilizing Presort / SendTech?", source="model-derived")
@@ -1101,7 +1111,7 @@ class InvestmentCaseSupport:
                 _add("FCF Yield Implied Equity Value", f"{fcf_yield * 100:.1f}% FCF yield", display, source="Valuation / History_Q")
             _add("Segment Trend / Lapping Risk", "Presort", "Track volume, pricing and margin against prior-year comparisons.", source="Operating_Drivers")
             _add("Segment Trend / Lapping Risk", "SendTech", "Stabilization needs slower decline and cash generation.", source="Operating_Drivers")
-        elif ticker_txt == "GPRE":
+        elif has_commodity_ethanol_pack:
             _add("Investment Snapshot", "Model read", "Commodity/policy upside case with margin durability risk.", investment_read="GPRE needs sustainable margin and policy support, not just temporary commodity strength.")
             _add("Investment Snapshot", "Why it can work", "Ethanol demand, 45Z/policy support, coproduct economics and disciplined capex can lift EBITDA/FCF.", source="Economics_Overlay / Operating_Drivers")
             _add("Investment Snapshot", "Key debate", "Can higher ethanol demand, 45Z/policy support and stronger crush margins make earnings durable enough for a higher equity multiple?", source="model-derived")
@@ -1265,7 +1275,7 @@ class InvestmentCaseSupport:
                 "Generic fallback only; add ticker-specific drivers before using this sheet as a complete investment thesis.",
                 source="model-derived",
             )
-        if ticker_txt in {"PBI", "GPRE"}:
+        if has_pbi_profile_packs or has_commodity_ethanol_pack:
             for row in rows:
                 for key in ("source", "source_note", "display", "investment_read", "current_trend", "beat_miss_risk"):
                     txt = row.get(key)

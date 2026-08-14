@@ -2,13 +2,696 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
+import json
+from dataclasses import dataclass
+from enum import Enum
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
+from .cache_semantics import (
+    ADJUSTED_METRIC_UNIT_NORMALIZATION_VERSION,
+    NON_GAAP_ADJUSTMENT_DOMAIN_VERSION,
+)
+from .adjusted_metric_history import (
+    ADJUSTED_METRIC_HISTORY_CONTRACT,
+    AdjustedMetricId,
+    AdjustedMetricPeriodType,
+    AdjustedMetricScope,
+    AdjustedMetricSourceRole,
+    reported_adjusted_metric_definition_id,
+)
 from .debt_parser import coerce_number, read_html_tables_any
+from .longitudinal_memory.identity import build_identity
 from .metrics import _ADJ_EBIT_SYNONYMS, _GAAP_EBIT_SYNONYMS
 from .sec_xbrl import normalize_accession, parse_date, strip_html
+
+
+ADJUSTED_METRIC_SOURCE_UNIT_CONTRACT = "contract:adjusted-metric-source-unit-lineage@1"
+NON_GAAP_ADJUSTMENT_DOMAIN_CONTRACT = "contract:non-gaap-adjustment-measure-domain@1"
+
+
+class MeasureDomain(str, Enum):
+    MONETARY_AMOUNT = "monetary_amount"
+    PER_SHARE_AMOUNT = "per_share_amount"
+
+
+class AdjustmentTableRole(str, Enum):
+    AMOUNT_RECONCILIATION = "amount_reconciliation"
+    EPS_RECONCILIATION = "eps_reconciliation"
+    MIXED_RECONCILIATION = "mixed_reconciliation"
+    UNRESOLVED = "unresolved"
+
+
+class SourceUnitContractError(ValueError):
+    """Raised when source amount scale cannot be resolved unambiguously."""
+
+
+class SourceAmountScale(str, Enum):
+    ONES = "ones"
+    THOUSANDS = "thousands"
+    MILLIONS = "millions"
+
+    @property
+    def factor_to_usd(self) -> float:
+        return {
+            SourceAmountScale.ONES: 1.0,
+            SourceAmountScale.THOUSANDS: 1_000.0,
+            SourceAmountScale.MILLIONS: 1_000_000.0,
+        }[self]
+
+
+@dataclass(frozen=True)
+class SourceAmountUnit:
+    currency: str
+    scale: SourceAmountScale
+    declaration: str
+    measure_domain: MeasureDomain = MeasureDomain.MONETARY_AMOUNT
+
+    @property
+    def factor_to_usd(self) -> float:
+        return self.scale.factor_to_usd
+
+    @property
+    def canonical_unit(self) -> str:
+        if self.measure_domain is MeasureDomain.PER_SHARE_AMOUNT:
+            return "USD/share"
+        return "USD"
+
+    @property
+    def canonical_unit_id(self) -> str:
+        if self.measure_domain is MeasureDomain.PER_SHARE_AMOUNT:
+            return "unit:core:currency-per-share@1"
+        return "unit:core:currency@1"
+
+
+@dataclass(frozen=True)
+class CanonicalSourceAmount:
+    raw_source_scalar: float
+    source_unit: SourceAmountUnit
+    canonical_currency: str
+    canonical_value: float
+
+    @property
+    def canonical_usd_millions(self) -> float:
+        if self.source_unit.measure_domain is not MeasureDomain.MONETARY_AMOUNT:
+            raise SourceUnitContractError(
+                "USD-millions conversion is not defined for per-share source amounts."
+            )
+        if self.canonical_currency != "USD":
+            raise SourceUnitContractError(
+                f"USD-millions conversion requires USD, received {self.canonical_currency!r}."
+            )
+        return self.canonical_value / 1_000_000.0
+
+    @property
+    def measure_domain(self) -> MeasureDomain:
+        return self.source_unit.measure_domain
+
+    @property
+    def canonical_unit(self) -> str:
+        return self.source_unit.canonical_unit
+
+    @property
+    def canonical_unit_id(self) -> str:
+        return self.source_unit.canonical_unit_id
+
+
+@dataclass(frozen=True)
+class AdjustmentTableClassification:
+    role: AdjustmentTableRole
+    measure_domain: Optional[MeasureDomain]
+    source_unit: Optional[SourceAmountUnit]
+    per_share_source_unit: Optional[SourceAmountUnit]
+    source_unit_row_index: Optional[int]
+    evidence: str
+
+
+@dataclass(frozen=True)
+class CanonicalAdjustmentFact:
+    period: pd.Timestamp
+    metric_id: str
+    source_label: str
+    table_role: AdjustmentTableRole
+    measure_domain: MeasureDomain
+    basis: str
+    scope: str
+    definition_id: str
+    amount: CanonicalSourceAmount
+    source_table_index: int
+    source_row_index: int
+    source_column_index: int
+    source_column_label: str
+    source_unit_row_index: Optional[int]
+
+    @property
+    def source_locator(self) -> str:
+        return (
+            f"html-table:{self.source_table_index};row:{self.source_row_index};"
+            f"column:{self.source_column_index}"
+        )
+
+    @property
+    def semantic_key(self) -> Tuple[str, str, str, str, str, str]:
+        return (
+            pd.Timestamp(self.period).date().isoformat(),
+            self.metric_id,
+            self.measure_domain.value,
+            self.basis,
+            self.scope,
+            self.definition_id,
+        )
+
+    def to_lineage_record(self) -> Dict[str, Any]:
+        return {
+            "contract": NON_GAAP_ADJUSTMENT_DOMAIN_CONTRACT,
+            "period": pd.Timestamp(self.period).date().isoformat(),
+            "metric_id": self.metric_id,
+            "source_label": self.source_label,
+            "table_role": self.table_role.value,
+            "measure_domain": self.measure_domain.value,
+            "basis": self.basis,
+            "scope": self.scope,
+            "definition_id": self.definition_id,
+            "raw_source_scalar": self.amount.raw_source_scalar,
+            "raw_source_unit_text": self.amount.source_unit.declaration,
+            "normalized_source_scale": self.amount.source_unit.scale.value,
+            "currency": self.amount.source_unit.currency,
+            "canonical_unit": self.amount.canonical_unit,
+            "canonical_unit_id": self.amount.canonical_unit_id,
+            "canonical_value": self.amount.canonical_value,
+            "source_table_index": self.source_table_index,
+            "source_row_index": self.source_row_index,
+            "source_column_index": self.source_column_index,
+            "source_column_label": self.source_column_label,
+            "source_unit_row_index": self.source_unit_row_index,
+            "source_locator": self.source_locator,
+        }
+
+
+_SOURCE_UNIT_PATTERN = re.compile(
+    r"(?:"
+    r"(?:\$|USD|U\.S\.\s+dollars?|dollars?)\s*(?:amounts?\s+)?"
+    r"(?:are\s+)?(?:stated\s+)?(?:in\s+)?"
+    r"|(?:amounts?\s+)?(?:are\s+)?(?:stated\s+)?in\s+"
+    r")(?P<scale>thousands?|millions?)\b",
+    re.IGNORECASE,
+)
+
+
+def _source_unit_declarations(text: str) -> List[Tuple[int, SourceAmountUnit]]:
+    declarations: List[Tuple[int, SourceAmountUnit]] = []
+    for match in _SOURCE_UNIT_PATTERN.finditer(str(text or "")):
+        token = str(match.group("scale") or "").lower()
+        scale = SourceAmountScale.THOUSANDS if token.startswith("thousand") else SourceAmountScale.MILLIONS
+        declarations.append(
+            (
+                match.start(),
+                SourceAmountUnit(
+                    currency="USD",
+                    scale=scale,
+                    declaration=re.sub(r"\s+", " ", match.group(0)).strip(),
+                    measure_domain=MeasureDomain.MONETARY_AMOUNT,
+                ),
+            )
+        )
+    return declarations
+
+
+def detect_source_amount_unit(text: str, *, default_to_ones: bool = False) -> Optional[SourceAmountUnit]:
+    """Resolve an explicit USD amount scale without magnitude inference."""
+
+    declarations = _source_unit_declarations(text)
+    scales = {unit.scale for _, unit in declarations}
+    if len(scales) > 1:
+        raise SourceUnitContractError(
+            "Source scope contains conflicting amount scales: "
+            + ", ".join(sorted(scale.value for scale in scales))
+        )
+    if declarations:
+        return declarations[0][1]
+    if default_to_ones:
+        return SourceAmountUnit(currency="USD", scale=SourceAmountScale.ONES, declaration="unit:USD")
+    return None
+
+
+def normalize_source_amount(
+    value: Any,
+    source_unit: SourceAmountUnit,
+) -> CanonicalSourceAmount:
+    """Convert a source scalar to canonical USD exactly once."""
+
+    if isinstance(value, CanonicalSourceAmount):
+        if value.source_unit != source_unit:
+            raise SourceUnitContractError(
+                "An already-normalized amount cannot be reinterpreted under a different source unit."
+            )
+        return value
+    if not isinstance(source_unit, SourceAmountUnit):
+        raise SourceUnitContractError(f"Expected SourceAmountUnit, received {source_unit!r}.")
+    if source_unit.currency != "USD":
+        raise SourceUnitContractError(f"Unsupported source currency {source_unit.currency!r}.")
+    source_value = value
+    if isinstance(value, str):
+        parenthetical = re.fullmatch(r"\(\s*([^()]+?)\s*\)", value.strip())
+        if parenthetical is not None:
+            source_value = "-" + parenthetical.group(1)
+    raw_scalar = coerce_number(source_value)
+    if raw_scalar is None:
+        raise SourceUnitContractError(f"Source amount is not numeric: {value!r}.")
+    raw_float = float(raw_scalar)
+    return CanonicalSourceAmount(
+        raw_source_scalar=raw_float,
+        source_unit=source_unit,
+        canonical_currency="USD",
+        canonical_value=raw_float * source_unit.factor_to_usd,
+    )
+
+
+def _source_unit_for_table(
+    table: pd.DataFrame,
+    document_default: Optional[SourceAmountUnit],
+) -> Tuple[Optional[SourceAmountUnit], Optional[int]]:
+    declarations: List[Tuple[int, int, SourceAmountUnit, str]] = []
+    if table is not None and not table.empty:
+        for row_index in range(len(table)):
+            for column_index in range(int(table.shape[1])):
+                raw = table.iat[row_index, column_index]
+                try:
+                    if pd.isna(raw):
+                        continue
+                except Exception:
+                    pass
+                cell_text = re.sub(r"\s+", " ", str(raw or "")).strip()
+                if not cell_text:
+                    continue
+                for _, detected in _source_unit_declarations(cell_text):
+                    declarations.append(
+                        (
+                            row_index,
+                            column_index,
+                            SourceAmountUnit(
+                                currency=detected.currency,
+                                scale=detected.scale,
+                                declaration=cell_text,
+                            ),
+                            cell_text,
+                        )
+                    )
+    scales = {unit.scale for _, _, unit, _ in declarations}
+    if len(scales) > 1:
+        raise SourceUnitContractError(
+            "Adjusted-metric table contains conflicting amount scales: "
+            + ", ".join(sorted(scale.value for scale in scales))
+        )
+    if declarations:
+        row_index, _column_index, unit, _cell_text = declarations[0]
+        return unit, row_index
+    return document_default, None
+
+
+def _amount_lineage_metadata(
+    *,
+    amount: CanonicalSourceAmount,
+    table_index: int,
+    row_index: int,
+    column_index: int,
+    unit_row_index: Optional[int],
+    column_label: Optional[str],
+) -> Dict[str, Any]:
+    return {
+        "raw_source_scalar": amount.raw_source_scalar,
+        "source_currency": amount.source_unit.currency,
+        "source_scale": amount.source_unit.scale.value,
+        "source_scale_factor": amount.source_unit.factor_to_usd,
+        "source_unit_declaration": amount.source_unit.declaration,
+        "measure_domain": amount.measure_domain.value,
+        "source_unit_row_index": unit_row_index,
+        "canonical_currency": amount.canonical_currency,
+        "canonical_unit": amount.canonical_unit,
+        "canonical_unit_id": amount.canonical_unit_id,
+        "canonical_value": amount.canonical_value,
+        "canonical_usd_millions": amount.canonical_usd_millions,
+        "source_table_index": int(table_index),
+        "source_row_index": int(row_index),
+        "source_column_index": int(column_index),
+        "source_column_label": str(column_label or ""),
+        "source_locator": f"html-table:{int(table_index)};row:{int(row_index)};column:{int(column_index)}",
+    }
+
+
+def _clean_table_text(value: Any) -> str:
+    if value is None:
+        return ""
+    try:
+        if pd.isna(value):
+            return ""
+    except Exception:
+        pass
+    return re.sub(r"\s+", " ", str(value)).strip()
+
+
+def _table_blob(table: pd.DataFrame) -> str:
+    if table is None or table.empty:
+        return ""
+    return " ".join(
+        text
+        for text in (_clean_table_text(value) for value in table.to_numpy().ravel())
+        if text
+    )
+
+
+def _canonical_adjustment_metric_id(label: str) -> str:
+    token = re.sub(r"[^a-z0-9]+", "-", str(label or "").strip().lower()).strip("-")
+    if not token:
+        raise SourceUnitContractError("Adjustment metric identity requires a non-empty source label.")
+    return f"metric:non-gaap-adjustment:{token}@1"
+
+
+def _eps_source_unit(declaration: str) -> SourceAmountUnit:
+    return SourceAmountUnit(
+        currency="USD",
+        scale=SourceAmountScale.ONES,
+        declaration=declaration,
+        measure_domain=MeasureDomain.PER_SHARE_AMOUNT,
+    )
+
+
+def _eps_table_unit_declaration(table: pd.DataFrame) -> str:
+    cells = [
+        _clean_table_text(value)
+        for value in table.to_numpy().ravel()
+        if _clean_table_text(value)
+    ]
+    endpoints: List[str] = []
+    for cell in cells:
+        low = cell.lower()
+        if (
+            re.search(r"\bgaap\s+(?:diluted\s+)?eps\b", low)
+            or "reported diluted earnings" in low and "per share" in low
+            or re.search(r"\badjusted\s+(?:diluted\s+)?(?:eps|earnings\s+per\s+share)\b", low)
+        ):
+            normalized = re.sub(r"\s+", " ", cell).strip()
+            if normalized not in endpoints:
+                endpoints.append(normalized)
+    currency_marker = next((cell for cell in cells if cell.strip() == "$"), "USD")
+    return " | ".join(endpoints[:2] + [currency_marker])
+
+
+def classify_adjustment_table(
+    table: pd.DataFrame,
+    *,
+    document_default: Optional[SourceAmountUnit] = None,
+) -> AdjustmentTableClassification:
+    """Classify adjustment evidence before keyword rows are materialized."""
+
+    blob = _table_blob(table)
+    low = blob.lower()
+    if not low:
+        return AdjustmentTableClassification(
+            role=AdjustmentTableRole.UNRESOLVED,
+            measure_domain=None,
+            source_unit=None,
+            per_share_source_unit=None,
+            source_unit_row_index=None,
+            evidence="empty_table",
+        )
+    local_unit, unit_row_index = _source_unit_for_table(table, None)
+    has_gaap_eps = bool(
+        re.search(r"\bgaap\s+(?:diluted\s+)?eps\b|\bgaap\s+(?:earnings|loss)\s+per\s+share\b", low)
+    )
+    has_adjusted_eps = bool(
+        re.search(r"\badjusted\s+(?:diluted\s+)?(?:eps|earnings\s+per\s+share)\b", low)
+    )
+    has_eps_reconciliation_heading = bool(
+        re.search(
+            r"reconciliation\s+of\s+reported[^.]{0,160}per\s+share[^.]{0,160}"
+            r"adjusted[^.]{0,80}per\s+share",
+            low,
+        )
+    )
+    has_eps_reconciliation = (has_gaap_eps and has_adjusted_eps) or has_eps_reconciliation_heading
+    has_adjusted_amount_endpoint = bool(
+        re.search(r"\badjusted\s+ebit(?:da)?\b|\badjusted\s+free\s+cash\s+flow\b", low)
+    )
+    has_fcf_reconciliation = (
+        "free cash flow" in low
+        and (
+            "cash flow from operating activities" in low
+            or "cash flows from operating activities" in low
+            or "capital expenditures" in low
+        )
+    )
+    has_amount_reconciliation = has_adjusted_amount_endpoint or has_fcf_reconciliation
+
+    if has_eps_reconciliation and has_amount_reconciliation:
+        if local_unit is None:
+            return AdjustmentTableClassification(
+                role=AdjustmentTableRole.UNRESOLVED,
+                measure_domain=None,
+                source_unit=None,
+                per_share_source_unit=None,
+                source_unit_row_index=None,
+                evidence="mixed_reconciliation_missing_table_local_amount_unit",
+            )
+        return AdjustmentTableClassification(
+            role=AdjustmentTableRole.MIXED_RECONCILIATION,
+            measure_domain=None,
+            source_unit=local_unit,
+            per_share_source_unit=_eps_source_unit(_eps_table_unit_declaration(table)),
+            source_unit_row_index=unit_row_index,
+            evidence="gaap_to_adjusted_eps_and_adjusted_amount_endpoints",
+        )
+    if has_eps_reconciliation:
+        if "$" not in blob and "usd" not in low and "dollar" not in low:
+            return AdjustmentTableClassification(
+                role=AdjustmentTableRole.UNRESOLVED,
+                measure_domain=None,
+                source_unit=None,
+                per_share_source_unit=None,
+                source_unit_row_index=None,
+                evidence="eps_reconciliation_missing_currency_identity",
+            )
+        return AdjustmentTableClassification(
+            role=AdjustmentTableRole.EPS_RECONCILIATION,
+            measure_domain=MeasureDomain.PER_SHARE_AMOUNT,
+            source_unit=_eps_source_unit(_eps_table_unit_declaration(table)),
+            per_share_source_unit=_eps_source_unit(_eps_table_unit_declaration(table)),
+            source_unit_row_index=None,
+            evidence="gaap_eps_to_adjusted_eps",
+        )
+    if has_amount_reconciliation:
+        if local_unit is None:
+            # An explicit unscaled dollar column is table-local ONES evidence.
+            if "$" in blob:
+                local_unit = SourceAmountUnit(
+                    currency="USD",
+                    scale=SourceAmountScale.ONES,
+                    declaration="table-cell:$",
+                    measure_domain=MeasureDomain.MONETARY_AMOUNT,
+                )
+            else:
+                return AdjustmentTableClassification(
+                    role=AdjustmentTableRole.UNRESOLVED,
+                    measure_domain=None,
+                    source_unit=None,
+                    per_share_source_unit=None,
+                    source_unit_row_index=None,
+                    evidence="amount_reconciliation_missing_source_unit",
+                )
+        return AdjustmentTableClassification(
+            role=AdjustmentTableRole.AMOUNT_RECONCILIATION,
+            measure_domain=MeasureDomain.MONETARY_AMOUNT,
+            source_unit=local_unit,
+            per_share_source_unit=None,
+            source_unit_row_index=unit_row_index,
+            evidence="adjusted_amount_or_free_cash_flow_reconciliation",
+        )
+    return AdjustmentTableClassification(
+        role=AdjustmentTableRole.UNRESOLVED,
+        measure_domain=None,
+        source_unit=None,
+        per_share_source_unit=None,
+        source_unit_row_index=None,
+        evidence="no_supported_adjustment_table_role",
+    )
+
+
+def _adjustment_row_domain(
+    classification: AdjustmentTableClassification,
+    *,
+    row_label: str,
+    section_domain: Optional[MeasureDomain] = None,
+) -> MeasureDomain:
+    if section_domain is not None:
+        return section_domain
+    if classification.role is AdjustmentTableRole.EPS_RECONCILIATION:
+        return MeasureDomain.PER_SHARE_AMOUNT
+    if classification.role is AdjustmentTableRole.AMOUNT_RECONCILIATION:
+        return MeasureDomain.MONETARY_AMOUNT
+    if classification.role is AdjustmentTableRole.MIXED_RECONCILIATION:
+        if _is_eps_label(row_label) or "per share" in row_label.lower():
+            return MeasureDomain.PER_SHARE_AMOUNT
+        return MeasureDomain.MONETARY_AMOUNT
+    raise SourceUnitContractError(
+        f"Adjustment row {row_label!r} belongs to unresolved table role {classification.role.value!r}."
+    )
+
+
+def _adjustment_source_unit(
+    classification: AdjustmentTableClassification,
+    *,
+    row_label: str,
+    section_domain: Optional[MeasureDomain] = None,
+) -> SourceAmountUnit:
+    domain = _adjustment_row_domain(
+        classification,
+        row_label=row_label,
+        section_domain=section_domain,
+    )
+    if domain is MeasureDomain.PER_SHARE_AMOUNT:
+        if classification.per_share_source_unit is None:
+            raise SourceUnitContractError(
+                f"Per-share adjustment row {row_label!r} has no table-owned per-share unit."
+            )
+        return classification.per_share_source_unit
+    if classification.source_unit is None:
+        raise SourceUnitContractError(
+            f"Monetary adjustment row {row_label!r} has no table-owned source unit."
+        )
+    return classification.source_unit
+
+
+def _build_adjustment_fact(
+    *,
+    period: pd.Timestamp,
+    source_label: str,
+    raw_value: Any,
+    classification: AdjustmentTableClassification,
+    table_index: int,
+    row_index: int,
+    column_index: int,
+    column_label: str,
+    section_domain: Optional[MeasureDomain] = None,
+) -> Optional[CanonicalAdjustmentFact]:
+    source_unit = _adjustment_source_unit(
+        classification,
+        row_label=source_label,
+        section_domain=section_domain,
+    )
+    parsed = coerce_number(raw_value)
+    if parsed is None:
+        return None
+    amount = normalize_source_amount(parsed, source_unit)
+    domain = source_unit.measure_domain
+    definition_id = (
+        "definition:issuer-adjusted-eps-reconciliation-component@1"
+        if domain is MeasureDomain.PER_SHARE_AMOUNT
+        else "definition:issuer-non-gaap-adjustment-amount@1"
+    )
+    return CanonicalAdjustmentFact(
+        period=pd.Timestamp(period).normalize(),
+        metric_id=_canonical_adjustment_metric_id(source_label),
+        source_label=re.sub(r"\s+", " ", str(source_label)).strip(),
+        table_role=classification.role,
+        measure_domain=domain,
+        basis="adjusted_non_gaap_reconciliation",
+        scope="reported_consolidated_at_period",
+        definition_id=definition_id,
+        amount=amount,
+        source_table_index=int(table_index),
+        source_row_index=int(row_index),
+        source_column_index=int(column_index),
+        source_column_label=str(column_label or ""),
+        source_unit_row_index=classification.source_unit_row_index,
+    )
+
+
+def reconcile_adjustment_facts(
+    facts: Iterable[CanonicalAdjustmentFact],
+) -> List[CanonicalAdjustmentFact]:
+    """Reconcile exact duplicates without collapsing facts across domains."""
+
+    grouped: Dict[Tuple[str, str, str, str, str, str], List[CanonicalAdjustmentFact]] = {}
+    for fact in facts:
+        grouped.setdefault(fact.semantic_key, []).append(fact)
+    selected: List[CanonicalAdjustmentFact] = []
+    for key in sorted(grouped):
+        candidates = sorted(
+            grouped[key],
+            key=lambda fact: (
+                fact.source_table_index,
+                fact.source_row_index,
+                fact.source_column_index,
+                fact.source_locator,
+            ),
+        )
+        values = {float(fact.amount.canonical_value) for fact in candidates}
+        units = {fact.amount.canonical_unit_id for fact in candidates}
+        if len(values) != 1 or len(units) != 1:
+            raise SourceUnitContractError(
+                "Conflicting same-domain adjustment facts for semantic key "
+                f"{key!r}: "
+                + ", ".join(
+                    f"{fact.amount.canonical_value!r} {fact.amount.canonical_unit} at {fact.source_locator}"
+                    for fact in candidates
+                )
+            )
+        selected.append(candidates[0])
+    return selected
+
+
+def reconcile_adjustment_breakdown_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    """Reconcile bundle rows by semantic identity, never by physical row order."""
+
+    if frame is None or frame.empty:
+        return pd.DataFrame() if frame is None else frame.copy()
+    required = {
+        "period",
+        "metric_id",
+        "measure_domain",
+        "basis",
+        "scope",
+        "definition_id",
+        "canonical_value",
+        "canonical_unit_id",
+        "source_occurrence_id",
+    }
+    missing = sorted(required.difference(frame.columns))
+    if missing:
+        raise SourceUnitContractError(
+            "Adjustment breakdown rows are missing canonical semantic fields: " + ", ".join(missing)
+        )
+    keys = ["period", "metric_id", "measure_domain", "basis", "scope", "definition_id"]
+    selected: List[Dict[str, Any]] = []
+    grouped = frame.groupby(keys, dropna=False, sort=True)
+    for key, group in grouped:
+        values = {float(value) for value in group["canonical_value"].tolist()}
+        units = {str(value) for value in group["canonical_unit_id"].tolist()}
+        if len(values) != 1 or len(units) != 1:
+            details = group[
+                ["canonical_value", "canonical_unit_id", "source_document_id", "source_locator"]
+            ].to_dict("records")
+            raise SourceUnitContractError(
+                f"Conflicting same-domain adjustment breakdown rows for {key!r}: {details!r}"
+            )
+        ordered = group.sort_values(
+            ["source_document_id", "source_occurrence_id", "source_locator"],
+            kind="stable",
+        )
+        row = ordered.iloc[0].to_dict()
+        occurrences = sorted({str(value) for value in ordered["source_occurrence_id"].tolist()})
+        row["corroboration_count"] = len(occurrences)
+        row["corroborating_occurrence_ids_json"] = json.dumps(
+            occurrences,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+        selected.append(row)
+    return pd.DataFrame(selected).sort_values(
+        keys + ["source_document_id", "source_locator"],
+        kind="stable",
+    ).reset_index(drop=True)
 
 
 def find_ex99_docs(index_json: Dict[str, Any]) -> List[str]:
@@ -99,21 +782,15 @@ def _slice_three_month_block(lines: List[str]) -> List[str]:
 
 
 def _detect_scale(html: str) -> float:
-    scale = 1.0
-    if re.search(r"(?:in|\$)\s+thousands|thousands\s*\(unless", html, re.IGNORECASE):
-        scale = 1000.0
-    if re.search(r"(?:in|\$)\s+millions|millions\s*\(unless", html, re.IGNORECASE):
-        scale = 1_000_000.0
-    return scale
+    unit = detect_source_amount_unit(html, default_to_ones=True)
+    if unit is None:  # pragma: no cover - default_to_ones guarantees a unit
+        return 1.0
+    return unit.factor_to_usd
 
 
 def _detect_local_scale(text: str, default_scale: float = 1.0) -> float:
-    txt = str(text or "")
-    if re.search(r"in\s+thousands|\$\s*k\b|\bthousand\b", txt, re.I):
-        return max(default_scale, 1000.0)
-    if re.search(r"in\s+millions|\$\s*m\b|\bmillion(s)?\b", txt, re.I):
-        return max(default_scale, 1_000_000.0)
-    return default_scale
+    unit = detect_source_amount_unit(str(text or ""), default_to_ones=False)
+    return unit.factor_to_usd if unit is not None else float(default_scale)
 
 
 def _label_matches(label: str, needles: List[str]) -> bool:
@@ -242,7 +919,10 @@ def _parse_adjusted_from_text(
         return None, None, None, {}, "segment_page", None
 
     txt = normalize_number_spacing(txt)
-    scale = _detect_scale(txt)
+    try:
+        scale = _detect_scale(txt)
+    except SourceUnitContractError:
+        return None, None, None, {}, "ambiguous_source_unit", None
 
     if mode == "strict":
         q_detect = infer_quarter_end_from_text(txt)
@@ -457,10 +1137,28 @@ def parse_adjusted_from_ex99(
     html_bytes: bytes,
     quarter_end: Optional[pd.Timestamp],
     mode: str = "strict",
+    *,
+    extraction_metadata: Optional[Dict[str, Dict[str, Any]]] = None,
+    adjustment_facts: Optional[List[CanonicalAdjustmentFact]] = None,
 ) -> Tuple[Optional[float], Optional[float], Optional[float], Dict[str, float], str, Optional[str]]:
     html = html_bytes.decode("utf-8", errors="ignore")
     html = normalize_number_spacing(html)
-    scale = _detect_scale(html)
+    if extraction_metadata is not None:
+        extraction_metadata.clear()
+    if adjustment_facts is not None:
+        adjustment_facts.clear()
+    document_unit_ambiguous = False
+    try:
+        document_default_unit = detect_source_amount_unit(html, default_to_ones=False)
+    except SourceUnitContractError:
+        document_default_unit = None
+        document_unit_ambiguous = True
+    if document_default_unit is None and not document_unit_ambiguous:
+        document_default_unit = SourceAmountUnit(
+            currency="USD",
+            scale=SourceAmountScale.ONES,
+            declaration="unit:USD",
+        )
 
     tables = read_html_tables_any(html.encode("utf-8"))
     adj_ebit = None
@@ -469,9 +1167,15 @@ def parse_adjusted_from_ex99(
     adjustments: Dict[str, float] = {}
     adj_fcf: Optional[float] = None
 
-    def to_num(x: Any) -> Optional[float]:
+    def to_amount(x: Any, source_unit: SourceAmountUnit) -> Optional[CanonicalSourceAmount]:
         v = coerce_number(x)
-        return None if v is None else float(v) * scale
+        if v is None:
+            return None
+        return normalize_source_amount(v, source_unit)
+
+    def to_num(x: Any, source_unit: SourceAmountUnit) -> Optional[float]:
+        amount = to_amount(x, source_unit)
+        return None if amount is None else amount.canonical_value
 
     def to_num_eps(x: Any) -> Optional[float]:
         v = coerce_number(x)
@@ -498,11 +1202,25 @@ def parse_adjusted_from_ex99(
     ]
 
     if quarter_end is None:
-        return None, None, {}, "no_quarter_end", None
+        return None, None, None, {}, "no_quarter_end", None
 
     def _parse_consolidated_colspan_table(
         table: pd.DataFrame,
-    ) -> Optional[Tuple[Optional[float], Optional[float], Optional[float], Dict[str, float], str]]:
+        *,
+        table_index: int,
+        source_unit: SourceAmountUnit,
+        unit_row_index: Optional[int],
+    ) -> Optional[
+        Tuple[
+            Optional[float],
+            Optional[float],
+            Optional[float],
+            Dict[str, float],
+            str,
+            Dict[str, Dict[str, Any]],
+            List[CanonicalAdjustmentFact],
+        ]
+    ]:
         if table is None or table.empty:
             return None
         blob = " ".join(str(v or "") for v in table.astype(str).values.ravel()).lower()
@@ -571,7 +1289,10 @@ def parse_adjusted_from_ex99(
                     labels.append(s)
             return " ".join(labels).strip().lower()
 
-        def _value_from_row(row: pd.Series, eps: bool = False) -> Optional[float]:
+        def _value_from_row(
+            row: pd.Series,
+            eps: bool = False,
+        ) -> Tuple[Optional[float], Optional[CanonicalSourceAmount], Optional[int]]:
             seen_cols: set[int] = set()
             for c_idx, _score in candidates:
                 for probe in (c_idx, c_idx + 1, c_idx - 1):
@@ -579,34 +1300,69 @@ def parse_adjusted_from_ex99(
                         continue
                     seen_cols.add(probe)
                     raw = row.iloc[probe] if probe < len(row) else None
-                    val = to_num_eps(raw) if eps else to_num(raw)
+                    amount = None if eps else to_amount(raw, source_unit)
+                    val = to_num_eps(raw) if eps else (amount.canonical_value if amount is not None else None)
                     if val is not None:
-                        return val
-            return None
+                        return val, amount, probe
+            return None, None, None
 
         found_adj_ebit: Optional[float] = None
         found_adj_ebitda: Optional[float] = None
         found_adj_eps: Optional[float] = None
         found_adjustments: Dict[str, float] = {}
+        found_adjustment_facts: List[CanonicalAdjustmentFact] = []
+        found_metadata: Dict[str, Dict[str, Any]] = {}
         has_recon_row = False
+        section_domain: Optional[MeasureDomain] = None
+        classification = classify_adjustment_table(
+            table,
+            document_default=document_default_unit,
+        )
 
-        for _, row in table.iterrows():
+        for row_index, row in table.iterrows():
             label = _row_label(row)
             if not label or label == "nan":
                 continue
+            if "reconciliation" in label and "per share" in label:
+                section_domain = MeasureDomain.PER_SHARE_AMOUNT
+                has_recon_row = True
+                continue
             if "reconciliation" in label and ("adjusted ebit" in label or "adjusted ebitda" in label):
+                section_domain = MeasureDomain.MONETARY_AMOUNT
+                has_recon_row = True
+                continue
+            if "reconciliation" in label and "free cash flow" in label:
+                section_domain = MeasureDomain.MONETARY_AMOUNT
                 has_recon_row = True
                 continue
             if "adjusted segment" in label:
                 continue
             if "adjusted ebitda" in label:
-                found_adj_ebitda = _value_from_row(row)
+                found_adj_ebitda, amount, source_column_index = _value_from_row(row)
+                if amount is not None and source_column_index is not None:
+                    found_metadata["adj_ebitda"] = _amount_lineage_metadata(
+                        amount=amount,
+                        table_index=table_index,
+                        row_index=int(row_index),
+                        column_index=source_column_index,
+                        unit_row_index=unit_row_index,
+                        column_label=f"{target_year} 3M consolidated table",
+                    )
                 continue
             if _label_matches(label, _ADJ_EBIT_SYNONYMS) and "ebitda" not in label:
-                found_adj_ebit = _value_from_row(row)
+                found_adj_ebit, amount, source_column_index = _value_from_row(row)
+                if amount is not None and source_column_index is not None:
+                    found_metadata["adj_ebit"] = _amount_lineage_metadata(
+                        amount=amount,
+                        table_index=table_index,
+                        row_index=int(row_index),
+                        column_index=source_column_index,
+                        unit_row_index=unit_row_index,
+                        column_label=f"{target_year} 3M consolidated table",
+                    )
                 continue
             if _is_adj_eps_label(label):
-                eps_val = _value_from_row(row, eps=True)
+                eps_val, _amount, _source_column_index = _value_from_row(row, eps=True)
                 if eps_val is not None and abs(eps_val) <= 100:
                     found_adj_eps = eps_val
                 continue
@@ -625,25 +1381,92 @@ def parse_adjusted_from_ex99(
                 ):
                     has_recon_row = True
                     continue
-                adj_val = _value_from_row(row)
-                if adj_val is not None and abs(float(adj_val)) >= 1_000_000.0:
-                    found_adjustments[label] = adj_val
+                adj_val, amount, source_column_index = _value_from_row(row)
+                fact: Optional[CanonicalAdjustmentFact] = None
+                if amount is not None and source_column_index is not None and classification.role is not AdjustmentTableRole.UNRESOLVED:
+                    fact = _build_adjustment_fact(
+                        period=pd.Timestamp(quarter_end),
+                        source_label=label,
+                        raw_value=amount.raw_source_scalar,
+                        classification=classification,
+                        table_index=table_index,
+                        row_index=int(row_index),
+                        column_index=source_column_index,
+                        column_label=f"{target_year} 3M consolidated table",
+                        section_domain=section_domain,
+                    )
+                    if fact is not None:
+                        found_adjustment_facts.append(fact)
+                if (
+                    fact is not None
+                    and fact.measure_domain is MeasureDomain.MONETARY_AMOUNT
+                ):
                     has_recon_row = True
+
+        reconciled_facts = reconcile_adjustment_facts(found_adjustment_facts)
+        for fact in reconciled_facts:
+            if fact.measure_domain is MeasureDomain.MONETARY_AMOUNT:
+                found_adjustments[fact.source_label] = float(fact.amount.canonical_value)
 
         if (found_adj_ebit is not None or found_adj_ebitda is not None or found_adj_eps is not None) and (
             has_recon_row or found_adjustments
         ):
-            return found_adj_ebit, found_adj_ebitda, found_adj_eps, found_adjustments, f"{target_year} 3M consolidated table"
+            return (
+                found_adj_ebit,
+                found_adj_ebitda,
+                found_adj_eps,
+                found_adjustments,
+                f"{target_year} 3M consolidated table",
+                found_metadata,
+                reconciled_facts,
+            )
         return None
 
-    for t in tables:
-        parsed = _parse_consolidated_colspan_table(t)
+    unit_errors: List[str] = []
+    for table_index, t in enumerate(tables):
+        try:
+            table_unit, unit_row_index = _source_unit_for_table(t, document_default_unit)
+        except SourceUnitContractError as exc:
+            unit_errors.append(f"table {table_index}: {exc}")
+            continue
+        if table_unit is None:
+            unit_errors.append(f"table {table_index}: no unambiguous table-local amount unit")
+            continue
+        parsed = _parse_consolidated_colspan_table(
+            t,
+            table_index=table_index,
+            source_unit=table_unit,
+            unit_row_index=unit_row_index,
+        )
         if parsed is not None:
-            aebit, aebitda, aeps, adj, col_label = parsed
+            aebit, aebitda, aeps, adj, col_label, metric_metadata, parsed_facts = parsed
+            if extraction_metadata is not None:
+                extraction_metadata.update(metric_metadata)
+            if adjustment_facts is not None:
+                adjustment_facts.extend(parsed_facts)
             return aebit, aebitda, aeps, adj, ("ok" if mode == "strict" else "ok_relaxed"), col_label
 
-    for t in tables:
+    for table_index, t in enumerate(tables):
         if t is None or t.empty:
+            continue
+        try:
+            classification = classify_adjustment_table(
+                t,
+                document_default=document_default_unit,
+            )
+        except SourceUnitContractError as exc:
+            unit_errors.append(f"table {table_index}: {exc}")
+            continue
+        try:
+            table_unit, unit_row_index = _source_unit_for_table(t, document_default_unit)
+        except SourceUnitContractError as exc:
+            unit_errors.append(f"table {table_index}: {exc}")
+            continue
+        if table_unit is None and classification.role is AdjustmentTableRole.EPS_RECONCILIATION:
+            table_unit = classification.source_unit
+            unit_row_index = classification.source_unit_row_index
+        if table_unit is None:
+            unit_errors.append(f"table {table_index}: no unambiguous table-local amount unit")
             continue
 
         t2 = t.copy()
@@ -740,7 +1563,7 @@ def parse_adjusted_from_ex99(
             def _score_col(i: int) -> Tuple[int, float]:
                 nums = []
                 for _, row in t2.iterrows():
-                    v = to_num(row.iloc[i]) if i < len(row) else None
+                    v = to_num(row.iloc[i], table_unit) if i < len(row) else None
                     if v is not None:
                         nums.append(abs(v))
                 if not nums:
@@ -763,12 +1586,24 @@ def parse_adjusted_from_ex99(
         has_recon = False
         has_eps = False
         has_adj_eps = False
+        table_metric_metadata: Dict[str, Dict[str, Any]] = {}
+        table_adjustment_facts: List[CanonicalAdjustmentFact] = []
+        section_domain: Optional[MeasureDomain] = None
 
-        for _, row in t2.iterrows():
+        for row_index, row in t2.iterrows():
             label = str(row.get(first, "")).strip().lower()
             if not label or label == "nan":
                 continue
-            v = to_num(row.iloc[col_idx]) if col_idx < len(row) else None
+            if "reconciliation" in label and "per share" in label:
+                section_domain = MeasureDomain.PER_SHARE_AMOUNT
+            elif "reconciliation" in label and (
+                "adjusted ebit" in label
+                or "adjusted ebitda" in label
+                or "free cash flow" in label
+            ):
+                section_domain = MeasureDomain.MONETARY_AMOUNT
+            amount = to_amount(row.iloc[col_idx], table_unit) if col_idx < len(row) else None
+            v = amount.canonical_value if amount is not None else None
             if v is None:
                 # still allow EPS parse without scale
                 v_eps = to_num_eps(row.iloc[col_idx]) if col_idx < len(row) else None
@@ -780,6 +1615,15 @@ def parse_adjusted_from_ex99(
             if "adjusted ebitda" in label and not is_margin_row and v is not None:
                 adj_ebitda = v
                 has_adjusted = True
+                if amount is not None:
+                    table_metric_metadata["adj_ebitda"] = _amount_lineage_metadata(
+                        amount=amount,
+                        table_index=table_index,
+                        row_index=int(row_index),
+                        column_index=col_idx,
+                        unit_row_index=unit_row_index,
+                        column_label=col_label,
+                    )
             if (
                 _label_matches(label, _ADJ_EBIT_SYNONYMS)
                 and "ebitda" not in label
@@ -788,6 +1632,15 @@ def parse_adjusted_from_ex99(
             ):
                 adj_ebit = v
                 has_adjusted = True
+                if amount is not None:
+                    table_metric_metadata["adj_ebit"] = _amount_lineage_metadata(
+                        amount=amount,
+                        table_index=table_index,
+                        row_index=int(row_index),
+                        column_index=col_idx,
+                        unit_row_index=unit_row_index,
+                        column_label=col_label,
+                    )
             if _is_eps_label(label):
                 has_eps = True
             if _is_adj_eps_label(label):
@@ -797,19 +1650,57 @@ def parse_adjusted_from_ex99(
 
             if "free cash flow" in label and not is_margin_row and v is not None:
                 adj_fcf = v
+                if amount is not None:
+                    table_metric_metadata["adj_fcf"] = _amount_lineage_metadata(
+                        amount=amount,
+                        table_index=table_index,
+                        row_index=int(row_index),
+                        column_index=col_idx,
+                        unit_row_index=unit_row_index,
+                        column_label=col_label,
+                    )
             if _label_matches(label, adjustments_keywords) and v is not None:
-                adjustments[label] = v
-                has_recon = True
+                if classification.role is AdjustmentTableRole.UNRESOLVED:
+                    unit_errors.append(
+                        f"table {table_index}: adjustment row {label!r} has unresolved table role "
+                        f"({classification.evidence})"
+                    )
+                else:
+                    fact = _build_adjustment_fact(
+                        period=pd.Timestamp(quarter_end),
+                        source_label=label,
+                        raw_value=row.iloc[col_idx],
+                        classification=classification,
+                        table_index=table_index,
+                        row_index=int(row_index),
+                        column_index=int(col_idx),
+                        column_label=str(col_label or ""),
+                        section_domain=section_domain,
+                    )
+                    if fact is not None:
+                        table_adjustment_facts.append(fact)
+                        has_recon = True
 
             if _label_matches(label, _GAAP_EBIT_SYNONYMS):
                 has_recon = True
 
         if (has_adjusted and has_recon and (adj_ebit is not None or adj_ebitda is not None)) or (has_adj_eps and has_eps) or (adj_fcf is not None):
+            reconciled_facts = reconcile_adjustment_facts(table_adjustment_facts)
+            table_adjustments = {
+                fact.source_label: float(fact.amount.canonical_value)
+                for fact in reconciled_facts
+                if fact.measure_domain is MeasureDomain.MONETARY_AMOUNT
+            }
             if adj_fcf is not None:
-                adjustments["__adj_fcf"] = adj_fcf
-            return adj_ebit, adj_ebitda, adj_eps, adjustments, ("ok" if mode == "strict" else "ok_relaxed"), col_label
+                table_adjustments["__adj_fcf"] = adj_fcf
+            if extraction_metadata is not None:
+                extraction_metadata.update(table_metric_metadata)
+            if adjustment_facts is not None:
+                adjustment_facts.extend(reconciled_facts)
+            return adj_ebit, adj_ebitda, adj_eps, table_adjustments, ("ok" if mode == "strict" else "ok_relaxed"), col_label
 
-    return None, None, None, {}, "no_matching_column", None
+    status = "ambiguous_source_unit" if unit_errors and document_unit_ambiguous else "no_matching_column"
+    return None, None, None, {}, status, None
 
 
 def build_non_gaap_tier3(
@@ -852,6 +1743,8 @@ def build_non_gaap_tier3(
 
         picked = None
         q_end = None
+        picked_metadata: Dict[str, Dict[str, Any]] = {}
+        picked_adjustment_facts: List[CanonicalAdjustmentFact] = []
 
         for fn in exdocs[:8]:
             try:
@@ -870,7 +1763,15 @@ def build_non_gaap_tier3(
             txt = strip_html(b.decode("utf-8", errors="ignore"))
             q_end = infer_quarter_end_from_text(txt) or parse_date(rdate) or parse_date(fdate)
 
-            aebit, aebitda, aeps, adj, status, col_label = parse_adjusted_from_ex99(b, q_end, mode=mode)
+            parse_metadata: Dict[str, Dict[str, Any]] = {}
+            parse_adjustment_facts: List[CanonicalAdjustmentFact] = []
+            aebit, aebitda, aeps, adj, status, col_label = parse_adjusted_from_ex99(
+                b,
+                q_end,
+                mode=mode,
+                extraction_metadata=parse_metadata,
+                adjustment_facts=parse_adjustment_facts,
+            )
             if status not in ("ok", "ok_relaxed"):
                 try:
                     ocr_txt = sec.ocr_html_assets(
@@ -882,11 +1783,15 @@ def build_non_gaap_tier3(
                     ocr_txt = ""
                 if ocr_txt:
                     aebit, aebitda, aeps, adj, status, col_label = _parse_adjusted_from_text(ocr_txt, q_end, mode=mode)
+                    parse_metadata = {}
+                    parse_adjustment_facts = []
                 if status not in ("ok", "ok_relaxed", "ok_ocr", "ok_relaxed_ocr"):
                     rows_f.append({"accn": accn, "filed": fdate, "status": status, "doc": fn})
                     continue
 
             picked = (fn, aebit, aebitda, aeps, adj, col_label)
+            picked_metadata = parse_metadata
+            picked_adjustment_facts = list(parse_adjustment_facts)
             break
 
         if picked is None:
@@ -900,6 +1805,99 @@ def build_non_gaap_tier3(
         if q_end is None:
             q_end = parse_date(rdate) or parse_date(fdate)
 
+        source_document_id = build_identity(
+            "sec-document",
+            (
+                ("cik", f"{int(cik_int):010d}"),
+                ("accn", str(accn)),
+                ("doc", str(fn)),
+            ),
+        )
+        metric_lineage_columns: Dict[str, Any] = {
+            "source_lineage_contract": ADJUSTED_METRIC_SOURCE_UNIT_CONTRACT,
+            "adjusted_metric_history_contract": ADJUSTED_METRIC_HISTORY_CONTRACT,
+            "adjustment_domain_contract": NON_GAAP_ADJUSTMENT_DOMAIN_CONTRACT,
+            "adjustment_domain_version": NON_GAAP_ADJUSTMENT_DOMAIN_VERSION,
+            "source_document_id": source_document_id,
+        }
+        for metric_name, metadata in sorted(picked_metadata.items()):
+            if metric_name not in {"adj_ebit", "adj_ebitda", "adj_fcf"}:
+                continue
+            occurrence_id = build_identity(
+                "non-gaap-occurrence",
+                (
+                    ("doc", source_document_id),
+                    ("metric", metric_name),
+                    ("period", str(q_end)),
+                    ("locator", str(metadata.get("source_locator") or "")),
+                ),
+            )
+            for field_name, field_value in metadata.items():
+                metric_lineage_columns[f"{metric_name}_{field_name}"] = field_value
+            metric_id = AdjustedMetricId(metric_name)
+            metric_lineage_columns.update(
+                {
+                    f"{metric_name}_metric_id": metric_id.value,
+                    f"{metric_name}_period_type": AdjustedMetricPeriodType.QUARTER.value,
+                    f"{metric_name}_basis": "adjusted_non_gaap",
+                    f"{metric_name}_scope": AdjustedMetricScope.REPORTED_CONSOLIDATED.value,
+                    f"{metric_name}_definition_id": reported_adjusted_metric_definition_id(metric_id),
+                    f"{metric_name}_source_role": AdjustedMetricSourceRole.DIRECT.value,
+                    f"{metric_name}_source_authority": "issuer_direct_period_release",
+                    f"{metric_name}_authority_rank": 300 if mode == "strict" else 250,
+                    f"{metric_name}_source_document_id": source_document_id,
+                    f"{metric_name}_source_metric_label": {
+                        AdjustedMetricId.ADJUSTED_EBIT: "Adjusted EBIT",
+                        AdjustedMetricId.ADJUSTED_EBITDA: "Adjusted EBITDA",
+                        AdjustedMetricId.ADJUSTED_FCF: "Adjusted FCF",
+                    }[metric_id],
+                }
+            )
+            metric_lineage_columns[f"{metric_name}_source_occurrence_id"] = occurrence_id
+
+        adjustment_records: List[Dict[str, Any]] = []
+        for fact in sorted(
+            picked_adjustment_facts,
+            key=lambda item: (item.semantic_key, item.source_locator),
+        ):
+            record = fact.to_lineage_record()
+            occurrence_id = build_identity(
+                "non-gaap-adjustment-occurrence",
+                (
+                    ("doc", source_document_id),
+                    ("period", pd.Timestamp(fact.period).date().isoformat()),
+                    ("metric", fact.metric_id),
+                    ("domain", fact.measure_domain.value),
+                    ("locator", fact.source_locator),
+                ),
+            )
+            economic_id = build_identity(
+                "non-gaap-adjustment-fact",
+                (
+                    ("period", pd.Timestamp(fact.period).date().isoformat()),
+                    ("metric", fact.metric_id),
+                    ("domain", fact.measure_domain.value),
+                    ("basis", fact.basis),
+                    ("scope", fact.scope),
+                    ("definition", fact.definition_id),
+                ),
+            )
+            record.update(
+                {
+                    "source_document_id": source_document_id,
+                    "source_occurrence_id": occurrence_id,
+                    "economic_fact_id": economic_id,
+                }
+            )
+            adjustment_records.append(record)
+
+        evidence_json = json.dumps(
+            adjustment_records,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+
         rows_m.append({
             "quarter": q_end,
             "adj_ebit": aebit,
@@ -912,11 +1910,36 @@ def build_non_gaap_tier3(
             "doc": fn,
             "confidence": "low" if mode == "relaxed" else "high",
             "col": col_label,
+            "period_type": AdjustedMetricPeriodType.QUARTER.value,
+            "adjustment_evidence_json": evidence_json,
+            "monetary_adjustment_fact_count": sum(
+                record["measure_domain"] == MeasureDomain.MONETARY_AMOUNT.value
+                for record in adjustment_records
+            ),
+            "per_share_adjustment_fact_count": sum(
+                record["measure_domain"] == MeasureDomain.PER_SHARE_AMOUNT.value
+                for record in adjustment_records
+            ),
+            **metric_lineage_columns,
         })
 
-        for lab, val in adj.items():
-            if str(lab).startswith("__"):
+        amount_projection = {
+            str(lab): float(val)
+            for lab, val in adj.items()
+            if not str(lab).startswith("__")
+        }
+        for record in adjustment_records:
+            if record["measure_domain"] != MeasureDomain.MONETARY_AMOUNT.value:
                 continue
+            lab = str(record["source_label"])
+            if lab not in amount_projection:
+                continue
+            val = float(record["canonical_value"])
+            if val != amount_projection[lab]:
+                raise SourceUnitContractError(
+                    f"Adjustment amount projection disagrees with canonical fact for {lab!r}: "
+                    f"{amount_projection[lab]!r} vs {val!r}."
+                )
             rows_b.append({
                 "quarter": q_end,
                 "label": lab,
@@ -926,6 +1949,7 @@ def build_non_gaap_tier3(
                 "doc": fn,
                 "confidence": "low" if mode == "relaxed" else "high",
                 "col": col_label,
+                **record,
             })
 
         rows_f.append({
@@ -938,7 +1962,7 @@ def build_non_gaap_tier3(
         })
 
     m = pd.DataFrame(rows_m)
-    b = pd.DataFrame(rows_b)
+    b = reconcile_adjustment_breakdown_frame(pd.DataFrame(rows_b))
     f = pd.DataFrame(rows_f)
 
     if not m.empty:

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from .debt_sheet_visibility import apply_legacy_debt_sheet_visibility
 from .excel_writer_core import (
     ensure_hidden_value_inputs,
     ensure_report_inputs,
@@ -36,6 +37,7 @@ def write_valuation_sheets(ctx: WriterContext) -> List[Dict[str, Any]]:
 def write_debt_sheets(ctx: WriterContext) -> None:
     ensure_valuation_inputs(ctx)
     write_sheet = ctx.callbacks.write_sheet
+    leverage_frame = ctx.require_derived_frame("leverage_df")
     write_sheet("Debt_Tranches_Latest", ctx.inputs.debt_tranches_latest)
     write_sheet("Revolver_History", ctx.inputs.revolver_history)
     write_sheet("Debt_Profile", ctx.inputs.debt_profile)
@@ -44,7 +46,21 @@ def write_debt_sheets(ctx: WriterContext) -> None:
     write_sheet("Debt_Recon", ctx.inputs.debt_recon)
     write_sheet("Debt_Tranches_Q", ctx.inputs.debt_tranches)
     write_sheet("Debt_Credit_Notes", ctx.inputs.debt_credit_notes)
-    write_sheet("Leverage_Liquidity", ctx.require_derived_frame("leverage_df"))
+    write_sheet("Leverage_Liquidity", leverage_frame)
+    apply_legacy_debt_sheet_visibility(
+        ctx.wb,
+        {
+            "Debt_Tranches_Latest": ctx.inputs.debt_tranches_latest,
+            "Revolver_History": ctx.inputs.revolver_history,
+            "Debt_Profile": ctx.inputs.debt_profile,
+            "Debt_Maturity_Ladder": ctx.inputs.debt_maturity,
+            "Debt_Buckets": ctx.inputs.debt_buckets,
+            "Debt_Recon": ctx.inputs.debt_recon,
+            "Debt_Tranches_Q": ctx.inputs.debt_tranches,
+            "Debt_Credit_Notes": ctx.inputs.debt_credit_notes,
+            "Leverage_Liquidity": leverage_frame,
+        },
+    )
 
 
 def write_report_sheets(ctx: WriterContext) -> None:

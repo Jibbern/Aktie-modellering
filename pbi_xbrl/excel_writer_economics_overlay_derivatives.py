@@ -8,8 +8,7 @@ import pandas as pd
 
 @dataclass(frozen=True)
 class GpreEconomicsOverlayDerivativeSideEffectDeps:
-    is_gpre_profile: bool
-    is_pbi_profile: bool
+    runtime_sheet_owned: bool
     derivative_oci_bridge_df: Any
     derivative_oci_exposure_df: Any
     operating_driver_history_rows: Sequence[Mapping[str, Any]]
@@ -29,8 +28,7 @@ def write_gpre_derivative_crush_tests_side_effect(
     deps: GpreEconomicsOverlayDerivativeSideEffectDeps,
 ) -> GpreEconomicsOverlayDerivativeSideEffectResult:
     if not (
-        deps.is_gpre_profile
-        and not deps.is_pbi_profile
+        deps.runtime_sheet_owned
         and isinstance(deps.derivative_oci_bridge_df, pd.DataFrame)
         and not deps.derivative_oci_bridge_df.empty
         and isinstance(deps.gpre_basis_model_result, dict)
@@ -43,7 +41,7 @@ def write_gpre_derivative_crush_tests_side_effect(
 
     try:
         # This sheet needs the basis model's quarterly frame, so it
-        # is written after write_gpre_basis_proxy_overlay_support()
+        # is built after write_gpre_basis_proxy_overlay_support()
         # has prepared the market/proxy data for the current export.
         derivative_crush_result = deps.build_derivative_crush_tests(
             deps.derivative_oci_bridge_df,
@@ -53,8 +51,6 @@ def write_gpre_derivative_crush_tests_side_effect(
             deps.operating_driver_history_rows,
             quarterly_basis_df,
         )
-        deps.write_derivative_crush_tests_sheet(derivative_crush_result.as_dict())
-        return GpreEconomicsOverlayDerivativeSideEffectResult(wrote_sheet=True, warning_count=0)
     except Exception as exc:
         deps.info_log.append(
             {
@@ -66,3 +62,9 @@ def write_gpre_derivative_crush_tests_side_effect(
             }
         )
         return GpreEconomicsOverlayDerivativeSideEffectResult(wrote_sheet=False, warning_count=1)
+
+    # Once the owned module's required inputs have produced a valid result,
+    # materialization is a correctness boundary.  A renderer/write failure
+    # must propagate to the workbook writer so final publication is blocked.
+    deps.write_derivative_crush_tests_sheet(derivative_crush_result.as_dict())
+    return GpreEconomicsOverlayDerivativeSideEffectResult(wrote_sheet=True, warning_count=0)

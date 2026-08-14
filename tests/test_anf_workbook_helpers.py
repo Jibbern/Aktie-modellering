@@ -1,11 +1,16 @@
 import datetime as dt
 import re
+from pathlib import Path
 
 import pandas as pd
 import pytest
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import PatternFill
 
+from pbi_xbrl.debt_detail_lineage import (
+    DEBT_DETAIL_LINEAGE_DISPOSITION_COLUMN,
+    DebtDetailLineageDisposition,
+)
 from pbi_xbrl.excel_writer_anf_qa_support import AnfQASupport, AnfQASupportDeps
 from pbi_xbrl.excel_writer_context import (
     ANF_SEGMENT_BRAND_EXPLANATION,
@@ -278,7 +283,7 @@ def test_quarter_narrative_records_promote_existing_workbook_surfaces() -> None:
     assert "[UPDATED]" not in joined
 
 
-def test_pbi_segment_total_reportable_rows_are_repaired_from_components() -> None:
+def test_pbi_segment_suspicious_totals_fail_closed_without_complete_components() -> None:
     q = pd.Timestamp(dt.date(2025, 6, 30))
     repaired = _pbi_repair_total_reportable_segment_quarterly_totals_for_bs(
         {
@@ -298,13 +303,19 @@ def test_pbi_segment_total_reportable_rows_are_repaired_from_components() -> Non
                 "Presort Services": {q: 45.079},
                 "Total reportable segments": {q: 955.329},
             },
-        }
+        },
+        source_facts=(),
+        derivations_out=[],
     )
 
-    assert repaired["Revenue"]["Total reportable segments"][q] == pytest.approx(459.675)
-    assert repaired["Adjusted EBIT"]["Total reportable segments"][q] == pytest.approx(137.195)
-    assert repaired["Adjusted EBITDA"]["Total reportable segments"][q] == pytest.approx(158.065)
-    assert repaired["Segment operating margin %"]["Total reportable segments"][q] == pytest.approx(137.195 / 459.675)
+    assert repaired["Revenue"]["Total reportable segments"][q] == pytest.approx(461.909)
+    assert repaired["Adjusted EBIT"]["Total reportable segments"][q] == pytest.approx(461.909)
+    assert repaired["Adjusted EBITDA"]["Total reportable segments"][q] == pytest.approx(955.329)
+    assert all(
+        "Other operations" not in repaired[metric]
+        for metric in ("Revenue", "Adjusted EBIT", "Adjusted EBITDA")
+    )
+    assert "Total reportable segments" not in repaired.get("Segment operating margin %", {})
 
 
 def test_quarter_narrative_records_link_to_model_surfaces() -> None:
@@ -1351,7 +1362,11 @@ def test_sector_investment_case_writer_creates_readable_visible_and_audit_sheets
         assert f"{ticker}_Investment_Case_Data" in wb.sheetnames
 
 
-def test_gpre_source_backed_debt_tranche_fallback_dedupes_current_schedule() -> None:
+def test_gpre_source_backed_debt_tranche_fallback_dedupes_current_schedule(tmp_path: Path) -> None:
+    source_html = tmp_path / "source.htm"
+    source_pdf = tmp_path / "source.pdf"
+    source_html.write_text("Source-backed debt schedule table.", encoding="utf-8")
+    source_pdf.write_bytes(b"Source-backed debt schedule PDF fragment.")
     slides_debt = pd.DataFrame(
         [
             {"quarter": "2026-03-31", "tranche": "2.25% convertible notes due 2027 (1)", "amount": 60_000_000, "maturity_year": 2027, "is_table_total": False, "asof_match_found": True, "doc": "source.htm", "source": "financial_statement"},
@@ -1369,8 +1384,11 @@ def test_gpre_source_backed_debt_tranche_fallback_dedupes_current_schedule() -> 
             {"quarter": "2026-03-31", "tranche": "Principal amount", "amount": 466_313_000, "maturity_year": None, "is_table_total": True, "asof_match_found": True, "doc": "source.htm", "source": "financial_statement"},
         ]
     )
+    slides_debt["doc"] = slides_debt["doc"].map(
+        lambda value: str(source_html if str(value).endswith(".htm") else source_pdf)
+    )
 
-    out = _source_backed_debt_tranches_from_slides(slides_debt, "2026-03-31")
+    out = _source_backed_debt_tranches_from_slides(slides_debt, "2026-03-31", "GPRE")
 
     assert len(out) == 7
     assert out["amount_principal"].sum() == pytest.approx(466_313_000.0)
@@ -1385,6 +1403,66 @@ def test_gpre_source_backed_debt_tranche_fallback_dedupes_current_schedule() -> 
     near_term = out.loc[out["tranche_name"].eq("2.25% convertible notes due 2027 (1)"), "near_term"].iloc[0]
     assert bool(near_term)
     assert out["source_basis"].astype(str).str.contains("within 24 months of latest quarter end", regex=False).all()
+    assert all(
+        value is DebtDetailLineageDisposition.VALID
+        for value in out[DEBT_DETAIL_LINEAGE_DISPOSITION_COLUMN]
+    )
+    assert out["source_document_id"].astype(str).str.startswith("debt-source-document:v1|").all()
+    assert out["source_occurrence_id"].astype(str).str.startswith("debt-source-occurrence:v1|").all()
+    assert out["economic_id"].astype(str).str.startswith("debt-instrument:v1|").all()
+    assert not out["economic_id"].astype(str).str.contains(r"\$?[A-Z]{1,3}\$?[1-9][0-9]*", regex=True).any()
+
+
+def test_source_backed_debt_fallback_preserves_numeric_zero_and_fails_closed_without_lineage(
+    tmp_path: Path,
+) -> None:
+    source_path = tmp_path / "pbi-source.htm"
+    source_path.write_text("PBI debt table with an explicit zero balance.", encoding="utf-8")
+    source_row = {
+        "quarter": "2026-06-30",
+        "tranche": "Source-backed zero facility",
+        "amount": 0.0,
+        "maturity_year": 2030,
+        "unit": "USD",
+        "is_table_total": False,
+        "asof_match_found": True,
+        "doc": str(source_path),
+        "page": 8,
+        "source": "financial_statement",
+    }
+
+    resolved = _source_backed_debt_tranches_from_slides(
+        pd.DataFrame([source_row]),
+        "2026-06-30",
+        "PBI",
+    )
+    assert len(resolved) == 1
+    assert resolved.iloc[0]["amount_principal"] == 0.0
+    assert resolved.iloc[0]["source_page"] == 8
+    assert str(resolved.iloc[0]["source_locator"]).startswith("page:8;")
+    assert resolved.iloc[0]["value_status"] == "direct_source"
+
+    missing_source = dict(source_row, doc=str(tmp_path / "missing.htm"))
+    missing_projection = _source_backed_debt_tranches_from_slides(
+        pd.DataFrame([missing_source]),
+        "2026-06-30",
+        "PBI",
+    )
+    assert len(missing_projection) == 1
+    assert (
+        missing_projection.iloc[0][DEBT_DETAIL_LINEAGE_DISPOSITION_COLUMN]
+        is DebtDetailLineageDisposition.INVALID
+    )
+    unknown_projection = _source_backed_debt_tranches_from_slides(
+        pd.DataFrame([source_row]),
+        "2026-06-30",
+        "",
+    )
+    assert len(unknown_projection) == 1
+    assert (
+        unknown_projection.iloc[0][DEBT_DETAIL_LINEAGE_DISPOSITION_COLUMN]
+        is DebtDetailLineageDisposition.INVALID
+    )
 
 
 def test_shared_promise_progress_postprocess_dedupes_all_timeline_metrics() -> None:

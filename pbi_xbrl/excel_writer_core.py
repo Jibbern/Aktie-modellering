@@ -15,6 +15,7 @@ from openpyxl.styles import Alignment, Border, PatternFill
 from openpyxl.utils import get_column_letter
 from openpyxl.workbook.defined_name import DefinedName
 
+from .adjusted_metric_history import build_adjusted_metric_history_selection
 from .qa_outputs import (
     concat_audit_like_frames,
     dedupe_audit_like_rows,
@@ -314,86 +315,34 @@ def _ensure_valuation_source_views(ctx: WriterContext) -> None:
             rev_facility_q = sub.groupby("quarter")["revolver_facility_size"].max().to_dict() if "revolver_facility_size" in sub.columns else {}
         if rev_commit_q:
             rev_keys = sorted(pd.Timestamp(k) for k in rev_commit_q.keys())
-        if str(getattr(ctx.inputs, "ticker", "") or "").upper() == "ANF":
-            anf_abl_q = pd.Timestamp("2026-01-31")
-            anf_quarters = [pd.Timestamp(q).normalize() for q in (core_maps.get("quarters") or [])]
-            if anf_abl_q in anf_quarters:
-                rev_commit_q[anf_abl_q] = 500_000_000.0
-                rev_facility_q[anf_abl_q] = 500_000_000.0
-                rev_drawn_q[anf_abl_q] = 0.0
-                rev_lc_q[anf_abl_q] = 454_000.0
-                rev_avail_q[anf_abl_q] = 449_546_000.0
-                rev_keys = sorted(set([pd.Timestamp(k).normalize() for k in rev_commit_q.keys()]))
-
         adj_view = pd.DataFrame()
         adj_ebit_q: Dict[pd.Timestamp, Any] = {}
         adj_ebit_ttm_q: Dict[pd.Timestamp, Any] = {}
         adj_ebitda_q: Dict[pd.Timestamp, Any] = {}
         adj_ebitda_ttm_q: Dict[pd.Timestamp, Any] = {}
         if adj_metrics is not None and not adj_metrics.empty and "quarter" in adj_metrics.columns:
-            adj_view = adj_metrics.copy()
-            adj_view["quarter"] = pd.to_datetime(adj_view["quarter"], errors="coerce")
-            adj_view = adj_view[adj_view["quarter"].notna()].copy()
-            if "period_type" in adj_view.columns:
-                period_order = {"annual": 0, "year": 0, "fy": 0, "ytd": 1, "quarter": 2, "": 2}
-                adj_view["_period_order"] = adj_view["period_type"].astype(str).str.strip().str.lower().map(period_order).fillna(2)
-                adj_view = adj_view.sort_values(["quarter", "_period_order"], kind="stable").drop(columns=["_period_order"], errors="ignore").reset_index(drop=True)
-            else:
-                adj_view = adj_view.sort_values("quarter", kind="stable").reset_index(drop=True)
-            if "adj_ebit" in adj_view.columns:
-                adj_view["adj_ebit_num"] = pd.to_numeric(adj_view["adj_ebit"], errors="coerce")
-                adj_ebit_series = (
-                    adj_view.drop_duplicates(subset=["quarter"], keep="last")
-                    .set_index("quarter")["adj_ebit_num"]
+            quarter_list = [
+                pd.Timestamp(quarter).normalize()
+                for quarter in list(core_maps.get("quarters") or [])
+            ]
+            if not quarter_list:
+                quarter_list = sorted(
+                    {
+                        pd.Timestamp(quarter).normalize()
+                        for quarter in pd.to_datetime(
+                            adj_metrics["quarter"], errors="coerce"
+                        ).dropna()
+                    }
                 )
-                adj_ebit_q = {
-                    pd.Timestamp(q): (float(v) if pd.notna(v) else None)
-                    for q, v in adj_ebit_series.items()
-                }
-            if "adj_ebitda" in adj_view.columns:
-                adj_view["adj_ebitda_num"] = pd.to_numeric(adj_view["adj_ebitda"], errors="coerce")
-                adj_q = (
-                    adj_view.drop_duplicates(subset=["quarter"], keep="last")
-                    .set_index("quarter")["adj_ebitda_num"]
-                )
-                adj_ebitda_q = {
-                    pd.Timestamp(q): (float(v) if pd.notna(v) else None)
-                    for q, v in adj_q.items()
-                }
-        if core_maps.get("quarters"):
-            quarter_list = list(core_maps.get("quarters") or [])
-            if adj_ebit_q:
-                aligned_adj_ebit = pd.Series(
-                    [adj_ebit_q.get(q) for q in quarter_list],
-                    index=quarter_list,
-                    dtype="float64",
-                )
-                adj_ebit_sum = aligned_adj_ebit.rolling(4, min_periods=4).sum()
-                adj_ebit_count = aligned_adj_ebit.rolling(4, min_periods=4).count()
-                adj_ebit_ttm_q = {
-                    quarter_list[idx]: (
-                        float(adj_ebit_sum.iloc[idx])
-                        if pd.notna(adj_ebit_sum.iloc[idx]) and adj_ebit_count.iloc[idx] == 4
-                        else None
-                    )
-                    for idx in range(len(quarter_list))
-                }
-            if adj_ebitda_q:
-                aligned_adj = pd.Series(
-                    [adj_ebitda_q.get(q) for q in quarter_list],
-                    index=quarter_list,
-                    dtype="float64",
-                )
-                adj_sum = aligned_adj.rolling(4, min_periods=4).sum()
-                adj_count = aligned_adj.rolling(4, min_periods=4).count()
-                adj_ebitda_ttm_q = {
-                    quarter_list[idx]: (
-                        float(adj_sum.iloc[idx])
-                        if pd.notna(adj_sum.iloc[idx]) and adj_count.iloc[idx] == 4
-                        else None
-                    )
-                    for idx in range(len(quarter_list))
-                }
+            adjusted_history = build_adjusted_metric_history_selection(
+                adj_metrics,
+                quarter_list,
+            )
+            adj_view = adjusted_history.selected_facts
+            adj_ebit_q = dict(adjusted_history.quarter_values.get("adj_ebit", {}))
+            adj_ebit_ttm_q = dict(adjusted_history.ttm_values.get("adj_ebit", {}))
+            adj_ebitda_q = dict(adjusted_history.quarter_values.get("adj_ebitda", {}))
+            adj_ebitda_ttm_q = dict(adjusted_history.ttm_values.get("adj_ebitda", {}))
 
         derived.valuation_hist_view = hist_view
         derived.valuation_hist_indexed = hist_indexed

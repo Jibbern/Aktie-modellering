@@ -1709,6 +1709,7 @@ def render_valuation_formula_core(
             fallback_convert_df = _source_backed_debt_tranches_from_slides(
                 slides_debt,
                 qs[-1] if qs else None,
+                ticker,
             )
         except Exception:
             fallback_convert_df = pd.DataFrame()

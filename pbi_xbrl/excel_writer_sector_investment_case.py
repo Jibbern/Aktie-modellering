@@ -13,6 +13,8 @@ from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from .workbook_modules import ResolvedTickerModuleRoute
+
 
 @dataclass(frozen=True)
 class SectorInvestmentCaseRenderDeps:
@@ -94,6 +96,7 @@ def write_sector_investment_case_sheet(
     df: Any,
     *,
     ticker: str,
+    profile_route: ResolvedTickerModuleRoute,
 ) -> None:
     runtime = deps.runtime
     wb = runtime["wb"]
@@ -131,6 +134,13 @@ def write_sector_investment_case_sheet(
     ticker_txt = str(ticker or "").strip().upper()
     if not ticker_txt:
         return
+    if profile_route.ticker != ticker_txt:
+        raise ValueError(
+            f"Investment-case profile route ticker {profile_route.ticker!r} does not match {ticker_txt!r}."
+        )
+    profile_pack_ids = frozenset(profile_route.profile_pack_ids)
+    has_pbi_profile_packs = {"shipping_mail_pack", "bank_pack"} <= profile_pack_ids
+    has_commodity_ethanol_pack = "commodity_ethanol_pack" in profile_pack_ids
     sheet_name = f"{ticker_txt}_Investment_Case"
     if sheet_name in wb.sheetnames:
         del wb[sheet_name]
@@ -314,14 +324,14 @@ def write_sector_investment_case_sheet(
                 f'{date_range},"<"&DATE(2026,1,1))/1000000,"")'
             )
 
-        gpre_45z_fy = _operating_driver_latest_full_year_sum_from_workbook(wb, "45Z value realized ($m)") if ticker_txt == "GPRE" else None
-        gpre_45z_ttm = _operating_driver_ttm_sum_from_workbook(wb, "45Z value realized ($m)") if ticker_txt == "GPRE" else None
-        pbi_revenue_guidance_midpoint = 1830.0 if ticker_txt == "PBI" else None
-        pbi_eps_guidance_midpoint = 1.575 if ticker_txt == "PBI" else None
-        pbi_fcf_guidance_midpoint = 362.5 if ticker_txt == "PBI" else None
-        pbi_adjusted_ebit_guidance_midpoint = 445.0 if ticker_txt == "PBI" else None
-        pbi_cost_savings_run_rate = 157.0 if ticker_txt == "PBI" else None
-        pbi_cost_savings_target_midpoint = 190.0 if ticker_txt == "PBI" else None
+        gpre_45z_fy = _operating_driver_latest_full_year_sum_from_workbook(wb, "45Z value realized ($m)") if has_commodity_ethanol_pack else None
+        gpre_45z_ttm = _operating_driver_ttm_sum_from_workbook(wb, "45Z value realized ($m)") if has_commodity_ethanol_pack else None
+        pbi_revenue_guidance_midpoint = 1830.0 if has_pbi_profile_packs else None
+        pbi_eps_guidance_midpoint = 1.575 if has_pbi_profile_packs else None
+        pbi_fcf_guidance_midpoint = 362.5 if has_pbi_profile_packs else None
+        pbi_adjusted_ebit_guidance_midpoint = 445.0 if has_pbi_profile_packs else None
+        pbi_cost_savings_run_rate = 157.0 if has_pbi_profile_packs else None
+        pbi_cost_savings_target_midpoint = 190.0 if has_pbi_profile_packs else None
         scenario_tax_rate = _numeric_value("Assumptions", "Tax rate")
         if scenario_tax_rate is None:
             scenario_tax_rate = history_fy.get("tax_rate")
@@ -341,14 +351,14 @@ def write_sector_investment_case_sheet(
             ("revenue", "Forward revenue", _fy_default("revenue_m"), '=IFERROR(Revenue_TTM,"")', pbi_revenue_guidance_midpoint if pbi_revenue_guidance_midpoint is not None else '=""', '=""', "TTM default; clean guide visible when available.", "#,##0.0"),
             ("eps", "Forward EPS", _fy_default("eps"), '=IFERROR(IF(Adj_EPS_TTM<>"",Adj_EPS_TTM,EPS_TTM),"")', pbi_eps_guidance_midpoint if pbi_eps_guidance_midpoint is not None else '=""', '=""', "Adjusted EPS preferred; guide visible when available.", "$0.00"),
             ("ebitda", "Forward Adj EBITDA", _fy_default("ebitda_m"), '=IFERROR(IF(ThesisBaseAdjEBITDA_FY<>"",ThesisBaseAdjEBITDA_FY,Adj_EBITDA),"")', '=""', '=""', "Adjusted EBITDA base.", "#,##0.0"),
-            ("fcf", "Forward FCF", _fy_default("fcf_m"), '=IFERROR(FCF_TTM,"")' if ticker_txt == "PBI" else '=IFERROR(IF(Adj_FCF_TTM<>"",Adj_FCF_TTM,FCF_TTM),"")', pbi_fcf_guidance_midpoint if pbi_fcf_guidance_midpoint is not None else '=""', '=""', "FCF base; guide visible when available.", "#,##0.0"),
+            ("fcf", "Forward FCF", _fy_default("fcf_m"), '=IFERROR(FCF_TTM,"")' if has_pbi_profile_packs else '=IFERROR(IF(Adj_FCF_TTM<>"",Adj_FCF_TTM,FCF_TTM),"")', pbi_fcf_guidance_midpoint if pbi_fcf_guidance_midpoint is not None else '=""', '=""', "FCF base; guide visible when available.", "#,##0.0"),
             ("operating_margin", "Operating margin", _fy_default("operating_margin"), '=IFERROR(CompanyOperatingMargin_TTM,"")', '=""', '=""', "Operating income / revenue; proxy if needed.", "0.0%"),
-            ("capex", "Capex", _fy_default("capex_m"), '=IFERROR(Capex_TTM,"")', "=20" if ticker_txt == "GPRE" else '=""', '=""', "Capex changes affect FCF only.", "#,##0.0"),
+            ("capex", "Capex", _fy_default("capex_m"), '=IFERROR(Capex_TTM,"")', "=20" if has_commodity_ethanol_pack else '=""', '=""', "Capex changes affect FCF only.", "#,##0.0"),
             ("pe", "P/E multiple", '=IFERROR(IF(Target_PE<>"",Target_PE,10),10)', '=IFERROR(IF(Target_PE<>"",Target_PE,10),10)', '=""', '=""', "Scenario P/E lens.", "0.0x"),
             ("ev_multiple", "EV/Adj EBITDA multiple", '=IFERROR(IF(Target_EV_AdjEBITDA<>"",Target_EV_AdjEBITDA,8),8)', '=IFERROR(IF(Target_EV_AdjEBITDA<>"",Target_EV_AdjEBITDA,8),8)', '=""', '=""', "Scenario EV/EBITDA lens.", "0.0x"),
             ("fcf_yield", "FCF yield", '=IFERROR(IF(Target_EV_Yield>1,Target_EV_Yield/100,Target_EV_Yield),0.07)', '=IFERROR(IF(Target_EV_Yield>1,Target_EV_Yield/100,Target_EV_Yield),0.07)', '=""', '=""', "Scenario FCF yield.", "0.0%"),
         ]
-        if ticker_txt == "PBI":
+        if has_pbi_profile_packs:
             specs.extend(
                 [
                     (
@@ -375,7 +385,7 @@ def write_sector_investment_case_sheet(
                     ),
                 ]
             )
-        elif ticker_txt == "GPRE":
+        elif has_commodity_ethanol_pack:
             specs.extend(
                 [
                     ("crush_margin", "Crush margin uplift ($m)", '=""', '=""', '=""', '=""', "Manual $m EBITDA uplift.", "#,##0.0"),
@@ -454,7 +464,7 @@ def write_sector_investment_case_sheet(
         return row + 1, refs
 
     def _segment_scenario_specs() -> List[_SegmentScenarioInputSpec]:
-        if ticker_txt != "PBI":
+        if not has_pbi_profile_packs:
             return []
         default_margin_proxy, default_margin_basis = _company_operating_margin_proxy_from_workbook(wb)
         specs = _segment_scenario_specs_from_records(
@@ -478,14 +488,14 @@ def write_sector_investment_case_sheet(
 
     def _write_segment_scenario_inputs(row: int) -> Tuple[int, Dict[str, str]]:
         specs = _segment_scenario_specs()
-        if ticker_txt != "PBI":
+        if not has_pbi_profile_packs:
             _write_scenario_driver_assumptions_sheet(
                 wb,
                 ticker=ticker_txt,
                 enabled=False,
                 disabled_note=(
                     "GPRE segment scenario disabled; use ethanol, 45Z, crush and policy drivers."
-                    if ticker_txt == "GPRE"
+                    if has_commodity_ethanol_pack
                     else "Segment scenario disabled until ticker-specific segment inputs are configured."
                 ),
             )
@@ -632,7 +642,7 @@ def write_sector_investment_case_sheet(
         after_tax_factor = None
         tax_source_basis = "Manual Market / Scenario Inputs active Scenario tax rate; defaults to 25% if no clean source."
 
-        if ticker_txt == "PBI":
+        if has_pbi_profile_packs:
             cost_savings = _manual_ref(refs, "cost_savings")
             cost_savings_baseline = _manual_part_ref(refs, "cost_savings", "ttm")
             interest_refi = _manual_ref(refs, "interest_refi")
@@ -705,7 +715,7 @@ def write_sector_investment_case_sheet(
                     tax_source_basis="Debt paydown changes net debt/equity bridge only unless a separate interest effect is modeled.",
                 ),
             ]
-        else:
+        elif has_commodity_ethanol_pack:
             credit_45z = _manual_ref(refs, "credit_45z")
             crush_margin = _manual_ref(refs, "crush_margin")
             capex = _manual_ref(refs, "capex")
@@ -768,6 +778,31 @@ def write_sector_investment_case_sheet(
                     tax_source_basis="Numeric policy/RVO/E15/export input is treated as taxable operating uplift unless explicitly tax-like.",
                 ),
             ]
+        else:
+            _write_scenario_bridge_tax_treatment_sheet(
+                wb,
+                ticker=ticker_txt,
+                specs=(),
+                after_tax_factor=after_tax_factor,
+                tax_rate_ref=scenario_tax_rate,
+                tax_source_basis=tax_source_basis,
+            )
+            row = _row(
+                row,
+                [
+                    "No authorized profile-pack scenario drivers",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "",
+                    "Needs Review: ticker-specific scenario economics are unavailable until a declarative profile is registered.",
+                ],
+                fill=callout_fill,
+                spans=[(8, max_col)],
+            )
+            return row + 1, {}
 
         _write_scenario_bridge_tax_treatment_sheet(
             wb,
@@ -1054,7 +1089,7 @@ def write_sector_investment_case_sheet(
         ws.cell(row - 1, 2).font = Font(bold=True, size=12, color=dark)
         row += 1
 
-    if ticker_txt == "PBI":
+    if has_pbi_profile_packs:
         section_order = [
             "Key Debates",
             "Bear / Base / Bull Scenario",
@@ -1074,7 +1109,7 @@ def write_sector_investment_case_sheet(
             "Capital Structure / Refinancing Risk",
             "Guidance Beat/Miss Setup",
         ]
-    elif ticker_txt == "GPRE":
+    elif has_commodity_ethanol_pack:
         section_order = [
             "Key Debates",
             "Bear / Base / Bull Scenario",
