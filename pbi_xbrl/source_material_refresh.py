@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import time
 from datetime import date
 from pathlib import Path
@@ -38,6 +37,13 @@ from .sec_ingest import (
     download_filing_package,
     normalize_accession,
     ticker_to_cik,
+)
+from .source_acquisition import (
+    SourceAcquisitionError,
+    atomic_publish_json,
+    atomic_publish_source_bytes,
+    atomic_publish_source_file,
+    validate_published_source,
 )
 
 try:
@@ -430,7 +436,6 @@ def _refresh_ticker_source_materials(
 
     if not dry_run:
         _prune_stale_manifest_entries(manifest, selected_keys=selected_manifest_keys, material_root=material_root)
-        _save_manifest(manifest_path, manifest)
     coverage_quarters = int(getattr(profile, "source_material_coverage_quarters", 16) or 16)
     coverage_report = _build_coverage_report(
         ticker=ticker,
@@ -444,8 +449,11 @@ def _refresh_ticker_source_materials(
     if not dry_run:
         coverage_path = cache_dir / COVERAGE_REPORT_RELATIVE_PATH
         coverage_path.parent.mkdir(parents=True, exist_ok=True)
-        coverage_path.write_text(json.dumps(coverage_report, indent=2), encoding="utf-8")
+        atomic_publish_json(coverage_path, coverage_report, indent=2)
         summary.coverage_report_path = str(coverage_path)
+        # The manifest is the publication receipt and is committed only after all
+        # source files and the derived coverage report are durable.
+        _save_manifest(manifest_path, manifest)
     return summary
 
 
@@ -1214,38 +1222,69 @@ def _materialize_candidate(
     existing = manifest.get(manifest_key)
     if existing:
         existing_dst = Path(str(existing.get("destination_path") or ""))
-        if existing_dst.exists() and existing_dst.is_file() and existing_dst.stat().st_size > 0:
-            final_path, reconcile_reason = _reconcile_existing_destination(existing_dst, dst_path, dry_run=dry_run)
-            manifest[manifest_key] = _manifest_entry(
-                candidate,
-                resolved_dir,
-                final_path,
-                sha256=str(existing.get("sha256") or ""),
-                status="ok" if not dry_run else "dry_run",
-            )
-            return MaterialEvent(ticker=ticker, family=candidate.canonical_family, status="skipped", origin=candidate.origin, quarter=quarter_iso, source_url=candidate.source_url, destination_path=str(final_path), reason=reconcile_reason or "manifest key already present with non-empty file", title=source_doc_title)
-        if dst_path.exists() and dst_path.is_file() and dst_path.stat().st_size > 0:
-            manifest[manifest_key] = _manifest_entry(candidate, resolved_dir, dst_path, sha256=_sha256_path(dst_path) if not dry_run else str(existing.get("sha256") or ""), status="ok" if not dry_run else "dry_run")
-            return MaterialEvent(ticker=ticker, family=candidate.canonical_family, status="skipped", origin=candidate.origin, quarter=quarter_iso, source_url=candidate.source_url, destination_path=str(dst_path), reason="manifest updated to normalized destination", title=source_doc_title)
-    if dst_path.exists() and dst_path.stat().st_size > 0:
-        manifest[manifest_key] = _manifest_entry(candidate, resolved_dir, dst_path)
-        return MaterialEvent(ticker=ticker, family=candidate.canonical_family, status="skipped", origin=candidate.origin, quarter=quarter_iso, source_url=candidate.source_url, destination_path=str(dst_path), reason="destination file already exists", title=source_doc_title)
+        if existing_dst.exists() and existing_dst.is_file():
+            try:
+                existing_receipt = validate_published_source(
+                    existing_dst,
+                    expected_sha256=str(existing.get("sha256") or "") or None,
+                )
+            except SourceAcquisitionError:
+                existing_receipt = None
+            if existing_receipt is not None:
+                final_path, reconcile_reason = _reconcile_existing_destination(existing_dst, dst_path, dry_run=dry_run)
+                final_receipt = (
+                    existing_receipt
+                    if dry_run
+                    else validate_published_source(final_path, expected_sha256=existing_receipt.sha256)
+                )
+                manifest[manifest_key] = _manifest_entry(
+                    candidate,
+                    resolved_dir,
+                    final_path,
+                    sha256=final_receipt.sha256,
+                    status="ok" if not dry_run else "dry_run",
+                )
+                return MaterialEvent(ticker=ticker, family=candidate.canonical_family, status="skipped", origin=candidate.origin, quarter=quarter_iso, source_url=candidate.source_url, destination_path=str(final_path), reason=reconcile_reason or "manifest source identity validated", title=source_doc_title)
+        if dst_path.exists() and dst_path.is_file():
+            try:
+                normalized_receipt = validate_published_source(
+                    dst_path,
+                    expected_sha256=str(existing.get("sha256") or "") or None,
+                )
+            except SourceAcquisitionError:
+                normalized_receipt = None
+            if normalized_receipt is not None:
+                manifest[manifest_key] = _manifest_entry(candidate, resolved_dir, dst_path, sha256=normalized_receipt.sha256, status="ok" if not dry_run else "dry_run")
+                return MaterialEvent(ticker=ticker, family=candidate.canonical_family, status="skipped", origin=candidate.origin, quarter=quarter_iso, source_url=candidate.source_url, destination_path=str(dst_path), reason="manifest updated to validated normalized destination", title=source_doc_title)
+    if dst_path.exists() and dst_path.is_file():
+        try:
+            destination_receipt = validate_published_source(dst_path)
+        except SourceAcquisitionError:
+            destination_receipt = None
+        if destination_receipt is not None:
+            manifest[manifest_key] = _manifest_entry(candidate, resolved_dir, dst_path, sha256=destination_receipt.sha256)
+            return MaterialEvent(ticker=ticker, family=candidate.canonical_family, status="skipped", origin=candidate.origin, quarter=quarter_iso, source_url=candidate.source_url, destination_path=str(dst_path), reason="validated destination source already exists", title=source_doc_title)
     if dry_run:
         manifest.setdefault(manifest_key, _manifest_entry(candidate, resolved_dir, dst_path, status="dry_run"))
         return MaterialEvent(ticker=ticker, family=candidate.canonical_family, status="added", origin=candidate.origin, quarter=quarter_iso, source_url=candidate.source_url, destination_path=str(dst_path), reason="dry-run planned add", title=source_doc_title)
     try:
         resolved_dir.mkdir(parents=True, exist_ok=True)
         if candidate.local_path is not None and candidate.local_path.exists():
-            _hardlink_or_copy(candidate.local_path, dst_path)
+            published = atomic_publish_source_file(candidate.local_path, dst_path)
         else:
             if download_session is None:
                 raise RuntimeError("download session required for remote material")
             resp = download_session.get(candidate.source_url, timeout=30)
             resp.raise_for_status()
-            dst_path.write_bytes(resp.content)
-        if dst_path.stat().st_size <= 0:
-            raise RuntimeError("downloaded or materialized file is empty")
-        manifest[manifest_key] = _manifest_entry(candidate, resolved_dir, dst_path, sha256=_sha256_path(dst_path))
+            content_length = str(resp.headers.get("Content-Length") or "").strip()
+            expected_size = int(content_length) if content_length.isdigit() else None
+            published = atomic_publish_source_bytes(
+                dst_path,
+                resp.content,
+                expected_size=expected_size,
+                content_type=str(resp.headers.get("Content-Type") or "") or None,
+            )
+        manifest[manifest_key] = _manifest_entry(candidate, resolved_dir, dst_path, sha256=published.sha256)
         return MaterialEvent(ticker=ticker, family=candidate.canonical_family, status="added", origin=candidate.origin, quarter=quarter_iso, source_url=candidate.source_url, destination_path=str(dst_path), reason=candidate.selection_reason, title=source_doc_title)
     except Exception as exc:
         return MaterialEvent(ticker=ticker, family=candidate.canonical_family, status="failed", origin=candidate.origin, quarter=quarter_iso, source_url=candidate.source_url, destination_path=str(dst_path), reason=f"{type(exc).__name__}: {exc}", title=source_doc_title)
@@ -1362,9 +1401,13 @@ def _clean_topic_slug(candidate: MaterialCandidate) -> str:
 
 def _reconcile_existing_destination(existing_dst: Path, desired_dst: Path, *, dry_run: bool) -> Tuple[Path, str]:
     if str(existing_dst).lower() == str(desired_dst).lower():
-        return existing_dst, "manifest key already present with non-empty file"
-    if desired_dst.exists() and desired_dst.is_file() and desired_dst.stat().st_size > 0:
-        return desired_dst, "normalized destination already existed"
+        return existing_dst, "manifest source identity validated"
+    if desired_dst.exists() and desired_dst.is_file():
+        try:
+            validate_published_source(desired_dst)
+            return desired_dst, "validated normalized destination already existed"
+        except SourceAcquisitionError:
+            pass
     if not existing_dst.exists():
         return desired_dst, "existing manifest destination missing; normalized destination will be used"
     if dry_run:
@@ -2157,7 +2200,7 @@ def _load_manifest(path_in: Path) -> Dict[str, Dict[str, Any]]:
 def _save_manifest(path_in: Path, manifest: Dict[str, Dict[str, Any]]) -> None:
     path_in.parent.mkdir(parents=True, exist_ok=True)
     entries = sorted(manifest.values(), key=lambda row: (str(row.get("canonical_family") or ""), str(row.get("quarter") or ""), str(row.get("destination_path") or "")))
-    path_in.write_text(json.dumps({"entries": entries}, indent=2), encoding="utf-8")
+    atomic_publish_json(path_in, {"entries": entries}, indent=2)
 
 
 def _prune_stale_manifest_entries(manifest: Dict[str, Dict[str, Any]], *, selected_keys: set[str], material_root: Path) -> None:
@@ -2770,13 +2813,14 @@ def _is_decorative_asset(path_in: Path) -> bool:
 
 
 def _hardlink_or_copy(src: Path, dst: Path) -> None:
-    dst.parent.mkdir(parents=True, exist_ok=True)
+    source = validate_published_source(src)
     if dst.exists():
-        return
-    try:
-        os.link(src, dst)
-    except Exception:
-        shutil.copy2(src, dst)
+        try:
+            validate_published_source(dst, expected_sha256=source.sha256)
+            return
+        except SourceAcquisitionError:
+            pass
+    atomic_publish_source_file(src, dst, expected_sha256=source.sha256)
 
 
 def _sha256_path(path_in: Path) -> str:

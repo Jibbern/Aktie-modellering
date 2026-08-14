@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+from ...cache_semantics import MARKET_PROVIDER_PARSE_VERSIONS
+
 from .base import BaseMarketProvider, report_period_end_date_from_text
 from ..aggregations import quarter_end_from_date
 
@@ -329,7 +331,7 @@ def _public_payload_report_date(payload: Dict[str, Any]) -> Optional[pd.Timestam
 
 class AMS3617Provider(BaseMarketProvider):
     source = "ams_3617"
-    provider_parse_version = "v8"
+    provider_parse_version = MARKET_PROVIDER_PARSE_VERSIONS["ams_3617"]
     # New downloads live in the workbook-facing USDA folder, but we keep reading the
     # legacy provider-specific directory so older local restores continue to work.
     local_patterns = (

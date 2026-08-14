@@ -271,11 +271,11 @@ def test_materialize_financial_statement_files_keeps_primary_and_good_exhibits_o
         primary = source_dir / "gpre-20250630.htm"
         primary.write_text("<html><body>10-Q filing</body></html>", encoding="utf-8")
         annual_pdf = source_dir / "annual_report_ex13.pdf"
-        annual_pdf.write_bytes(b"%PDF-1.4 annual report data")
+        annual_pdf.write_bytes(b"%PDF-1.4\nannual report data\n%%EOF\n")
         logo_pdf = source_dir / "company_logo.pdf"
-        logo_pdf.write_bytes(b"%PDF-1.4 logo noise")
+        logo_pdf.write_bytes(b"%PDF-1.4\nlogo noise\n%%EOF\n")
         cert_pdf = source_dir / "ex31_certification.pdf"
-        cert_pdf.write_bytes(b"%PDF-1.4 certification")
+        cert_pdf.write_bytes(b"%PDF-1.4\ncertification\n%%EOF\n")
 
         files_df = pd.DataFrame(
             [

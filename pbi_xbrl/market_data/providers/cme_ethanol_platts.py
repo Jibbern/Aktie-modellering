@@ -15,6 +15,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
+from ...cache_semantics import MARKET_PROVIDER_PARSE_VERSIONS
+
 from .base import BaseMarketProvider
 from .local_barchart_futures import _parse_barchart_observation_date
 from ..aggregations import quarter_end_from_date
@@ -584,7 +586,7 @@ def _row_preference_tuple(source_path: Path) -> Tuple[int, int, float, str]:
 
 class CMEChicagoEthanolPlattsProvider(BaseMarketProvider):
     source = "cme_ethanol_platts"
-    provider_parse_version = "v2"
+    provider_parse_version = MARKET_PROVIDER_PARSE_VERSIONS["cme_ethanol_platts"]
     local_patterns = (
         "Ethanol_futures/manual_cme_ethanol_chicago_eod*.csv",
         "Ethanol_futures/ethanol-chicago-prices-end-of-day-*.csv",

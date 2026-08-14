@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+from ...cache_semantics import MARKET_PROVIDER_PARSE_VERSIONS
+
 from .base import BaseMarketProvider, report_period_end_date_from_text
 from ..aggregations import quarter_end_from_date
 
@@ -563,7 +565,7 @@ def _looks_like_nwer_pdf(*, source_file: str, text: str) -> bool:
 
 class NWERProvider(BaseMarketProvider):
     source = "nwer"
-    provider_parse_version = "v9"
+    provider_parse_version = MARKET_PROVIDER_PARSE_VERSIONS["nwer"]
     # AMS_3616 is the National Weekly Ethanol Report. New downloads belong in
     # USDA_weekly_data; the bioenergy folder is retained here only as a legacy read
     # path for older local restores and already-synced raw cache entries.

@@ -22,6 +22,7 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+from ...cache_semantics import MARKET_PROVIDER_PARSE_DEFAULT_VERSION
 from ..cache import file_fingerprint, raw_source_dir, remote_debug_path
 
 
@@ -66,7 +67,7 @@ class RemoteFetchError(RuntimeError):
 
 class BaseMarketProvider:
     source = ""
-    provider_parse_version = "v1"
+    provider_parse_version = MARKET_PROVIDER_PARSE_DEFAULT_VERSION
     local_patterns: tuple[str, ...] = tuple()
     landing_page_url = ""
     public_data_url = ""

@@ -9,6 +9,7 @@ from pbi_xbrl.path_config import (
     StockModelPathConfig,
     clear_config_data_root,
     resolve_effective_data_root,
+    resolve_effective_data_root_from_ancestors,
     write_config_data_root,
 )
 from pbi_xbrl.market_data.cache import resolve_market_cache_root
@@ -141,6 +142,21 @@ def test_config_file_set_and_clear_root(tmp_path: Path) -> None:
     clear_config_data_root(repo_root)
     payload = json.loads(config_path.read_text(encoding="utf-8"))
     assert "data_root" not in payload
+
+
+def test_registered_data_root_resolves_from_a_secondary_worktree(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    secondary_worktree = workspace / "Code.worktrees" / "secondary"
+    data_root = workspace / "StockModelData"
+    secondary_worktree.mkdir(parents=True)
+    _seed_light_data_root(data_root)
+    write_config_data_root(workspace, data_root)
+
+    result = resolve_effective_data_root_from_ancestors(secondary_worktree, env={})
+
+    assert result.data_root == data_root.resolve()
+    assert result.source == "config"
+    assert result.config_path == workspace / "stock_model_config.json"
 
 
 def test_onedrive_data_root_refused_unless_allowed(tmp_path: Path) -> None:

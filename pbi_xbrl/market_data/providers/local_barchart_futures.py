@@ -8,6 +8,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 
+from ...cache_semantics import MARKET_PROVIDER_PARSE_VERSIONS
+
 from .base import BaseMarketProvider
 from ..aggregations import quarter_end_from_date
 
@@ -462,7 +464,7 @@ class _LocalBarchartFuturesProvider(BaseMarketProvider):
 
 class LocalBarchartCornFuturesProvider(_LocalBarchartFuturesProvider):
     source = "local_barchart_corn_futures"
-    provider_parse_version = "v1"
+    provider_parse_version = MARKET_PROVIDER_PARSE_VERSIONS["local_barchart_corn_futures"]
     local_patterns = (
         "corn_futures/*.csv",
         "corn_futures/**/*.csv",
@@ -489,7 +491,7 @@ class LocalBarchartCornFuturesProvider(_LocalBarchartFuturesProvider):
 
 class LocalBarchartGasFuturesProvider(_LocalBarchartFuturesProvider):
     source = "local_barchart_gas_futures"
-    provider_parse_version = "v1"
+    provider_parse_version = MARKET_PROVIDER_PARSE_VERSIONS["local_barchart_gas_futures"]
     local_patterns = (
         "naturalGas_futures/*.csv",
         "naturalGas_futures/**/*.csv",

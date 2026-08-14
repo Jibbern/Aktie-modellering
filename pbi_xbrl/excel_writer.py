@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
+import tempfile
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 from xml.etree import ElementTree as ET
 
 import pandas as pd
@@ -14,9 +16,17 @@ from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 
 from .excel_writer_context import build_writer_context, _polish_promise_scorecard_layout, _repair_promise_table_header_merges
-from .excel_writer_core import finalize_workbook, prepare_writer_inputs, timed_writer_stage, write_qa_sheets, write_raw_data_sheets
+from .excel_writer_core import (
+    WorkbookFinalizationError,
+    finalize_workbook,
+    prepare_writer_inputs,
+    timed_writer_stage,
+    write_qa_sheets,
+    write_raw_data_sheets,
+)
 from .excel_writer_drivers import write_driver_sheets
 from .excel_writer_financials import write_debt_sheets, write_report_sheets, write_summary_sheets, write_valuation_sheets
+from .excel_writer_quarter_narrative import parse_quarter_notes_period_header
 from .excel_writer_ui import write_ui_debug_sheets, write_ui_sheets
 from .market_data.service import persist_gpre_current_qtd_snapshot_history
 from .pipeline_types import WorkbookInputs
@@ -28,6 +38,7 @@ class WorkbookWriteResult:
     quarter_notes_ui_snapshot: Dict[str, List[Tuple[str, str]]]
     quarter_notes_audit_rows: List[Dict[str, Any]] = field(default_factory=list)
     quarter_notes_header_text: str = ""
+    quarter_notes_intentionally_empty: bool = False
     summary_export_expectation: Dict[str, Any] = field(default_factory=dict)
     valuation_export_expectation: Dict[str, Any] = field(default_factory=dict)
     qa_export_expectation: Dict[str, Any] = field(default_factory=dict)
@@ -167,42 +178,57 @@ def _cleanup_enriched_quarter_notes_audit_rows(
     return rows_out
 
 
-def _quarter_notes_ui_snapshot_from_ws(ws: Any) -> Dict[str, List[Tuple[str, str]]]:
-    rows_by_quarter: Dict[str, List[Tuple[str, str]]] = {}
-    current_quarter = ""
-    for rr in range(1, int(ws.max_row or 0) + 1):
-        col_a = _normalize_qnote_cell(ws.cell(row=rr, column=1).value)
-        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", col_a) or re.fullmatch(r"Q[1-4]\s+20\d{2}", col_a, re.I):
-            current_quarter = col_a
-            rows_by_quarter.setdefault(current_quarter, [])
-            continue
-        if not current_quarter:
-            continue
-        category = _normalize_qnote_cell(ws.cell(row=rr, column=2).value)
-        note = _normalize_qnote_cell(ws.cell(row=rr, column=3).value)
-        if not note or (category.lower() == "category" and note.lower() == "note"):
-            continue
-        rows_by_quarter.setdefault(current_quarter, []).append((category, note))
-    return rows_by_quarter
-
-
 def _quarter_notes_ui_snapshot_rows_from_ws(ws: Any) -> Dict[str, List[Tuple[str, str, int]]]:
+    """Read semantic Quarter Notes rows from legacy or current writer layouts."""
+
     rows_by_quarter: Dict[str, List[Tuple[str, str, int]]] = {}
     current_quarter = ""
+    current_layout = "legacy"
+    current_section = ""
+    narrative_sections = {
+        "Quarter read",
+        "Key developments",
+        "Guidance / Promise interpretation",
+        "Model mapping / double-count guardrails",
+    }
     for rr in range(1, int(ws.max_row or 0) + 1):
         col_a = _normalize_qnote_cell(ws.cell(row=rr, column=1).value)
-        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", col_a) or re.fullmatch(r"Q[1-4]\s+20\d{2}", col_a, re.I):
-            current_quarter = col_a
+        period_identity = parse_quarter_notes_period_header(col_a)
+        if period_identity is not None:
+            current_quarter = period_identity.snapshot_key
             rows_by_quarter.setdefault(current_quarter, [])
+            current_layout = "legacy"
+            current_section = ""
             continue
         if not current_quarter:
             continue
-        category = _normalize_qnote_cell(ws.cell(row=rr, column=2).value)
-        note = _normalize_qnote_cell(ws.cell(row=rr, column=3).value)
+        if col_a in narrative_sections:
+            current_layout = "narrative"
+            current_section = col_a
+            continue
+        if current_layout == "narrative":
+            if current_section != "Key developments":
+                continue
+            category = col_a
+            note = _normalize_qnote_cell(ws.cell(row=rr, column=3).value)
+            if category.lower() == "theme" and note.lower() == "what happened":
+                continue
+            if category.lower() == "no information":
+                continue
+        else:
+            category = _normalize_qnote_cell(ws.cell(row=rr, column=2).value)
+            note = _normalize_qnote_cell(ws.cell(row=rr, column=3).value)
         if not note or (category.lower() == "category" and note.lower() == "note"):
             continue
         rows_by_quarter.setdefault(current_quarter, []).append((category, note, rr))
     return rows_by_quarter
+
+
+def _quarter_notes_ui_snapshot_from_ws(ws: Any) -> Dict[str, List[Tuple[str, str]]]:
+    return {
+        quarter: [(category, note) for category, note, _row in rows]
+        for quarter, rows in _quarter_notes_ui_snapshot_rows_from_ws(ws).items()
+    }
 
 
 def _quarter_notes_ui_header_from_ws(ws: Any) -> str:
@@ -480,16 +506,35 @@ def _validate_saved_workbook_comment_xml(workbook_path: Path) -> None:
         )
 
 
-def validate_quarter_notes_ui_export(path: Path, expected_snapshot: Dict[str, List[Tuple[str, str]]]) -> None:
+def validate_quarter_notes_ui_export(
+    path: Path,
+    expected_snapshot: Dict[str, List[Tuple[str, str]]],
+    *,
+    intentionally_empty: bool = False,
+) -> None:
     actual_snapshot = read_quarter_notes_ui_snapshot(path)
-    _validate_quarter_notes_ui_export_snapshot(actual_snapshot, expected_snapshot, path)
+    _validate_quarter_notes_ui_export_snapshot(
+        actual_snapshot,
+        expected_snapshot,
+        path,
+        intentionally_empty=intentionally_empty,
+    )
 
 
 def _validate_quarter_notes_ui_export_snapshot(
     actual_snapshot: Dict[str, List[Tuple[str, str]]],
     expected_snapshot: Dict[str, List[Tuple[str, str]]],
     path: Path,
+    *,
+    intentionally_empty: bool = False,
 ) -> None:
+    actual_has_rows = any(bool(rows) for rows in actual_snapshot.values())
+    expected_has_rows = any(bool(rows) for rows in expected_snapshot.values())
+    if not actual_has_rows and not expected_has_rows and not intentionally_empty:
+        raise RuntimeError(
+            "Quarter_Notes_UI export parse produced zero semantic rows without an "
+            f"explicit intentionally-empty contract. path={Path(path)}"
+        )
     expected_quarters = list(expected_snapshot.keys())
     actual_quarters = list(actual_snapshot.keys())
     if expected_quarters != actual_quarters:
@@ -820,6 +865,7 @@ def validate_saved_workbook_export(
     path: Path,
     *,
     quarter_notes_ui_snapshot: Optional[Dict[str, List[Tuple[str, str]]]] = None,
+    quarter_notes_intentionally_empty: bool = False,
     summary_export_expectation: Optional[Dict[str, Any]] = None,
     valuation_export_expectation: Optional[Dict[str, Any]] = None,
     qa_export_expectation: Optional[Dict[str, Any]] = None,
@@ -845,6 +891,7 @@ def validate_saved_workbook_export(
             dict(provenance.get("quarter_notes_ui_snapshot") or {}),
             quarter_notes_ui_snapshot,
             workbook_path,
+            intentionally_empty=bool(quarter_notes_intentionally_empty),
         )
     if summary_export_expectation:
         _validate_summary_export_snapshot(
@@ -880,6 +927,7 @@ def validate_saved_workbook_after_audit_write(
     *,
     quarter_notes_ui_snapshot: Dict[str, List[Tuple[str, str]]],
     quarter_notes_header_text: str = "",
+    quarter_notes_intentionally_empty: bool = False,
 ) -> None:
     workbook_path = Path(path)
     wb = load_workbook(workbook_path, data_only=False, read_only=True)
@@ -899,7 +947,12 @@ def validate_saved_workbook_after_audit_write(
             "Quarter_Notes_UI header mismatch after audit write. "
             f"path={workbook_path} expected={quarter_notes_header_text!r} actual={actual_header!r}"
         )
-    _validate_quarter_notes_ui_export_snapshot(actual_snapshot, quarter_notes_ui_snapshot, workbook_path)
+    _validate_quarter_notes_ui_export_snapshot(
+        actual_snapshot,
+        quarter_notes_ui_snapshot,
+        workbook_path,
+        intentionally_empty=bool(quarter_notes_intentionally_empty),
+    )
 
 
 def enrich_quarter_notes_audit_rows_with_readback(
@@ -975,81 +1028,91 @@ def enrich_quarter_notes_audit_rows_with_readback(
     return _cleanup_enriched_quarter_notes_audit_rows(rows_out)
 
 
+def _write_quarter_notes_audit_sheet_to_workbook(
+    wb: Any,
+    audit_rows: List[Dict[str, Any]],
+) -> None:
+    """Materialize the audit surface before the workbook's single candidate save."""
+
+    if "Quarter_Notes_Audit" in wb.sheetnames:
+        wb.remove(wb["Quarter_Notes_Audit"])
+    ws = wb.create_sheet("Quarter_Notes_Audit")
+    if not audit_rows:
+        ws["A1"] = "No Quarter_Notes_UI audit rows."
+        return
+    preferred_cols = [
+        "quarter",
+        "trace_id",
+        "stage",
+        "source_type",
+        "source_doc",
+        "source_excerpt",
+        "idea_label",
+        "candidate_type",
+        "family",
+        "subject_variant",
+        "bucket",
+        "visible_category",
+        "metric_display",
+        "score_total",
+        "score_components",
+        "dropped_reason",
+        "lost_to_trace_id",
+        "merged_into_trace_id",
+        "final_summary",
+        "saved_workbook_visible",
+        "saved_workbook_missing",
+        "saved_workbook_row",
+        "scope_confidence",
+        "amount_confidence",
+        "share_count_confidence",
+        "authorization_confidence",
+        "remaining_capacity_confidence",
+        "dividend_change_confidence",
+        "blocking_reason",
+        "attrition_class",
+        "workbook_path",
+        "workbook_size",
+        "workbook_sha1",
+        "quarter_notes_header",
+    ]
+    extra_cols: List[str] = []
+    for row in audit_rows:
+        for key in row.keys():
+            if key not in preferred_cols and key not in extra_cols:
+                extra_cols.append(key)
+    cols = preferred_cols + extra_cols
+    ws.append([_sanitize_excel_sheet_text(col) for col in cols])
+    for row in audit_rows:
+        row_out: List[Any] = []
+        for col in cols:
+            val = row.get(col, "")
+            if col in {"source_excerpt", "final_summary"}:
+                val = _canonicalize_qnote_audit_text(val)
+            row_out.append(_sanitize_excel_sheet_text(val))
+        ws.append(row_out)
+    ws.freeze_panes = "A2"
+    for idx, col_name in enumerate(cols, start=1):
+        width = 16.0
+        if col_name in {"source_excerpt", "final_summary", "score_components", "quarter_notes_header"}:
+            width = 80.0
+        elif col_name in {"source_doc", "workbook_path"}:
+            width = 48.0
+        elif col_name in {"trace_id", "lost_to_trace_id", "merged_into_trace_id"}:
+            width = 18.0
+        elif col_name in {"stage", "family", "subject_variant", "candidate_type", "idea_label", "blocking_reason", "dropped_reason", "attrition_class"}:
+            width = 28.0
+        ws.column_dimensions[get_column_letter(idx)].width = width
+
+
 def write_quarter_notes_audit_sheet(path: Path, audit_rows: List[Dict[str, Any]]) -> None:
+    """Add or replace an audit sheet in an already-owned workbook artifact."""
+
     workbook_path = Path(path)
     keep_vba = workbook_path.suffix.lower() == ".xlsm"
     wb = load_workbook(workbook_path, data_only=False, keep_vba=keep_vba)
     try:
-        if "Quarter_Notes_Audit" in wb.sheetnames:
-            wb.remove(wb["Quarter_Notes_Audit"])
-        ws = wb.create_sheet("Quarter_Notes_Audit")
-        if not audit_rows:
-            ws["A1"] = "No Quarter_Notes_UI audit rows."
-            wb.save(workbook_path)
-            return
-        preferred_cols = [
-            "quarter",
-            "trace_id",
-            "stage",
-            "source_type",
-            "source_doc",
-            "source_excerpt",
-            "idea_label",
-            "candidate_type",
-            "family",
-            "subject_variant",
-            "bucket",
-            "visible_category",
-            "metric_display",
-            "score_total",
-            "score_components",
-            "dropped_reason",
-            "lost_to_trace_id",
-            "merged_into_trace_id",
-            "final_summary",
-            "saved_workbook_visible",
-            "saved_workbook_missing",
-            "saved_workbook_row",
-            "scope_confidence",
-            "amount_confidence",
-            "share_count_confidence",
-            "authorization_confidence",
-            "remaining_capacity_confidence",
-            "dividend_change_confidence",
-            "blocking_reason",
-            "attrition_class",
-            "workbook_path",
-            "workbook_size",
-            "workbook_sha1",
-            "quarter_notes_header",
-        ]
-        extra_cols: List[str] = []
-        for row in audit_rows:
-            for key in row.keys():
-                if key not in preferred_cols and key not in extra_cols:
-                    extra_cols.append(key)
-        cols = preferred_cols + extra_cols
-        ws.append([_sanitize_excel_sheet_text(col) for col in cols])
-        for row in audit_rows:
-            row_out: List[Any] = []
-            for col in cols:
-                val = row.get(col, "")
-                if col in {"source_excerpt", "final_summary"}:
-                    val = _canonicalize_qnote_audit_text(val)
-                row_out.append(_sanitize_excel_sheet_text(val))
-            ws.append(row_out)
-        ws.freeze_panes = "A2"
-        for idx, col_name in enumerate(cols, start=1):
-            width = 16.0
-            if col_name in {"source_excerpt", "final_summary", "score_components", "quarter_notes_header"}:
-                width = 80.0
-            elif col_name in {"source_doc", "workbook_path"}:
-                width = 48.0
-            elif col_name in {"trace_id", "lost_to_trace_id", "merged_into_trace_id"}:
-                width = 18.0
-            elif col_name in {"stage", "family", "subject_variant", "candidate_type", "idea_label", "blocking_reason", "dropped_reason", "attrition_class"}:
-                width = 28.0
-            ws.column_dimensions[get_column_letter(idx)].width = width
+        _write_quarter_notes_audit_sheet_to_workbook(wb, audit_rows)
         wb.save(workbook_path)
     finally:
         wb.close()
@@ -1103,6 +1166,7 @@ def write_excel_impl(
     rebuild_doc_text_cache: bool = False,
     profile_timings: bool = False,
     quarter_notes_audit: bool = False,
+    quarter_notes_intentionally_empty: bool = False,
     capture_saved_workbook_provenance: bool = True,
     excel_debug_scope: str = "full",
 ) -> WorkbookWriteResult:
@@ -1153,6 +1217,7 @@ def write_excel_impl(
         rebuild_doc_text_cache=rebuild_doc_text_cache,
         profile_timings=profile_timings,
         quarter_notes_audit=quarter_notes_audit,
+        quarter_notes_intentionally_empty=quarter_notes_intentionally_empty,
         capture_saved_workbook_provenance=capture_saved_workbook_provenance,
         excel_debug_scope=excel_debug_scope,
     )
@@ -1169,6 +1234,93 @@ def _ensure_partial_debug_sheet(ctx: Any, scope: str) -> None:
         return
     ws = ctx.wb.create_sheet("Debug_Info")
     ws["A1"] = f"No visible sheets were written for excel_debug_scope={scope}."
+
+
+def _validate_serialized_workbook_structure(path: Path, ctx: Any) -> None:
+    """Prove that the saved OOXML candidate retains the finalized in-memory contract."""
+
+    workbook_path = Path(path)
+    wb = load_workbook(
+        workbook_path,
+        data_only=False,
+        read_only=False,
+        keep_vba=workbook_path.suffix.lower() == ".xlsm",
+    )
+    try:
+        expected_names = list(ctx.wb.sheetnames)
+        actual_names = list(wb.sheetnames)
+        if actual_names != expected_names:
+            raise RuntimeError(
+                f"saved sheet order mismatch: expected={expected_names!r} actual={actual_names!r}"
+            )
+        if not actual_names:
+            raise RuntimeError("saved workbook has no worksheets")
+        for sheet_name in expected_names:
+            expected_state = str(ctx.wb[sheet_name].sheet_state)
+            actual_state = str(wb[sheet_name].sheet_state)
+            if actual_state != expected_state:
+                raise RuntimeError(
+                    f"saved sheet-state mismatch for {sheet_name}: "
+                    f"expected={expected_state!r} actual={actual_state!r}"
+                )
+        if not any(wb[name].sheet_state == "visible" for name in actual_names):
+            raise RuntimeError("saved workbook has no visible worksheet")
+        calculation = wb.calculation
+        if calculation.calcMode != "auto" or calculation.fullCalcOnLoad is not True:
+            raise RuntimeError(
+                "saved calculation contract mismatch: "
+                f"calcMode={calculation.calcMode!r} fullCalcOnLoad={calculation.fullCalcOnLoad!r}"
+            )
+    finally:
+        wb.close()
+
+
+def _atomic_publish_workbook(
+    final_path: Path,
+    *,
+    write_candidate: Callable[[Path], None],
+    validate_candidate: Callable[[Path], None],
+) -> None:
+    """Write and validate a same-directory candidate before atomic publication."""
+
+    destination = Path(final_path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary_name = tempfile.mkstemp(
+        dir=destination.parent,
+        prefix=f".{destination.stem}.",
+        suffix=destination.suffix,
+    )
+    os.close(handle)
+    temporary_path = Path(temporary_name)
+    primary_error: BaseException | None = None
+    try:
+        try:
+            write_candidate(temporary_path)
+        except Exception as exc:
+            raise WorkbookFinalizationError("candidate_save", exc) from exc
+        try:
+            validate_candidate(temporary_path)
+        except Exception as exc:
+            raise WorkbookFinalizationError("saved_workbook_structural_validation", exc) from exc
+        try:
+            os.replace(temporary_path, destination)
+        except Exception as exc:
+            raise WorkbookFinalizationError("atomic_workbook_publication", exc) from exc
+    except BaseException as exc:
+        primary_error = exc
+        raise
+    finally:
+        if temporary_path.exists():
+            try:
+                temporary_path.unlink()
+            except OSError as cleanup_exc:
+                if primary_error is not None:
+                    primary_error.add_note(
+                        f"candidate cleanup also failed for {temporary_path}: "
+                        f"{type(cleanup_exc).__name__}: {cleanup_exc}"
+                    )
+                else:
+                    raise WorkbookFinalizationError("candidate_cleanup", cleanup_exc) from cleanup_exc
 
 
 def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
@@ -1218,9 +1370,8 @@ def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
             write_raw_data_sheets(ctx)
         with timed_writer_stage(writer_timings, "write_excel.qa", enabled=bool(inputs.profile_timings)):
             write_qa_sheets(ctx, ui_qa_rows)
-    with timed_writer_stage(writer_timings, "write_excel.save", enabled=bool(inputs.profile_timings)):
+    with timed_writer_stage(writer_timings, "write_excel.finalize", enabled=bool(inputs.profile_timings)):
         finalize_workbook(ctx)
-        _prune_saved_promise_progress_stub_rows(Path(inputs.out_path))
     if "SUMMARY" in ctx.wb.sheetnames:
         ctx.derived.summary_export_expectation = {"rows": _summary_snapshot_from_ws(ctx.wb["SUMMARY"])}
     snapshot = (
@@ -1240,33 +1391,60 @@ def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
     valuation_export_expectation = dict(getattr(ctx.derived, "valuation_export_expectation", {}) or {})
     qa_export_expectation = dict(getattr(ctx.derived, "qa_export_expectation", {}) or {})
     needs_review_export_expectation = dict(getattr(ctx.derived, "needs_review_export_expectation", {}) or {})
+
+    if bool(inputs.quarter_notes_audit) and not partial_debug_scope:
+        in_memory_provenance = {
+            "workbook_path": str(Path(inputs.out_path).resolve()),
+            "workbook_size": "",
+            "workbook_sha1": "",
+            "quarter_notes_header": header_text,
+            "quarter_notes_ui_snapshot_rows": (
+                _quarter_notes_ui_snapshot_rows_from_ws(ctx.wb["Quarter_Notes_UI"])
+                if "Quarter_Notes_UI" in ctx.wb.sheetnames
+                else {}
+            ),
+        }
+        audit_rows = enrich_quarter_notes_audit_rows_with_readback(audit_rows, in_memory_provenance)
+        _write_quarter_notes_audit_sheet_to_workbook(ctx.wb, audit_rows)
+
     saved_workbook_provenance: Dict[str, Any] = {}
-    if bool(inputs.capture_saved_workbook_provenance) and not partial_debug_scope:
-        try:
-            saved_workbook_provenance = validate_saved_workbook_export(
-                inputs.out_path,
-                quarter_notes_ui_snapshot=snapshot,
-                summary_export_expectation=summary_export_expectation,
-                valuation_export_expectation=valuation_export_expectation,
-                qa_export_expectation=qa_export_expectation,
-                needs_review_export_expectation=needs_review_export_expectation,
-            )
-        except Exception:
-            saved_workbook_provenance = {}
+    publication_state: Dict[str, Any] = {}
+
+    def _write_candidate(candidate_path: Path) -> None:
+        ctx.wb.save(candidate_path)
+
+    def _validate_candidate(candidate_path: Path) -> None:
+        _validate_serialized_workbook_structure(candidate_path, ctx)
+        if partial_debug_scope:
+            return
+        provenance = validate_saved_workbook_export(
+            candidate_path,
+            quarter_notes_ui_snapshot=snapshot,
+            quarter_notes_intentionally_empty=bool(inputs.quarter_notes_intentionally_empty),
+            summary_export_expectation=summary_export_expectation,
+            valuation_export_expectation=valuation_export_expectation,
+            qa_export_expectation=qa_export_expectation,
+            needs_review_export_expectation=needs_review_export_expectation,
+        )
         if bool(inputs.quarter_notes_audit):
-            try:
-                audit_rows = enrich_quarter_notes_audit_rows_with_readback(audit_rows, saved_workbook_provenance)
-                write_quarter_notes_audit_sheet(inputs.out_path, audit_rows)
-                saved_workbook_provenance = validate_saved_workbook_export(
-                    inputs.out_path,
-                    quarter_notes_ui_snapshot=snapshot,
-                    summary_export_expectation=summary_export_expectation,
-                    valuation_export_expectation=valuation_export_expectation,
-                    qa_export_expectation=qa_export_expectation,
-                    needs_review_export_expectation=needs_review_export_expectation,
-                )
-            except Exception:
-                saved_workbook_provenance = {}
+            validate_saved_workbook_after_audit_write(
+                candidate_path,
+                quarter_notes_ui_snapshot=snapshot,
+                quarter_notes_header_text=header_text,
+                quarter_notes_intentionally_empty=bool(inputs.quarter_notes_intentionally_empty),
+            )
+        publication_state["provenance"] = provenance
+
+    with timed_writer_stage(writer_timings, "write_excel.save", enabled=bool(inputs.profile_timings)):
+        _atomic_publish_workbook(
+            Path(inputs.out_path),
+            write_candidate=_write_candidate,
+            validate_candidate=_validate_candidate,
+        )
+
+    if bool(inputs.capture_saved_workbook_provenance) and not partial_debug_scope:
+        saved_workbook_provenance = dict(publication_state.get("provenance") or {})
+        saved_workbook_provenance["workbook_path"] = str(Path(inputs.out_path).resolve())
     history_write_bundle = dict(ctx.state.get("gpre_current_qtd_pending_history_write") or {}) if isinstance(ctx.state, dict) else {}
     history_write_ticker_root = history_write_bundle.get("ticker_root")
     if (
@@ -1287,6 +1465,7 @@ def write_excel_from_inputs(inputs: WorkbookInputs) -> WorkbookWriteResult:
         quarter_notes_ui_snapshot=snapshot,
         quarter_notes_audit_rows=audit_rows,
         quarter_notes_header_text=header_text,
+        quarter_notes_intentionally_empty=bool(inputs.quarter_notes_intentionally_empty),
         summary_export_expectation=summary_export_expectation,
         valuation_export_expectation=valuation_export_expectation,
         qa_export_expectation=qa_export_expectation,

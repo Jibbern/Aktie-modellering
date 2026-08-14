@@ -12,6 +12,8 @@ from typing import Any, Dict, List
 
 import pandas as pd
 
+from ...cache_semantics import MARKET_PROVIDER_PARSE_VERSIONS
+
 from .cme_ethanol_platts import (
     CMEChicagoEthanolPlattsProvider,
     find_local_manual_ethanol_quarter_open_files,
@@ -39,6 +41,7 @@ class LocalChicagoEthanolFuturesProvider(CMEChicagoEthanolPlattsProvider):
     """Canonical provider id for the local Chicago ethanol futures workflow."""
 
     source = "local_chicago_ethanol_futures"
+    provider_parse_version = MARKET_PROVIDER_PARSE_VERSIONS["local_chicago_ethanol_futures"]
     stable_name_prefix = "local_chicago_ethanol_futures"
     report_token = "local_chicago_ethanol_futures"
 

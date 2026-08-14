@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+from ...cache_semantics import MARKET_PROVIDER_PARSE_VERSIONS
+
 from .base import BaseMarketProvider, report_period_end_date_from_text
 from ..aggregations import quarter_end_from_date
 
@@ -324,7 +326,7 @@ def _public_payload_report_date(payload: Dict[str, Any]) -> Optional[pd.Timestam
 
 class AMS3618Provider(BaseMarketProvider):
     source = "ams_3618"
-    provider_parse_version = "v5"
+    provider_parse_version = MARKET_PROVIDER_PARSE_VERSIONS["ams_3618"]
     # AMS_3618 is the National Weekly Grain Co-Products Report. It shares weekly
     # cadence with NWER/3616, but its new local home is the bioenergy folder because
     # the rows are co-product prices, not ethanol/futures benchmarks.

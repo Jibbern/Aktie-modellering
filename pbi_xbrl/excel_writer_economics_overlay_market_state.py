@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import hashlib
-import json
 import os
 import time
 from dataclasses import dataclass
@@ -12,6 +10,12 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import pandas as pd
+
+from .cache_semantics import (
+    GPRE_BASIS_PROXY_WRITER_CACHE_VERSION,
+    build_cache_identity,
+    module_content_identity,
+)
 
 
 @dataclass(frozen=True)
@@ -419,20 +423,13 @@ def build_economics_overlay_market_state(
                     )
             except Exception:
                 market_fp = ""
-            code_tokens: List[Tuple[str, int, int]] = []
-            for path_in in (Path(__file__).resolve().parent / "market_data" / "service.py",):
-                try:
-                    code_digest = hashlib.sha1(path_in.read_bytes()).hexdigest()
-                    code_tokens.append((path_in.name, code_digest))
-                except Exception:
-                    code_tokens.append((path_in.name, ""))
+            code_identity = module_content_identity(
+                Path(__file__).resolve().parent,
+                ("cache_semantics.py", "excel_writer_economics_overlay_market_state.py", "market_data/service.py"),
+                contract_id="gpre-basis-proxy-writer-code",
+            )
             payload = {
-                "version": "gpre_basis_proxy_writer_cache_v6",
-                "ticker": str(ticker or "").upper(),
-                "market_fp": market_fp,
                 "as_of": overlay_market_as_of.isoformat() if isinstance(overlay_market_as_of, date) else "",
-                "ethanol_yield": None if pd.isna(gpre_ethanol_yield_for_model) else round(float(gpre_ethanol_yield_for_model), 8),
-                "natural_gas_usage": None if pd.isna(gpre_gas_usage_for_model) else round(float(gpre_gas_usage_for_model), 8),
                 "reported_margin": _map_payload(gpre_reported_margin_by_quarter),
                 "underlying_margin": _map_payload(gpre_underlying_margin_by_quarter),
                 "denominator_policy": sorted(
@@ -448,14 +445,27 @@ def build_economics_overlay_market_state(
                 ),
                 "sold_gallons": _map_payload(gpre_reported_gallons_sold_by_quarter),
                 "produced_gallons": _map_payload(gpre_reported_gallons_produced_by_quarter),
+                "configuration": {
+                    "ethanol_yield": None if pd.isna(gpre_ethanol_yield_for_model) else round(float(gpre_ethanol_yield_for_model), 8),
+                    "natural_gas_usage": None if pd.isna(gpre_gas_usage_for_model) else round(float(gpre_gas_usage_for_model), 8),
+                },
                 "bids_snapshot": {
                     key: gpre_bids_snapshot.get(key)
                     for key in ("source_kind", "source_url", "snapshot_date", "as_of_date")
                     if isinstance(gpre_bids_snapshot, dict) and key in gpre_bids_snapshot
                 },
-                "code": code_tokens,
+                "code_identity": code_identity,
+                "market_content_identity": market_fp,
+                "semantic_versions": {
+                    "writer_cache": GPRE_BASIS_PROXY_WRITER_CACHE_VERSION,
+                },
+                "ticker_profile": str(ticker or "").upper(),
             }
-            return hashlib.sha1(json.dumps(payload, sort_keys=True, ensure_ascii=True, default=str).encode("utf-8")).hexdigest()
+            return build_cache_identity(
+                "gpre-basis-proxy-writer",
+                payload,
+                required_fields=("as_of", "code_identity", "ticker_profile"),
+            ).key
 
         def _gpre_basis_model_cache_path_local() -> Optional[Path]:
             if not isinstance(gpre_ticker_root_for_model, Path):

@@ -10,17 +10,25 @@ The local statement folder complements the SEC cache; it does not replace it.
 from __future__ import annotations
 
 import dataclasses
+import datetime as dt
 import hashlib
 import json
 import os
 import re
-import shutil
 import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 import requests
+
+from .source_acquisition import (
+    SourceAcquisitionError,
+    atomic_publish_json,
+    atomic_publish_source_bytes,
+    atomic_publish_source_file,
+    validate_published_source,
+)
 
 SEC_BASE = "https://data.sec.gov"
 EDGAR_BASE = "https://www.sec.gov"
@@ -41,11 +49,12 @@ def _sha256_path(path: Path) -> str:
 
 
 def _read_json_file(path: Path) -> Dict[str, Any]:
+    validate_published_source(path)
     return json.loads(path.read_text(encoding="utf-8"))
 
 
 def _write_json_file(path: Path, payload: Dict[str, Any]) -> None:
-    path.write_text(json.dumps(payload), encoding="utf-8")
+    atomic_publish_json(path, payload)
 
 
 def normalize_accession(accn: str) -> str:
@@ -231,17 +240,15 @@ def _sanitize_token(text: str) -> str:
 
 
 def _safe_materialize(src: Path, dst: Path, method: str = "hardlink") -> Path:
-    dst.parent.mkdir(parents=True, exist_ok=True)
+    del method  # Publication semantics are identical regardless of the former copy hint.
+    source = validate_published_source(src)
     if dst.exists():
-        return dst
-    chosen = str(method or "hardlink").lower()
-    if chosen == "hardlink":
         try:
-            os.link(src, dst)
+            validate_published_source(dst, expected_sha256=source.sha256)
             return dst
-        except Exception:
+        except SourceAcquisitionError:
             pass
-    shutil.copy2(src, dst)
+    atomic_publish_source_file(src, dst, expected_sha256=source.sha256)
     return dst
 
 
@@ -400,15 +407,21 @@ def list_filings(cfg: IngestConfig, *, ticker: Optional[str] = None, cik: Option
     cache_dir = cfg.cache_dir / cik10
     cache_dir.mkdir(parents=True, exist_ok=True)
     sub_path = cache_dir / "submissions.json"
-    existing_sub_path = next((p for p in _candidate_submissions_paths(cfg.cache_dir, cik10) if p.exists()), None)
+    existing_sub_path = None
+    for candidate_path in _candidate_submissions_paths(cfg.cache_dir, cik10):
+        if not candidate_path.exists():
+            continue
+        try:
+            validate_published_source(candidate_path)
+            existing_sub_path = candidate_path
+            break
+        except SourceAcquisitionError:
+            continue
     if existing_sub_path is not None:
         submissions = _read_json_file(existing_sub_path)
         _log_download(cfg, f"[CACHE HIT] {existing_sub_path}")
         if existing_sub_path != sub_path and not sub_path.exists():
-            try:
-                _write_json_file(sub_path, submissions)
-            except Exception:
-                pass
+            _write_json_file(sub_path, submissions)
     else:
         url = f"{SEC_BASE}/submissions/CIK{cik10}.json"
         _log_download(cfg, f"[DOWNLOAD] {url}")
@@ -421,13 +434,12 @@ def list_filings(cfg: IngestConfig, *, ticker: Optional[str] = None, cik: Option
 
 
 def _write_manifest(path: Path, rows: List[Dict[str, Any]]) -> None:
-    if not rows:
-        return
     df = pd.DataFrame(rows)
     if path.suffix.lower() == ".parquet":
-        df.to_parquet(path, index=False)
+        payload = df.to_parquet(index=False)
     else:
-        df.to_csv(path, index=False)
+        payload = (df.to_csv(index=False) if not df.empty else "status\n").encode("utf-8")
+    atomic_publish_source_bytes(path, payload)
 
 
 def download_filing_package(
@@ -505,37 +517,44 @@ def download_filing_package(
         return row
 
     def _cached_sha256(filename: str, local_path: Path, bytes_count: int) -> str:
-        if cfg.verify_cache_sha256:
-            try:
-                return _sha256_path(local_path)
-            except Exception:
-                return ""
+        prior_sha = ""
         if cfg.reuse_sha256_from_previous_index:
             key = _prior_hash_key(accn, filename, bytes_count, str(local_path))
-            return str(prior_hashes.get(key) or "")
-        return ""
+            prior_sha = str(prior_hashes.get(key) or "")
+        return validate_published_source(
+            local_path,
+            expected_size=bytes_count,
+            expected_sha256=prior_sha or None,
+        ).sha256
 
     # index.json
     index_url = f"{EDGAR_BASE}/Archives/edgar/data/{cik_int}/{accn_nd}/index.json"
     index_path = accn_dir / "index.json"
+    index_cache_valid = False
     if index_path.exists():
-        index_json = _read_json_file(index_path)
-        _append_row(
-            kind="meta",
-            sec_type="INDEX",
-            filename=index_path.name,
-            url=index_url,
-            local_path=index_path,
-            status="cache_hit",
-            bytes_count=index_path.stat().st_size,
-            sha256_hex=_cached_sha256(index_path.name, index_path, index_path.stat().st_size),
-            error="",
-        )
-    else:
+        try:
+            index_receipt = validate_published_source(index_path)
+            index_json = _read_json_file(index_path)
+            _append_row(
+                kind="meta",
+                sec_type="INDEX",
+                filename=index_path.name,
+                url=index_url,
+                local_path=index_path,
+                status="cache_hit",
+                bytes_count=index_receipt.size,
+                sha256_hex=index_receipt.sha256,
+                error="",
+            )
+            index_cache_valid = True
+        except SourceAcquisitionError:
+            index_cache_valid = False
+    if not index_cache_valid:
         try:
             _log_download(cfg, f"[DOWNLOAD] {index_url}")
             index_json = sec.get(index_url, as_json=True)
             _write_json_file(index_path, index_json)
+            index_receipt = validate_published_source(index_path)
             _append_row(
                 kind="meta",
                 sec_type="INDEX",
@@ -543,8 +562,8 @@ def download_filing_package(
                 url=index_url,
                 local_path=index_path,
                 status="ok",
-                bytes_count=index_path.stat().st_size,
-                sha256_hex=_sha256_path(index_path),
+                bytes_count=index_receipt.size,
+                sha256_hex=index_receipt.sha256,
                 error="",
             )
         except Exception as e:
@@ -599,23 +618,40 @@ def download_filing_package(
             )
             return False, None, row
         if local_path.exists():
-            bytes_count = local_path.stat().st_size
-            row = _append_row(
-                kind=kind,
-                sec_type=sec_type,
-                filename=filename,
-                url=url,
-                local_path=local_path,
-                status="cache_hit",
-                bytes_count=bytes_count,
-                sha256_hex=_cached_sha256(filename, local_path, bytes_count),
-                error="",
-            )
-            return True, local_path, row
+            try:
+                prior_size = int(size_hint) if size_hint is not None else int(local_path.stat().st_size)
+                prior_sha = ""
+                if cfg.reuse_sha256_from_previous_index:
+                    prior_sha = str(
+                        prior_hashes.get(_prior_hash_key(accn, filename, prior_size, str(local_path))) or ""
+                    )
+                cached = validate_published_source(
+                    local_path,
+                    expected_size=size_hint,
+                    expected_sha256=prior_sha or None,
+                )
+                row = _append_row(
+                    kind=kind,
+                    sec_type=sec_type,
+                    filename=filename,
+                    url=url,
+                    local_path=local_path,
+                    status="cache_hit",
+                    bytes_count=cached.size,
+                    sha256_hex=cached.sha256,
+                    error="",
+                )
+                return True, local_path, row
+            except SourceAcquisitionError:
+                pass
         try:
             _log_download(cfg, f"[DOWNLOAD] {url}")
             data = sec.get(url, as_json=False)
-            local_path.write_bytes(data)
+            published = atomic_publish_source_bytes(
+                local_path,
+                data,
+                expected_size=size_hint,
+            )
             row = _append_row(
                 kind=kind,
                 sec_type=sec_type,
@@ -623,8 +659,8 @@ def download_filing_package(
                 url=url,
                 local_path=local_path,
                 status="ok",
-                bytes_count=len(data),
-                sha256_hex=_sha256_bytes(data),
+                bytes_count=published.size,
+                sha256_hex=published.sha256,
                 error="",
             )
             return True, local_path, row
@@ -793,17 +829,9 @@ def download_all(
     instance_paths: List[Dict[str, Any]] = []
 
     if sub_path.exists():
-        sub_bytes = sub_path.stat().st_size
-        sub_sha = ""
-        if cfg.verify_cache_sha256:
-            sub_sha = _sha256_path(sub_path)
-        elif cfg.reuse_sha256_from_previous_index:
-            sub_sha = str(
-                prior_hash_lookup.get(
-                    _prior_hash_key("", sub_path.name, sub_bytes, str(sub_path))
-                )
-                or ""
-            )
+        sub_receipt = validate_published_source(sub_path)
+        sub_bytes = sub_receipt.size
+        sub_sha = sub_receipt.sha256
         files_rows.append({
             "accession": "",
             "form": "submissions",
@@ -841,6 +869,14 @@ def download_all(
 
 
 _FINANCIAL_STATEMENT_FORMS = {"10-Q", "10-Q/A", "10-K", "10-K/A"}
+_FINANCIAL_STATEMENT_CANONICAL_NAME_RE = re.compile(
+    r"^(?P<ticker>.+?)_"
+    r"(?P<period>FY\d{4}|Q[1-4]_\d{4})_"
+    r"(?P<form>10K|10Q)_"
+    r"(?P<reporting_date>\d{4}-\d{2}-\d{2})_"
+    r"financial_statement(?:__.+)?\.(?:htm|html|txt|pdf)$",
+    re.I,
+)
 _FINANCIAL_STATEMENT_DECORATIVE_RE = re.compile(
     r"(favicon|logo|icon|header|footer|banner|watermark|thumb|thumbnail|seal|graphic)",
     re.I,
@@ -850,6 +886,58 @@ _FINANCIAL_STATEMENT_HINT_RE = re.compile(
     r"operations|schedule|supplement|appendix|debt|credit|term[_ -]?loan|note|indenture|mezzanine|convertible)",
     re.I,
 )
+
+
+@dataclasses.dataclass(frozen=True)
+class RegisteredFinancialStatementIdentity:
+    """Typed identity encoded by the SEC financial-statement materializer."""
+
+    ticker: str
+    period_label: str
+    form: str
+    reporting_date: dt.date
+
+
+def parse_financial_statement_canonical_identity(
+    filename: str,
+) -> Optional[RegisteredFinancialStatementIdentity]:
+    """Parse and validate a filename produced by the statement materializer.
+
+    The date is not inferred from free-form document text.  It is the SEC
+    ``reportDate`` (or the explicitly recorded filing-date fallback) used by
+    :func:`_financial_statement_canonical_name` when the registered material was
+    created.
+    """
+
+    match = _FINANCIAL_STATEMENT_CANONICAL_NAME_RE.fullmatch(Path(str(filename or "")).name)
+    if match is None:
+        return None
+    reporting_date = pd.Timestamp(match.group("reporting_date")).date()
+    period_label = match.group("period").upper()
+    form_token = match.group("form").upper()
+    form = "10-K" if form_token == "10K" else "10-Q"
+    if period_label.startswith("FY"):
+        period_year = int(period_label[2:])
+        if form != "10-K" or reporting_date.year != period_year:
+            raise ValueError(
+                "financial-statement canonical filename has incompatible "
+                f"form/period/date identity: {filename!r}"
+            )
+    else:
+        quarter_token, year_token = period_label.split("_", 1)
+        expected_quarter = int(quarter_token[1:])
+        actual_quarter = ((reporting_date.month - 1) // 3) + 1
+        if reporting_date.year != int(year_token) or actual_quarter != expected_quarter:
+            raise ValueError(
+                "financial-statement canonical filename has incompatible "
+                f"period/date identity: {filename!r}"
+            )
+    return RegisteredFinancialStatementIdentity(
+        ticker=match.group("ticker").upper(),
+        period_label=period_label,
+        form=form,
+        reporting_date=reporting_date,
+    )
 
 
 def _financial_statement_period_label(form: str, report_date: Any, filed_date: Any) -> str:
@@ -942,7 +1030,7 @@ def materialize_financial_statement_files(
 
     if files_df is None or files_df.empty:
         manifest_path = out_dir / f"{str(ticker or 'SEC').upper()}_financial_statement_manifest.csv"
-        pd.DataFrame().to_csv(manifest_path, index=False)
+        _write_manifest(manifest_path, [])
         return pd.DataFrame(), FinancialStatementSyncSummary(
             output_dir=out_dir,
             manifest_path=manifest_path,
@@ -1002,7 +1090,7 @@ def materialize_financial_statement_files(
 
     manifest_df = pd.DataFrame(rows)
     manifest_path = out_dir / f"{str(ticker or 'SEC').upper()}_financial_statement_manifest.csv"
-    manifest_df.to_csv(manifest_path, index=False)
+    _write_manifest(manifest_path, rows)
     summary = FinancialStatementSyncSummary(
         output_dir=out_dir,
         manifest_path=manifest_path,

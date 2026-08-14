@@ -347,6 +347,53 @@ def resolve_effective_data_root(
     return EffectiveDataRoot(data_root=None, source="legacy", config_path=cfg_path, warnings=tuple(cfg_warnings))
 
 
+def resolve_effective_data_root_from_ancestors(
+    start: Path | str,
+    *,
+    cli_data_root: Path | str | None = None,
+    env: Optional[Mapping[str, str]] = None,
+    allow_onedrive_data_root: bool = False,
+) -> EffectiveDataRoot:
+    """Resolve a registered data root for a repository or any linked worktree.
+
+    A linked worktree may be outside the primary checkout's directory.  Walking
+    ancestors lets it discover the same workspace-level config without encoding a
+    developer-specific path.  An explicit CLI root remains authoritative and is
+    therefore evaluated once rather than falling through to ancestor configs.
+    """
+
+    root = _repo_root(start)
+    if str(cli_data_root or "").strip():
+        return resolve_effective_data_root(
+            root,
+            cli_data_root=cli_data_root,
+            env=env,
+            allow_onedrive_data_root=allow_onedrive_data_root,
+        )
+
+    warnings: list[str] = []
+    last_config_path: Optional[Path] = None
+    for candidate in (root, *root.parents):
+        result = resolve_effective_data_root(
+            candidate,
+            env=env,
+            allow_onedrive_data_root=allow_onedrive_data_root,
+        )
+        if result.data_root is not None:
+            return result
+        warnings.extend(result.warnings)
+        if result.config_path is not None:
+            last_config_path = result.config_path
+
+    return EffectiveDataRoot(
+        data_root=None,
+        source="legacy",
+        config_path=last_config_path,
+        warnings=tuple(dict.fromkeys(warnings)),
+        allow_onedrive_data_root=allow_onedrive_data_root,
+    )
+
+
 def data_root_from_sec_cache_path(cache_dir: Path | str | None) -> Optional[Path]:
     """Infer portable data root from ``<data_root>/sec_cache/<TICKER>`` paths."""
 

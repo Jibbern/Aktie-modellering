@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import hashlib
 import json
 import re
 import time
@@ -11,6 +10,14 @@ from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 import pandas as pd
+
+from .cache_semantics import (
+    CACHE_IDENTITY_SERIALIZATION_VERSION,
+    CacheIdentityError,
+    build_cache_identity,
+    content_file_set_identity,
+    file_content_sha256,
+)
 
 
 def resolve_path_safe(path_in: Path) -> Path:
@@ -44,21 +51,12 @@ def path_belongs_to_ticker(
 
 
 def paths_signature(paths: List[Path], max_files: int = 1500) -> str:
-    # File signatures are intentionally cheap freshness heuristics. They only need
-    # to notice material input changes strongly enough to invalidate stale caches;
-    # they are not meant to be cryptographic proofs of byte-identical trees.
-    rows: List[str] = []
-    for path_obj in sorted([Path(x) for x in paths if x is not None]):
-        try:
-            st = path_obj.stat()
-        except Exception:
-            continue
-        rows.append(f"{path_obj.name}|{int(st.st_size)}|{int(st.st_mtime)}")
-        if len(rows) >= max_files:
-            break
-    if not rows:
-        return "none"
-    return hashlib.sha1("||".join(rows).encode("utf-8", errors="ignore")).hexdigest()
+    return content_file_set_identity(
+        paths,
+        contract_id="pipeline-path-source-set",
+        include_logical_names=True,
+        max_files=max_files,
+    )
 
 
 def material_dirs_signature(base_dir: Path, ticker: Optional[str]) -> str:
@@ -98,7 +96,13 @@ def material_dirs_signature(base_dir: Path, ticker: Optional[str]) -> str:
             files.extend([item for item in path_obj.rglob("*") if item.is_file()])
         except Exception:
             continue
-    return paths_signature(files, max_files=1500)
+    return content_file_set_identity(
+        files,
+        contract_id="pipeline-material-source-set",
+        logical_root=base_dir,
+        include_logical_names=True,
+        max_files=1500,
+    )
 
 
 def resolve_pipeline_roots(
@@ -155,45 +159,73 @@ def submissions_recent_signature(
     filed = list(recent.get("filingDate") or [])
     primary_docs = list(recent.get("primaryDocument") or [])
     count = min(len(accessions), len(forms), len(reports), len(filed), len(primary_docs))
-    rows: List[str] = []
+    rows: List[Dict[str, str]] = []
     for idx in range(count):
         form = str(forms[idx] or "").upper().strip()
         if forms_prefix and not any(form.startswith(prefix) for prefix in forms_prefix):
             continue
         rows.append(
-            "|".join(
-                [
-                    form,
-                    str(accessions[idx] or ""),
-                    str(reports[idx] or ""),
-                    str(filed[idx] or ""),
-                    str(primary_docs[idx] or ""),
-                ]
-            )
+            {
+                "accession": str(accessions[idx] or ""),
+                "filed": str(filed[idx] or ""),
+                "form": form,
+                "primary_document": str(primary_docs[idx] or ""),
+                "reporting_date": str(reports[idx] or ""),
+            }
         )
     if len(rows) > max_rows:
         rows = rows[:max_rows]
-    return hashlib.sha1("||".join(rows).encode("utf-8", errors="ignore")).hexdigest()
+    return build_cache_identity(
+        "sec-submissions-recent",
+        {"filings": rows, "forms_prefix": list(forms_prefix or ()), "max_rows": int(max_rows)},
+    ).digest
 
 
 def dataframe_quick_signature(df: pd.DataFrame, cols: List[str]) -> str:
     # Dataframe signatures are cache-key inputs for expensive stages. They favor
     # stable column subsets over full-frame hashing so invalidation stays fast even
-    # when large intermediate frames are involved.
-    if df is None or df.empty:
-        return "empty"
+    # when large intermediate frames are involved. Some accepted pipeline products
+    # have more than one schema. If none of the preferred columns exists, the full
+    # actual schema owns identity instead of a weak shape-only key or a false error.
+    if df is None:
+        return build_cache_identity(
+            "dataframe-semantic-input",
+            {"none": True, "requested_columns": list(cols)},
+        ).digest
+    if df.columns.has_duplicates:
+        raise CacheIdentityError("duplicate dataframe columns cannot own cache identity")
     use_cols = [col for col in cols if col in df.columns]
     if not use_cols:
-        return f"shape={df.shape}"
+        use_cols = sorted(df.columns.tolist(), key=lambda value: str(value))
+    if df.empty:
+        return build_cache_identity(
+            "dataframe-semantic-input",
+            {
+                "empty": True,
+                "columns": [str(column) for column in use_cols],
+                "dtypes": [str(df[column].dtype) for column in use_cols],
+                "requested_columns": list(cols),
+            },
+        ).digest
     work = df[use_cols].copy()
     for col in use_cols:
         if str(work[col].dtype).startswith("datetime"):
             work[col] = pd.to_datetime(work[col], errors="coerce").astype(str)
     try:
-        payload = pd.util.hash_pandas_object(work.fillna(""), index=False).values.tobytes()
-        return hashlib.sha1(payload).hexdigest()
-    except Exception:
-        return hashlib.sha1(str(work.head(500)).encode("utf-8", errors="ignore")).hexdigest()
+        row_hashes = pd.util.hash_pandas_object(work, index=True, categorize=True).values.tobytes()
+    except Exception as exc:
+        raise CacheIdentityError(
+            f"cannot build deterministic dataframe cache identity for columns={use_cols!r}"
+        ) from exc
+    return build_cache_identity(
+        "dataframe-semantic-input",
+        {
+            "columns": [str(column) for column in use_cols],
+            "dtypes": [str(work[column].dtype) for column in use_cols],
+            "row_count": int(len(work)),
+            "row_hashes": row_hashes,
+        },
+    ).digest
 
 
 class PipelineStageCache:
@@ -229,6 +261,11 @@ class PipelineStageCache:
             # The version guards structural changes; the key guards input freshness.
             if meta.get("version") != self.version or str(meta.get("key")) != str(cache_key):
                 return None
+            if str(meta.get("identity_contract") or "") != CACHE_IDENTITY_SERIALIZATION_VERSION:
+                return None
+            expected_payload_sha = str(meta.get("payload_sha256") or "")
+            if not expected_payload_sha or file_content_sha256(data_path) != expected_payload_sha:
+                return None
             obj = pd.read_pickle(data_path)
             print(f"[stage_cache] hit stage={stage_name}", flush=True)
             return obj
@@ -241,11 +278,14 @@ class PipelineStageCache:
             # Stage payloads are written as pickle + tiny JSON metadata so cache
             # inspection and invalidation debugging stay human-readable.
             pd.to_pickle(obj, data_path)
+            payload_sha256 = file_content_sha256(data_path)
             meta_path.write_text(
                 json.dumps(
                     {
                         "version": self.version,
+                        "identity_contract": CACHE_IDENTITY_SERIALIZATION_VERSION,
                         "key": str(cache_key),
+                        "payload_sha256": payload_sha256,
                         "saved_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
                     },
                     ensure_ascii=True,

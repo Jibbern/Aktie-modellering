@@ -6,10 +6,11 @@ stable regardless of whether callers pass the overall cache root or the nested
 """
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
+
+from ..cache_semantics import build_cache_identity, file_content_sha256
 
 
 def resolve_market_cache_root(cache_dir: Path) -> Path:
@@ -94,18 +95,17 @@ def save_manifest(path: Path, payload: Dict[str, Any]) -> None:
 
 def file_fingerprint(path: Path) -> str:
     try:
-        st = path.stat()
-    except Exception:
+        return file_content_sha256(Path(path))
+    except (OSError, ValueError):
         return ""
-    token = f"{path.name}|{int(st.st_size)}|{int(getattr(st, 'st_mtime_ns', int(st.st_mtime * 1000000000)))}"
-    return hashlib.sha1(token.encode("utf-8", errors="ignore")).hexdigest()
 
 
 def batch_fingerprint(tokens: Iterable[str]) -> str:
-    vals = [str(x or "") for x in tokens if str(x or "")]
-    if not vals:
-        return "none"
-    return hashlib.sha1("||".join(sorted(vals)).encode("utf-8", errors="ignore")).hexdigest()
+    vals = sorted(str(token) for token in tokens if str(token or ""))
+    return build_cache_identity(
+        "market-data-content-batch",
+        {"tokens": vals},
+    ).digest
 
 
 def normalize_manifest_list(raw_manifest: Dict[str, Any], source: str) -> List[Dict[str, Any]]:

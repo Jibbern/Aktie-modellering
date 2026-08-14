@@ -831,7 +831,7 @@ def test_materialize_candidate_renames_existing_manifest_backed_file_to_normaliz
         rel_dir = repo_root / "GPRE" / "earnings_release"
         rel_dir.mkdir(parents=True, exist_ok=True)
         old_path = rel_dir / "SEC_EXHIBIT_8-K_2026-02-05_000130940226000016__TEXT.GIF__Document.htm"
-        old_path.write_text("release body", encoding="utf-8")
+        old_path.write_text("<html><body>release body</body></html>", encoding="utf-8")
         cand = MaterialCandidate(
             canonical_family="earnings_release",
             quarter=pd.Timestamp("2025-12-31").date(),
@@ -1051,6 +1051,36 @@ def test_pipeline_bundle_cache_key_changes_when_gpre_market_sidecars_change(monk
         updated_key = sm._pipeline_bundle_cache_key(args, cfg, repo_root)
 
         assert base_key != updated_key
+    finally:
+        shutil.rmtree(case_dir, ignore_errors=True)
+
+
+def test_pipeline_bundle_cache_key_owns_non_gaap_adjustment_domain_semantics(monkeypatch) -> None:
+    import stock_models as sm
+
+    case_dir = _make_case_dir()
+    try:
+        cache_dir = case_dir / "sec_cache" / "PBI"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        monkeypatch.setattr(sm, "_material_signature", lambda *_args, **_kwargs: "materials")
+        monkeypatch.setattr(sm, "_code_signature", lambda *_args, **_kwargs: "code")
+        monkeypatch.setattr(sm, "_sec_cache_signature", lambda *_args, **_kwargs: "sec")
+
+        key = sm._pipeline_bundle_cache_key(
+            argparse.Namespace(ticker="PBI", cik="", user_agent=""),
+            PipelineConfig(cache_dir=cache_dir, repo_root=case_dir),
+            case_dir,
+        )
+
+        monkeypatch.setattr(sm, "NON_GAAP_ADJUSTMENT_DOMAIN_VERSION", "mutation-domain-v2")
+        mutated_key = sm._pipeline_bundle_cache_key(
+            argparse.Namespace(ticker="PBI", cik="", user_agent=""),
+            PipelineConfig(cache_dir=cache_dir, repo_root=case_dir),
+            case_dir,
+        )
+
+        assert key.startswith("v1_canonical_json_sha256:pipeline-bundle:")
+        assert mutated_key != key
     finally:
         shutil.rmtree(case_dir, ignore_errors=True)
 

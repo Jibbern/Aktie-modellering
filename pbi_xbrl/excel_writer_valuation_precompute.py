@@ -17,6 +17,13 @@ from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Sequence,
 
 import pandas as pd
 
+from .cache_semantics import (
+    BUYBACK_AUTH_CACHE_VERSION,
+    BUYBACK_AUTH_DIRECT_CACHE_VERSION,
+    build_cache_identity,
+    file_content_sha256,
+)
+
 
 @dataclass(frozen=True)
 class ValuationPrecomputeDeps:
@@ -254,19 +261,11 @@ class ValuationPrecomputeSupport:
                     return root_path / "writer_cache" / "buyback_auth_remaining_cache.pkl"
             return None
 
-        def _buyback_auth_file_token(path_in: Path) -> Tuple[str, int, int]:
-            try:
-                resolved = str(path_in.expanduser().resolve())
-            except Exception:
-                resolved = str(path_in)
-            try:
-                st = path_in.stat()
-                return (resolved, int(getattr(st, "st_size", 0) or 0), int(getattr(st, "st_mtime_ns", 0) or 0))
-            except Exception:
-                return (resolved, -1, -1)
+        def _buyback_auth_file_token(path_in: Path) -> str:
+            return file_content_sha256(path_in)
 
-        def _buyback_auth_direct_doc_payload_local() -> List[Tuple[str, int, int]]:
-            doc_payload_direct: List[Tuple[str, int, int]] = []
+        def _buyback_auth_direct_doc_payload_local() -> List[str]:
+            doc_payload_direct: List[str] = []
             for cr in cache_roots:
                 if not cr.exists() or not cr.is_dir():
                     continue
@@ -279,22 +278,25 @@ class ValuationPrecomputeSupport:
                     doc_payload_direct.append(_buyback_auth_file_token(doc_path))
             return list(sorted(set(doc_payload_direct)))
 
-        def _buyback_auth_direct_cache_key_local() -> Optional[Dict[str, Any]]:
+        def _buyback_auth_direct_cache_key_local() -> Optional[str]:
             doc_payload_direct = _buyback_auth_direct_doc_payload_local()
             if not doc_payload_direct:
                 return None
-            return {
-                "version": "buyback_auth_remaining_cache_v1_direct_docs",
-                "ticker": str(profile_ticker or ticker or "").upper(),
-                "rows": tuple(),
-                "docs": tuple(doc_payload_direct),
-            }
+            return build_cache_identity(
+                "buyback-authorization-direct-documents",
+                {
+                    "semantic_versions": {"writer_cache": BUYBACK_AUTH_DIRECT_CACHE_VERSION},
+                    "source_content_sha256": doc_payload_direct,
+                    "ticker_profile": str(profile_ticker or ticker or "").upper(),
+                },
+                required_fields=("ticker_profile",),
+            ).key
 
-        def _buyback_auth_cache_key_local() -> Optional[Dict[str, Any]]:
+        def _buyback_auth_cache_key_local() -> Optional[str]:
             if not recent_rows:
                 return _buyback_auth_direct_cache_key_local()
             row_payload: List[Tuple[str, str, str, str, str]] = []
-            doc_payload: List[Tuple[str, int, int]] = []
+            doc_payload: List[str] = []
             for row in recent_rows[:8]:
                 form = str(row.get("form") or "").upper().strip()
                 if not (form.startswith("10-Q") or form.startswith("10-K") or form.startswith("8-K")):
@@ -321,12 +323,16 @@ class ValuationPrecomputeSupport:
                     doc_payload.append(_buyback_auth_file_token(doc_path))
             if not row_payload:
                 return _buyback_auth_direct_cache_key_local()
-            return {
-                "version": "buyback_auth_remaining_cache_v1",
-                "ticker": str(profile_ticker or ticker or "").upper(),
-                "rows": tuple(row_payload),
-                "docs": tuple(sorted(set(doc_payload))),
-            }
+            return build_cache_identity(
+                "buyback-authorization-registered-filings",
+                {
+                    "filing_identities": row_payload,
+                    "semantic_versions": {"writer_cache": BUYBACK_AUTH_CACHE_VERSION},
+                    "source_content_sha256": sorted(set(doc_payload)),
+                    "ticker_profile": str(profile_ticker or ticker or "").upper(),
+                },
+                required_fields=("ticker_profile",),
+            ).key
 
         buyback_auth_cache_key = _buyback_auth_cache_key_local()
         buyback_auth_cache_path = _buyback_auth_cache_path_local()

@@ -20,6 +20,78 @@ class _QuarterNarrativeFiscalPeriodProfile:
     year_label: str = "end"
 
 
+@dataclass(frozen=True)
+class QuarterNotesPeriodIdentity:
+    """Typed identity parsed from a supported Quarter Notes block header.
+
+    ``snapshot_key`` preserves the saved-workbook readback API's quarter-end
+    identity, while ``fiscal_period`` is the writer-owned event identity used
+    by the narrative renderer.
+    """
+
+    fiscal_year: int
+    fiscal_quarter: int
+    fiscal_period: str
+    snapshot_key: str
+    event_id: str
+
+
+def parse_quarter_notes_period_header(value: Any) -> Optional[QuarterNotesPeriodIdentity]:
+    """Parse writer-current and supported legacy Quarter Notes period headers."""
+
+    text = re.sub(r"\s+", " ", str(value or "").strip())
+    current_match = re.fullmatch(
+        r"(20\d{2})-Q([1-4])(?:\s*-\s*Quarter Notes)?",
+        text,
+        re.I,
+    )
+    legacy_match = re.fullmatch(r"Q([1-4])\s+(20\d{2})", text, re.I)
+    date_match = re.fullmatch(r"(20\d{2})-(\d{2})-(\d{2})", text)
+
+    if current_match:
+        year = int(current_match.group(1))
+        quarter = int(current_match.group(2))
+        month_day = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}[quarter]
+        snapshot_key = date(year, month_day[0], month_day[1]).isoformat()
+    elif legacy_match:
+        quarter = int(legacy_match.group(1))
+        year = int(legacy_match.group(2))
+        month_day = {1: (3, 31), 2: (6, 30), 3: (9, 30), 4: (12, 31)}[quarter]
+        snapshot_key = date(year, month_day[0], month_day[1]).isoformat()
+    elif date_match:
+        try:
+            parsed_date = date(
+                int(date_match.group(1)),
+                int(date_match.group(2)),
+                int(date_match.group(3)),
+            )
+        except ValueError:
+            return None
+        year = parsed_date.year
+        quarter = ((parsed_date.month - 1) // 3) + 1
+        snapshot_key = parsed_date.isoformat()
+    else:
+        return None
+
+    fiscal_period = f"{year}-Q{quarter}"
+    return QuarterNotesPeriodIdentity(
+        fiscal_year=year,
+        fiscal_quarter=quarter,
+        fiscal_period=fiscal_period,
+        snapshot_key=snapshot_key,
+        event_id=f"quarter-notes-event:{fiscal_period}",
+    )
+
+
+def format_quarter_notes_period_header(fiscal_period: Any) -> str:
+    """Format the sole current writer header from a typed fiscal period."""
+
+    identity = parse_quarter_notes_period_header(str(fiscal_period or "").strip())
+    if identity is None or not re.fullmatch(r"20\d{2}-Q[1-4]", str(fiscal_period or "").strip(), re.I):
+        raise ValueError(f"Unsupported Quarter Notes fiscal period: {fiscal_period!r}")
+    return f"{identity.fiscal_period} - Quarter Notes"
+
+
 def _quarter_narrative_safe_date(year: int, month: int, day: int) -> date:
     month = max(1, min(12, int(month)))
     day = max(1, min(31, int(day)))

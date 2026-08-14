@@ -13,9 +13,10 @@ runtime, not to bypass output verification.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
+import os
 import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -29,13 +30,29 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 from pbi_xbrl import __version__
 from pbi_xbrl.company_profiles import COMPANY_PROFILES, get_company_profile
 from pbi_xbrl.cache_layout import bootstrap_canonical_ticker_cache, canonical_ticker_cache_root
+from pbi_xbrl.cache_semantics import (
+    ADJUSTED_METRIC_HISTORY_SELECTION_VERSION,
+    ADJUSTED_METRIC_UNIT_NORMALIZATION_VERSION,
+    CACHE_IDENTITY_SERIALIZATION_VERSION,
+    DEBT_RATE_SEMANTIC_OWNERSHIP_VERSION,
+    DEBT_TABLE_PERIOD_OWNERSHIP_VERSION,
+    FINANCIAL_STATEMENT_DOCUMENT_PERIOD_VERSION,
+    INLINE_XBRL_FACT_TEXT_VERSION,
+    NON_GAAP_ADJUSTMENT_DOMAIN_VERSION,
+    PIPELINE_BUNDLE_CACHE_VERSION,
+    CacheIdentityError,
+    build_cache_identity,
+    content_file_set_identity,
+    file_content_sha256,
+    module_content_identity,
+    sec_cache_source_identity,
+)
 from pbi_xbrl import data_portability
 from pbi_xbrl.excel_writer import (
     _prune_saved_promise_progress_stub_rows,
-    enrich_quarter_notes_audit_rows_with_readback,
     validate_saved_workbook_after_audit_write,
     validate_saved_workbook_export,
-    write_quarter_notes_audit_sheet,
+    validate_saved_workbook_integrity,
 )
 from pbi_xbrl.market_data import market_input_fingerprint, sync_market_cache
 from pbi_xbrl.metrics import get_income_statement_rules
@@ -48,11 +65,33 @@ from pbi_xbrl.sec_xbrl import SecConfig
 from pbi_xbrl.xbrl_instance import InstanceMetadata, parse_instance
 
 SEC_USER_AGENT = "Equity model pipeline (contact: Jibbern@outlook.com)"
-PIPELINE_BUNDLE_CACHE_VERSION = 2
+
+
+class RepositoryIdentityError(RuntimeError):
+    """Raised when a cache signature cannot resolve a real code checkout."""
+
+
+class WorkbookPublicationError(RuntimeError):
+    """Raised when a verified workbook candidate cannot be atomically promoted."""
+
+
+def _require_checkout_root(path_in: Path) -> Path:
+    root = Path(path_in).expanduser().resolve()
+    git_marker = root / ".git"
+    required = (root / "stock_models.py", root / "pbi_xbrl")
+    if not git_marker.exists() or not required[0].is_file() or not required[1].is_dir():
+        raise RepositoryIdentityError(
+            "repository code root is unresolved; expected .git, stock_models.py, and pbi_xbrl at "
+            f"{root}"
+        )
+    return root
 
 
 def _project_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+    # The CLI module lives at the repository root.  Using its parent workspace
+    # accidentally points linked worktrees at the worktree container instead of
+    # the checked-out repository.
+    return _require_checkout_root(Path(__file__).resolve().parent)
 
 
 def _ticker_root(repo_root: Path, ticker: str | None) -> Path:
@@ -118,6 +157,9 @@ def _verify_saved_workbook_export(final_out_path: Path, writer_result: Any) -> D
         return validate_saved_workbook_export(
             final_out_path,
             quarter_notes_ui_snapshot=expected_snapshot,
+            quarter_notes_intentionally_empty=bool(
+                getattr(writer_result, "quarter_notes_intentionally_empty", False)
+            ),
             summary_export_expectation=getattr(writer_result, "summary_export_expectation", {}) or {},
             valuation_export_expectation=getattr(writer_result, "valuation_export_expectation", {}) or {},
             qa_export_expectation=getattr(writer_result, "qa_export_expectation", None),
@@ -129,28 +171,100 @@ def _verify_saved_workbook_export(final_out_path: Path, writer_result: Any) -> D
         ) from exc
 
 
-def _hash_file_stats(paths: Iterable[Path], max_files: int = 1200) -> str:
-    rows = []
-    for p in sorted({Path(x) for x in paths if x is not None}):
+def _verify_workbook_candidate(
+    candidate_path: Path,
+    writer_result: Any,
+    *,
+    quarter_notes_audit: bool,
+    full_export: bool = True,
+) -> Dict[str, Any]:
+    if full_export:
+        provenance = _verify_saved_workbook_export(candidate_path, writer_result)
+    else:
         try:
-            st = p.stat()
-        except Exception:
-            continue
-        rows.append(f"{p.name}|{int(st.st_size)}|{int(st.st_mtime)}")
-        if len(rows) >= max_files:
-            break
-    if not rows:
-        return "none"
-    return hashlib.sha1("||".join(rows).encode("utf-8", errors="ignore")).hexdigest()
+            validate_saved_workbook_integrity(candidate_path)
+        except Exception as exc:
+            raise WorkbookPublicationError(
+                f"candidate workbook integrity validation failed for {candidate_path}: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+        provenance = {}
+    if quarter_notes_audit:
+        try:
+            validate_saved_workbook_after_audit_write(
+                candidate_path,
+                quarter_notes_ui_snapshot=getattr(writer_result, "quarter_notes_ui_snapshot", {}) or {},
+                quarter_notes_header_text=str(getattr(writer_result, "quarter_notes_header_text", "") or ""),
+                quarter_notes_intentionally_empty=bool(
+                    getattr(writer_result, "quarter_notes_intentionally_empty", False)
+                ),
+            )
+        except Exception as exc:
+            raise WorkbookPublicationError(
+                f"candidate audit validation failed for {candidate_path}: {type(exc).__name__}: {exc}"
+            ) from exc
+    return provenance
+
+
+def _atomic_promote_verified_workbook(
+    candidate_path: Path,
+    final_path: Path,
+    writer_result: Any,
+    *,
+    quarter_notes_audit: bool,
+    full_export: bool = True,
+) -> Dict[str, Any]:
+    """Validate a candidate before replacing the accepted final workbook path."""
+
+    candidate = Path(candidate_path).resolve()
+    destination = Path(final_path).resolve()
+    provenance = _verify_workbook_candidate(
+        candidate,
+        writer_result,
+        quarter_notes_audit=quarter_notes_audit,
+        full_export=full_export,
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if candidate != destination:
+        try:
+            os.replace(candidate, destination)
+        except Exception as exc:
+            raise WorkbookPublicationError(
+                f"atomic workbook promotion failed: candidate={candidate} destination={destination}: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+    provenance = dict(provenance)
+    provenance["workbook_path"] = str(destination)
+    return provenance
+
+
+def _new_macro_candidate_path(final_path: Path) -> Path:
+    destination = Path(final_path).resolve()
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary_name = tempfile.mkstemp(
+        dir=destination.parent,
+        prefix=f".{destination.stem}.",
+        suffix=destination.suffix,
+    )
+    os.close(handle)
+    candidate = Path(temporary_name)
+    candidate.unlink()
+    return candidate
 
 
 def _material_signature(repo_root: Path, ticker: Optional[str], material_root: Optional[Path] = None) -> str:
     t = str(ticker or "").strip().upper()
     if not t:
-        return "none"
+        return build_cache_identity(
+            "pipeline-material-source-set",
+            {"files": [], "status": "not_applicable", "ticker": ""},
+        ).digest
     ticker_root = Path(material_root).expanduser().resolve() if material_root is not None else repo_root / t
     if not ticker_root.exists():
-        return "missing"
+        return build_cache_identity(
+            "pipeline-material-source-set",
+            {"files": [], "status": "registered_root_missing", "ticker": t},
+        ).digest
     dirs = [
         ticker_root / "annual_reports",
         ticker_root / "CEO_letters",
@@ -175,22 +289,30 @@ def _material_signature(repo_root: Path, ticker: Optional[str], material_root: O
             files.extend([p for p in d.rglob("*") if p.is_file()])
         except Exception:
             continue
-    return _hash_file_stats(files, max_files=1500)
+    return content_file_set_identity(
+        files,
+        contract_id="pipeline-material-source-set",
+        logical_root=ticker_root,
+        include_logical_names=True,
+        max_files=1500,
+    )
 
 
-def _code_signature(repo_root: Path) -> str:
-    files = [
-        repo_root / "Code" / "stock_models.py",
-        repo_root / "Code" / "pbi_xbrl" / "pipeline.py",
-        repo_root / "Code" / "pbi_xbrl" / "metrics.py",
-        repo_root / "Code" / "pbi_xbrl" / "non_gaap.py",
-        repo_root / "Code" / "pbi_xbrl" / "debt_parser.py",
-        repo_root / "Code" / "pbi_xbrl" / "doc_intel.py",
-        repo_root / "Code" / "pbi_xbrl" / "guidance_lexicon.py",
-        repo_root / "Code" / "pbi_xbrl" / "quarter_notes_lexicon.py",
-        repo_root / "Code" / "pbi_xbrl" / "period_resolver.py",
-    ]
-    return _hash_file_stats(files, max_files=100)
+def _code_signature(checkout_root: Path) -> str:
+    """Return a deterministic content identity for bundle-owning Python code.
+
+    The checkout root is deliberately distinct from StockModelData/material roots.
+    Hashing paths relative to the checkout makes primary and linked worktrees with
+    identical content produce the same identity; mtimes and filesystem placement do
+    not participate.
+    """
+
+    root = _require_checkout_root(checkout_root)
+    relative_names = ["stock_models.py", *sorted(path.relative_to(root).as_posix() for path in (root / "pbi_xbrl").rglob("*.py"))]
+    try:
+        return module_content_identity(root, relative_names, contract_id="pipeline-bundle-code")
+    except CacheIdentityError as exc:
+        raise RepositoryIdentityError(str(exc)) from exc
 
 
 def _default_history_export_path(ticker: str | None, suffix: str, paths: Optional[StockModelPathConfig] = None) -> Path:
@@ -223,21 +345,10 @@ def _default_cache_dir_for_ticker(repo_root: Path, ticker: str, data_root: Optio
 
 
 def _sec_cache_signature(cache_dir: Path) -> str:
-    pats = ["submissions_*.json", "companyfacts_*.json"]
-    blobs = []
-    for pat in pats:
-        try:
-            for fp in sorted(cache_dir.glob(pat)):
-                try:
-                    blobs.append(fp.read_bytes())
-                except Exception:
-                    st = fp.stat()
-                    blobs.append(f"{fp.name}|{int(st.st_size)}".encode("utf-8", errors="ignore"))
-        except Exception:
-            continue
-    if not blobs:
-        return "none"
-    return hashlib.sha1(b"||".join(blobs)).hexdigest()
+    # The bundle can consume filing documents as well as submissions/facts
+    # metadata. Published document bytes therefore participate directly; a
+    # stable filename/stat tuple is not sufficient source identity.
+    return sec_cache_source_identity(cache_dir)
 
 
 # This bundle cache is intentionally coarse. It stores the full pipeline output bundle
@@ -259,26 +370,46 @@ def _pipeline_bundle_cache_key(
         include_sidecars=True,
         ticker_root=market_ticker_root,
     )
-    return "|".join(
-        [
-            f"v{PIPELINE_BUNDLE_CACHE_VERSION}",
-            f"ticker={str(args.ticker or '').upper()}",
-            f"cik={str(args.cik or '')}",
-            f"max_q={cfg.max_quarters}",
-            f"min_year={cfg.min_year}",
-            f"tier2={int(cfg.enable_tier2_debt)}",
-            f"tier3={int(cfg.enable_tier3_non_gaap)}",
-            f"ngaap={cfg.non_gaap_mode}",
-            f"strict={cfg.strictness}",
-            f"preview={int(cfg.non_gaap_preview)}",
-            f"quiet_pdf={int(cfg.quiet_pdf_warnings)}",
-            f"skip_doc_intel={int(cfg.use_cached_doc_intel_only)}",
-            f"sec={_sec_cache_signature(cfg.cache_dir)}",
-            f"materials={_material_signature(repo_root, args.ticker, cfg.material_root)}",
-            f"code={_code_signature(repo_root)}",
-            f"market={str(market_fp.get('fingerprint') or 'none')}",
-        ]
-    )
+    payload = {
+        "bundle_version": PIPELINE_BUNDLE_CACHE_VERSION,
+        "code_identity": _code_signature(repo_root),
+        "configuration": {
+            "enable_tier2_debt": bool(cfg.enable_tier2_debt),
+            "enable_tier3_non_gaap": bool(cfg.enable_tier3_non_gaap),
+            "max_quarters": int(cfg.max_quarters),
+            "min_year": None if cfg.min_year is None else int(cfg.min_year),
+            "non_gaap_mode": str(cfg.non_gaap_mode),
+            "non_gaap_preview": bool(cfg.non_gaap_preview),
+            "quiet_pdf_warnings": bool(cfg.quiet_pdf_warnings),
+            "strictness": str(cfg.strictness),
+            "use_cached_doc_intel_only": bool(cfg.use_cached_doc_intel_only),
+        },
+        "market_source_identity": str(market_fp.get("fingerprint") or ""),
+        "material_source_identity": _material_signature(repo_root, args.ticker, cfg.material_root),
+        "profile_identity": {"ticker": ticker_u},
+        "sec_source_identity": _sec_cache_signature(cfg.cache_dir),
+        "semantic_versions": {
+            "adjusted_history": ADJUSTED_METRIC_HISTORY_SELECTION_VERSION,
+            "adjustment_domain": NON_GAAP_ADJUSTMENT_DOMAIN_VERSION,
+            "debt_period": DEBT_TABLE_PERIOD_OWNERSHIP_VERSION,
+            "debt_rate": DEBT_RATE_SEMANTIC_OWNERSHIP_VERSION,
+            "document_period": FINANCIAL_STATEMENT_DOCUMENT_PERIOD_VERSION,
+            "inline_xbrl_text": INLINE_XBRL_FACT_TEXT_VERSION,
+            "unit_norm": ADJUSTED_METRIC_UNIT_NORMALIZATION_VERSION,
+        },
+        "source_registration": {"cik": str(args.cik or ""), "ticker": ticker_u},
+    }
+    return build_cache_identity(
+        "pipeline-bundle",
+        payload,
+        required_fields=(
+            "bundle_version",
+            "code_identity",
+            "market_source_identity",
+            "material_source_identity",
+            "sec_source_identity",
+        ),
+    ).key
 
 
 def _pipeline_bundle_cache_paths(cache_dir: Path, ticker: Optional[str]) -> tuple[Path, Path]:
@@ -294,7 +425,14 @@ def _load_pipeline_bundle_cache(cache_dir: Path, ticker: Optional[str], cache_ke
         return None
     try:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        if meta.get("version") != PIPELINE_BUNDLE_CACHE_VERSION:
+            return None
+        if str(meta.get("identity_contract") or "") != CACHE_IDENTITY_SERIALIZATION_VERSION:
+            return None
         if not ignore_key and str(meta.get("key")) != str(cache_key):
+            return None
+        expected_payload_sha = str(meta.get("payload_sha256") or "")
+        if not expected_payload_sha or file_content_sha256(data_path) != expected_payload_sha:
             return None
         obj = pd.read_pickle(data_path)
         print("[pipeline_bundle_cache] hit", flush=True)
@@ -307,11 +445,14 @@ def _save_pipeline_bundle_cache(cache_dir: Path, ticker: Optional[str], cache_ke
     meta_path, data_path = _pipeline_bundle_cache_paths(cache_dir, ticker)
     try:
         pd.to_pickle(obj, data_path)
+        payload_sha256 = file_content_sha256(data_path)
         meta_path.write_text(
             json.dumps(
                 {
                     "version": PIPELINE_BUNDLE_CACHE_VERSION,
+                    "identity_contract": CACHE_IDENTITY_SERIALIZATION_VERSION,
                     "key": cache_key,
+                    "payload_sha256": payload_sha256,
                     "saved_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 },
                 ensure_ascii=True,
@@ -968,7 +1109,6 @@ def main() -> None:
         print(f"[OK] Wrote Excel: {out_path}")
         return
 
-    repo_root = Path(__file__).resolve().parents[1]
     pipeline_cache_key = _pipeline_bundle_cache_key(args, cfg, repo_root, paths=paths)
     pipeline_bundle = None
     timing_rows: Dict[str, float] = {}
@@ -1105,46 +1245,46 @@ def main() -> None:
             capture_saved_workbook_provenance=False,
             excel_debug_scope=args.excel_debug_scope,
         )
-    try:
-        if out_path.exists():
-            out_path.unlink()
-    except Exception:
-        pass
+    final_provenance: Dict[str, Any] = {}
     if args.skip_macro_injection:
         final_out_path = out_path.with_suffix(".xlsx")
-        try:
-            if final_out_path.exists():
-                final_out_path.unlink()
-        except Exception:
-            pass
-        try:
-            xlsx_tmp_path.replace(final_out_path)
-        except Exception:
-            final_out_path = xlsx_tmp_path
+        final_provenance = _atomic_promote_verified_workbook(
+            xlsx_tmp_path,
+            final_out_path,
+            writer_result,
+            quarter_notes_audit=bool(args.quarter_notes_audit) and not partial_debug_scope,
+            full_export=not partial_debug_scope,
+        )
         timing_rows["macro_injection"] = 0.0
         print("[Info] Macro injection skipped by flag.", flush=True)
     else:
+        macro_candidate_path = _new_macro_candidate_path(out_path)
         try:
             with _timed("macro_injection", enabled=cfg.profile_timings, store=timing_rows):
                 inject_valuation_macros(
                     xlsx_tmp_path,
-                    out_path,
+                    macro_candidate_path,
                     worksheet_name="Valuation",
                     debug_log_path=cfg.cache_dir / "xlsm_injection_debug.log",
                 )
-                _prune_saved_promise_progress_stub_rows(out_path)
+                _prune_saved_promise_progress_stub_rows(macro_candidate_path)
+                final_provenance = _atomic_promote_verified_workbook(
+                    macro_candidate_path,
+                    out_path,
+                    writer_result,
+                    quarter_notes_audit=bool(args.quarter_notes_audit) and not partial_debug_scope,
+                    full_export=not partial_debug_scope,
+                )
             final_out_path = out_path
         except Exception as e:
             final_out_path = out_path.with_suffix(".xlsx")
-            try:
-                if final_out_path.exists():
-                    final_out_path.unlink()
-            except Exception:
-                pass
-            try:
-                xlsx_tmp_path.replace(final_out_path)
-            except Exception:
-                final_out_path = xlsx_tmp_path
+            final_provenance = _atomic_promote_verified_workbook(
+                xlsx_tmp_path,
+                final_out_path,
+                writer_result,
+                quarter_notes_audit=bool(args.quarter_notes_audit) and not partial_debug_scope,
+                full_export=not partial_debug_scope,
+            )
             reason_hint = ""
             if isinstance(e, MacroInjectionError) and e.failed_step == "vbproject_access":
                 reason_hint = (
@@ -1167,30 +1307,11 @@ def main() -> None:
             )
         finally:
             try:
+                if macro_candidate_path.exists():
+                    macro_candidate_path.unlink()
+            finally:
                 if xlsx_tmp_path.exists():
                     xlsx_tmp_path.unlink()
-            except Exception:
-                pass
-
-    final_provenance: Dict[str, Any] = {}
-    if not partial_debug_scope:
-        final_provenance = _verify_saved_workbook_export(final_out_path, writer_result)
-        if bool(args.quarter_notes_audit):
-            final_audit_rows = enrich_quarter_notes_audit_rows_with_readback(
-                list(getattr(writer_result, "quarter_notes_audit_rows", []) or []),
-                final_provenance,
-            )
-            write_quarter_notes_audit_sheet(final_out_path, final_audit_rows)
-            try:
-                validate_saved_workbook_after_audit_write(
-                    final_out_path,
-                    quarter_notes_ui_snapshot=getattr(writer_result, "quarter_notes_ui_snapshot", {}) or {},
-                    quarter_notes_header_text=str(getattr(writer_result, "quarter_notes_header_text", "") or ""),
-                )
-            except Exception as exc:
-                raise SystemExit(
-                    f"ERROR: saved workbook audit verification failed for {final_out_path}: {type(exc).__name__}: {exc}"
-                ) from exc
 
     print(f"[OK] Wrote Excel: {final_out_path}")
     print(

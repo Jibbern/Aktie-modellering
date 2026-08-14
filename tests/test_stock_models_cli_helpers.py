@@ -10,11 +10,27 @@ def test_portable_data_root_resolves_cache_without_code_root(tmp_path: Path) -> 
     data_root = tmp_path / "OneDriveStockData"
     code_root.mkdir()
     data_root.mkdir()
+    expected_cache_dir = data_root / "sec_cache" / "GPRE"
+    expected_cache_dir.mkdir(parents=True)
 
     cache_dir = _default_cache_dir_for_ticker(code_root, "GPRE", data_root=data_root)
 
-    assert cache_dir == data_root / "sec_cache" / "GPRE"
+    assert cache_dir == expected_cache_dir
     assert cache_dir.exists()
+
+
+def test_portable_cache_resolution_has_no_implicit_filesystem_side_effect(
+    tmp_path: Path,
+) -> None:
+    code_root = tmp_path / "secondary-worktree"
+    data_root = tmp_path / "registered-data"
+    code_root.mkdir()
+    data_root.mkdir()
+
+    cache_dir = _default_cache_dir_for_ticker(code_root, "ANF", data_root=data_root)
+
+    assert cache_dir == data_root / "sec_cache" / "ANF"
+    assert not cache_dir.exists()
 
 
 def test_material_signature_can_use_explicit_ticker_material_root(tmp_path: Path) -> None:

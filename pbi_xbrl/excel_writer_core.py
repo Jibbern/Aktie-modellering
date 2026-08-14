@@ -39,6 +39,32 @@ from .writer_qa_policy import (
 )
 
 
+class WorkbookFinalizationError(RuntimeError):
+    """Material workbook finalization failure that blocks save/publication."""
+
+    def __init__(self, stage: str, cause: BaseException | str) -> None:
+        self.stage = str(stage)
+        self.cause_type = type(cause).__name__ if isinstance(cause, BaseException) else "ContractError"
+        detail = str(cause)
+        super().__init__(f"workbook finalization failed at stage={self.stage}: {self.cause_type}: {detail}")
+
+
+def _raise_material_finalization_failure(stage: str, exc: BaseException) -> None:
+    raise WorkbookFinalizationError(stage, exc) from exc
+
+
+def _record_optional_finalization_warning(ctx: WriterContext, stage: str, exc: BaseException) -> None:
+    warnings = ctx.state.setdefault("workbook_finalization_warnings", [])
+    warnings.append(
+        {
+            "stage": str(stage),
+            "material": False,
+            "error_type": type(exc).__name__,
+            "message": str(exc),
+        }
+    )
+
+
 @contextmanager
 def timed_writer_stage(
     writer_timings: Dict[str, float],
@@ -1691,18 +1717,18 @@ def finalize_workbook(ctx: WriterContext) -> None:
         txt = str(attr_text or "").strip()
         if not name or not txt:
             return
-        try:
-            if name in wb.defined_names:
-                del wb.defined_names[name]
-        except Exception:
-            pass
-        try:
-            wb.defined_names.add(DefinedName(name=name, attr_text=txt))
-        except Exception:
-            try:
-                wb.defined_names.append(DefinedName(name=name, attr_text=txt))
-            except Exception:
-                pass
+        if name in wb.defined_names:
+            del wb.defined_names[name]
+        defined_name = DefinedName(name=name, attr_text=txt)
+        add_name = getattr(wb.defined_names, "add", None)
+        if callable(add_name):
+            add_name(defined_name)
+            return
+        append_name = getattr(wb.defined_names, "append", None)
+        if callable(append_name):
+            append_name(defined_name)
+            return
+        raise RuntimeError("openpyxl defined-name collection has neither add nor append")
 
     try:
         signals_base_df = ctx.derived.signals_base_df if ctx.derived.signals_base_df is not None else state["signals_base_df"]
@@ -1968,10 +1994,7 @@ def finalize_workbook(ctx: WriterContext) -> None:
                             and mrange.max_col >= col_start
                             and mrange.min_col <= col_end
                         ):
-                            try:
-                                ws_val.unmerge_cells(str(mrange))
-                            except Exception:
-                                pass
+                            ws_val.unmerge_cells(str(mrange))
 
                 def _copy_style_from_template(row_idx: int) -> None:
                     if row_idx == body_template_row:
@@ -1990,11 +2013,8 @@ def finalize_workbook(ctx: WriterContext) -> None:
                     out_row = flags_header_row + 2 + idx
                     _unmerge_row_slice(out_row, title_col, title_end_col)
                     _unmerge_row_slice(out_row, support_col, support_end_col)
-                    try:
-                        ws_val.merge_cells(start_row=out_row, start_column=title_col, end_row=out_row, end_column=title_end_col)
-                        ws_val.merge_cells(start_row=out_row, start_column=support_col, end_row=out_row, end_column=support_end_col)
-                    except Exception:
-                        pass
+                    ws_val.merge_cells(start_row=out_row, start_column=title_col, end_row=out_row, end_column=title_end_col)
+                    ws_val.merge_cells(start_row=out_row, start_column=support_col, end_row=out_row, end_column=support_end_col)
                     _copy_style_from_template(out_row)
                     if idx == 0:
                         helper_formula = '=IFERROR(MATCH(1,\'Hidden_Value_Flags\'!$L$2:$L$100,0)+1,"")'
@@ -2144,14 +2164,22 @@ def finalize_workbook(ctx: WriterContext) -> None:
                     hv_interest_ref = _base_ref("interest_coverage") or _base_ref("interest_coverage_cash") or _base_ref("interest_coverage_pnl")
                     if hv_interest_ref:
                         _set_defined_name("Interest_Coverage", hv_interest_ref)
-    except Exception:
-        try:
-            import traceback
+    except Exception as exc:
+        _raise_material_finalization_failure("hidden_value_formula_finalization", exc)
 
-            print("[hidden_flags_sync] WARN row-link failed", flush=True)
-            traceback.print_exc()
-        except Exception:
-            pass
+    try:
+        runtime_sheet_states = dict(ctx.data.extra_values.get("runtime_sheet_states") or {})
+        for sheet_name, sheet_state in sorted(runtime_sheet_states.items()):
+            normalized_state = str(sheet_state)
+            if normalized_state not in {"visible", "hidden", "veryHidden"}:
+                raise ValueError(
+                    f"invalid runtime sheet state for {sheet_name}: {normalized_state!r}; "
+                    "expected visible, hidden, or veryHidden"
+                )
+            if sheet_name in wb.sheetnames:
+                wb[sheet_name].sheet_state = normalized_state
+    except Exception as exc:
+        _raise_material_finalization_failure("runtime_sheet_visibility", exc)
 
     try:
         current = list(wb.sheetnames)
@@ -2161,8 +2189,8 @@ def finalize_workbook(ctx: WriterContext) -> None:
             cur_idx = wb._sheets.index(ws_obj)
             if cur_idx != target_idx:
                 wb._sheets.insert(target_idx, wb._sheets.pop(cur_idx))
-    except Exception:
-        pass
+    except Exception as exc:
+        _raise_material_finalization_failure("declared_sheet_order", exc)
 
     try:
         if "History_Q" in wb.sheetnames:
@@ -2175,8 +2203,8 @@ def finalize_workbook(ctx: WriterContext) -> None:
                 if cur_idx != insert_at:
                     wb._sheets.insert(insert_at, wb._sheets.pop(cur_idx))
                 insert_at += 1
-    except Exception:
-        pass
+    except Exception as exc:
+        _raise_material_finalization_failure("raw_sheet_cluster_order", exc)
 
     try:
         ws_sum = wb["SUMMARY"]
@@ -2191,8 +2219,8 @@ def finalize_workbook(ctx: WriterContext) -> None:
             "H": 12.0,
         }.items():
             ws_sum.column_dimensions[col_name].width = max(width, min(width, ws_sum.column_dimensions[col_name].width or width))
-    except Exception:
-        pass
+    except Exception as exc:
+        _record_optional_finalization_warning(ctx, "summary_column_width_enrichment", exc)
 
     date_cols = {"quarter", "start", "end", "filed", "period_end", "period_start", "filed_date"}
     for ws in wb.worksheets:
@@ -2214,22 +2242,22 @@ def finalize_workbook(ctx: WriterContext) -> None:
         final_promise_cleanup = ctx.callbacks.extra_callbacks.get("_final_promise_progress_cleanup")
         if callable(final_promise_cleanup):
             final_promise_cleanup()
-    except Exception:
-        pass
+    except Exception as exc:
+        _raise_material_finalization_failure("promise_progress_cleanup_pre_polish", exc)
 
     try:
         shared_ui_polish = ctx.callbacks.extra_callbacks.get("_apply_shared_ui_conventions")
         if callable(shared_ui_polish):
             shared_ui_polish()
-    except Exception:
-        pass
+    except Exception as exc:
+        _raise_material_finalization_failure("shared_ui_conventions", exc)
 
     try:
         final_promise_cleanup = ctx.callbacks.extra_callbacks.get("_final_promise_progress_cleanup")
         if callable(final_promise_cleanup):
             final_promise_cleanup()
-    except Exception:
-        pass
+    except Exception as exc:
+        _raise_material_finalization_failure("promise_progress_cleanup_post_polish", exc)
 
     try:
         ws_pp = wb["Promise_Progress_UI"] if "Promise_Progress_UI" in wb.sheetnames else None
@@ -2282,13 +2310,31 @@ def finalize_workbook(ctx: WriterContext) -> None:
             shared_ui_polish = ctx.callbacks.extra_callbacks.get("_apply_shared_ui_conventions")
             if callable(shared_ui_polish):
                 shared_ui_polish()
-    except Exception:
-        pass
+    except Exception as exc:
+        _raise_material_finalization_failure("promise_progress_structural_cleanup", exc)
 
     try:
         wb.calculation.calcMode = "auto"
         wb.calculation.fullCalcOnLoad = True
         wb.calculation.forceFullCalc = True
-    except Exception:
-        pass
-    wb.save(ctx.data.out_path)
+    except Exception as exc:
+        _raise_material_finalization_failure("calculation_settings", exc)
+
+    try:
+        if not wb.worksheets:
+            raise ValueError("workbook has no worksheets")
+        if not any(ws.sheet_state == "visible" for ws in wb.worksheets):
+            raise ValueError("workbook has no visible worksheet")
+        for sheet_name, expected_state in sorted(runtime_sheet_states.items()):
+            if sheet_name in wb.sheetnames and wb[sheet_name].sheet_state != str(expected_state):
+                raise ValueError(
+                    f"runtime sheet state mismatch for {sheet_name}: "
+                    f"expected={expected_state!r} actual={wb[sheet_name].sheet_state!r}"
+                )
+        if wb.calculation.calcMode != "auto" or wb.calculation.fullCalcOnLoad is not True:
+            raise ValueError(
+                "calculation contract mismatch: "
+                f"calcMode={wb.calculation.calcMode!r} fullCalcOnLoad={wb.calculation.fullCalcOnLoad!r}"
+            )
+    except Exception as exc:
+        _raise_material_finalization_failure("in_memory_structural_validation", exc)

@@ -162,6 +162,7 @@ class WorkbookInputs:
     rebuild_doc_text_cache: bool = False
     profile_timings: bool = False
     quarter_notes_audit: bool = False
+    quarter_notes_intentionally_empty: bool = False
     capture_saved_workbook_provenance: bool = True
     excel_debug_scope: str = "full"
     guidance_raw: pd.DataFrame = field(default_factory=pd.DataFrame)

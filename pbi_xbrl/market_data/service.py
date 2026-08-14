@@ -23,6 +23,11 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
+from ..cache_semantics import (
+    MARKET_EXPORT_CACHE_VERSION as _MARKET_EXPORT_CACHE_VERSION,
+    MARKET_INPUT_FINGERPRINT_VERSION as _MARKET_INPUT_FINGERPRINT_VERSION,
+    build_cache_identity,
+)
 from ..conference_metadata import parse_metadata_key_values, parse_metadata_number, source_material_role
 from ..company_profiles import get_company_profile
 from ..debt_parser import read_html_tables_any
@@ -112,8 +117,6 @@ _GPRE_QUARTER_OPEN_LOCAL_FUTURES_MAX_PRIOR_DAYS = 7
 _GPRE_QUARTER_OPEN_FORWARD_FUTURES_LOOKAROUND_DAYS = 7
 _GPRE_AMS_BASIS_DEFAULT_STRATEGY = "exact1"
 _GPRE_COPRODUCT_SOURCE_PRIORITY: Tuple[str, ...] = ("nwer", "ams_3618")
-_MARKET_INPUT_FINGERPRINT_VERSION = "v1"
-_MARKET_EXPORT_CACHE_VERSION = "v2"
 _LOCAL_BARCHART_CORN_SOURCE_TYPE = "local_barchart_corn_futures_csv"
 _LOCAL_BARCHART_GAS_SOURCE_TYPE = "local_barchart_gas_futures_csv"
 _LOCAL_CHICAGO_ETHANOL_SOURCE_TYPE = "local_chicago_ethanol_futures_csv"
@@ -330,7 +333,11 @@ def _normalize_raw_manifest_entry(entry: Dict[str, Any], *, source: str, provide
         if not publication_txt:
             publication_txt = inferred
     asset_type = str(entry.get("asset_type") or "").strip() or str(provider._asset_type_for_name(resolved.name) or "").strip()
-    checksum = str(entry.get("checksum") or "").strip() or file_fingerprint(resolved)
+    # Stored manifest checksums are receipts, not authority. Recompute from
+    # published bytes so stat-preserving mutations cannot retain a warm cache.
+    checksum = file_fingerprint(resolved)
+    if not checksum:
+        return None
     return {
         "source": str(entry.get("source") or source),
         "source_id": str(entry.get("source_id") or resolved.stem),
@@ -744,23 +751,29 @@ def _market_export_cache_key(
     source_states: Iterable[Dict[str, Any]],
     input_fingerprint: str,
 ) -> str:
-    tokens: List[str] = [
-        f"ver={_MARKET_EXPORT_CACHE_VERSION}",
-        f"ticker={str(ticker or '').strip().upper()}",
-        f"input={str(input_fingerprint or '')}",
-    ]
-    tokens.extend(f"src={str(src or '').strip()}" for src in enabled_sources)
-    for state in source_states:
-        tokens.append(
-            "|".join(
-                [
-                    f"source={str(state.get('source') or '')}",
-                    f"raw={str(state.get('combined_raw_fingerprint') or '')}",
-                    f"parse={str(state.get('parse_version') or '')}",
-                ]
-            )
-        )
-    return batch_fingerprint(tokens)
+    ticker_u = str(ticker or "").strip().upper()
+    source_payloads = sorted(
+        (
+            {
+                "parse_version": str(state.get("parse_version") or ""),
+                "raw_content_identity": str(state.get("combined_raw_fingerprint") or ""),
+                "source": str(state.get("source") or ""),
+            }
+            for state in source_states
+        ),
+        key=lambda row: (row["source"], row["parse_version"], row["raw_content_identity"]),
+    )
+    return build_cache_identity(
+        "market-data-export",
+        {
+            "enabled_sources": sorted({str(source or "").strip() for source in enabled_sources}),
+            "input_content_identity": str(input_fingerprint or ""),
+            "semantic_versions": {"export": _MARKET_EXPORT_CACHE_VERSION},
+            "source_states": source_payloads,
+            "ticker_profile": ticker_u,
+        },
+        required_fields=("input_content_identity", "ticker_profile"),
+    ).key
 
 
 def _coerce_manifest_int(value: Any, default: int = 0) -> int:
@@ -864,18 +877,25 @@ def market_input_fingerprint(
         enabled_sources=enabled_sources,
         include_sidecars=bool(include_sidecars),
     )
-    tokens = [file_fingerprint(path) for path in tracked_files]
-    tokens.append(f"ver={_MARKET_INPUT_FINGERPRINT_VERSION}")
-    tokens.append(f"ticker={ticker_u}")
-    tokens.append(f"sidecars={int(bool(include_sidecars))}")
-    tokens.extend(f"src={src}" for src in enabled_sources)
+    source_hashes = sorted(file_fingerprint(path) for path in tracked_files)
+    fingerprint = build_cache_identity(
+        "market-data-input",
+        {
+            "enabled_sources": sorted(enabled_sources),
+            "include_sidecars": bool(include_sidecars),
+            "semantic_versions": {"input": _MARKET_INPUT_FINGERPRINT_VERSION},
+            "source_content_sha256": source_hashes,
+            "ticker_profile": ticker_u,
+        },
+        required_fields=("ticker_profile",),
+    ).key
     return {
         "ticker": ticker_u,
         "ticker_root": ticker_root,
         "enabled_sources": enabled_sources,
         "include_sidecars": bool(include_sidecars),
         "fingerprint_version": _MARKET_INPUT_FINGERPRINT_VERSION,
-        "fingerprint": batch_fingerprint(tokens),
+        "fingerprint": fingerprint,
         "tracked_paths": [str(path) for path in tracked_files],
     }
 
@@ -1377,6 +1397,7 @@ def sync_market_cache(
         and str(export_manifest.get("export_cache_version") or "") == _MARKET_EXPORT_CACHE_VERSION
         and str(export_manifest.get("export_cache_key") or "") == export_cache_key
         and tuple(export_manifest.get("sources_enabled") or ()) == tuple(enabled_sources)
+        and str(export_manifest.get("export_content_sha256") or "") == file_fingerprint(export_path)
     ):
         return SyncSummary(
             sources_enabled=enabled_sources,
@@ -1414,6 +1435,8 @@ def sync_market_cache(
             and str(manifest_entry.get("raw_fingerprint") or "") == combined_raw_fp
             and str(manifest_entry.get("parse_version") or "") == parse_version
             and str(manifest_entry.get("parse_status") or "") == "ok"
+            and str(manifest_entry.get("observations_sha256") or "") == file_fingerprint(obs_path)
+            and str(manifest_entry.get("quarterly_sha256") or "") == file_fingerprint(qtr_path)
         )
         if can_reuse:
             obs_df = _load_parquet(obs_path)
@@ -1431,6 +1454,8 @@ def sync_market_cache(
                 "parsed_at": pd.Timestamp.now("UTC").isoformat(),
                 "row_count": int(len(obs_df) + len(qtr_df)),
                 "parse_status": "ok",
+                "observations_sha256": file_fingerprint(obs_path),
+                "quarterly_sha256": file_fingerprint(qtr_path),
             }
             parsed_sources.append(source)
         all_export_parts.append(_build_export_rows(qtr_df, obs_df))
@@ -1473,6 +1498,7 @@ def sync_market_cache(
             "fingerprint_version": str(export_input_payload.get("fingerprint_version") or _MARKET_INPUT_FINGERPRINT_VERSION),
             "export_cache_version": _MARKET_EXPORT_CACHE_VERSION,
             "export_cache_key": export_cache_key,
+            "export_content_sha256": file_fingerprint(export_path),
             "export_rows": int(len(export_df)),
             "source_states": [
                 {
