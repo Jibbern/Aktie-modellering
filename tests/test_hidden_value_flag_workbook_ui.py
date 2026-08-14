@@ -1,31 +1,18 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Any
 
 import pytest
 from openpyxl import load_workbook
 
+from tests.workbook_test_resources import delivered_workbook_path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-WORKBOOK_DIR = Path(
-    os.environ.get(
-        "STOCK_MODEL_WORKBOOK_DIR",
-        str(REPO_ROOT / "StockModelData" / "outputs" / "Excel stock models"),
-    )
-)
 TICKERS = ("PBI", "GPRE", "ANF")
 
 
 def _load_workbook(ticker: str, *, data_only: bool = False) -> Any:
-    xlsx_path = WORKBOOK_DIR / f"{ticker}_model.xlsx"
-    xlsm_path = WORKBOOK_DIR / f"{ticker}_model.xlsm"
-    path = xlsx_path
-    if xlsm_path.exists() and (not xlsx_path.exists() or xlsm_path.stat().st_mtime >= xlsx_path.stat().st_mtime):
-        path = xlsm_path
-    if not path.exists():
-        pytest.skip(f"{path} is not available for hidden value UI tests")
+    path = delivered_workbook_path(ticker, Path(__file__).resolve())
     return load_workbook(path, data_only=data_only, read_only=False)
 
 

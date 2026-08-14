@@ -62,9 +62,11 @@ from pbi_xbrl.excel_writer_context import (
 )
 from pbi_xbrl.excel_writer_quarter_narrative import (
     QUARTER_NARRATIVE_DATA_HEADERS,
+    QuarterNarrativeRecord,
     _quarter_narrative_records_for_context,
     _quarter_narrative_records_for_ticker,
     _quarter_narrative_records_from_workbook_surfaces,
+    _quarter_narrative_select_visible_records,
     _write_quarter_narrative_data_sheet,
     _write_quarter_notes_ui_narrative_sheet,
 )
@@ -150,6 +152,229 @@ def test_quarter_narrative_records_cover_required_ticker_themes() -> None:
     assert "buybacks and share count" in anf_text
     assert "do not merge adjusted eps and gaap eps" in anf_text
     assert "never sum brand and geography rows together" in anf_text
+
+
+def _visible_narrative_record(
+    theme: str,
+    *,
+    ticker: str = "ANF",
+    fiscal_period: str = "2026-Q1",
+    linked_metric: str = "",
+    linked_sheet: str = "Quarter_Notes_UI",
+    amount: object = "",
+    unit: str = "",
+    confidence: str = "medium",
+    include_in_quarter_notes: bool = True,
+    include_in_investment_case: bool = False,
+) -> QuarterNarrativeRecord:
+    return QuarterNarrativeRecord(
+        ticker=ticker,
+        fiscal_period=fiscal_period,
+        source_period="2025-Q4",
+        source_date="2026-03-04",
+        source_type="earnings call transcript",
+        source_file="accepted-transcript.txt",
+        category="Earnings / margin",
+        theme=theme,
+        what_happened=f"{theme} source-backed development.",
+        management_framing=f"{theme} management framing.",
+        why_it_matters=f"{theme} matters.",
+        model_implication=f"Map {theme} once.",
+        valuation_implication=f"Use {theme} in the relevant scenario.",
+        double_count_guardrail=f"Do not double-count {theme}.",
+        linked_sheet=linked_sheet,
+        linked_metric=linked_metric,
+        amount=amount,
+        unit=unit,
+        confidence=confidence,
+        include_in_quarter_notes=include_in_quarter_notes,
+        include_in_investment_case=include_in_investment_case,
+    )
+
+
+def test_quarter_narrative_visible_selector_is_bounded_semantic_and_source_order_independent() -> None:
+    fillers = [_visible_narrative_record(f"Generic context {idx}") for idx in range(8)]
+    freight = _visible_narrative_record(
+        "Freight tailwind",
+        linked_metric="Freight tailwind (bps)",
+        linked_sheet="Investment_Case; Scenario Driver Bridge; Quarter_Notes_UI",
+        amount="~160",
+        unit="bps",
+        confidence="high",
+        include_in_investment_case=True,
+    )
+    duplicate_freight = _visible_narrative_record(
+        "Freight tailwind duplicate",
+        linked_metric="Freight tailwind (bps)",
+        linked_sheet="Investment_Case; Quarter_Notes_UI",
+        confidence="low",
+        include_in_investment_case=True,
+    )
+    excluded = [
+        _visible_narrative_record(
+            "Ineligible bound row",
+            linked_metric="Ineligible metric",
+            linked_sheet="Investment_Case; Quarter_Notes_UI",
+            amount=999,
+            unit="bps",
+            confidence="high",
+            include_in_quarter_notes=False,
+            include_in_investment_case=True,
+        ),
+        _visible_narrative_record(
+            "Wrong ticker bound row",
+            ticker="GPRE",
+            linked_metric="Wrong ticker metric",
+            linked_sheet="Investment_Case; Quarter_Notes_UI",
+            amount=999,
+            unit="bps",
+            confidence="high",
+            include_in_investment_case=True,
+        ),
+        _visible_narrative_record(
+            "Future period bound row",
+            fiscal_period="2026-Q2",
+            linked_metric="Future metric",
+            linked_sheet="Investment_Case; Quarter_Notes_UI",
+            amount=999,
+            unit="bps",
+            confidence="high",
+            include_in_investment_case=True,
+        ),
+    ]
+    records = [*fillers, *excluded, duplicate_freight, freight]
+
+    forward = _quarter_narrative_select_visible_records(
+        records,
+        ticker="ANF",
+        fiscal_period="2026-Q1",
+        section="key_developments",
+    )
+    reverse = _quarter_narrative_select_visible_records(
+        list(reversed(records)),
+        ticker="ANF",
+        fiscal_period="2026-Q1",
+        section="key_developments",
+    )
+    forward_keys = [(record.linked_metric or record.theme) for record in forward]
+    reverse_keys = [(record.linked_metric or record.theme) for record in reverse]
+
+    assert len(forward) == 6
+    assert forward_keys == reverse_keys
+    assert "Freight tailwind (bps)" in forward_keys
+    assert forward_keys.count("Freight tailwind (bps)") == 1
+    assert "Ineligible metric" not in forward_keys
+    assert "Wrong ticker metric" not in forward_keys
+    assert "Future metric" not in forward_keys
+
+
+def test_quarter_narrative_visible_selector_respects_present_and_absent_mapping_eligibility() -> None:
+    eligible = _visible_narrative_record(
+        "Bound driver",
+        linked_metric="Bound driver (bps)",
+        linked_sheet="Investment_Case; Quarter_Notes_UI",
+        amount=25,
+        unit="bps",
+        include_in_investment_case=True,
+    )
+    not_visible = _visible_narrative_record(
+        "Hidden bound driver",
+        linked_metric="Hidden driver (bps)",
+        linked_sheet="Investment_Case; Quarter_Notes_UI",
+        amount=25,
+        unit="bps",
+        include_in_quarter_notes=False,
+        include_in_investment_case=True,
+    )
+    not_mapped = QuarterNarrativeRecord(
+        ticker="ANF",
+        fiscal_period="2026-Q1",
+        theme="Unmapped context",
+        what_happened="Context only.",
+        include_in_quarter_notes=True,
+    )
+
+    selected = _quarter_narrative_select_visible_records(
+        [not_visible, not_mapped, eligible],
+        ticker="ANF",
+        fiscal_period="2026-Q1",
+        section="model_mapping",
+    )
+
+    assert [record.linked_metric for record in selected] == ["Bound driver (bps)"]
+
+
+def test_anf_freight_narrative_uses_accepted_transcript_and_approximate_semantics() -> None:
+    freight = next(
+        record
+        for record in _quarter_narrative_records_for_ticker("ANF")
+        if record.theme == "Freight tailwind"
+    )
+
+    assert freight.fiscal_period == "2026-Q1"
+    assert freight.source_period == "2025-Q4"
+    assert freight.source_date == "2026-03-04"
+    assert freight.source_type == "earnings call transcript"
+    assert freight.source_file == "ANF/earnings_transcripts/ANF_Q4_2025_transcript.txt"
+    assert "key=anf-transcript-2026-03-04" in freight.source_note
+    assert "3d62e4b3c62d05f8d3c7687289728a17beed7c85249ea952986fa5c3ae4a386d" in freight.source_note
+    assert "locator=line 60" in freight.source_note
+    assert freight.amount == "~160"
+    assert freight.unit == "bps"
+    assert "approximately 160 basis points" in freight.raw_quote_short
+    assert freight.include_in_quarter_notes is True
+    assert freight.include_in_investment_case is True
+
+
+def test_quarter_notes_renderer_keeps_direct_bound_freight_visible_under_crowding() -> None:
+    records = [_visible_narrative_record(f"Generic context {idx}") for idx in range(8)]
+    records.extend(
+        record
+        for record in _quarter_narrative_records_for_ticker("ANF")
+        if record.fiscal_period == "2026-Q1"
+    )
+    records.extend(
+        [
+            _visible_narrative_record(
+                "Wrong ticker",
+                ticker="GPRE",
+                linked_metric="Wrong ticker metric",
+                linked_sheet="Investment_Case; Quarter_Notes_UI",
+                amount=999,
+                unit="bps",
+                include_in_investment_case=True,
+            ),
+            _visible_narrative_record(
+                "Future period",
+                fiscal_period="2026-Q2",
+                linked_metric="Future metric",
+                linked_sheet="Investment_Case; Quarter_Notes_UI",
+                amount=999,
+                unit="bps",
+                include_in_investment_case=True,
+            ),
+        ]
+    )
+    wb = Workbook()
+    _write_quarter_notes_ui_narrative_sheet(
+        wb,
+        "ANF",
+        records,
+        history_periods=["2026-Q1"],
+    )
+    ws = wb["Quarter_Notes_UI"]
+    text = " | ".join(
+        str(ws.cell(row=row, column=col).value or "")
+        for row in range(1, ws.max_row + 1)
+        for col in range(1, ws.max_column + 1)
+    )
+
+    assert "Freight tailwind (bps)" in text
+    assert "Tariff impact (bps)" in text
+    assert "ERP disruption (bps)" in text
+    assert "Marketing headwind (bps)" in text
+    assert "Wrong ticker metric" not in text
+    assert "Future metric" not in text
 
 
 def test_quarter_narrative_data_sheet_has_required_headers_and_clean_rows() -> None:

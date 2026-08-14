@@ -6,9 +6,23 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
 
 import pytest
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import Cell
 from openpyxl.worksheet.worksheet import Worksheet
+
+from pbi_xbrl.excel_writer_quarter_narrative import (
+    format_quarter_notes_period_header,
+    parse_quarter_notes_period_header,
+    _quarter_narrative_recent_history_periods,
+    _quarter_narrative_records_for_context,
+    _write_quarter_notes_ui_narrative_sheet,
+)
+from pbi_xbrl.excel_writer import (
+    _quarter_notes_ui_snapshot_from_ws,
+    _validate_quarter_notes_ui_export_snapshot,
+    read_quarter_notes_ui_snapshot,
+)
+from tests.workbook_test_resources import delivered_workbook_path
 
 
 WORKBOOK_DIR = Path(
@@ -18,6 +32,75 @@ WORKBOOK_DIR = Path(
     )
 )
 TICKERS = ("PBI", "GPRE", "ANF")
+
+
+@pytest.mark.parametrize(
+    ("header", "fiscal_period", "snapshot_key"),
+    [
+        ("2026-Q2 - Quarter Notes", "2026-Q2", "2026-06-30"),
+        ("2026-Q2", "2026-Q2", "2026-06-30"),
+        ("Q2 2026", "2026-Q2", "2026-06-30"),
+        ("2026-06-30", "2026-Q2", "2026-06-30"),
+    ],
+)
+def test_quarter_notes_period_header_contract_roundtrips_supported_forms(
+    header: str,
+    fiscal_period: str,
+    snapshot_key: str,
+) -> None:
+    identity = parse_quarter_notes_period_header(header)
+    assert identity is not None
+    assert identity.fiscal_period == fiscal_period
+    assert identity.snapshot_key == snapshot_key
+    assert identity.event_id == f"quarter-notes-event:{fiscal_period}"
+    assert parse_quarter_notes_period_header(format_quarter_notes_period_header(fiscal_period)) == identity
+
+
+def test_quarter_notes_period_header_contract_rejects_malformed_or_ambiguous_headers() -> None:
+    for header in ("", "Quarter Notes", "2026-Q5 - Quarter Notes", "2026-Q2 - Notes", "Q2"):
+        assert parse_quarter_notes_period_header(header) is None
+
+
+def test_quarter_notes_saved_snapshot_reads_current_semantic_rows_and_fails_closed_on_empty_parse() -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Quarter_Notes_UI"
+    ws["A1"] = "2026-Q2 - Quarter Notes"
+    ws["A2"] = "Quarter read"
+    ws["A8"] = "Key developments"
+    ws["A9"] = "Theme"
+    ws["C9"] = "What happened"
+    ws["A10"] = "Source-backed milestone"
+    ws["C10"] = "The milestone was completed in Q2."
+
+    snapshot = _quarter_notes_ui_snapshot_from_ws(ws)
+    assert snapshot == {
+        "2026-06-30": [("Source-backed milestone", "The milestone was completed in Q2.")]
+    }
+    _validate_quarter_notes_ui_export_snapshot(snapshot, snapshot, Path("current.xlsx"))
+
+    malformed = Workbook().active
+    malformed.title = "Quarter_Notes_UI"
+    malformed["A1"] = "2026-Q2 - Notes"
+    malformed["B2"] = "Programs / initiatives"
+    malformed["C2"] = "Visible content whose period header cannot be parsed."
+    malformed_snapshot = _quarter_notes_ui_snapshot_from_ws(malformed)
+    assert malformed_snapshot == {}
+    with pytest.raises(RuntimeError, match="zero semantic rows"):
+        _validate_quarter_notes_ui_export_snapshot({}, {}, Path("malformed.xlsx"))
+    _validate_quarter_notes_ui_export_snapshot(
+        {},
+        {},
+        Path("intentionally-empty.xlsx"),
+        intentionally_empty=True,
+    )
+
+
+def test_current_delivered_quarter_notes_surfaces_parse_nonempty_for_every_profile() -> None:
+    for ticker in TICKERS:
+        snapshot = read_quarter_notes_ui_snapshot(delivered_workbook_path(ticker, Path(__file__)))
+        assert snapshot
+        assert any(rows for rows in snapshot.values())
 
 REQUIRED_NARRATIVE_HEADERS = [
     "Ticker",
@@ -552,8 +635,21 @@ def test_quarter_notes_references_are_consistent_with_promise_and_investment_cas
     }
 
     for ticker in TICKERS:
-        wb = _load_workbook(ticker)
+        wb = _load_workbook(ticker, data_only=False)
         try:
+            periods = _quarter_narrative_recent_history_periods(wb, limit=8)
+            records = _quarter_narrative_records_for_context(
+                ticker,
+                workbook=wb,
+                history_periods=periods,
+                max_per_period=5,
+            )
+            assert _write_quarter_notes_ui_narrative_sheet(
+                wb,
+                ticker,
+                records,
+                history_periods=periods,
+            )
             data_ws = wb["Quarter_Narrative_Data"]
             ui_ws = wb["Quarter_Notes_UI"]
             promise_text = _all_cell_text(wb["Promise_Progress_UI"])

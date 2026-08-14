@@ -268,6 +268,21 @@ def _build_quarter_notes_ui_candidate_support_namespace(runtime: MutableMapping[
             "doc": row.get("doc") or row.get("doc_path") or ev.get("doc_path") or "",
             "section": row.get("section_or_page") or ev.get("section") or ev.get("section_or_page") or "",
             "source_doc_end": row.get(q_col) if q_col else ev.get("source_doc_end"),
+            "source_document_id": row.get("source_document_id") or ev.get("source_document_id") or "",
+            "source_occurrence_id": (
+                row.get("source_occurrence_id")
+                or row.get("evidence_occurrence_id")
+                or ev.get("source_occurrence_id")
+                or ev.get("evidence_occurrence_id")
+                or ""
+            ),
+            "source_locator": (
+                row.get("source_locator")
+                or row.get("section_or_page")
+                or ev.get("source_locator")
+                or ev.get("section_or_page")
+                or ""
+            ),
         }
 
     def _candidate_texts(row: pd.Series) -> List[str]:
@@ -1801,6 +1816,9 @@ def _build_quarter_notes_ui_candidate_support_namespace(runtime: MutableMapping[
     def _gpre_source_note_rescue_rows() -> List[Dict[str, Any]]:
         return _quarter_notes_source_rescue_support_local().gpre_source_note_rescue_rows()
 
+    def _profile_milestone_source_rows() -> List[Dict[str, Any]]:
+        return _quarter_notes_source_rescue_support_local().profile_milestone_source_rows()
+
     def _pbi_seed_rescue_rows() -> List[Dict[str, Any]]:
         return _quarter_notes_source_rescue_support_local().pbi_seed_rescue_rows()
 
@@ -1952,6 +1970,12 @@ def _build_quarter_notes_ui_candidate_support_namespace(runtime: MutableMapping[
             labels.append("Adjusted EBIT / margin")
         if re.search(r"\b(fcf|free cash flow)\b", blob, re.I):
             labels.append("FCF improvement")
+        if (
+            re.search(r"\bstrategic review\b", blob, re.I)
+            and re.search(r"\b(?:phase 2|second phase)\b", blob, re.I)
+            and re.search(r"\binitiated\b", blob, re.I)
+        ):
+            labels.append("Strategic milestone")
         out: List[str] = []
         seen: set[str] = set()
         for label in labels:
@@ -2191,6 +2215,17 @@ def _build_quarter_notes_ui_candidate_support_namespace(runtime: MutableMapping[
                     f"{_fmt_short_money_value_local(current_val * 1_000_000.0)}"
                 )
 
+        if label == "Strategic milestone" and (
+            re.search(r"\bstrategic review\b", text, re.I)
+            and re.search(r"\b(?:phase 2|second phase)\b", text, re.I)
+            and re.search(r"\binitiated\b", text, re.I)
+        ):
+            quarter_label = (
+                f"Q{((qd_ref.month - 1) // 3) + 1} {qd_ref.year}"
+                if isinstance(qd_ref, date)
+                else "the reported quarter"
+            )
+            return _finish(f"Strategic review phase 2 was initiated in {quarter_label}")
         if label == "Strategic milestone" and re.search(
             r"\bstrategic review\b[^.]{0,240}?\b(?:phase 2|second phase)\b[^.]{0,240}?\b(?:by the end of the second quarter|end of q2(?:\s+2026)?|q2\s+2026)\b",
             text,
@@ -4392,6 +4427,7 @@ def _build_quarter_notes_ui_candidate_support_namespace(runtime: MutableMapping[
             "Deleveraging / liquidity",
             "Debt reduction",
             "Revenue / volume",
+            "Strategic milestone",
         }
         for rec in quarter_notes.to_dict("records"):
             q_ts = pd.to_datetime(rec.get(rescue_quarter_col), errors="coerce")
@@ -4428,7 +4464,7 @@ def _build_quarter_notes_ui_candidate_support_namespace(runtime: MutableMapping[
                 )
                 bucket_rescue = "Guidance / outlook"
             else:
-                compact_rescue = _pbi_detail_preserving_note_summary_local(label_rescue, detail_rescue_blob)
+                compact_rescue = _pbi_detail_preserving_note_summary_local(label_rescue, detail_rescue_blob, q_raw)
                 if not compact_rescue:
                     compact_rescue = _pbi_contextual_note_summary_local(label_rescue, q_raw, detail_rescue_blob)
                 if not compact_rescue:

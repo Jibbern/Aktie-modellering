@@ -1423,6 +1423,23 @@ def select_promise_progress_rows_for_display(
                 "_source_snip": txt_full or basis_txt,
                 "_source_doc": str(source_doc),
                 "_source_type": str(source_type),
+                "_source_document_id": str(
+                    src.get("source_document_id")
+                    or note_item.get("source_document_id")
+                    or ""
+                ),
+                "_source_occurrence_id": str(
+                    src.get("source_occurrence_id")
+                    or note_item.get("source_occurrence_id")
+                    or note_item.get("evidence_occurrence_id")
+                    or ""
+                ),
+                "_source_locator": str(
+                    src.get("source_locator")
+                    or src.get("section")
+                    or note_item.get("source_locator")
+                    or ""
+                ),
                 "_status_pri": 0 if str(_progress_status_from_tracker(metric_name, basis_txt)).lower() == "completed" else 1,
                 "_score": float(note_item.get("score") or 0.0),
                 "_fragment_penalty": _text_fragment_penalty(basis_txt),
@@ -2070,7 +2087,13 @@ def select_promise_progress_rows_for_display(
                     is_pbi_profile
                     and "Strategic milestone" not in existing_metric_names
                     and re.search(r"\bstrategic review\b", raw_note_txt, re.I)
-                    and re.search(r"\b(q[1-4]\s*20\d{2}|q[1-4]|20\d{2}|on track|by end of)\b", raw_note_txt, re.I)
+                    and (
+                        re.search(r"\b(q[1-4]\s*20\d{2}|q[1-4]|20\d{2}|on track|by end of)\b", raw_note_txt, re.I)
+                        or (
+                            re.search(r"\b(?:phase 2|second phase)\b", raw_note_txt, re.I)
+                            and re.search(r"\binitiated\b", raw_note_txt, re.I)
+                        )
+                    )
                 )
                 seed = _build_qnote_progress_seed(qd, note_item)
                 if seed is None and pbi_priority_note:
@@ -2164,7 +2187,13 @@ def select_promise_progress_rows_for_display(
                         metric_ref == "Strategic milestone"
                         and "Strategic milestone" not in existing_metric_names
                         and re.search(r"\bstrategic review\b", note_blob, re.I)
-                        and re.search(r"\b(q[1-4]\s*20\d{2}|q[1-4]|20\d{2}|on track|by end of)\b", note_blob, re.I)
+                        and (
+                            re.search(r"\b(q[1-4]\s*20\d{2}|q[1-4]|20\d{2}|on track|by end of)\b", note_blob, re.I)
+                            or (
+                                re.search(r"\b(?:phase 2|second phase)\b", note_blob, re.I)
+                                and re.search(r"\binitiated\b", note_blob, re.I)
+                            )
+                        )
                     )
                 elif is_gpre_profile:
                     should_add = (

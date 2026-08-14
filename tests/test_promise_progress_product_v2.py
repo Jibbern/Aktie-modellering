@@ -98,6 +98,7 @@ from pbi_xbrl.promise_progress_workbook_preview import (
     validate_promise_progress_workbook_binding_plan_v2,
     replay_ooxml_numeric_display,
 )
+from pbi_xbrl.path_config import resolve_effective_data_root_from_ancestors
 from scripts.build_anf_promise_progress_product_v2 import (
     COUNT_RECONCILIATION_KIND_SCHEMA_ID,
     COUNT_RECONCILIATION_REQUIRED_KINDS,
@@ -138,7 +139,10 @@ from scripts.build_anf_promise_progress_product_v2 import (
 
 
 REPO = Path(__file__).resolve().parents[1]
-SOURCE_ROOT = Path(r"C:\Users\Jibbe\Aktier\StockModelData")
+_DATA_ROOT_RESOLUTION = resolve_effective_data_root_from_ancestors(REPO, env={})
+if _DATA_ROOT_RESOLUTION.data_root is None:
+    raise RuntimeError("A registered StockModelData root is required for Product golden tests.")
+SOURCE_ROOT = _DATA_ROOT_RESOLUTION.data_root
 LEGACY_WORKBOOK = SOURCE_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
 DESIGN_LOCK = SOURCE_ROOT / "audit" / "promise_progress_design_lock"
 EVIDENCE_AUDIT_ROOT = (
@@ -248,6 +252,30 @@ def _strict_json(path: Path) -> dict:
         return result
 
     return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=pairs)
+
+
+def _canonical_json_fixture_bytes(path: Path) -> bytes:
+    """Return checkout-canonical bytes for a deterministic JSON fixture.
+
+    Product fixtures pin the exact output of their owning serializer (compact or
+    pretty, depending on the artifact), so formatting is part of their contract.
+    Validate the JSON strictly and normalize only Git's CRLF checkout conversion.
+    Workbook and other binary contracts continue to use raw byte or canonical
+    OOXML identity explicitly.
+    """
+
+    _strict_json(path)
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
+def _canonical_json_fixture_sha256(path: Path) -> str:
+    return hashlib.sha256(_canonical_json_fixture_bytes(path)).hexdigest()
+
+
+def _semantic_canonical_json_bytes(path: Path) -> bytes:
+    """Canonicalize JSON only for artifacts whose identity is semantic."""
+
+    return _json_bytes(_strict_json(path))
 
 
 def _manifest_artifacts(manifest: dict) -> dict[str, dict]:
@@ -468,8 +496,33 @@ def test_product_v2_serialization_is_closed_and_deterministic(candidate) -> None
         candidate.product.coverage_state = "complete_for_reviewed_scope"
 
 
+def test_versioned_json_golden_identity_is_checkout_newline_independent(
+    tmp_path: Path,
+) -> None:
+    lf = tmp_path / "lf.json"
+    crlf = tmp_path / "crlf.json"
+    reordered = tmp_path / "reordered.json"
+    changed = tmp_path / "changed.json"
+    duplicate = tmp_path / "duplicate.json"
+    lf.write_bytes(b'{"a":1,"b":{"c":2}}\n')
+    crlf.write_bytes(b'{"a":1,"b":{"c":2}}\r\n')
+    reordered.write_bytes(b'{"b":{"c":2},"a":1}\n')
+    changed.write_bytes(b'{"a":1,"b":{"c":3}}\n')
+    duplicate.write_bytes(b'{"a":1,"a":2}\n')
+
+    assert lf.read_bytes() != crlf.read_bytes()
+    assert _canonical_json_fixture_bytes(lf) == _canonical_json_fixture_bytes(crlf)
+    assert _canonical_json_fixture_bytes(lf) != _canonical_json_fixture_bytes(reordered)
+    assert _semantic_canonical_json_bytes(lf) == _semantic_canonical_json_bytes(reordered)
+    assert _canonical_json_fixture_sha256(lf) != _canonical_json_fixture_sha256(
+        changed
+    )
+    with pytest.raises(ValueError, match="duplicate JSON key"):
+        _canonical_json_fixture_bytes(duplicate)
+
+
 def test_product_v2_golden_manifest_pins_the_ultra_reviewed_package() -> None:
-    payload = V2_MANIFEST_GOLDEN.read_bytes()
+    payload = _canonical_json_fixture_bytes(V2_MANIFEST_GOLDEN)
     assert hashlib.sha256(payload).hexdigest() == EXPECTED_V2_MANIFEST_FILE_SHA256
     manifest = _strict_json(V2_MANIFEST_GOLDEN)
     artifacts = _manifest_artifacts(manifest)
@@ -514,9 +567,9 @@ def test_product_v2_regeneration_matches_versioned_source_product_and_shadow_gol
         build_product_v2_shadow(candidate.product, candidate.package)
     )
 
-    assert source_set_payload == V2_SOURCE_SET_GOLDEN.read_bytes()
-    assert product_payload == V2_PRODUCT_GOLDEN.read_bytes()
-    assert shadow_payload == V2_SHADOW_GOLDEN.read_bytes()
+    assert source_set_payload == _canonical_json_fixture_bytes(V2_SOURCE_SET_GOLDEN)
+    assert product_payload == _canonical_json_fixture_bytes(V2_PRODUCT_GOLDEN)
+    assert shadow_payload == _canonical_json_fixture_bytes(V2_SHADOW_GOLDEN)
     assert hashlib.sha256(source_set_payload).hexdigest() == EXPECTED_V2_SOURCE_SET_SHA256
     assert hashlib.sha256(product_payload).hexdigest() == EXPECTED_V2_PRODUCT_SHA256
     assert hashlib.sha256(shadow_payload).hexdigest() == EXPECTED_V2_SHADOW_SHA256
@@ -3065,7 +3118,7 @@ def test_product_v2_1_golden_publication_fixtures_are_exact() -> None:
         V2_1_MANIFEST_GOLDEN: EXPECTED_V2_1_GOLDEN_MANIFEST_SHA256,
     }
     assert {
-        path: sha256_file(path) for path in expected_fixture_hashes
+        path: _canonical_json_fixture_sha256(path) for path in expected_fixture_hashes
     } == expected_fixture_hashes
 
     manifest = _strict_json(V2_1_MANIFEST_GOLDEN)
@@ -3114,10 +3167,10 @@ def test_product_v2_1_golden_publication_fixtures_are_exact() -> None:
     assert validate_current_count_reconciliation_report(count_report) is True
 
     # Product@2.0 remains a separate immutable predecessor checkpoint.
-    assert sha256_file(V2_SOURCE_SET_GOLDEN) == EXPECTED_V2_SOURCE_SET_SHA256
-    assert sha256_file(V2_PRODUCT_GOLDEN) == EXPECTED_V2_PRODUCT_SHA256
-    assert sha256_file(V2_SHADOW_GOLDEN) == EXPECTED_V2_SHADOW_SHA256
-    assert sha256_file(V2_MANIFEST_GOLDEN) == EXPECTED_V2_MANIFEST_FILE_SHA256
+    assert _canonical_json_fixture_sha256(V2_SOURCE_SET_GOLDEN) == EXPECTED_V2_SOURCE_SET_SHA256
+    assert _canonical_json_fixture_sha256(V2_PRODUCT_GOLDEN) == EXPECTED_V2_PRODUCT_SHA256
+    assert _canonical_json_fixture_sha256(V2_SHADOW_GOLDEN) == EXPECTED_V2_SHADOW_SHA256
+    assert _canonical_json_fixture_sha256(V2_MANIFEST_GOLDEN) == EXPECTED_V2_MANIFEST_FILE_SHA256
 
 
 def test_product_v2_1_golden_regeneration_matches_reviewed_snapshot(
@@ -3125,19 +3178,21 @@ def test_product_v2_1_golden_regeneration_matches_reviewed_snapshot(
     final_count_reconciliation_bundle,
 ) -> None:
     assert serialize_package(successor_candidate.source_set) == (
-        V2_1_SOURCE_SET_GOLDEN.read_bytes()
+        _canonical_json_fixture_bytes(V2_1_SOURCE_SET_GOLDEN)
     )
     assert serialize_promise_progress_product_v2(successor_candidate.product) == (
-        V2_1_PRODUCT_GOLDEN.read_bytes()
+        _canonical_json_fixture_bytes(V2_1_PRODUCT_GOLDEN)
     )
     rebuilt_shadow = build_product_v2_shadow(
         successor_candidate.product,
         successor_candidate.package,
         evidence_foundation=successor_candidate.evidence_foundation,
     )
-    assert serialize_product_v2_shadow(rebuilt_shadow) == V2_1_SHADOW_GOLDEN.read_bytes()
+    assert serialize_product_v2_shadow(rebuilt_shadow) == _canonical_json_fixture_bytes(
+        V2_1_SHADOW_GOLDEN
+    )
     assert _json_bytes(final_count_reconciliation_bundle.report) == (
-        V2_1_COUNT_REPORT_GOLDEN.read_bytes()
+        _canonical_json_fixture_bytes(V2_1_COUNT_REPORT_GOLDEN)
     )
 
     foundation_artifacts = evidence_foundation_artifacts(

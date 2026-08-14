@@ -375,7 +375,7 @@ def write_promise_progress_ui_v2(deps: PromiseProgressOrchestratorDeps) -> List[
         return f"Q{qn} {int(t.year)}"
 
     milestone_action_re = re.compile(
-        r"\b(complete|finish|close|exit|launch|implement|reduce headcount|eliminate|deliver|achieve|reach|begin|executed|repaid|online|ramping|commissioning|fully operational)\b",
+        r"\b(complete|finish|close|exit|launch|implement|reduce headcount|eliminate|deliver|achieve|reach|begin|initiate|initiated|initiating|executed|repaid|online|ramping|commissioning|fully operational)\b",
         re.I,
     )
     milestone_deadline_re = re.compile(
@@ -394,7 +394,7 @@ def write_promise_progress_ui_v2(deps: PromiseProgressOrchestratorDeps) -> List[
         re.I,
     )
     milestone_progress_re = re.compile(
-        r"\b(on track|ramping|under construction|progressing|began|beginning|advancing|continuing|"
+        r"\b(on track|ramping|under construction|progressing|began|beginning|initiated|initiating|advancing|continuing|"
         r"commissioning|started up|online(?: and ramping)?|agreement executed|agreements executed|"
         r"construction progressing|received permit|permit received|ordered major equipment)\b",
         re.I,

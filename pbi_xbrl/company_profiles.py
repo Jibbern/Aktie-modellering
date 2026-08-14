@@ -66,6 +66,30 @@ class SourceMaterialSeed:
 
 
 @dataclasses.dataclass(frozen=True)
+class PromiseMilestoneEvidenceSelector:
+    """Declarative reviewed occurrence that may feed a Promise Progress milestone."""
+
+    selector_id: str
+    metric_label: str
+    source_family: str
+    relative_path: str
+    expected_sha256: str
+    publisher_id: str
+    document_type: str
+    document_key: str
+    publication_date: str
+    report_date: str
+    locator_kind: str
+    locator_key: str
+    locator_line: int
+    required_phrases: Tuple[str, ...]
+    normalized_summary: str
+    event_id: str
+    horizon: str
+    event_role: str
+
+
+@dataclasses.dataclass(frozen=True)
 class GaapMetricTagPolicy:
     """Declarative issuer/profile semantics for one generic GAAP metric."""
 
@@ -117,6 +141,7 @@ class CompanyProfile:
     economics_overlay_bridge_rows: Tuple[EconomicsOverlayBridgeRow, ...] = tuple()
     enabled_market_sources: Tuple[str, ...] = tuple()
     official_source_seeds: Tuple[SourceMaterialSeed, ...] = tuple()
+    promise_milestone_evidence_selectors: Tuple[PromiseMilestoneEvidenceSelector, ...] = tuple()
     debt_evidence_adapter_id: str = ""
     gaap_metric_tag_policies: Tuple[GaapMetricTagPolicy, ...] = tuple()
     source_material_coverage_quarters: int = 16
@@ -719,6 +744,31 @@ COMPANY_PROFILES: Dict[str, CompanyProfile] = {
                 seed_url="https://www.investorrelations.pitneybowes.com/financial-information/quarterly-results",
                 follow_detail_pages=False,
                 allowed_hosts=("www.investorrelations.pitneybowes.com",),
+            ),
+        ),
+        promise_milestone_evidence_selectors=(
+            PromiseMilestoneEvidenceSelector(
+                selector_id="promise-milestone:pbi:strategic-review-phase-2-initiated@1",
+                metric_label="Strategic milestone",
+                source_family="earnings_transcripts",
+                relative_path="earnings_transcripts/PBI_Q2_2026_transcript.txt",
+                expected_sha256="e730aa61670393a2fcdd3915d114d95a86e55ddfe18c70f2820d81aefa8130e4",
+                publisher_id="pitney-bowes",
+                document_type="earnings-transcript",
+                document_key="q2-2026-transcript",
+                publication_date="2026-07-30",
+                report_date="2026-06-30",
+                locator_kind="line",
+                locator_key="locator-statement-transcript-debt-ytd",
+                locator_line=34,
+                required_phrases=(
+                    "initiated the second phase of our Strategic Review",
+                    "will not be commenting on potential outcomes or timeline",
+                ),
+                normalized_summary="Strategic review phase 2 was initiated in Q2 2026.",
+                event_id="event:pbi:strategic-review-phase-2-initiated@1",
+                horizon="Q2 2026",
+                event_role="result_outcome",
             ),
         ),
         thesis_bridge_labels=(

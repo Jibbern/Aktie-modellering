@@ -504,6 +504,22 @@ def write_quarter_notes_ui_sheet(
     _gpre_seed_rescue_rows = _quarter_notes_candidate_support._gpre_seed_rescue_rows
     _gpre_raw_note_rescue_rows = _quarter_notes_candidate_support._gpre_raw_note_rescue_rows
     _gpre_source_note_rescue_rows = _quarter_notes_candidate_support._gpre_source_note_rescue_rows
+    _profile_milestone_source_rows = _quarter_notes_candidate_support._profile_milestone_source_rows
+
+    # Profile-declared reviewed milestones are source-owned candidates, not a
+    # fallback that depends on another narrative row surviving lexicon filters.
+    for candidate in _profile_milestone_source_rows():
+        candidate_key = (
+            candidate.get("quarter"),
+            candidate.get("bucket"),
+            str(candidate.get("metric_tag") or "").lower(),
+            glx_dedup_text_key(candidate.get("text_full")),
+        )
+        if not candidate_key[-1]:
+            continue
+        previous = best_by_key.get(candidate_key)
+        if previous is None or float(candidate.get("score") or 0.0) > float(previous.get("score") or 0.0):
+            best_by_key[candidate_key] = dict(candidate)
 
     if not best_by_key:
         ws["A2"] = "No notes after lexicon filtering."

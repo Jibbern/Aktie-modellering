@@ -155,6 +155,12 @@ def rewrite_shared_promise_progress_ui_from_blocks(
             txt,
             flags=re.I,
         )
+        txt = re.sub(
+            r"\bstrategic\s+review\s+phase\s+2\s+was\s+initiated\s+in\s+(?:Q2\s+2026|2026-Q2)\b",
+            "Phase 2 initiated",
+            txt,
+            flags=re.I,
+        )
         if re.fullmatch(r"-?\d+(?:\.\d+)?", txt):
             try:
                 val = float(txt)

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import hashlib
+from copy import deepcopy
+from functools import lru_cache
 from html import unescape
 import re
 from collections import Counter
@@ -40,6 +42,17 @@ SHELL = ROOT / "templates" / "standard_stock_model_template.xlsx"
 ANF_2019_RELEASE = DATA_ROOT / "tickers" / "ANF" / "earnings_release" / "8-K_2019-03-07_earnings_release.htm"
 
 
+@lru_cache(maxsize=1)
+def _baseline_package() -> dict:
+    return build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+
+
+def _package() -> dict:
+    """Return an isolated copy while paying the source scan cost only once per module."""
+
+    return deepcopy(_baseline_package())
+
+
 def _bindings() -> dict[str, dict]:
     return {
         binding["binding_id"]: binding
@@ -70,7 +83,7 @@ def test_fy2018_cash_and_inventory_match_the_source_release_scale() -> None:
     finally:
         wb.close()
 
-    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    package = _package()
     annual = next(row for row in package["annual_financials"]["rows"] if row["period"] == "2018-FY")
 
     assert annual["cash"]["value"] == 723.135
@@ -85,7 +98,7 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
     """ANF is a migration oracle, not input logic for generic onboarding."""
 
     assert ANF_WORKBOOK.exists()
-    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    package = _package()
     binding_payload = json.loads(BINDING_MAP.read_text(encoding="utf-8"))
     bindings = _bindings()
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
@@ -525,7 +538,7 @@ def test_anf_legacy_oracle_confirms_the_six_business_key_contracts_read_only() -
 
 def test_anf_planner_preserves_business_semantics_and_reconciles_final_qa_snapshot() -> None:
     assert ANF_WORKBOOK.exists()
-    package = build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+    package = _package()
     binding_payload = json.loads(BINDING_MAP.read_text(encoding="utf-8"))
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     identity = verify_shell_identity(SHELL, manifest=manifest, binding_payload=binding_payload)

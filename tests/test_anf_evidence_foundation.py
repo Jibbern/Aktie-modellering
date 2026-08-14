@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from pbi_xbrl.path_config import resolve_effective_data_root_from_ancestors
 from pbi_xbrl.longitudinal_memory.ticker_profiles.anf_evidence_foundation import (
     AUDIT_FILENAMES,
     AUDIT_SHA256,
@@ -20,7 +21,10 @@ from pbi_xbrl.longitudinal_memory.serialization import serialize_package
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-DATA_ROOT = Path(r"C:\Users\Jibbe\Aktier\StockModelData")
+DATA_ROOT_RESOLUTION = resolve_effective_data_root_from_ancestors(REPOSITORY_ROOT)
+if DATA_ROOT_RESOLUTION.data_root is None:
+    raise FileNotFoundError("No healthy registered StockModelData root is available for ANF evidence tests")
+DATA_ROOT = DATA_ROOT_RESOLUTION.data_root
 AUDIT_ROOT = (
     DATA_ROOT
     / "audit"
@@ -30,6 +34,14 @@ AUDIT_ROOT = (
 
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _repository_text_sha256(path: Path) -> str:
+    """Hash committed text bytes independent of Git's checkout EOL conversion."""
+
+    normalized = path.read_bytes().replace(b"\r\n", b"\n")
+    assert b"\r" not in normalized
+    return hashlib.sha256(normalized).hexdigest()
 
 
 @pytest.fixture(scope="session")
@@ -546,7 +558,11 @@ def test_accepted_product_goldens_and_anf_workbook_remain_exact() -> None:
             "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd"
         ),
     }
-    assert {path: _sha256(path) for path in expected} == expected
+    actual = {
+        path: (_sha256(path) if path.suffix == ".xlsx" else _repository_text_sha256(path))
+        for path in expected
+    }
+    assert actual == expected
 
 
 def test_product_v1_oracle_remains_frozen() -> None:

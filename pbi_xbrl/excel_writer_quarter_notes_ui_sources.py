@@ -13,6 +13,16 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import pandas as pd
 
+from .cache_semantics import (
+    GENERIC_SOURCE_NOTE_RESCUE_CACHE_VERSION,
+    build_cache_identity,
+    file_content_sha256,
+)
+from .longitudinal_memory.identity import (
+    evidence_occurrence_identity,
+    source_document_identity,
+)
+
 
 @dataclass(frozen=True)
 class QuarterNotesUiSourceRescueDeps:
@@ -84,6 +94,134 @@ class QuarterNotesUiSourceRescueSupport:
         self.deps = deps
         self._gpre_source_note_rescue_cache: Optional[List[Dict[str, Any]]] = None
         self._pbi_source_note_rescue_cache: Optional[List[Dict[str, Any]]] = None
+        self._profile_milestone_source_rescue_cache: Optional[List[Dict[str, Any]]] = None
+
+    def profile_milestone_source_rows(self) -> List[Dict[str, Any]]:
+        """Resolve profile-declared reviewed milestone occurrences, fail closed on drift."""
+
+        if self._profile_milestone_source_rescue_cache is not None:
+            return [dict(row) for row in self._profile_milestone_source_rescue_cache]
+        selectors = tuple(
+            getattr(self.deps.company_profile, "promise_milestone_evidence_selectors", ()) or ()
+        )
+        selector_ids = tuple(str(getattr(row, "selector_id", "") or "") for row in selectors)
+        if any(not value for value in selector_ids) or len(set(selector_ids)) != len(selector_ids):
+            raise ValueError("Promise milestone evidence selectors must have unique stable identities.")
+
+        allowed_quarters = set(self.deps.quarters or ())
+        company_id = str(getattr(self.deps.company_profile, "ticker", "") or "").strip().upper()
+        rows: List[Dict[str, Any]] = []
+        for selector in sorted(selectors, key=lambda row: str(row.selector_id)):
+            try:
+                report_date = date.fromisoformat(str(selector.report_date))
+                publication_date = date.fromisoformat(str(selector.publication_date))
+            except (TypeError, ValueError):
+                continue
+            quarter = pd.Timestamp(report_date).to_period("Q").end_time.date()
+            if quarter not in allowed_quarters:
+                continue
+            relative_path = Path(str(selector.relative_path or ""))
+            if (
+                not str(relative_path)
+                or relative_path.is_absolute()
+                or ".." in relative_path.parts
+            ):
+                continue
+            expected_sha = str(selector.expected_sha256 or "").strip().lower()
+            if not re.fullmatch(r"[0-9a-f]{64}", expected_sha):
+                continue
+
+            matched_paths: List[Path] = []
+            for material_root in sorted(
+                (Path(value) for value in self.deps.material_roots or ()),
+                key=lambda value: str(value).casefold(),
+            ):
+                candidate = material_root / relative_path
+                if not candidate.is_file():
+                    continue
+                try:
+                    if hashlib.sha256(candidate.read_bytes()).hexdigest() != expected_sha:
+                        continue
+                except OSError:
+                    continue
+                matched_paths.append(candidate)
+            if not matched_paths:
+                continue
+            selected_path = sorted(
+                {path.resolve() for path in matched_paths},
+                key=lambda value: str(value).casefold(),
+            )[0]
+            try:
+                source_lines = selected_path.read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeError):
+                continue
+            locator_line = int(selector.locator_line or 0)
+            if locator_line < 1 or locator_line > len(source_lines):
+                continue
+            excerpt = str(source_lines[locator_line - 1]).strip()
+            required_phrases = tuple(str(value or "").strip() for value in selector.required_phrases)
+            if not required_phrases or any(not phrase or phrase not in excerpt for phrase in required_phrases):
+                continue
+
+            source_document_id = source_document_identity(
+                company_id=company_id,
+                publisher_id=str(selector.publisher_id),
+                document_type=str(selector.document_type),
+                publication_date=publication_date.isoformat(),
+                document_key=str(selector.document_key),
+                revision=1,
+            )
+            source_occurrence_id = evidence_occurrence_identity(
+                company_id=company_id,
+                document_key=str(selector.document_key),
+                document_revision=1,
+                locator_kind=str(selector.locator_kind),
+                locator_key=str(selector.locator_key),
+                ordinal=1,
+            )
+            quarter_number = ((quarter.month - 1) // 3) + 1
+            summary = str(selector.normalized_summary or "").strip()
+            metric_label = str(selector.metric_label or "").strip()
+            if not summary or not metric_label:
+                continue
+            rows.append(
+                {
+                    "quarter": quarter,
+                    "bucket": "Programs / initiatives",
+                    "text_full": summary,
+                    "comment_full_text": excerpt,
+                    "score": 100.0,
+                    "candidate_type": "profile_reviewed_milestone_occurrence",
+                    "metric_tag": metric_label,
+                    "metric_canon": metric_label,
+                    "_metric_display": metric_label,
+                    "_pbi_compact_note": summary,
+                    "_render_summary": summary,
+                    "_render_summary_locked": True,
+                    "_force_note_passthrough": True,
+                    "_theme_scope_key": str(selector.event_id),
+                    "note_id": source_occurrence_id,
+                    "source_document_id": source_document_id,
+                    "source_occurrence_id": source_occurrence_id,
+                    "source_locator": f"{selector.locator_kind}:{locator_line}",
+                    "period_norm": f"period:{company_id.lower()}:cy{quarter.year}-q{quarter_number}@1",
+                    "disclosure_event_id": str(selector.event_id),
+                    "event_role": str(selector.event_role),
+                    "horizon": str(selector.horizon),
+                    "evidence_role": "result_evidence",
+                    "source": {
+                        "source_type": "transcript",
+                        "doc": str(selected_path),
+                        "form": "transcript",
+                        "source_document_id": source_document_id,
+                        "source_occurrence_id": source_occurrence_id,
+                        "source_locator": f"{selector.locator_kind}:{locator_line}",
+                        "publication_date": publication_date.isoformat(),
+                    },
+                }
+            )
+        self._profile_milestone_source_rescue_cache = [dict(row) for row in rows]
+        return [dict(row) for row in rows]
 
     def gpre_raw_note_rescue_rows(self) -> List[Dict[str, Any]]:
         _evidence_snippet_blob_local = self.deps._evidence_snippet_blob_local
@@ -473,7 +611,7 @@ class QuarterNotesUiSourceRescueSupport:
                 else:
                     if rescue_role not in {"later_evidence", "result_evidence", "broad_note_only"}:
                         continue
-                    compact_note = _pbi_detail_preserving_note_summary_local(label_local, detail_blob or txt)
+                    compact_note = _pbi_detail_preserving_note_summary_local(label_local, detail_blob or txt, q_raw)
                     if not compact_note:
                         compact_note = _pbi_contextual_note_summary_local(label_local, q_raw, detail_blob or txt)
                     if not compact_note:
@@ -1043,16 +1181,8 @@ class QuarterNotesUiSourceRescueSupport:
             ("earnings_transcripts", "transcript"),
         ]
 
-        def _generic_source_rescue_file_token(path_in: Path) -> Tuple[str, int, int]:
-            try:
-                resolved = str(path_in.expanduser().resolve())
-            except Exception:
-                resolved = str(path_in)
-            try:
-                st = path_in.stat()
-                return (resolved, int(getattr(st, "st_size", 0) or 0), int(getattr(st, "st_mtime_ns", 0) or 0))
-            except Exception:
-                return (resolved, -1, -1)
+        def _generic_source_rescue_file_token(path_in: Path) -> str:
+            return file_content_sha256(path_in)
 
         def _generic_source_rescue_candidate_files_local() -> List[Tuple[str, Path]]:
             # Cheap file inventory used only to validate the persistent rescue
@@ -1169,7 +1299,7 @@ class QuarterNotesUiSourceRescueSupport:
             sorted(
                 (
                     str(source_type),
-                    *_generic_source_rescue_file_token(path_in),
+                    _generic_source_rescue_file_token(path_in),
                 )
                 for source_type, path_in in _generic_source_rescue_candidate_files_local()
             )
@@ -1178,13 +1308,19 @@ class QuarterNotesUiSourceRescueSupport:
             "write_excel.ui.render.quarter_notes.setup.generic_source_rescue.file_fingerprint",
             time.perf_counter() - source_file_fingerprint_start,
         )
-        generic_source_cache_key = {
-            "version": "generic_source_note_rescue_cache_v3",
-            "ticker": str(profile_ticker or ticker or "").upper(),
-            "quarters": tuple(str(q) for q in quarters),
-            "profile_sector_packs": tuple(_profile_sector_pack_keys_local(company_profile)),
-            "source_file_fingerprint": source_file_fingerprint,
-        }
+        generic_source_cache_key = build_cache_identity(
+            "generic-source-note-rescue",
+            {
+                "profile_sector_packs": sorted(_profile_sector_pack_keys_local(company_profile)),
+                "quarters": [str(quarter) for quarter in quarters],
+                "semantic_versions": {
+                    "writer_cache": GENERIC_SOURCE_NOTE_RESCUE_CACHE_VERSION,
+                },
+                "source_content_identities": source_file_fingerprint,
+                "ticker_profile": str(profile_ticker or ticker or "").upper(),
+            },
+            required_fields=("ticker_profile",),
+        ).key
         generic_source_cache_path = _generic_source_rescue_cache_path_local()
         if generic_source_cache_path is not None and generic_source_cache_path.exists():
             cache_load_start = time.perf_counter()
@@ -1192,47 +1328,12 @@ class QuarterNotesUiSourceRescueSupport:
                 payload = pd.read_pickle(generic_source_cache_path)
                 payload_cache_key = payload.get("cache_key") if isinstance(payload, dict) else None
                 cache_key_matches = payload_cache_key == generic_source_cache_key
-                if not cache_key_matches and isinstance(payload_cache_key, dict):
-                    legacy_source_fp = payload_cache_key.get("source_fingerprint")
-                    if (
-                        payload_cache_key.get("version") == "generic_source_note_rescue_cache_v2"
-                        and payload_cache_key.get("ticker") == generic_source_cache_key.get("ticker")
-                        and tuple(payload_cache_key.get("quarters") or tuple()) == tuple(generic_source_cache_key.get("quarters") or tuple())
-                        and isinstance(legacy_source_fp, tuple)
-                    ):
-                        try:
-                            legacy_file_fp = tuple(
-                                sorted(
-                                    (
-                                        str(item[1]),
-                                        str(item[2]),
-                                        int(item[3]),
-                                        int(item[4]),
-                                    )
-                                    for item in legacy_source_fp
-                                    if isinstance(item, tuple) and len(item) >= 5
-                                )
-                            )
-                        except Exception:
-                            legacy_file_fp = tuple()
-                        cache_key_matches = legacy_file_fp == source_file_fingerprint
                 if isinstance(payload, dict) and cache_key_matches:
                     cached_payload_rows = payload.get("rows")
                     if isinstance(cached_payload_rows, list):
                         cached_out = [dict(x) for x in cached_payload_rows if isinstance(x, dict)]
                         if ctx_ref is not None:
                             setattr(ctx_ref.derived, cache_key, [dict(x) for x in cached_out])
-                        if payload_cache_key != generic_source_cache_key:
-                            try:
-                                pd.to_pickle(
-                                    {
-                                        "cache_key": generic_source_cache_key,
-                                        "rows": [dict(x) for x in cached_out],
-                                    },
-                                    generic_source_cache_path,
-                                )
-                            except Exception:
-                                pass
                         _record_writer_elapsed(
                             "write_excel.ui.render.quarter_notes.setup.generic_source_rescue.disk_cache_hit",
                             time.perf_counter() - cache_load_start,
@@ -1499,7 +1600,7 @@ class QuarterNotesUiSourceRescueSupport:
                                     }
                                 )
                     elif metric_label in {"Strategic milestone", "Deleveraging / liquidity", "Management framing / strategy"}:
-                        summary_txt = _pbi_detail_preserving_note_summary_local(metric_label, snippet)
+                        summary_txt = _pbi_detail_preserving_note_summary_local(metric_label, snippet, q_raw)
                         if summary_txt:
                             summary_variants.append(
                                 {
@@ -2140,6 +2241,12 @@ class QuarterNotesUiSourceRescueSupport:
                 "Cash / liquidity / leverage",
                 88.0,
                 r"\brepurchas\w*\s+\$?\s*\d+(?:\.\d+)?\s*million\s+in\s+shares?\b[^.]{0,180}?\b(?:during|in)\s+the\s+(?:first|second|third|fourth)\s+quarter\b[^.]*\.",
+            ),
+            (
+                "Strategic milestone",
+                "Programs / initiatives",
+                92.0,
+                r"(?=[^.]{0,320}\bstrategic review\b)(?=[^.]{0,320}\b(?:phase 2|second phase)\b)(?=[^.]{0,320}\binitiated\b)[^.]{1,360}\.",
             ),
             (
                 "Strategic milestone",

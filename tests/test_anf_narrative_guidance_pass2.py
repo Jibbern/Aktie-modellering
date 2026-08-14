@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from copy import deepcopy
+from functools import lru_cache
 from pathlib import Path
 
 from pbi_xbrl.json_schema_validation import load_json_strict
@@ -29,8 +30,15 @@ ANF_WORKBOOK = DATA_ROOT / "outputs" / "Excel stock models" / "ANF_model.xlsx"
 BINDING_MAP = ROOT / "docs" / "workbook_binding_map.json"
 
 
-def _package() -> dict:
+@lru_cache(maxsize=1)
+def _baseline_package() -> dict:
     return build_anf_normalized_package(data_root=DATA_ROOT, workbook_path=ANF_WORKBOOK)
+
+
+def _package() -> dict:
+    """Return an isolated copy of the one immutable source-native test baseline."""
+
+    return deepcopy(_baseline_package())
 
 
 def _plan(package: dict):

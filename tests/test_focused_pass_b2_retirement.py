@@ -13,6 +13,7 @@ from openpyxl.styles import PatternFill
 from openpyxl.styles.differential import DifferentialStyle
 from openpyxl.utils import range_boundaries
 
+import pbi_xbrl.standard_template_formula_contract as formula_contract
 from pbi_xbrl.new_ticker_investment_case_formula_surface import (
     CANONICAL_SCENARIOS,
     CANONICAL_VALUATION_METHODS,
@@ -417,6 +418,7 @@ def test_old_bindings_formula_ids_inputs_and_normalized_outputs_are_deleted() ->
 
     formula_ids = {contract.formula_id for contract in formula_target_contracts()}
     assert RETIRED_FORMULA_IDS.isdisjoint(formula_ids)
+    assert not hasattr(formula_contract, "_scenario_revenue_route_formula")
     module_payload = _json(MODULE_MANIFEST)
     module_formula_ids = {
         str(formula_id)

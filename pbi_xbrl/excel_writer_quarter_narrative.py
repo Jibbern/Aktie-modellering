@@ -707,13 +707,19 @@ def _quarter_narrative_records_for_ticker(ticker: Any) -> List[QuarterNarrativeR
         )
         _rec(
             fiscal_period="2026-Q1",
-            source_period="2026-Q1",
+            source_period="2025-Q4",
             source_date="2026-03-04",
-            source_type=source_type,
-            source_file="ANF/earnings_release/8-K_2026-03-04_earnings_release.htm",
+            source_type="earnings call transcript",
+            source_file="ANF/earnings_transcripts/ANF_Q4_2025_transcript.txt",
+            source_note=(
+                "doc:v1|co=ANF|publisher=abercrombie-fitch|type=earnings-transcript|"
+                "pub=2026-03-04|key=anf-transcript-2026-03-04|rev=1 | "
+                "sha256=3d62e4b3c62d05f8d3c7687289728a17beed7c85249ea952986fa5c3ae4a386d | "
+                "locator=line 60 | applies to FY2026-Q1"
+            ),
             category="Earnings / margin",
             theme="Freight tailwind",
-            what_happened="Freight was identified as a positive margin offset.",
+            what_happened="Freight was expected to provide an approximately 160 bps positive margin offset in FY2026-Q1.",
             management_framing="Freight relief helps offset tariff, ERP and marketing headwinds.",
             why_it_matters="Tailwinds should preserve positive sign in the margin bridge.",
             model_implication="Convert freight bps to $m using active revenue.",
@@ -721,10 +727,11 @@ def _quarter_narrative_records_for_ticker(ticker: Any) -> List[QuarterNarrativeR
             double_count_guardrail="Do not net freight into tariff if individual rows are modeled.",
             linked_sheet="Investment_Case; Scenario Driver Bridge; Quarter_Notes_UI",
             linked_metric="Freight tailwind (bps)",
-            amount=160,
+            amount="~160",
             unit="bps",
             confidence="high",
             include_in_investment_case=True,
+            raw_quote_short="expected freight tailwind of approximately 160 basis points for the quarter",
         )
         _rec(
             fiscal_period="2026-Q1",
@@ -1864,6 +1871,119 @@ def _quarter_narrative_records_for_context(
     return sorted(winners.values(), key=lambda rec: (_quarter_narrative_period_sort_key(rec.fiscal_period), str(rec.theme or "")), reverse=True)
 
 
+_QUARTER_NARRATIVE_VISIBLE_ROW_LIMIT = 6
+
+
+def _quarter_narrative_visible_semantic_key(record: QuarterNarrativeRecord) -> Tuple[str, str, str]:
+    def _normalized(value: Any) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", str(value or "").strip().lower()).strip()
+
+    semantic_name = _normalized(record.linked_metric) or _normalized(record.theme) or _normalized(record.what_happened)
+    return (
+        str(record.ticker or "").strip().upper(),
+        str(record.fiscal_period or "").strip().upper(),
+        semantic_name,
+    )
+
+
+def _quarter_narrative_visible_priority(
+    record: QuarterNarrativeRecord,
+    *,
+    section: str,
+) -> Tuple[Any, ...]:
+    def _normalized(value: Any) -> str:
+        return re.sub(r"[^a-z0-9]+", " ", str(value or "").strip().lower()).strip()
+
+    linked_sheet = _normalized(record.linked_sheet)
+    linked_metric = _normalized(record.linked_metric)
+    theme = _normalized(record.theme)
+    explicit_model_target = "investment case" in linked_sheet or "scenario" in linked_sheet
+    explicit_model_binding = bool(record.include_in_investment_case and explicit_model_target and linked_metric)
+    explicit_link = bool(linked_sheet and linked_metric)
+    amount_present = record.amount is not None and bool(str(record.amount).strip())
+    quantitative = bool(amount_present and str(record.unit or "").strip())
+    source_backed = bool(
+        str(record.source_date or "").strip()
+        and str(record.source_type or "").strip()
+        and (str(record.source_file or "").strip() or str(record.source_note or "").strip())
+    )
+    confidence_rank = {"high": 3, "medium": 2, "med": 2, "low": 1}.get(
+        str(record.confidence or "").strip().lower(),
+        0,
+    )
+    mapping_eligible = bool(
+        record.include_in_investment_case
+        or str(record.double_count_guardrail or "").strip()
+        or str(record.linked_sheet or "").strip()
+    )
+    section_rank = explicit_model_binding if section == "model_mapping" else bool(explicit_model_binding or quantitative)
+    return (
+        -int(section_rank),
+        -int(explicit_model_binding),
+        -int(record.include_in_investment_case),
+        -int(explicit_model_target),
+        -int(quantitative),
+        -int(explicit_link),
+        -confidence_rank,
+        -int(source_backed),
+        -int(mapping_eligible),
+        linked_metric or theme,
+        theme,
+        _normalized(record.source_date),
+        _normalized(record.source_type),
+        _normalized(record.source_file or record.source_note),
+        _normalized(record.what_happened),
+    )
+
+
+def _quarter_narrative_select_visible_records(
+    records: Sequence[QuarterNarrativeRecord],
+    *,
+    ticker: Any,
+    fiscal_period: Any,
+    section: str,
+    limit: int = _QUARTER_NARRATIVE_VISIBLE_ROW_LIMIT,
+) -> List[QuarterNarrativeRecord]:
+    """Select deterministic, semantically useful rows for a bounded UI section."""
+    if section not in {"key_developments", "model_mapping"}:
+        raise ValueError(f"Unsupported quarter narrative visible section: {section!r}")
+    row_limit = max(0, int(limit or 0))
+    if row_limit == 0:
+        return []
+    ticker_txt = str(ticker or "").strip().upper()
+    period_txt = str(fiscal_period or "").strip().upper()
+    candidates: List[QuarterNarrativeRecord] = []
+    for record in records:
+        if not record.include_in_quarter_notes:
+            continue
+        if str(record.ticker or "").strip().upper() != ticker_txt:
+            continue
+        if str(record.fiscal_period or "").strip().upper() != period_txt:
+            continue
+        if section == "model_mapping" and not (
+            record.include_in_investment_case
+            or str(record.double_count_guardrail or "").strip()
+            or str(record.linked_sheet or "").strip()
+        ):
+            continue
+        candidates.append(record)
+
+    selected: List[QuarterNarrativeRecord] = []
+    seen: Set[Tuple[str, str, str]] = set()
+    for record in sorted(
+        candidates,
+        key=lambda rec: _quarter_narrative_visible_priority(rec, section=section),
+    ):
+        identity = _quarter_narrative_visible_semantic_key(record)
+        if not identity[2] or identity in seen:
+            continue
+        seen.add(identity)
+        selected.append(record)
+        if len(selected) >= row_limit:
+            break
+    return selected
+
+
 def _quarter_narrative_read_block(records: Sequence[QuarterNarrativeRecord]) -> List[Tuple[str, str]]:
     if not records:
         missing = "No source-backed narrative items generated for this quarter."
@@ -1905,13 +2025,25 @@ def _write_quarter_notes_ui_narrative_sheet(
     quarters_shown: int = 12,
     history_periods: Optional[Sequence[str]] = None,
 ) -> bool:
-    records_list = list(records if records is not None else _quarter_narrative_records_for_ticker(ticker))
-    records_list = [r for r in records_list if r.include_in_quarter_notes]
+    ticker_txt = str(ticker or "").strip().upper()
+    records_list = list(records if records is not None else _quarter_narrative_records_for_ticker(ticker_txt))
+    records_list = [
+        r
+        for r in records_list
+        if r.include_in_quarter_notes and str(r.ticker or "").strip().upper() == ticker_txt
+    ]
     recent_history_periods = [
         str(period or "").strip()
         for period in (history_periods if history_periods is not None else _quarter_narrative_recent_history_periods(wb, limit=8))
         if str(period or "").strip()
     ][:8]
+    if history_periods is not None:
+        allowed_periods = {period.upper() for period in recent_history_periods}
+        records_list = [
+            record
+            for record in records_list
+            if str(record.fiscal_period or "").strip().upper() in allowed_periods
+        ]
     if not records_list and not recent_history_periods:
         return False
     if "Quarter_Notes_UI" in wb.sheetnames:
@@ -2023,7 +2155,11 @@ def _write_quarter_notes_ui_narrative_sheet(
             row += 1
         return row
 
-    def _write_key_developments(row: int, quarter_records: Sequence[QuarterNarrativeRecord]) -> int:
+    def _write_key_developments(
+        row: int,
+        period: str,
+        quarter_records: Sequence[QuarterNarrativeRecord],
+    ) -> int:
         row = _section(row, "Key developments")
         row = _table_header(
             row,
@@ -2035,9 +2171,15 @@ def _write_quarter_notes_ui_narrative_sheet(
                 (13, 15, "Source / confidence"),
             ],
         )
-        if not quarter_records:
+        visible_records = _quarter_narrative_select_visible_records(
+            quarter_records,
+            ticker=ticker_txt,
+            fiscal_period=period,
+            section="key_developments",
+        )
+        if not visible_records:
             return _write_no_info_row(row)
-        for idx, rec in enumerate(quarter_records[:6]):
+        for idx, rec in enumerate(visible_records):
             fill = zebra_light if idx % 2 == 0 else zebra_dark
             model_text = " ".join(
                 part for part in [rec.model_implication, rec.valuation_implication] if str(part or "").strip()
@@ -2089,12 +2231,17 @@ def _write_quarter_notes_ui_narrative_sheet(
             row += 1
         return row
 
-    def _write_model_mapping(row: int, quarter_records: Sequence[QuarterNarrativeRecord]) -> int:
-        mapping_rows = [
-            r
-            for r in quarter_records
-            if r.include_in_investment_case or str(r.double_count_guardrail or "").strip() or str(r.linked_sheet or "").strip()
-        ]
+    def _write_model_mapping(
+        row: int,
+        period: str,
+        quarter_records: Sequence[QuarterNarrativeRecord],
+    ) -> int:
+        mapping_rows = _quarter_narrative_select_visible_records(
+            quarter_records,
+            ticker=ticker_txt,
+            fiscal_period=period,
+            section="model_mapping",
+        )
         row = _section(row, "Model mapping / double-count guardrails")
         row = _table_header(
             row,
@@ -2107,7 +2254,7 @@ def _write_quarter_notes_ui_narrative_sheet(
         )
         if not mapping_rows:
             return _write_no_info_row(row)
-        for idx, rec in enumerate(mapping_rows[:6]):
+        for idx, rec in enumerate(mapping_rows):
             fill = zebra_light if idx % 2 == 0 else zebra_dark
             linked = " | ".join(part for part in [rec.linked_sheet, rec.linked_metric] if str(part or "").strip())
             _style_cells(row, fill, body_font, height=_quarter_narrative_row_height(rec.model_implication, rec.double_count_guardrail, linked))
@@ -2133,16 +2280,16 @@ def _write_quarter_notes_ui_narrative_sheet(
             row = _spacer(row, height=24.0)
         quarter_records = grouped.get(period, [])
         _style_cells(row, blue, white_font, height=24.0)
-        ws.cell(row=row, column=1, value=f"{period} - Quarter Notes")
+        ws.cell(row=row, column=1, value=format_quarter_notes_period_header(period))
         _merge_row(row, 1, max_col)
         row += 1
         row = _write_read_block(row, quarter_records)
         row = _spacer(row, height=10.0)
-        row = _write_key_developments(row, quarter_records)
+        row = _write_key_developments(row, period, quarter_records)
         row = _spacer(row, height=10.0)
         row = _write_promise_interpretation(row, quarter_records)
         row = _spacer(row, height=10.0)
-        row = _write_model_mapping(row, quarter_records)
+        row = _write_model_mapping(row, period, quarter_records)
 
     ws.freeze_panes = "A2"
     ws.sheet_view.showGridLines = False
