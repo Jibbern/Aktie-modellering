@@ -327,6 +327,70 @@ REQUIRED_CHANGE_IMPACT_TERMS = {
     ),
 }
 
+POST_NATIVE_OWNER_DISCOVERY = {
+    "contract:semantic-cache-identity@1": {
+        "component": "component:semantic-cache-identity@1",
+        "path": "pbi_xbrl/cache_semantics.py",
+        "change": "change:semantic-cache-identity@1",
+        "gate": "gate:semantic-cache-contract-change@1",
+    },
+    "contract:inline-xbrl-fact-text@1": {
+        "component": "component:inline-xbrl-fact-text@1",
+        "path": "pbi_xbrl/inline_xbrl_text.py",
+        "change": "change:inline-xbrl-fact-text@1",
+        "gate": "gate:authority-order-change@1",
+    },
+    "contract:debt-rate-semantic-ownership@1": {
+        "component": "component:debt-rate-semantic-ownership@1",
+        "path": "pbi_xbrl/debt_rate_semantics.py",
+        "change": "change:debt-rate-semantic-ownership@1",
+        "gate": "gate:authority-order-change@1",
+    },
+    "concept:source-acquisition@1": {
+        "component": "component:source-acquisition@1",
+        "path": "pbi_xbrl/source_acquisition.py",
+        "change": "change:source-acquisition-publication@1",
+        "gate": "gate:reviewed-source-acquisition@1",
+    },
+    "concept:workbook-finalization-publication@1": {
+        "component": "component:workbook-finalization-publication@1",
+        "path": "pbi_xbrl/excel_writer_core.py",
+        "change": "change:workbook-finalization-publication@1",
+        "gate": "gate:workbook-publication-contract-change@1",
+    },
+    "concept:debt-source-duplicate-ownership@1": {
+        "component": "component:debt-source-duplicate-ownership@1",
+        "path": "pbi_xbrl/debt_source_registry.py",
+        "change": "change:debt-source-duplicate-ownership@1",
+        "gate": "gate:authority-order-change@1",
+    },
+    "concept:quarter-notes-intentionally-empty@1": {
+        "component": "component:quarter-notes-empty-state@1",
+        "path": "pbi_xbrl/pipeline_types.py",
+        "change": "change:quarter-notes-empty-state@1",
+        "gate": "gate:product-contract-change@1",
+    },
+    "concept:derivative-materialization-failure@1": {
+        "component": "component:derivative-materialization-failure@1",
+        "path": "pbi_xbrl/excel_writer_economics_overlay_derivatives.py",
+        "change": "change:derivative-materialization-contract@1",
+        "gate": "gate:product-contract-change@1",
+    },
+}
+
+LIVE_CONTRACT_ASSIGNMENTS = {
+    "pbi_xbrl/cache_semantics.py": {
+        "CACHE_IDENTITY_CONTRACT": "contract:semantic-cache-identity@1",
+        "CACHE_IDENTITY_SERIALIZATION_VERSION": "v1_canonical_json_sha256",
+    },
+    "pbi_xbrl/inline_xbrl_text.py": {
+        "INLINE_XBRL_FACT_TEXT_CONTRACT_ID": "contract:inline-xbrl-fact-text@1",
+    },
+    "pbi_xbrl/debt_rate_semantics.py": {
+        "DEBT_RATE_OWNERSHIP_CONTRACT_ID": "contract:debt-rate-semantic-ownership@1",
+    },
+}
+
 OWNERSHIP_EXTENSIBLE_UNIQUE_FIELDS = (
     "canonical_owner_paths",
     "public_interfaces",
@@ -499,6 +563,30 @@ def _top_level_symbols(path: Path) -> set[str]:
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             symbols.add(node.target.id)
     return symbols
+
+
+def _top_level_literal_assignments(path: Path) -> dict[str, Any]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    assignments: dict[str, Any] = {}
+    for node in tree.body:
+        targets: list[ast.expr] = []
+        value: ast.expr | None = None
+        if isinstance(node, ast.Assign):
+            targets = list(node.targets)
+            value = node.value
+        elif isinstance(node, ast.AnnAssign):
+            targets = [node.target]
+            value = node.value
+        if value is None:
+            continue
+        for target in targets:
+            if not isinstance(target, ast.Name):
+                continue
+            try:
+                assignments[target.id] = ast.literal_eval(value)
+            except (ValueError, TypeError):
+                continue
+    return assignments
 
 
 def _lifecycle_errors(payload: dict[str, Any]) -> list[str]:
@@ -1290,8 +1378,8 @@ def test_registries_are_strict_closed_and_cross_referenced(registries) -> None:
 def test_registry_vocabularies_and_checkpoint_are_closed(registries) -> None:
     for name, payload in registries.items():
         assert payload["registry_id"] == EXPECTED_REGISTRY_IDS[name]
-        assert payload["checkpoint"] == "4cd55be61c0007c2d65e4527d912574942e19dd5"
-        assert payload["registry_version"] == "1.0.0"
+        assert payload["checkpoint"] == "ce1f1aea07d98e566a142c8221e53efe2ce692de"
+        assert payload["registry_version"] == "1.1.0"
 
     lifecycle = registries["lifecycle"]
     assert lifecycle["lifecycle_states"] == [
@@ -1395,6 +1483,13 @@ def test_required_ownership_and_change_classes_are_complete(registries) -> None:
         "concept:net-debt@1",
         "concept:valuation-economics@1",
         "concept:capital-allocation-economics@1",
+        "contract:semantic-cache-identity@1",
+        "contract:inline-xbrl-fact-text@1",
+        "contract:debt-rate-semantic-ownership@1",
+        "concept:debt-source-duplicate-ownership@1",
+        "concept:workbook-finalization-publication@1",
+        "concept:quarter-notes-intentionally-empty@1",
+        "concept:derivative-materialization-failure@1",
     } == concept_ids
 
     change_ids = {row["change_id"] for row in registries["impact"]["changes"]}
@@ -1413,6 +1508,14 @@ def test_required_ownership_and_change_classes_are_complete(registries) -> None:
         "change:presentation-style-only@1",
         "change:new-ticker-activation@1",
         "change:new-sector-concept@1",
+        "change:semantic-cache-identity@1",
+        "change:inline-xbrl-fact-text@1",
+        "change:debt-rate-semantic-ownership@1",
+        "change:debt-source-duplicate-ownership@1",
+        "change:source-acquisition-publication@1",
+        "change:workbook-finalization-publication@1",
+        "change:quarter-notes-empty-state@1",
+        "change:derivative-materialization-contract@1",
     }
 
 
@@ -1673,8 +1776,8 @@ def test_split_fcf_net_debt_routes_and_documented_symbols_match_code(registries)
     lifecycle = {row["component_id"]: row for row in registries["lifecycle"]["components"]}
     writer_notes = lifecycle["component:legacy-writer-semantics@1"]["notes"]
     workbook_notes = lifecycle["component:legacy-workbook-production@1"]["notes"]
-    assert "swallow failures" in writer_notes
-    assert "not universally" in workbook_notes and "atomic" in workbook_notes
+    assert "WorkbookFinalizationError" in writer_notes
+    assert "candidate-isolated" in workbook_notes and "atomic" in workbook_notes
 
     extensions = (DOCS / "EXTENSION_POINTS.md").read_text(encoding="utf-8")
     assert _extension_guide_reference_errors(extensions, registries) == []
@@ -1683,6 +1786,57 @@ def test_split_fcf_net_debt_routes_and_documented_symbols_match_code(registries)
     assert "universal schema owner" in extensions
     assert "first name the exact schema" in extensions
     assert "true repository cold start" in extensions
+
+
+def test_post_native_owner_discovery_is_exact_and_runtime_backed(registries) -> None:
+    components = {
+        row["component_id"]: row for row in registries["lifecycle"]["components"]
+    }
+    concepts = {
+        row["concept_id"]: row for row in registries["ownership"]["concepts"]
+    }
+    changes = {row["change_id"]: row for row in registries["impact"]["changes"]}
+    gates = {row["gate_id"]: row for row in registries["gates"]["gates"]}
+
+    assert len(POST_NATIVE_OWNER_DISCOVERY) == 8
+    for concept_id, expected in POST_NATIVE_OWNER_DISCOVERY.items():
+        assert sum(row["concept_id"] == concept_id for row in concepts.values()) == 1
+        concept = concepts[concept_id]
+        assert concept["canonical_owner_component_id"] == expected["component"]
+        assert expected["path"] in concept["canonical_owner_paths"]
+        assert expected["path"] in components[expected["component"]]["repository_paths"]
+
+        change = changes[expected["change"]]
+        assert concept_id in change["canonical_owner_concept_ids"]
+        assert expected["gate"] in change["approval_gate_ids"]
+        assert expected["change"] in gates[expected["gate"]]["triggering_change_classes"]
+
+    for relative_path, assignments in LIVE_CONTRACT_ASSIGNMENTS.items():
+        live = _top_level_literal_assignments(ROOT / relative_path)
+        for symbol, expected_value in assignments.items():
+            assert live[symbol] == expected_value
+
+    cache_notes = concepts["contract:semantic-cache-identity@1"]["notes"]
+    for exact_version in (
+        "unit_norm=v1_table_local_source_unit",
+        "adjustment_domain=v1_table_role_measure_domain",
+        "document_period=v2_registered_document_identity",
+        "debt_period=v1_visual_xbrl_context",
+        "adjusted_history=v1_metric_definition_scope",
+        "inline_xbrl_text=v1_continued_at_chain",
+        "debt_rate=v1_role_period_authority",
+    ):
+        assert exact_version in cache_notes
+
+    promise_bridge = components["component:promise-progress-workbook-bridge@1"]
+    assert promise_bridge["lifecycle_state"] == "target_not_wired"
+    assert promise_bridge["production_status"] == "not_implemented"
+
+    extensions = (DOCS / "EXTENSION_POINTS.md").read_text(encoding="utf-8")
+    assert "component:source-native-ticker-profiles@1" in extensions
+    assert "shared source/domain engine -> reusable sector pack -> declarative ticker profile" in extensions
+    assert "New debt rate role" in extensions
+    assert "change:debt-rate-semantic-ownership@1" in extensions
 
 
 def test_top_level_docs_route_agents_to_the_discoverability_layer() -> None:

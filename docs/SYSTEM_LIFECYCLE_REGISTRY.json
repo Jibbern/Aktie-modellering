@@ -1,7 +1,7 @@
 {
   "registry_id": "registry:system-lifecycle@1",
-  "registry_version": "1.0.0",
-  "checkpoint": "4cd55be61c0007c2d65e4527d912574942e19dd5",
+  "registry_version": "1.1.0",
+  "checkpoint": "ce1f1aea07d98e566a142c8221e53efe2ce692de",
   "purpose": "Machine-readable index of current lifecycle and authority. Live code and closed contracts remain behavioral authority; this registry routes agents to them and must not be used as runtime configuration.",
   "lifecycle_states": [
     "active",
@@ -71,7 +71,7 @@
         "new source-native metric identity",
         "PromiseProgressProduct economics"
       ],
-      "notes": "The saved workbook is the delivered artifact for this path. It is not canonical source authority for economic facts. Direct legacy workbook publication is not universally candidate-isolated, validation-before-write or atomic; that is deferred production debt and must not be copied into a future source-native bridge."
+      "notes": "The saved workbook is the delivered artifact for this path, not canonical source authority for economic facts. Accepted publication is now fail-closed and candidate-isolated through component:workbook-finalization-publication@1, including validated serialized readback before atomic promotion; this does not wire the source-native Promise Progress workbook bridge."
     },
     {
       "component_id": "component:legacy-writer-semantics@1",
@@ -97,15 +97,16 @@
         "new Actual or Progress semantics",
         "new upstream metric definitions"
       ],
-      "notes": "Some economics still live here. That is documented debt, not the preferred extension model. Broad exception handling in compatibility writer paths, including excel_writer_core.py, can swallow failures before a direct save; future remediation belongs at typed writer-step diagnostics plus validated atomic publication, not in source-native economics."
+      "notes": "Some economics still live here. That is documented compatibility debt, not the preferred extension model. Material finalization failures now surface as typed WorkbookFinalizationError results and block the accepted publication lifecycle; optional enrichment remains non-material only when explicitly classified."
     },
     {
       "component_id": "component:source-acquisition@1",
       "name": "Source acquisition and cache materialization",
       "lifecycle_state": "active",
       "authority_level": "operational_production",
-      "canonical_owner": "pbi_xbrl.sec_ingest and source refresh services",
+      "canonical_owner": "pbi_xbrl.source_acquisition transaction primitives; pbi_xbrl.sec_ingest and pbi_xbrl.source_material_refresh source-specific policy",
       "repository_paths": [
+        "pbi_xbrl/source_acquisition.py",
         "pbi_xbrl/sec_ingest.py",
         "pbi_xbrl/source_material_refresh.py",
         "pbi_xbrl/market_data/service.py"
@@ -118,13 +119,194 @@
       "mutable_or_immutable": "mutable_runtime",
       "production_status": "active_production",
       "replacement_or_successor": null,
-      "safe_extension_boundary": "Explicit I/O boundary with reviewed source paths, hashes, overwrite policy and dry-run where available.",
+      "safe_extension_boundary": "Source-specific modules discover and validate policy; source_acquisition.py alone owns staged validation, content hashing, fsync and atomic final-path publication.",
       "prohibited_ownership": [
         "economic interpretation",
         "canonical observation selection",
         "workbook presentation"
       ],
-      "notes": "Acquisition is not atomic across every legacy path and remains structurally deferred."
+      "notes": "The accepted source transaction is acquire -> same-filesystem stage -> validate -> content hash -> fsync where applicable -> atomic replace -> published receipt. Nonempty size alone is not cache validity."
+    },
+    {
+      "component_id": "component:semantic-cache-identity@1",
+      "name": "Semantic cache identity and version catalog",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "pbi_xbrl.cache_semantics",
+      "repository_paths": [
+        "pbi_xbrl/cache_semantics.py"
+      ],
+      "producer": "canonical_cache_identity and cache-specific payload builders",
+      "consumers": [
+        "market-data cache builders",
+        "pipeline bundle and stage key builders",
+        "writer-local cache builders"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "active_production",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Add shared semantic versions and deterministic identity primitives here; keep each cache's business payload builder beside its producer.",
+      "prohibited_ownership": [
+        "cache storage policy",
+        "cache-specific business semantics",
+        "unrelated repository state"
+      ],
+      "notes": "Owns contract:semantic-cache-identity@1, v1_canonical_json_sha256 and SEMANTIC_CACHE_VERSIONS. Current dimensions include unit_norm=v1_table_local_source_unit, adjustment_domain=v1_table_role_measure_domain, document_period=v2_registered_document_identity, debt_period=v1_visual_xbrl_context, adjusted_history=v1_metric_definition_scope, inline_xbrl_text=v1_continued_at_chain and debt_rate=v1_role_period_authority."
+    },
+    {
+      "component_id": "component:inline-xbrl-fact-text@1",
+      "name": "Inline-XBRL semantic fact-text reconstruction",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "pbi_xbrl.inline_xbrl_text",
+      "repository_paths": [
+        "pbi_xbrl/inline_xbrl_text.py"
+      ],
+      "producer": "reconstruct_inline_xbrl_fact_text",
+      "consumers": [
+        "pbi_xbrl.pipeline_orchestration",
+        "pbi_xbrl.anf_debt_source_adapter",
+        "pbi_xbrl.longitudinal_memory.source_adapter.inline_xbrl"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "active_production",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Consume canonical fact text before semantic date, debt or source parsing; extend continuation behavior only through contract mutation tests.",
+      "prohibited_ownership": [
+        "all XBRL parsing",
+        "context-period authority",
+        "document-period selection"
+      ],
+      "notes": "Owns contract:inline-xbrl-fact-text@1. Missing, duplicate, cyclic or excessive continuedAt chains fail closed and DOM order outside the explicit chain is irrelevant."
+    },
+    {
+      "component_id": "component:debt-rate-semantic-ownership@1",
+      "name": "Debt-rate semantic ownership",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "pbi_xbrl.debt_rate_semantics",
+      "repository_paths": [
+        "pbi_xbrl/debt_rate_semantics.py"
+      ],
+      "producer": "resolve_debt_rate_facts",
+      "consumers": [
+        "pbi_xbrl.pipeline_orchestration",
+        "Debt Detail compatibility projection"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "active_production",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Add a source-supported DebtRateRole plus explicit concept/table authority and conflict mutations.",
+      "prohibited_ownership": [
+        "first percentage selection",
+        "row-order ownership",
+        "workbook-visible rate cell as source authority"
+      ],
+      "notes": "Owns contract:debt-rate-semantic-ownership@1. Instrument, reporting period, rate role and basis/scope precede numeric selection; source occurrence is lineage."
+    },
+    {
+      "component_id": "component:debt-source-duplicate-ownership@1",
+      "name": "Debt facility-row duplicate ownership",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "pbi_xbrl.debt_source_registry",
+      "repository_paths": [
+        "pbi_xbrl/debt_source_registry.py"
+      ],
+      "producer": "canonical_debt_revolver_row_identity and reconcile_debt_revolver_rows",
+      "consumers": [
+        "profile-owned revolver history merge"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "active_production",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Extend facility identity only with economically meaningful period, instrument, concept, basis or scope dimensions.",
+      "prohibited_ownership": [
+        "source occurrence as economic identity",
+        "first or last row selection",
+        "cross-period substitution"
+      ],
+      "notes": "Identical facts corroborate, explicit authority resolves compatible evidence, and conflicting same-authority facts fail closed with lineage. This is facility/debt fact identity, not debt-rate fact identity."
+    },
+    {
+      "component_id": "component:workbook-finalization-publication@1",
+      "name": "Fail-closed workbook finalization and publication",
+      "lifecycle_state": "active",
+      "authority_level": "operational_production",
+      "canonical_owner": "pbi_xbrl.excel_writer_core finalization; pbi_xbrl.excel_writer candidate publication; stock_models final promotion",
+      "repository_paths": [
+        "pbi_xbrl/excel_writer_core.py",
+        "pbi_xbrl/excel_writer.py",
+        "stock_models.py"
+      ],
+      "producer": "finalize_workbook, _atomic_publish_workbook and _atomic_promote_verified_workbook",
+      "consumers": [
+        "component:legacy-workbook-production@1",
+        "direct writer callers",
+        "stock_models CLI"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "active_production",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Classify each finalization stage as material or explicitly optional; validate in memory and after temporary serialization before atomic promotion.",
+      "prohibited_ownership": [
+        "economic fact selection",
+        "save after material finalization failure",
+        "direct protected-output overwrite"
+      ],
+      "notes": "Accepted sequence is materialization -> classified finalization -> in-memory validation -> temporary serialization -> serialized readback -> atomic promotion. Material failures block publication."
+    },
+    {
+      "component_id": "component:quarter-notes-empty-state@1",
+      "name": "Quarter Notes intentionally-empty state",
+      "lifecycle_state": "active",
+      "authority_level": "presentation_contract",
+      "canonical_owner": "pbi_xbrl.pipeline_types.WorkbookInputs and pbi_xbrl.excel_writer saved-export validation",
+      "repository_paths": [
+        "pbi_xbrl/pipeline_types.py",
+        "pbi_xbrl/excel_writer.py"
+      ],
+      "producer": "WorkbookInputs.quarter_notes_intentionally_empty",
+      "consumers": [
+        "saved Quarter Notes validation",
+        "test-owned scratch projections"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "active_production",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Only a runtime-owned explicit product state may authorize valid empty readback; add producers with false-green mutations.",
+      "prohibited_ownership": [
+        "test-only bypass flags",
+        "parser failure as valid empty",
+        "missing input as valid empty"
+      ],
+      "notes": "Valid intentionally-empty is distinct from parser failure, missing source/input and unexpected empty readback."
+    },
+    {
+      "component_id": "component:derivative-materialization-failure@1",
+      "name": "Derivative runtime-sheet materialization failure semantics",
+      "lifecycle_state": "active",
+      "authority_level": "operational_production",
+      "canonical_owner": "pbi_xbrl.excel_writer_economics_overlay_derivatives and the GPRE economics-overlay orchestrator",
+      "repository_paths": [
+        "pbi_xbrl/excel_writer_economics_overlay_derivatives.py",
+        "pbi_xbrl/excel_writer_economics_overlay_orchestrator.py"
+      ],
+      "producer": "write_gpre_derivative_crush_tests_side_effect",
+      "consumers": [
+        "GPRE economics overlay orchestrator",
+        "component:workbook-finalization-publication@1"
+      ],
+      "mutable_or_immutable": "mutable_runtime",
+      "production_status": "active_production",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Declare dependency-unavailable optional states in the sector/module contract; treat renderer failure after a valid build as material.",
+      "prohibited_ownership": [
+        "derivative economics",
+        "silent renderer failure",
+        "ticker-imperative runtime ownership"
+      ],
+      "notes": "Runtime-sheet ownership remains declarative. Optional dependency absence and materialization failure are separate states."
     },
     {
       "component_id": "component:source-native-longitudinal-core@1",

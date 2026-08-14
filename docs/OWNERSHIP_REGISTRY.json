@@ -1,7 +1,7 @@
 {
   "registry_id": "registry:canonical-ownership@1",
-  "registry_version": "1.0.0",
-  "checkpoint": "4cd55be61c0007c2d65e4527d912574942e19dd5",
+  "registry_version": "1.1.0",
+  "checkpoint": "ce1f1aea07d98e566a142c8221e53efe2ce692de",
   "purpose": "Canonical ownership index. It routes changes to live owners and records parallel compatibility owners without declaring migration complete.",
   "ownership_states": [
     "unified",
@@ -12,29 +12,225 @@
   "concepts": [
     {
       "concept_id": "concept:source-acquisition@1",
-      "name": "Source acquisition",
+      "name": "Source acquisition transaction and source-specific policy",
       "canonical_owner_component_id": "component:source-acquisition@1",
       "canonical_owner_paths": [
+        "pbi_xbrl/source_acquisition.py",
         "pbi_xbrl/sec_ingest.py",
-        "pbi_xbrl/source_material_refresh.py",
-        "pbi_xbrl/market_data/service.py"
+        "pbi_xbrl/source_material_refresh.py"
       ],
       "public_interfaces": [
+        "atomic_publish_source_bytes",
+        "atomic_publish_source_file",
+        "atomic_publish_json",
         "stock_models.py acquisition/refresh commands"
       ],
       "current_consumers": [
+        "pbi_xbrl.sec_ingest",
+        "pbi_xbrl.source_material_refresh",
         "legacy pipeline",
         "reviewed source-set preparation"
       ],
       "ownership_state": "split_by_layer",
       "parallel_owners": [],
-      "allowed_extension_point": "Add explicit I/O adapters with reviewed overwrite, cache and provenance policy.",
+      "allowed_extension_point": "Add source-specific discovery/validation policy in its consumer, then publish only through source_acquisition.py transaction primitives.",
       "prohibited_owners": [
         "product projection",
         "workbook writer",
         "sector pack"
       ],
-      "notes": "Acquisition owns bytes and provenance, not economic meaning."
+      "notes": "source_acquisition.py owns transactionality: validation, content hash, same-filesystem staging, fsync and atomic publication. SEC ingest and source refresh own discovery and source-specific policy, not final-path publication mechanics. Acquisition owns bytes and provenance, not economic meaning."
+    },
+    {
+      "concept_id": "contract:semantic-cache-identity@1",
+      "name": "Semantic cache identity and version ownership",
+      "canonical_owner_component_id": "component:semantic-cache-identity@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/cache_semantics.py"
+      ],
+      "public_interfaces": [
+        "CACHE_IDENTITY_CONTRACT",
+        "CACHE_IDENTITY_SERIALIZATION_VERSION=v1_canonical_json_sha256",
+        "SEMANTIC_CACHE_VERSIONS",
+        "canonical_cache_identity"
+      ],
+      "current_consumers": [
+        "market-data cache builders",
+        "pipeline bundle key",
+        "pipeline stage key builders",
+        "writer-local cache builders"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [],
+      "allowed_extension_point": "Add one named semantic version here; each producer imports only relevant dimensions and keeps its payload business semantics local.",
+      "prohibited_owners": [
+        "duplicated version literals",
+        "cache storage modules as global semantic owner",
+        "weak none/stat-only identity"
+      ],
+      "notes": "The canonical serializer is v1_canonical_json_sha256. Live semantic dimensions include unit_norm=v1_table_local_source_unit, adjustment_domain=v1_table_role_measure_domain, document_period=v2_registered_document_identity, debt_period=v1_visual_xbrl_context, adjusted_history=v1_metric_definition_scope, inline_xbrl_text=v1_continued_at_chain and debt_rate=v1_role_period_authority."
+    },
+    {
+      "concept_id": "contract:inline-xbrl-fact-text@1",
+      "name": "Inline-XBRL fact source-text reconstruction",
+      "canonical_owner_component_id": "component:inline-xbrl-fact-text@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/inline_xbrl_text.py"
+      ],
+      "public_interfaces": [
+        "INLINE_XBRL_FACT_TEXT_CONTRACT_ID",
+        "InlineXbrlFactText",
+        "reconstruct_inline_xbrl_fact_text"
+      ],
+      "current_consumers": [
+        "pbi_xbrl.pipeline_orchestration",
+        "pbi_xbrl.anf_debt_source_adapter",
+        "pbi_xbrl.longitudinal_memory.source_adapter.inline_xbrl"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [],
+      "allowed_extension_point": "New semantic consumer calls the canonical reconstruction helper before parsing; continuation behavior changes at this contract.",
+      "prohibited_owners": [
+        "consumer-local continuedAt joiners",
+        "neighboring DOM text",
+        "context-year text repair"
+      ],
+      "notes": "This owner reconstructs explicit continuedAt chains and deterministic whitespace only; it does not own all XBRL parsing, contexts or document-period selection."
+    },
+    {
+      "concept_id": "contract:debt-rate-semantic-ownership@1",
+      "name": "Debt-rate role and authority semantics",
+      "canonical_owner_component_id": "component:debt-rate-semantic-ownership@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/debt_rate_semantics.py"
+      ],
+      "public_interfaces": [
+        "DEBT_RATE_OWNERSHIP_CONTRACT_ID",
+        "DebtRateRole",
+        "DebtRateAuthority",
+        "resolve_debt_rate_facts"
+      ],
+      "current_consumers": [
+        "pbi_xbrl.pipeline_orchestration",
+        "Debt Detail compatibility projection"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [],
+      "allowed_extension_point": "Add a source-supported rate role with explicit concept/table evidence, period/basis identity, authority and mutation tests.",
+      "prohibited_owners": [
+        "first percentage token",
+        "instrument-label magic parser",
+        "Debt Detail visible cell"
+      ],
+      "notes": "Coupon/stated, effective, floating-base, spread/margin, all-in, conversion-related and other percentage roles remain distinct. Same-role equal-authority conflicts fail closed; occurrence remains lineage."
+    },
+    {
+      "concept_id": "concept:debt-source-duplicate-ownership@1",
+      "name": "Debt facility-row duplicate ownership",
+      "canonical_owner_component_id": "component:debt-source-duplicate-ownership@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/debt_source_registry.py"
+      ],
+      "public_interfaces": [
+        "canonical_debt_revolver_row_identity",
+        "reconcile_debt_revolver_rows",
+        "DebtRevolverRowIdentity"
+      ],
+      "current_consumers": [
+        "profile-owned revolver history merge"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [],
+      "allowed_extension_point": "Add only economically meaningful period, facility, debt-concept, basis or scope identity dimensions and preserve contributing lineage.",
+      "prohibited_owners": [
+        "first/last physical row",
+        "source occurrence as economic identity",
+        "cross-period substitution"
+      ],
+      "notes": "Identical compatible facts corroborate, explicit authority resolves compatible evidence and conflicting same-authority facts fail closed. Facility/debt fact identity is distinct from rate fact identity."
+    },
+    {
+      "concept_id": "concept:workbook-finalization-publication@1",
+      "name": "Fail-closed workbook finalization and publication",
+      "canonical_owner_component_id": "component:workbook-finalization-publication@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/excel_writer_core.py",
+        "pbi_xbrl/excel_writer.py",
+        "stock_models.py"
+      ],
+      "public_interfaces": [
+        "WorkbookFinalizationError",
+        "finalize_workbook",
+        "_atomic_publish_workbook",
+        "_atomic_promote_verified_workbook"
+      ],
+      "current_consumers": [
+        "pbi_xbrl.excel_writer.write_excel_from_inputs",
+        "direct writer callers",
+        "stock_models CLI"
+      ],
+      "ownership_state": "split_by_layer",
+      "parallel_owners": [],
+      "allowed_extension_point": "Add a classified finalization stage before candidate serialization or a validator before the owning atomic promotion boundary.",
+      "prohibited_owners": [
+        "economic selection",
+        "save after material failure",
+        "direct protected-output overwrite"
+      ],
+      "notes": "One nested lifecycle spans three physical modules: finalization, candidate serialization/readback validation and final CLI promotion. Material failures block publication; explicitly optional enrichment may remain non-material."
+    },
+    {
+      "concept_id": "concept:quarter-notes-intentionally-empty@1",
+      "name": "Quarter Notes intentionally-empty state",
+      "canonical_owner_component_id": "component:quarter-notes-empty-state@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/pipeline_types.py",
+        "pbi_xbrl/excel_writer.py"
+      ],
+      "public_interfaces": [
+        "WorkbookInputs.quarter_notes_intentionally_empty",
+        "validate_quarter_notes_ui_export",
+        "_validate_quarter_notes_ui_export_snapshot",
+        "validate_saved_workbook_export"
+      ],
+      "current_consumers": [
+        "saved Quarter Notes validation",
+        "test-owned scratch projections"
+      ],
+      "ownership_state": "unified",
+      "parallel_owners": [],
+      "allowed_extension_point": "A new producer must set the explicit runtime-owned state and prove valid-empty, missing, parse-failure and unexpected-empty dispositions separately.",
+      "prohibited_owners": [
+        "test-specific bypass",
+        "implicit empty success",
+        "missing source coercion"
+      ],
+      "notes": "Only explicit intentionally-empty permits an empty saved readback. Parser failure, missing input and unexpected empty remain failures."
+    },
+    {
+      "concept_id": "concept:derivative-materialization-failure@1",
+      "name": "Derivative runtime-sheet materialization failure semantics",
+      "canonical_owner_component_id": "component:derivative-materialization-failure@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/excel_writer_economics_overlay_derivatives.py",
+        "pbi_xbrl/excel_writer_economics_overlay_orchestrator.py"
+      ],
+      "public_interfaces": [
+        "write_gpre_derivative_crush_tests_side_effect"
+      ],
+      "current_consumers": [
+        "GPRE economics overlay orchestrator",
+        "workbook finalization"
+      ],
+      "ownership_state": "split_by_layer",
+      "parallel_owners": [],
+      "allowed_extension_point": "Declare optional dependency absence through the module/sector contract; keep renderer/materialization errors material once a valid result exists.",
+      "prohibited_owners": [
+        "registry-defined economics",
+        "silent render failure",
+        "imperative ticker branch"
+      ],
+      "notes": "The declarative module/sector pack owns runtime-sheet activation. The writer owns materialization and must distinguish unavailable dependencies from failed rendering."
     },
     {
       "concept_id": "concept:source-discovery@1",

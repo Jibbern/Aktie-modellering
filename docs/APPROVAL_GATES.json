@@ -1,7 +1,7 @@
 {
   "registry_id": "registry:approval-gates@1",
-  "registry_version": "1.0.0",
-  "checkpoint": "4cd55be61c0007c2d65e4527d912574942e19dd5",
+  "registry_version": "1.1.0",
+  "checkpoint": "ce1f1aea07d98e566a142c8221e53efe2ce692de",
   "purpose": "Explicit stop conditions for changes that alter authority, compatibility, accepted semantics, sources or delivered workbook state.",
   "review_modes": [
     "human_review",
@@ -16,7 +16,10 @@
         "change:metric-definition@1",
         "change:free-cash-flow-definition@1",
         "change:net-debt-definition@1",
-        "change:guidance-rule@1"
+        "change:guidance-rule@1",
+        "change:inline-xbrl-fact-text@1",
+        "change:debt-rate-semantic-ownership@1",
+        "change:debt-source-duplicate-ownership@1"
       ],
       "trigger": "A change alters which source or reviewed record may govern an assertion.",
       "why_approval_is_required": "Authority changes can silently replace canonical facts across products.",
@@ -156,7 +159,8 @@
       "gate_id": "gate:source-overwrite-replacement@1",
       "triggering_change_classes": [
         "change:source-role@1",
-        "change:new-ticker-activation@1"
+        "change:new-ticker-activation@1",
+        "change:source-acquisition-publication@1"
       ],
       "trigger": "Existing external source bytes, locators, hashes or reviewed metadata would be overwritten or replaced.",
       "why_approval_is_required": "Immutable source history and replayability would change.",
@@ -188,7 +192,8 @@
       "gate_id": "gate:reviewed-source-acquisition@1",
       "triggering_change_classes": [
         "change:source-role@1",
-        "change:new-ticker-activation@1"
+        "change:new-ticker-activation@1",
+        "change:source-acquisition-publication@1"
       ],
       "trigger": "A new reviewed external source is added to accepted scope or acquisition requires credentials/manual source choice.",
       "why_approval_is_required": "Acquisition changes accepted evidence scope and may contact external systems.",
@@ -425,7 +430,9 @@
       "triggering_change_classes": [
         "change:promise-status-rule@1",
         "change:product-field@1",
-        "change:promise-progress-row-block@1"
+        "change:promise-progress-row-block@1",
+        "change:quarter-notes-empty-state@1",
+        "change:derivative-materialization-contract@1"
       ],
       "trigger": "A closed product role, visible field, block, row, ordering or assessment meaning changes.",
       "why_approval_is_required": "Product contract changes affect display semantics, lineage, parity and future workbook behavior.",
@@ -484,6 +491,73 @@
         "production workbook save",
         "in-place template overwrite",
         "writer economic changes"
+      ]
+    },
+    {
+      "gate_id": "gate:semantic-cache-contract-change@1",
+      "triggering_change_classes": [
+        "change:semantic-cache-identity@1"
+      ],
+      "trigger": "A correctness-bearing cache identity primitive, semantic version or relevant producer payload dimension changes.",
+      "why_approval_is_required": "A missing or overbroad identity dimension can reuse stale economics or invalidate unrelated caches; version changes must be intentional and reproducible.",
+      "required_evidence": [
+        "old/new canonical identity payload",
+        "cache invalidation matrix",
+        "stale receipt rejection",
+        "cold/warm canonical economic equality",
+        "affected production regression"
+      ],
+      "protected_scope": [
+        "unrelated semantic dimensions",
+        "source content identity",
+        "accepted economics",
+        "protected workbook outputs"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "test-owned cache build",
+        "identity diff",
+        "cold/warm comparison"
+      ],
+      "prohibited_automation_before_approval": [
+        "weak none/default key",
+        "production cache promotion",
+        "unreviewed version reset"
+      ]
+    },
+    {
+      "gate_id": "gate:workbook-publication-contract-change@1",
+      "triggering_change_classes": [
+        "change:workbook-finalization-publication@1",
+        "change:derivative-materialization-contract@1"
+      ],
+      "trigger": "Material/optional finalization classification, candidate serialization, serialized readback or atomic workbook promotion behavior changes.",
+      "why_approval_is_required": "Fail-open publication can present a structurally invalid or partially finalized workbook as accepted even when economic selection is unchanged.",
+      "required_evidence": [
+        "finalization phase and materiality map",
+        "failure mutation tests",
+        "prior-final preservation",
+        "serialized readback validation",
+        "atomic promotion and rollback evidence"
+      ],
+      "protected_scope": [
+        "accepted workbook output",
+        "protected workbook bytes",
+        "source-native semantics",
+        "unrelated optional enrichment"
+      ],
+      "review_mode": "human_acceptance",
+      "dry_run_required": true,
+      "allowed_automation_before_approval": [
+        "scratch candidate generation",
+        "failure injection",
+        "read-only protected hash verification"
+      ],
+      "prohibited_automation_before_approval": [
+        "save after material failure",
+        "direct protected-output overwrite",
+        "production promotion or cutover"
       ]
     }
   ]

@@ -1,7 +1,7 @@
 {
   "registry_id": "registry:change-impact@1",
-  "registry_version": "1.0.0",
-  "checkpoint": "4cd55be61c0007c2d65e4527d912574942e19dd5",
+  "registry_version": "1.1.0",
+  "checkpoint": "ce1f1aea07d98e566a142c8221e53efe2ce692de",
   "purpose": "Blast-radius routing for important semantic and presentation change classes. This is a review checklist, not an executable dependency graph or acceptance mechanism.",
   "changes": [
     {
@@ -646,6 +646,295 @@
         "gate:unsupported-economic-fallback@1"
       ],
       "notes": "Do not put reusable sector economics in a ticker profile or workbook."
+    },
+    {
+      "change_id": "change:semantic-cache-identity@1",
+      "name": "Semantic cache identity or version change",
+      "canonical_owner_concept_ids": [
+        "contract:semantic-cache-identity@1"
+      ],
+      "likely_direct_consumers": [
+        "cache-specific payload builders",
+        "pipeline bundle and stage caches",
+        "market-data and writer-local caches"
+      ],
+      "schemas_contracts": [
+        "contract:semantic-cache-identity@1",
+        "v1_canonical_json_sha256",
+        "SEMANTIC_CACHE_VERSIONS"
+      ],
+      "tests": [
+        "tests/test_cache_semantics.py",
+        "cache invalidation matrix",
+        "cold/warm economic equality"
+      ],
+      "goldens": [],
+      "parity_oracle_artifacts": [
+        "cache receipt and canonical economic hashes"
+      ],
+      "products": [
+        "only caches importing the changed semantic dimension"
+      ],
+      "workbook_effects": "No direct workbook semantic change; affected caches must miss/rebuild and reproduce identical accepted economics unless the underlying semantic contract intentionally changed.",
+      "migration_requirement": "Change the canonical version once, import it only into relevant producer payloads, reject stale receipts and prove deterministic invalidation.",
+      "approval_gate_ids": [
+        "gate:semantic-cache-contract-change@1"
+      ],
+      "notes": "cache_semantics.py owns identity mechanics and versions, not every cache's business payload or storage."
+    },
+    {
+      "change_id": "change:inline-xbrl-fact-text@1",
+      "name": "Inline-XBRL continuation reconstruction change",
+      "canonical_owner_concept_ids": [
+        "contract:inline-xbrl-fact-text@1"
+      ],
+      "likely_direct_consumers": [
+        "financial-statement document/debt parser",
+        "ANF debt source adapter",
+        "longitudinal-memory inline-XBRL adapter"
+      ],
+      "schemas_contracts": [
+        "contract:inline-xbrl-fact-text@1",
+        "inline_xbrl_text=v1_continued_at_chain"
+      ],
+      "tests": [
+        "tests/test_inline_xbrl_continuation.py",
+        "tests/test_longitudinal_memory_inline_xbrl.py",
+        "document-period and debt regressions"
+      ],
+      "goldens": [],
+      "parity_oracle_artifacts": [
+        "registered filing bytes and source occurrence lineage"
+      ],
+      "products": [
+        "document identity",
+        "debt source facts",
+        "affected pipeline caches"
+      ],
+      "workbook_effects": "Indirect only through corrected source facts; protected workbooks remain oracles until a separately approved projection/cutover.",
+      "migration_requirement": "Reconstruct source text before semantic parsing, bump inline_xbrl_text when meaning changes and replay continuation/date/debt/cache gates.",
+      "approval_gate_ids": [
+        "gate:authority-order-change@1"
+      ],
+      "notes": "Do not repair incomplete text from context metadata or create consumer-local continuation joiners."
+    },
+    {
+      "change_id": "change:debt-rate-semantic-ownership@1",
+      "name": "Debt-rate role or authority change",
+      "canonical_owner_concept_ids": [
+        "contract:debt-rate-semantic-ownership@1"
+      ],
+      "likely_direct_consumers": [
+        "financial-statement debt parser",
+        "Debt Detail compatibility projection",
+        "pipeline bundle caches"
+      ],
+      "schemas_contracts": [
+        "contract:debt-rate-semantic-ownership@1",
+        "debt_rate=v1_role_period_authority",
+        "DebtRateRole"
+      ],
+      "tests": [
+        "tests/test_debt_rate_semantics.py",
+        "ANF/PBI/GPRE debt regressions",
+        "cache cold/warm equality"
+      ],
+      "goldens": [],
+      "parity_oracle_artifacts": [
+        "issuer debt tables and lineaged rate candidates"
+      ],
+      "products": [
+        "Debt Detail",
+        "debt source registry outputs"
+      ],
+      "workbook_effects": "A visible rate field consumes an explicitly selected role; it cannot redefine source semantics.",
+      "migration_requirement": "Add or change roles with source concept/table evidence, period/basis identity, duplicate/conflict policy and source-order mutations.",
+      "approval_gate_ids": [
+        "gate:authority-order-change@1"
+      ],
+      "notes": "Coupon, effective, base, spread, all-in and conversion-related percentages remain separate facts."
+    },
+    {
+      "change_id": "change:debt-source-duplicate-ownership@1",
+      "name": "Debt facility-row semantic identity or duplicate policy change",
+      "canonical_owner_concept_ids": [
+        "concept:debt-source-duplicate-ownership@1"
+      ],
+      "likely_direct_consumers": [
+        "profile-owned revolver history merge",
+        "debt source lineage",
+        "Debt Detail and valuation debt inputs"
+      ],
+      "schemas_contracts": [
+        "DebtRevolverRowIdentity",
+        "canonical_debt_revolver_row_identity",
+        "reconcile_debt_revolver_rows"
+      ],
+      "tests": [
+        "tests/test_debt_source_registry_semantic_ownership.py",
+        "tests/test_anf_debt_source_adapter.py",
+        "current/prior and zero/missing debt regressions"
+      ],
+      "goldens": [],
+      "parity_oracle_artifacts": [
+        "ANF/PBI/GPRE canonical debt economic comparison"
+      ],
+      "products": [
+        "revolver history",
+        "Debt Detail lineage"
+      ],
+      "workbook_effects": "No row-order-owned value may reach workbook debt consumers; period, facility, concept, basis and scope remain exact.",
+      "migration_requirement": "Prove order reversal, corroboration, explicit authority, fail-closed conflict, zero/missing and cross-period isolation.",
+      "approval_gate_ids": [
+        "gate:authority-order-change@1"
+      ],
+      "notes": "Facility/debt fact identity is distinct from role-specific debt-rate identity."
+    },
+    {
+      "change_id": "change:source-acquisition-publication@1",
+      "name": "Source acquisition validation or publication transaction change",
+      "canonical_owner_concept_ids": [
+        "concept:source-acquisition@1"
+      ],
+      "likely_direct_consumers": [
+        "pbi_xbrl.sec_ingest",
+        "pbi_xbrl.source_material_refresh",
+        "source cache reuse and registration"
+      ],
+      "schemas_contracts": [
+        "PublishedSource",
+        "atomic_publish_source_bytes",
+        "verified content hash receipts"
+      ],
+      "tests": [
+        "tests/test_source_acquisition_atomic.py",
+        "SEC ingest/source refresh tests",
+        "interruption, truncation and old-source-preservation mutations"
+      ],
+      "goldens": [],
+      "parity_oracle_artifacts": [
+        "old/new source SHA-256 and publication receipt"
+      ],
+      "products": [
+        "registered external source universe"
+      ],
+      "workbook_effects": "None directly; source identity changes may invalidate downstream caches and require affected economic replay.",
+      "migration_requirement": "Keep source-specific discovery/policy local; stage, validate, hash, fsync and atomically replace only through source_acquisition.py.",
+      "approval_gate_ids": [
+        "gate:reviewed-source-acquisition@1",
+        "gate:source-overwrite-replacement@1"
+      ],
+      "notes": "Existing valid source bytes survive failed refresh; nonempty size alone is never validity."
+    },
+    {
+      "change_id": "change:workbook-finalization-publication@1",
+      "name": "Workbook finalization or publication contract change",
+      "canonical_owner_concept_ids": [
+        "concept:workbook-finalization-publication@1"
+      ],
+      "likely_direct_consumers": [
+        "pbi_xbrl.excel_writer.write_excel_from_inputs",
+        "direct writer callers",
+        "stock_models CLI"
+      ],
+      "schemas_contracts": [
+        "WorkbookFinalizationError",
+        "finalize_workbook",
+        "_atomic_publish_workbook",
+        "_atomic_promote_verified_workbook"
+      ],
+      "tests": [
+        "tests/test_workbook_finalization_safety.py",
+        "writer/promotion failure mutation tests",
+        "serialized readback and exactly-once save tests"
+      ],
+      "goldens": [
+        "protected workbook bytes remain unchanged unless separately approved"
+      ],
+      "parity_oracle_artifacts": [
+        "candidate/readback validation receipts and rollback evidence"
+      ],
+      "products": [
+        "delivered workbook publication lifecycle"
+      ],
+      "workbook_effects": "Material finalization, structural validation, serialized readback or atomic promotion failure blocks accepted output publication.",
+      "migration_requirement": "Preserve the three physical owners as one ordered lifecycle and classify optional enrichment explicitly before save.",
+      "approval_gate_ids": [
+        "gate:workbook-publication-contract-change@1"
+      ],
+      "notes": "This route governs publication correctness, not workbook economics or source-native cutover."
+    },
+    {
+      "change_id": "change:quarter-notes-empty-state@1",
+      "name": "Quarter Notes intentionally-empty contract change",
+      "canonical_owner_concept_ids": [
+        "concept:quarter-notes-intentionally-empty@1"
+      ],
+      "likely_direct_consumers": [
+        "WorkbookInputs",
+        "Quarter Notes saved readback validation",
+        "scratch/current projection tests"
+      ],
+      "schemas_contracts": [
+        "WorkbookInputs.quarter_notes_intentionally_empty",
+        "canonical Quarter Notes period parser",
+        "saved-export validation"
+      ],
+      "tests": [
+        "tests/test_quarter_notes.py",
+        "tests/test_quarter_notes_narrative.py",
+        "empty/readback false-green mutations"
+      ],
+      "goldens": [],
+      "parity_oracle_artifacts": [
+        "protected workbook oracle remains separate from current scratch projection"
+      ],
+      "products": [
+        "Quarter Notes UI/readback"
+      ],
+      "workbook_effects": "Only explicit runtime-owned intentionally-empty state permits empty readback; missing, parse failure and unexpected empty remain failures.",
+      "migration_requirement": "Add producers only with four-way disposition tests and no test-only runtime bypass.",
+      "approval_gate_ids": [
+        "gate:product-contract-change@1"
+      ],
+      "notes": "Valid empty is a product state, not a weakened parser assertion."
+    },
+    {
+      "change_id": "change:derivative-materialization-contract@1",
+      "name": "Derivative runtime-sheet materialization contract change",
+      "canonical_owner_concept_ids": [
+        "concept:derivative-materialization-failure@1"
+      ],
+      "likely_direct_consumers": [
+        "GPRE economics overlay orchestrator",
+        "runtime-sheet visibility and ordering",
+        "workbook finalization"
+      ],
+      "schemas_contracts": [
+        "commodity_ethanol_pack runtime-sheet ownership",
+        "write_gpre_derivative_crush_tests_side_effect",
+        "material versus optional finalization classification"
+      ],
+      "tests": [
+        "tests/test_derivative_oci_bridge.py",
+        "tests/test_derivative_crush_tests.py",
+        "runtime-sheet materialization failure mutations"
+      ],
+      "goldens": [],
+      "parity_oracle_artifacts": [
+        "protected GPRE workbook hash and current scratch projection"
+      ],
+      "products": [
+        "Derivative_OCI_Bridge",
+        "Derivative_Crush_Tests"
+      ],
+      "workbook_effects": "Declared dependency unavailability may be optional where the pack contract permits; renderer/materialization failure after a valid build is material and blocks publication.",
+      "migration_requirement": "Keep activation declarative, preserve economics outside the registry and replay dependency-unavailable plus renderer-failure tests.",
+      "approval_gate_ids": [
+        "gate:product-contract-change@1",
+        "gate:workbook-publication-contract-change@1"
+      ],
+      "notes": "The registry documents failure ownership; it does not own derivative economics."
     }
   ]
 }

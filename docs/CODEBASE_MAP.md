@@ -32,6 +32,9 @@ remain behavioral authority.
 ## Stage Ownership
 
 ### 1. SEC ingest and cache seeding
+- [`pbi_xbrl/source_acquisition.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/source_acquisition.py)
+  - Canonical transaction owner for verified source bytes: stage, validate, hash, flush, atomically replace, and return published content identity.
+  - Source-specific discovery and policy remain with the callers; no caller should publish directly to the canonical final path.
 - [`pbi_xbrl/sec_ingest.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/sec_ingest.py)
   - Downloads SEC filing packages into `sec_cache`.
   - Materializes statement-like 10-Q / 10-K documents into `PBI/financial_statement` and `GPRE/financial_statement`.
@@ -39,6 +42,9 @@ remain behavioral authority.
   - SEC HTTP client and companyfacts/submissions access.
 
 ### 2. Runtime cache layout and environment discovery
+- [`pbi_xbrl/cache_semantics.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/cache_semantics.py)
+  - Owns `contract:semantic-cache-identity@1`, deterministic canonical JSON/SHA-256 identity primitives, content identities, and the shared semantic-version registry.
+  - Cache-specific producers continue to own the business meaning and relevant inputs of their payloads.
 - [`pbi_xbrl/cache_layout.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/cache_layout.py)
   - Resolves canonical ticker cache roots and shared cache roots.
 - [`pbi_xbrl/pipeline_runtime.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/pipeline_runtime.py)
@@ -57,6 +63,12 @@ remain behavioral authority.
   - Dataclasses for config, artifacts, and workbook handoff inputs.
 
 ### 4. Source interpretation and evidence shaping
+- [`pbi_xbrl/inline_xbrl_text.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/inline_xbrl_text.py)
+  - Owns `contract:inline-xbrl-fact-text@1` and deterministic `continuedAt` reconstruction before downstream semantic parsing; it does not own all XBRL interpretation.
+- [`pbi_xbrl/debt_rate_semantics.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/debt_rate_semantics.py)
+  - Owns `contract:debt-rate-semantic-ownership@1`: role-aware debt-rate identity, source authority, corroboration, conflict failure, and lineage.
+- [`pbi_xbrl/debt_source_registry.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/debt_source_registry.py)
+  - Owns semantic facility/debt-row duplicate resolution before physical row order; rate-fact identity remains a distinct layer owned by `debt_rate_semantics.py`.
 - [`pbi_xbrl/doc_intel.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/doc_intel.py)
   - Builds quarter notes, promises, promise-progress evidence, and non-GAAP credibility outputs from documents.
 - [`pbi_xbrl/derivative_oci_bridge.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/derivative_oci_bridge.py)
@@ -168,7 +180,9 @@ described as the implemented Promise Progress workbook bridge.
   - Compatibility owner for the currently delivered legacy workbook; it does not
     consume or override `PromiseProgressProduct@1`.
 - [`pbi_xbrl/excel_writer.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer.py)
-  - Workbook save/readback helpers and export validation entrypoints.
+  - Workbook candidate serialization, readback validation, and export validation entrypoints within the accepted publication contract.
+- [`pbi_xbrl/excel_writer_core.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer_core.py), [`pbi_xbrl/excel_writer.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/excel_writer.py), and [`stock_models.py`](/c:/Users/Jibbe/Aktier/Code/stock_models.py)
+  - Jointly implement the single accepted publication sequence: classified materialization/finalization, validation, isolated serialization, serialized readback, and atomic promotion. Material failures block publication; explicitly optional enrichment remains classified rather than silently becoming success.
 - Run-scoped writer runtime helpers:
   - [`pbi_xbrl/writer_runtime_cache.py`](/c:/Users/Jibbe/Aktier/Code/pbi_xbrl/writer_runtime_cache.py)
     - Groups per-export caches so repeated heavy source analysis does not leak across workbook runs.
@@ -258,7 +272,7 @@ This transition flow is not automatically fed by longitudinal memory.
 - Sheet writers
   - hand a fully rendered in-memory workbook back to `excel_writer.py`.
 - `excel_writer.py`
-  - hands the saved workbook path plus readback provenance back to `stock_models.py`, which decides whether the export is accepted.
+  - serializes an isolated candidate and hands its validated readback provenance to `stock_models.py`, which atomically promotes only an accepted candidate.
 
 ## Most Important Files To Read First
 1. [`SYSTEM_LIFECYCLE_REGISTRY.json`](SYSTEM_LIFECYCLE_REGISTRY.json)

@@ -31,6 +31,7 @@ They are not canonical source authority for economic facts.
 ## Main Inputs
 - `sec_cache/<TICKER>/`
   - Canonical filing and narrative cache layout.
+  - `pbi_xbrl/source_acquisition.py` owns verified staged byte publication and atomic replacement; SEC ingest and source refresh retain source-specific discovery and validation policy.
 - `sec_cache/market_data/`
   - Shared market-data raw, parsed, export, and manifest layout used by GPRE economics and market-driver sheets.
 - `GPRE/USDA_weekly_data` and `GPRE/USDA_daily_data`
@@ -85,7 +86,7 @@ They are not canonical source authority for economic facts.
 2. `summary_overview.build_company_overview()` resolves topic-aware `SUMMARY` rows.
 3. `excel_writer_context` resolves `Valuation` inputs and final visible note rows, while run-scoped helper modules cache repeated quarter-note, valuation-doc, operating-driver, and market-data fallback analysis inside one export.
 4. `Quarter_Notes_UI`, `SUMMARY`, and `Valuation` are written to the workbook.
-5. The saved workbook is reopened and verified against expected output.
+5. Material finalization and in-memory validation must succeed before an isolated candidate is serialized; serialized readback is validated before atomic promotion to the accepted output.
 
 ## Data Handoff Boundaries
 - `stock_models.py`
@@ -102,13 +103,15 @@ They are not canonical source authority for economic facts.
   - Run-scoped workbook state boundary.
   - Initializes the workbook plus the per-export caches that later sheet writers reuse.
 - `excel_writer.py`
-  - Save/readback truth boundary.
-  - Converts a rendered in-memory workbook into a delivered file and validates the saved file, not just the pre-save workbook object.
+  - Save/readback truth boundary within the cross-module workbook finalization/publication contract.
+  - Converts a finalized in-memory workbook into an isolated candidate and validates the serialized file before atomic promotion; material failures cannot publish an accepted output.
 - `market_data/service.py`
   - Market-data cache boundary.
   - Translates raw source files and local bootstrap inputs into the parsed/export artifacts the workbook consumes.
 
 ## Cache Policy
+- `pbi_xbrl/cache_semantics.py` owns `contract:semantic-cache-identity@1`, canonical JSON/SHA-256 identity primitives, and the discoverable semantic-version registry. Cache-specific payload meaning stays with each producer.
+- Current shared semantic versions are `unit_norm=v1_table_local_source_unit`, `adjustment_domain=v1_table_role_measure_domain`, `document_period=v2_registered_document_identity`, `debt_period=v1_visual_xbrl_context`, `adjusted_history=v1_metric_definition_scope`, `inline_xbrl_text=v1_continued_at_chain`, and `debt_rate=v1_role_period_authority`.
 - `doc_intel_bundle` and `company_overview` stage-cache keys now include explicit behavior versions plus code signatures.
 - `doc_intel_bundle` also tracks the local material directory signature so new transcripts, presentations, press releases, or CEO letters invalidate stale narrative outputs.
 - Market-data export cache keys track enabled sources, parser versions, raw/bootstrap fingerprints, and market-input fingerprints.
