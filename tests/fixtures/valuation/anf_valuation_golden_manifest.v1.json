@@ -1,0 +1,118 @@
+{
+  "acceptance": {
+    "acceptance_fixture": "anf_valuation_acceptance.v1.json",
+    "acceptance_fixture_sha256": "9e1b494d259eab2c3f2d3761955ce366e4163f826ea755adaaec98247a3b1ce8",
+    "approval_gate_ids": [
+      "gate:semantic-golden-regeneration@1",
+      "gate:product-contract-change@1",
+      "gate:workbook-presentation-layout@1",
+      "gate:workbook-publication-contract-change@1"
+    ],
+    "historical_current_readback": "930/930",
+    "investment_case_links": "20/20",
+    "investment_case_matrix": "24/24",
+    "investment_case_names": "40/40",
+    "native_pass_count": 4,
+    "native_run_count": 2,
+    "passed": true,
+    "repair_event_count": 0,
+    "unexplained_native_delta_count": 0,
+    "unrelated_native_delta_count": 0
+  },
+  "acceptance_status": "golden_accepted",
+  "checkpoint": {
+    "commit_reference": "git commit containing this manifest",
+    "pre_valuation_checkpoint": "42a9796cdc227e88db4ee1986d9deb75767f37e4",
+    "rollback_requires_protected_workbook_modification": false
+  },
+  "economic_product": {
+    "accepted_historical_current_consumer_count": 930,
+    "exhaustive_audit_manifest_sha256": "c55760d5508fc550b9770cccee5701d3ea58e51fb66fc0d4458b6f0f2303d477",
+    "formula_ownership": {
+      "canonical_investment_case_link_formula_count": 20,
+      "duplicate_forward_engine_formula_count": 0,
+      "hidden_economic_owner_formula_count": 0,
+      "presentation_local_formula_count": 1,
+      "retired_legacy_formula_count": 74,
+      "valuation_formula_count": 21
+    },
+    "normalized_source_package_sha256": "cab0ca877157de3f9e8c36cd4458bf4fa19c4aad93265ec59ee44000ef9f460d",
+    "source_native_concept_count": 41,
+    "source_native_donor_workbook_sha256": "e524a62133ec2da275f950e12a9508a26657c69baca971f2cbeecb9f0db5d774"
+  },
+  "fixture_artifacts": [
+    {
+      "relative_path": "anf_valuation_acceptance.v1.json",
+      "sha256": "9e1b494d259eab2c3f2d3761955ce366e4163f826ea755adaaec98247a3b1ce8"
+    },
+    {
+      "relative_path": "anf_valuation_projection_plan.v1.json",
+      "sha256": "2df3b10fad7b6b3ac6a8d54cd426febb997110d90512d742f4532dcdd49df8cc"
+    }
+  ],
+  "fixture_hash_contract": "checkout-lf-normalized-file-sha256@1",
+  "generated_timestamp": null,
+  "golden_id": "valuation-source-native:anf@1.0.0",
+  "golden_version": "1.0.0",
+  "implementation_artifacts": [
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/formula_aware_workbook_materialization.py",
+      "sha256": "25b90028adbaf0a5f2e9b8e9af088599ae9703f50c4cfc1d92def38bb67f1e69"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/valuation_golden.py",
+      "sha256": "e382b9ede8633e2b113f8086161d9529c1e6cbff13f271ef0870483430c970f6"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/valuation_source_native_projection.py",
+      "sha256": "47695a9db76a93641888aea8af6b1c5a3893d8f53bb5d28651fadb33fd96c762"
+    },
+    {
+      "repository_path": "scripts/build_anf_valuation_golden.py",
+      "sha256": "97f5132913a0ab645c3db4b3663a7ca65bd80d5fc4970e0b50a2f49cd380ceb7"
+    },
+    {
+      "repository_path": "scripts/build_anf_valuation_source_native_preview.py",
+      "sha256": "d1a5621519e82391f69f89b598022a9e09cd24bab51e1b60a31cf769f978726d"
+    }
+  ],
+  "lifecycle": "target_not_wired",
+  "manifest_digest": "bb29eefe31d7eca302fffdc2fb00ed641963aec1f3eb1697f608c1913a173991",
+  "manifest_type": "ValuationSourceNativeGoldenManifest@1",
+  "materialization": {
+    "artifact_tool_role": "READ / INSPECTION / RENDER ONLY",
+    "calculation_metadata_contract": "workbook-calculation-metadata-finalization@1",
+    "calculation_metadata_policy_id": "valuation-native-safe-calculation-metadata@1",
+    "canonical_ooxml_hash_contract": "ordered-uncompressed-ooxml-members-sha256@1",
+    "force_full_calc_final": false,
+    "formula_cache_policy": "target-formula-cache-absent-pending-native-recalc@1",
+    "formula_mutation_count": 370,
+    "implementation_hash_contract": "checkout-lf-normalized-file-sha256@1",
+    "materializer_contract": "formula-aware-lossless-workbook-materializer@2",
+    "source_selection_performed": false,
+    "workbook_owned_economic_formula_count": 0
+  },
+  "production_default": false,
+  "projection": {
+    "calculation_metadata_policy_id": "valuation-native-safe-calculation-metadata@1",
+    "cell_mutation_count": 1105,
+    "contract": "anf-valuation-bounded-source-native-correction@1",
+    "defined_name_mutation_count": 90,
+    "defined_name_plan_digest": "6d90fdd60380a0b9ae8ad1bf5f5e6a9920afb4456e7d0fe0d4e606a1211c570f",
+    "formula_plan_digest": "4bd9358e3cd19743f9d7712fce1d03779f21357f36617b0a0847f7d805e3fb2c",
+    "plan_fixture": "anf_valuation_projection_plan.v1.json",
+    "plan_fixture_sha256": "2df3b10fad7b6b3ac6a8d54cd426febb997110d90512d742f4532dcdd49df8cc",
+    "projection_digest": "b173f2da3be473797adbdbec037b7de36d4384990220e6d65f5ee070abae7079"
+  },
+  "workbook_golden": {
+    "base_summary_bs_golden_id": "summary-bs-source-native:anf@1.0.0",
+    "base_summary_bs_golden_sha256": "f57854d278b27bf206222d1979cba218d79aa355b5a36239f84af4950d6cbda2",
+    "canonical_ooxml_sha256": "dd5aabd1c50250add003b519f3d8edcc1b6d6e344841109b22a6d002e451ee5e",
+    "data_root_relative_path": "audit/valuation_golden_acceptance_2026-08-15/golden/ANF_valuation_source_native_golden_v1.xlsx",
+    "raw_sha256": "39fba7ae39a02fa9395cf25f103097f8c6d62ccbf3cf6a8ae25767babcb7fc1d",
+    "semantic_hash_contract": "valuation-pre-native-semantic-snapshot-sha256@1",
+    "semantic_sha256": "90c20c0aeb437af25da8686270e9f5eff7cc554e270724346f19b7947d7f05c6",
+    "size_bytes": 8882525,
+    "workbook_id": "valuation-source-native-workbook:anf@1.0.0"
+  }
+}

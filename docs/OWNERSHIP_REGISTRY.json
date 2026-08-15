@@ -1216,35 +1216,76 @@
     {
       "concept_id": "concept:valuation-economics@1",
       "name": "Valuation economics",
-      "canonical_owner_component_id": "component:legacy-workbook-production@1",
+      "canonical_owner_component_id": "component:valuation-source-native-product@1",
       "canonical_owner_paths": [
-        "pbi_xbrl/valuation.py",
-        "pbi_xbrl/pipeline.py",
-        "pbi_xbrl/excel_writer_context.py"
+        "pbi_xbrl/longitudinal_memory/valuation_source_native_projection.py",
+        "pbi_xbrl/new_ticker_investment_case_formula_surface.py",
+        "pbi_xbrl/longitudinal_memory/valuation_golden.py",
+        "tests/fixtures/valuation/anf_valuation_golden_manifest.v1.json"
       ],
       "public_interfaces": [
-        "valuation_engine",
-        "legacy workbook valuation inputs/outputs"
+        "build_valuation_projection_plan",
+        "canonical_investment_case_defined_names",
+        "valuation-source-native:anf@1.0.0"
       ],
       "current_consumers": [
-        "legacy Valuation workbook sheet"
+        "accepted Valuation source-native golden",
+        "component:valuation-workbook-bridge@1"
       ],
-      "ownership_state": "transition_conflict",
+      "ownership_state": "unified_unwired",
       "parallel_owners": [
         {
-          "component_id": "component:normalized-package-contract@1",
-          "path": "normalized valuation formula contracts and Investment Case projection",
-          "lifecycle_state": "transition",
-          "authority_limit": "Validated transition output; no universal production cutover."
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "current production Valuation workbook route",
+          "lifecycle_state": "active",
+          "authority_limit": "Production workbook compatibility only; cannot override accepted source-native Valuation economics or formula ownership."
         }
       ],
-      "allowed_extension_point": "Preserve current production unless a versioned generic calculation contract and cutover are separately accepted.",
+      "allowed_extension_point": "Reviewed versioned Valuation concept, definition, formula ownership or canonical Investment Case output changes under product-contract and semantic-golden gates.",
       "prohibited_owners": [
-        "new writer-only fallback",
-        "ticker-specific formula without contract",
-        "legacy workbook as upstream source fact"
+        "legacy workbook as upstream source fact",
+        "duplicate workbook forward engine",
+        "writer-only fallback",
+        "production cutover without gate:workbook-cutover@1"
       ],
-      "notes": "Ownership is not unified; do not claim migration complete."
+      "notes": "The Valuation source-native product is golden accepted. Its workbook bridge remains target_not_wired and production_default remains false."
+    },
+    {
+      "concept_id": "concept:valuation-workbook-projection@1",
+      "name": "Valuation workbook projection and formula-aware lossless materialization",
+      "canonical_owner_component_id": "component:valuation-workbook-bridge@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/formula_aware_workbook_materialization.py",
+        "pbi_xbrl/longitudinal_memory/valuation_source_native_projection.py",
+        "pbi_xbrl/longitudinal_memory/valuation_golden.py",
+        "tests/fixtures/valuation/anf_valuation_projection_plan.v1.json"
+      ],
+      "public_interfaces": [
+        "materialize_formula_aware_mutations",
+        "load_valuation_projection_plan",
+        "reproduce_registered_golden"
+      ],
+      "current_consumers": [
+        "accepted Valuation source-native golden replay",
+        "focused native and lossless preservation gates"
+      ],
+      "ownership_state": "unified_unwired",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "current production Valuation workbook route",
+          "lifecycle_state": "active",
+          "authority_limit": "Production compatibility route only; it is not the source-native projection or materialization authority."
+        }
+      ],
+      "allowed_extension_point": "Exact reviewed Valuation cell/formula/name/layout mutations and native-safe calculation metadata finalization on a scratch workbook without economic reselection.",
+      "prohibited_owners": [
+        "economic source authority",
+        "artifact-tool XLSX export",
+        "post-open COM metadata repair",
+        "production cutover without gate:workbook-cutover@1"
+      ],
+      "notes": "The bridge owns presentation and the forceFullCalc finalization policy. It is accepted for golden replay but remains target_not_wired."
     },
     {
       "concept_id": "concept:capital-allocation-economics@1",

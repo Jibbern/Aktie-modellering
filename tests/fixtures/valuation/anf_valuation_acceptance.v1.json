@@ -1,0 +1,94 @@
+{
+  "acceptance_contract": "valuation-source-native-golden-acceptance@1",
+  "calculation_metadata": {
+    "finalization_contract": "workbook-calculation-metadata-finalization@1",
+    "force_full_calc": false,
+    "full_calc_on_load": true,
+    "policy_id": "valuation-native-safe-calculation-metadata@1",
+    "repository_owned": true
+  },
+  "capability_parity": {
+    "compact_forward_valuation_preserved": true,
+    "debt_liquidity_preserved": true,
+    "historical_current_preserved": true,
+    "intentionally_retired_bad_legacy_behavior_remains_retired": true,
+    "missing_supported_capability_count": 0,
+    "truthful_debt_detail_preserved": true
+  },
+  "economic_acceptance": {
+    "accepted_historical_current_consumer_count": 930,
+    "definition_drift_count": 0,
+    "literal_economic_drift_count": 0,
+    "missing_to_zero_count": 0,
+    "period_drift_count": 0,
+    "reproduced_count": 930,
+    "stale_legacy_resurrection_count": 0
+  },
+  "formula_ownership": {
+    "canonical_investment_case_link_count": 20,
+    "denominator_clamp_formula_count": 0,
+    "duplicate_forward_engine_formula_count": 0,
+    "hidden_economic_owner_formula_count": 0,
+    "presentation_local_formula_count": 1,
+    "retired_legacy_formula_count": 74,
+    "retired_legacy_formula_survivor_count": 0,
+    "valuation_formula_count": 21
+  },
+  "investment_case": {
+    "broken_name_count": 0,
+    "canonical_matrix_reconciled": "24/24",
+    "canonical_name_reconciled": "40/40",
+    "compact_link_reconciled": "20/20",
+    "compatibility_alias_count": 4
+  },
+  "latest_accepted_values": {
+    "abl_commitment": 500.0,
+    "availability": 449.531,
+    "cash": 594.08,
+    "inclusive_net_cash": 619.224,
+    "letters_of_credit": 0.469,
+    "liquidity": 1043.611,
+    "marketable_securities": 25.144,
+    "revolver_drawn": 0.0
+  },
+  "missing_market_state": {
+    "fabricated_market_output_count": 0,
+    "missing_price_to_zero_count": 0,
+    "stale_price_survivor_count": 0
+  },
+  "native_acceptance": {
+    "calculation_state_terminal": "xlDone",
+    "formula_error_count": 0,
+    "formula_value_snapshot_sha256": "9c8d53bb345af6739325ab4b6d48437701f7e8b2934087aa178303e7309560a9",
+    "native_formula_replay_match": true,
+    "native_semantic_replay_match": true,
+    "native_semantic_sha256": "40e96b502c8afdde2bc3392268e4ca4efda2cd4f1a379754e7efc51b6c5aa2b0",
+    "native_target_value_replay_match": true,
+    "native_visual_replay_match": true,
+    "pass_count": 4,
+    "passed": true,
+    "repair_event_count": 0,
+    "run_count": 2,
+    "run_outputs_are_acceptance_evidence_not_deterministic_golden": true,
+    "visual_render_sha256": "8e057e8da5930f52e928b46bddac0214bcf013e02d6614dcb20fc9ee18072e20"
+  },
+  "ownership": {
+    "investment_case_detailed_forward_owner": true,
+    "ownership_conflict_count": 0,
+    "source_native_concept_count": 41
+  },
+  "pre_native_golden": {
+    "canonical_ooxml_sha256": "dd5aabd1c50250add003b519f3d8edcc1b6d6e344841109b22a6d002e451ee5e",
+    "raw_sha256": "39fba7ae39a02fa9395cf25f103097f8c6d62ccbf3cf6a8ae25767babcb7fc1d",
+    "semantic_sha256": "90c20c0aeb437af25da8686270e9f5eff7cc554e270724346f19b7947d7f05c6"
+  },
+  "preservation": {
+    "defined_name_semantic_delta_count": 0,
+    "formula_semantic_delta_count": 0,
+    "relationship_semantic_delta_count": 0,
+    "unexplained_native_delta_count": 0,
+    "unrelated_native_delta_count": 0,
+    "unrelated_pre_native_workbook_delta_count": 0
+  },
+  "status": "PASS"
+}

@@ -162,7 +162,26 @@ The source-native product and replayable golden are accepted. The production wor
 bridge remains `target_not_wired`, `production_default=false`; artifact-tool is
 read/inspection/render only for this bridge.
 
-### 4f. Normalized/frozen-shell engine (validated transition)
+### 4f. Source-native Valuation product (golden accepted, workbook not wired)
+- [`pbi_xbrl/longitudinal_memory/valuation_source_native_projection.py`](../pbi_xbrl/longitudinal_memory/valuation_source_native_projection.py)
+  - Owns the immutable Valuation value/formula/name/layout plan, accepted historical
+    consumer corrections, canonical Investment Case dependency closure, and the
+    Valuation-specific calculation-metadata policy.
+- [`pbi_xbrl/longitudinal_memory/formula_aware_workbook_materialization.py`](../pbi_xbrl/longitudinal_memory/formula_aware_workbook_materialization.py)
+  - Applies caller-owned lossless formula/value/name/layout mutations and the bounded
+    pre-open `forceFullCalc` finalization. It performs no source selection or economics.
+- [`pbi_xbrl/longitudinal_memory/valuation_golden.py`](../pbi_xbrl/longitudinal_memory/valuation_golden.py) and
+  [`tests/fixtures/valuation/anf_valuation_golden_manifest.v1.json`](../tests/fixtures/valuation/anf_valuation_golden_manifest.v1.json)
+  - Register and replay golden `valuation-source-native:anf@1.0.0` from committed
+    content identities. Native Excel outputs are acceptance evidence, not the
+    deterministic workbook identity.
+
+The source-native product and replayable golden are accepted. The workbook bridge
+remains `target_not_wired`, `production_default=false`; artifact-tool is
+read/inspection/render only and native Excel is used only at the registered acceptance
+boundary.
+
+### 4g. Normalized/frozen-shell engine (validated transition)
 - [`docs/normalized_company_data.schema.json`](normalized_company_data.schema.json)
   - Transition package contract consumed by the new-engine planner; it is not the
     longitudinal schema and no accepted general bridge joins the two.

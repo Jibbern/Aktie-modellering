@@ -20,11 +20,12 @@ Three surfaces coexist. Their lifecycle and authority are machine-readable in
    validated transition capabilities. They have not replaced every production
    consumer and are not the source-native Promise Progress workbook bridge.
 3. **Source-native longitudinal/product architecture — active for its accepted
-   scope.** C1/C2/C3 records, `PromiseProgressProduct@1`, and the 452-field
-   Summary/BS source-native product have closed contracts, deterministic goldens,
-   and tests. Promise Progress has no workbook bridge. The accepted lossless
-   Summary/BS replay bridge can build scratch goldens, but both production workbook
-   integrations remain **target_not_wired** and Summary/BS is not a production default.
+   scope.** C1/C2/C3 records, `PromiseProgressProduct@1`, the 452-field
+   Summary/BS source-native product, and the accepted Valuation/Investment Case
+   product have closed contracts, deterministic goldens, and tests. Promise Progress
+   has no workbook bridge. The accepted lossless Summary/BS and Valuation replay
+   bridges can build scratch goldens, but all production workbook integrations remain
+   **target_not_wired** and neither golden is a production default.
 
 Legacy workbooks may be read-only product, capability, behavior, or visual oracles.
 They are not canonical source authority for economic facts.
@@ -154,6 +155,16 @@ They are not canonical source authority for economic facts.
 - Administrative amendments should not replace the real business / risk source.
 
 ## Valuation Architecture
+- Source-native Valuation golden `valuation-source-native:anf@1.0.0` owns the accepted
+  historical/current consumers, canonical Investment Case forward outputs, formula
+  ownership, and truthful missing-market/debt states. Its deterministic workbook is
+  rebuilt from the accepted Summary/BS golden plus a committed immutable plan.
+- Formula-aware finalization owns `calcPr@forceFullCalc=0` through
+  `valuation-native-safe-calculation-metadata@1`; this is a pre-open workbook property,
+  not an economic calculation or post-open COM workaround.
+- The Valuation replay bridge remains `target_not_wired`, `production_default=false`.
+  The current production workbook route remains a compatibility consumer until a
+  separate workbook-cutover approval.
 - `Valuation` now uses a resolved capital-return layer rather than letting note text or generic program text drive numeric output.
 - That resolved layer separates:
   - quarter-safe buyback execution

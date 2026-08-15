@@ -522,6 +522,64 @@
       "notes": "The preview/golden materializer is accepted, but no production consumer or default route is wired. Lifecycle remains target_not_wired."
     },
     {
+      "component_id": "component:valuation-source-native-product@1",
+      "name": "Source-native Valuation and canonical Investment Case product",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "accepted Valuation projection plan and canonical Investment Case formula surface",
+      "repository_paths": [
+        "pbi_xbrl/longitudinal_memory/valuation_source_native_projection.py",
+        "pbi_xbrl/new_ticker_investment_case_formula_surface.py",
+        "pbi_xbrl/longitudinal_memory/valuation_golden.py",
+        "tests/fixtures/valuation/anf_valuation_golden_manifest.v1.json"
+      ],
+      "producer": "build_valuation_projection_plan and registered Valuation golden replay",
+      "consumers": [
+        "component:valuation-workbook-bridge@1",
+        "component:test-fixtures-and-goldens@1"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Versioned Valuation concepts, definitions, canonical Investment Case outputs, formula ownership and missing-state behavior under the semantic golden gate.",
+      "prohibited_ownership": [
+        "legacy workbook values as source authority",
+        "writer-side economic reselection",
+        "duplicate Valuation forward engine"
+      ],
+      "notes": "Golden valuation-source-native:anf@1.0.0 is accepted. The economic product is independent from the separately unwired workbook bridge and is not a production default."
+    },
+    {
+      "component_id": "component:valuation-workbook-bridge@1",
+      "name": "Lossless source-native Valuation workbook bridge",
+      "lifecycle_state": "target_not_wired",
+      "authority_level": "presentation_contract",
+      "canonical_owner": "immutable Valuation mutation plan and formula-aware lossless OOXML materializer",
+      "repository_paths": [
+        "pbi_xbrl/longitudinal_memory/formula_aware_workbook_materialization.py",
+        "pbi_xbrl/longitudinal_memory/valuation_source_native_projection.py",
+        "pbi_xbrl/longitudinal_memory/valuation_golden.py",
+        "scripts/build_anf_valuation_source_native_preview.py",
+        "scripts/build_anf_valuation_golden.py"
+      ],
+      "producer": "materialize_formula_aware_mutations with valuation-native-safe-calculation-metadata@1",
+      "consumers": [
+        "deterministic Valuation golden replay",
+        "future separately authorized workbook cutover"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Apply only the committed formula/value/name/layout plan plus the accepted forceFullCalc finalization policy to a scratch copy of the Summary/BS golden shell.",
+      "prohibited_ownership": [
+        "economic source selection",
+        "production-default routing",
+        "artifact-tool XLSX authoring",
+        "protected workbook overwrite"
+      ],
+      "notes": "The bridge and native-safe calculation metadata finalization are accepted for replay, but no production consumer is wired and lifecycle remains target_not_wired."
+    },
+    {
       "component_id": "component:normalized-package-contract@1",
       "name": "Normalized company-data package",
       "lifecycle_state": "transition",

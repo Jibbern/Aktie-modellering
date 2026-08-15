@@ -1435,7 +1435,7 @@ def test_registry_vocabularies_and_checkpoint_are_closed(registries) -> None:
     ]
 
 
-def test_lifecycle_states_do_not_claim_a_promise_progress_workbook_bridge(registries) -> None:
+def test_lifecycle_states_keep_accepted_source_native_bridges_unwired(registries) -> None:
     by_id = {
         row["component_id"]: row for row in registries["lifecycle"]["components"]
     }
@@ -1452,6 +1452,12 @@ def test_lifecycle_states_do_not_claim_a_promise_progress_workbook_bridge(regist
     summary_bs_bridge = by_id["component:summary-bs-workbook-bridge@1"]
     assert summary_bs_bridge["lifecycle_state"] == "target_not_wired"
     assert summary_bs_bridge["production_status"] == "accepted_not_workbook_wired"
+    valuation_product = by_id["component:valuation-source-native-product@1"]
+    assert valuation_product["lifecycle_state"] == "active"
+    assert valuation_product["production_status"] == "accepted_not_workbook_wired"
+    valuation_bridge = by_id["component:valuation-workbook-bridge@1"]
+    assert valuation_bridge["lifecycle_state"] == "target_not_wired"
+    assert valuation_bridge["production_status"] == "accepted_not_workbook_wired"
     oracle = by_id["component:legacy-workbook-oracles@1"]
     assert oracle["lifecycle_state"] == "oracle"
     assert oracle["authority_level"] == "parity_oracle"
@@ -1484,6 +1490,7 @@ def test_required_ownership_and_change_classes_are_complete(registries) -> None:
         "concept:promise-progress-projection@1",
         "concept:summary-bs-source-native-product@1",
         "concept:summary-bs-workbook-projection@1",
+        "concept:valuation-workbook-projection@1",
         "concept:normalized-package@1",
         "concept:workbook-binding@1",
         "concept:workbook-style@1",

@@ -386,7 +386,8 @@
         "concept:promise-progress-projection@1",
         "concept:product-display-text@1",
         "concept:product-row-ordering@1",
-        "concept:summary-bs-source-native-product@1"
+        "concept:summary-bs-source-native-product@1",
+        "concept:valuation-economics@1"
       ],
       "likely_direct_consumers": [
         "typed block row",
@@ -479,11 +480,13 @@
       "canonical_owner_concept_ids": [
         "concept:workbook-binding@1",
         "concept:workbook-style@1",
-        "concept:summary-bs-workbook-projection@1"
+        "concept:summary-bs-workbook-projection@1",
+        "concept:valuation-workbook-projection@1"
       ],
       "likely_direct_consumers": [
         "binding planner",
         "Summary/BS typed binding plan and lossless materializer",
+        "Valuation formula/value/name plan and formula-aware lossless materializer",
         "allowed-cell and merge contracts",
         "template manifest",
         "post-fill validation"
