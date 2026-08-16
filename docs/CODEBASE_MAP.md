@@ -181,7 +181,25 @@ remains `target_not_wired`, `production_default=false`; artifact-tool is
 read/inspection/render only and native Excel is used only at the registered acceptance
 boundary.
 
-### 4g. Normalized/frozen-shell engine (validated transition)
+### 4g. Source-native Capital Allocation / Capital Return (golden accepted, workbook not wired)
+- [`pbi_xbrl/longitudinal_memory/capital_allocation_return_product_expansion.py`](../pbi_xbrl/longitudinal_memory/capital_allocation_return_product_expansion.py)
+  - Composes typed Capital Return, normalized financial, Debt/Liquidity, and Summary/BS
+    owners through declarative metric routes, activity families, semantic periods,
+    relevance rules, and missing-is-not-zero behavior.
+- [`pbi_xbrl/longitudinal_memory/valuation_guidance_net_share_polish.py`](../pbi_xbrl/longitudinal_memory/valuation_guidance_net_share_polish.py)
+  - Owns the accepted net-share percentage derivation, final Capital binding plan,
+    hidden lineage support, Guidance compression, and Operating Drivers retirement.
+- [`pbi_xbrl/longitudinal_memory/capital_allocation_return_golden.py`](../pbi_xbrl/longitudinal_memory/capital_allocation_return_golden.py) and
+  [`tests/fixtures/capital_allocation_return/anf_capital_allocation_return_golden_manifest.v1.json`](../tests/fixtures/capital_allocation_return/anf_capital_allocation_return_golden_manifest.v1.json)
+  - Register product golden `capital-allocation-return-source-native:anf@1.0.0` and
+    workbook successor `valuation-source-native-workbook:anf@2.0.0`. Replay uses the
+    immutable Valuation v1 golden plus a closed content-addressed OOXML delta.
+
+The ANF product is golden accepted. PBI is not wired or production-supported by this
+golden; its remaining requirement is a ticker-specific presentation binding profile.
+The shared workbook bridge remains `target_not_wired`, `production_default=false`.
+
+### 4h. Normalized/frozen-shell engine (validated transition)
 - [`docs/normalized_company_data.schema.json`](normalized_company_data.schema.json)
   - Transition package contract consumed by the new-engine planner; it is not the
     longitudinal schema and no accepted general bridge joins the two.

@@ -1,0 +1,225 @@
+{
+  "acceptance": {
+    "acceptance_fixture": "anf_capital_allocation_return_acceptance.v1.json",
+    "acceptance_fixture_sha256": "185e076f741f08467ebc882466c5740758934d9466d3362d53ceb082ea690972",
+    "approval_gate_ids": [
+      "gate:semantic-golden-regeneration@1",
+      "gate:product-contract-change@1",
+      "gate:workbook-presentation-layout@1",
+      "gate:workbook-publication-contract-change@1"
+    ],
+    "available_lineage": "114/114",
+    "binding_readback": "145/145",
+    "generic_test_matrix": "9/9",
+    "native_evidence": "NATIVE_EVIDENCE_REUSED",
+    "passed": true,
+    "pbi_binding_profile_required": true,
+    "unrelated_workbook_delta_count": 0
+  },
+  "acceptance_status": "golden_accepted",
+  "checkpoint": {
+    "commit_reference": "git commit containing this manifest",
+    "pre_capital_product_checkpoint": "e150630c2d761d804eb16445220a517a43f9500c",
+    "rollback_requires_protected_workbook_modification": false
+  },
+  "cross_ticker_generality": {
+    "audit_manifest_data_root_relative_path": "audit/capital_product_cross_ticker_genericity_fix_2026-08-16/audit_manifest.json",
+    "audit_manifest_sha256": "1be56afb3a6596f52b61488041db6c5c6110cf536334a9f967cb67bb499cd2f2",
+    "contract_fixture": "capital_allocation_return_generic_contract.v1.json",
+    "contract_fixture_sha256": "c347177c1f1e80e41c9e828c6a0e132fe57a4631c388044873a85e5221c0a61e",
+    "generic_test_matrix": "9/9",
+    "pbi_lifecycle_activated": false,
+    "pbi_production_binding": false,
+    "verdict": "GENERIC_PRODUCT_READY_WITH_TICKER_BINDING_PROFILE"
+  },
+  "economic_product": {
+    "activity_family_count": 3,
+    "available_binding_count": 114,
+    "binding_count": 145,
+    "capital_product_support_sha256": "a23e8fbf8fcd4e8d45d497e518ae300afc4dbc4ffc278b23d2c7f6d9c9d8bb1e",
+    "investor_product_contract": "capital-allocation-return-investor-product@1",
+    "missing_to_zero_count": 0,
+    "net_share_derivation_contract": "historical-net-share-reduction-percentage@1",
+    "net_share_derivation_sha256": "14808a4aac0f7e024873dcc50bfa3c9d224f23cd9bde47d1521af4666c4c8e1b",
+    "ownership_conflict_count": 0,
+    "product_id": "capital-allocation-return-source-native:anf@1.0.0",
+    "source_package_sha256": "cab0ca914d2bd475f2022960984b1b62642b3dc76edb25750c748719b82b460d",
+    "unavailable_binding_count": 31
+  },
+  "fixture_artifacts": [
+    {
+      "relative_path": "anf_capital_allocation_return_acceptance.v1.json",
+      "sha256": "185e076f741f08467ebc882466c5740758934d9466d3362d53ceb082ea690972"
+    },
+    {
+      "relative_path": "anf_capital_allocation_return_plan.v1.json",
+      "sha256": "7d5b2adbafd104b01c088442ba0828cee971244345604b73a321c7c567fb7e07"
+    },
+    {
+      "relative_path": "capital_allocation_return_generic_contract.v1.json",
+      "sha256": "c347177c1f1e80e41c9e828c6a0e132fe57a4631c388044873a85e5221c0a61e"
+    }
+  ],
+  "fixture_hash_contract": "checkout-lf-normalized-file-sha256@1",
+  "generated_timestamp": null,
+  "golden_id": "capital-allocation-return-source-native:anf@1.0.0",
+  "golden_version": "1.0.0",
+  "implementation_artifacts": [
+    {
+      "repository_path": "pbi_xbrl/new_ticker_capital_return.py",
+      "sha256": "f56d16e1b90653656057fd3ed54ef49a163689351fb5c7249d272251a79f2ce7"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/capital_allocation_return_product_expansion.py",
+      "sha256": "9527d564f06567d24c2f54e0f786282584c8a630434374c701b69f4f0619cfa5"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/capital_return_debt_workbook_projection.py",
+      "sha256": "5f814b5d24f4ce5183b8d43e7dc17ab949a124694f97e5d62e4ab031223bac25"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/capital_return_debt_workbook_materialization.py",
+      "sha256": "644d549b86a3df6b28eca3c644d0eae065aa186b11b53cdfc5301aecf69cbcc1"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/valuation_capital_product_cleanup.py",
+      "sha256": "e37050e823fceaedab8c6779c4d04c6ea93a414d704fc60ae38d1c1da1266d10"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/valuation_final_layout_cleanup.py",
+      "sha256": "5a81932afe107331e7a5a54920f2997b5982bf8beddc6f14fe1bbee4088fe007"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/valuation_final_investor_polish.py",
+      "sha256": "c365fec8dbc0c2c9919c956d85264160128383e22d501b92c28600d97fe6d666"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/valuation_guidance_net_share_polish.py",
+      "sha256": "fc2f560784de335f406f9793ad8669eae7f686a0de6f683bc092c0d97570e816"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/capital_allocation_return_golden.py",
+      "sha256": "c318a3c63b6f4117bd9040555fbe1706c70444a0cf31787a16b84239e1ddddf2"
+    },
+    {
+      "repository_path": "scripts/build_anf_capital_allocation_return_golden.py",
+      "sha256": "a33fc3dfad09e11ac10c4a03dfba0cfbedf14f1697eb61f849df96c1428193da"
+    }
+  ],
+  "lifecycle": "target_not_wired",
+  "manifest_digest": "a7198b36f46e5c0db98689cb45e9e8e7bfccf8fd095c71a5f7143f5d4622991a",
+  "manifest_type": "CapitalAllocationReturnSourceNativeGoldenManifest@1",
+  "materialization": {
+    "artifact_tool_role": "READ / INSPECTION / RENDER ONLY",
+    "calculation_metadata": {
+      "calcMode": "auto",
+      "forceFullCalc": "0",
+      "fullCalcOnLoad": "1"
+    },
+    "canonical_ooxml_hash_contract": "ordered-uncompressed-ooxml-members-sha256@1",
+    "changed_member_count": 17,
+    "changed_members": [
+      {
+        "member": "xl/worksheets/sheet2.xml",
+        "sha256": "3c35f273ab5f28673f71e5ecee07c6be8685130ebd6a642cbe08e902d3d4d199"
+      },
+      {
+        "member": "xl/comments/comment2.xml",
+        "sha256": "af424c25d431ef5b0b2fc6ee2ae11ac92baa69db6bb27d2d47fa43c86c1ddc36"
+      },
+      {
+        "member": "xl/drawings/commentsDrawing2.vml",
+        "sha256": "0722169b2401605f05c30aa297a5ac4772df2cd5a574380357e802c8a6b98f12"
+      },
+      {
+        "member": "xl/worksheets/sheet9.xml",
+        "sha256": "3e7ce580f68798c44de9ce40152123fe02fda56d100eb33b75632faf6326f190"
+      },
+      {
+        "member": "xl/tables/table2.xml",
+        "sha256": "adfd4c4a82672673d9d27bf4fdaa91b51798252ce5083e0d5fd8f15d912d4270"
+      },
+      {
+        "member": "xl/worksheets/sheet11.xml",
+        "sha256": "a8950fb814c39f467f91d48582b30db48ff8b7c3422b91fcb49b24b7c11904c8"
+      },
+      {
+        "member": "xl/tables/table3.xml",
+        "sha256": "e051b4f90799ce5ad77f2fa4763961ce96a95c87223fb8880e23cfcf4b348fab"
+      },
+      {
+        "member": "xl/worksheets/sheet12.xml",
+        "sha256": "e49c3e4b3717f0f7d07f4be93e74011d99a366026571987f77a97c70ade2d571"
+      },
+      {
+        "member": "xl/worksheets/sheet16.xml",
+        "sha256": "203130956aef8c2442a4687458317dd48fea053ce18d6878c83aeb3392327caa"
+      },
+      {
+        "member": "xl/tables/table4.xml",
+        "sha256": "ee64788b14b051cf40d45b6166f84f8c16ed2e5f31d8acdff2d13fc76442ac39"
+      },
+      {
+        "member": "xl/worksheets/sheet17.xml",
+        "sha256": "7603c92c8c6b1e06340962b22c3c47ad40fa3820be62e285a21b8604fcc47551"
+      },
+      {
+        "member": "xl/tables/table5.xml",
+        "sha256": "2e232ccce8803128ff4972ac27c7535b13f913afa6c4de7e00c91212837f35b9"
+      },
+      {
+        "member": "xl/styles.xml",
+        "sha256": "2e3e06afc088cb1f44f09a3ffa9239de00e1815177db835747eddf862fdc4cca"
+      },
+      {
+        "member": "xl/workbook.xml",
+        "sha256": "233289349ed28b03a8966e5e7b0764232fc67c4f42098e23092333738d454ecd"
+      },
+      {
+        "member": "xl/_rels/workbook.xml.rels",
+        "sha256": "4407348371988cccd25eed0843619e53c0fd1074446ab7f1c588f21a164a48e3"
+      },
+      {
+        "member": "[Content_Types].xml",
+        "sha256": "e07c5a87e5c4881e35b69e77bd34a6b23ef97fc804aac2387cb1b500a3ac6f9f"
+      },
+      {
+        "member": "xl/worksheets/sheet58.xml",
+        "sha256": "4acbda53741edd265f526730426a8f5d043879c8e78621bde6ea9e03ca587c8a"
+      }
+    ],
+    "delta_contract": "valuation-capital-product-ooxml-delta-from-registered-predecessor@1",
+    "delta_fixture": "anf_valuation_capital_product_delta.v1.zip",
+    "delta_fixture_sha256": "d51f2be1a77584f47562e35256c9f8d9cb9c68df662cba3137662c8135c47b32",
+    "implementation_hash_contract": "checkout-lf-normalized-file-sha256@1",
+    "materializer_contract": "targeted-ooxml-member-delta-replay@1",
+    "source_selection_performed": false
+  },
+  "predecessor": {
+    "canonical_ooxml_sha256": "dd5aabd1c50250add003b519f3d8edcc1b6d6e344841109b22a6d002e451ee5e",
+    "golden_id": "valuation-source-native:anf@1.0.0",
+    "manifest_digest": "bb29eefe31d7eca302fffdc2fb00ed641963aec1f3eb1697f608c1913a173991",
+    "raw_workbook_sha256": "39fba7ae39a02fa9395cf25f103097f8c6d62ccbf3cf6a8ae25767babcb7fc1d",
+    "workbook_id": "valuation-source-native-workbook:anf@1.0.0"
+  },
+  "production_default": false,
+  "projection": {
+    "binding_plan_digest": "0ac4103b27c61651217096bc9dc9a2984d65286d4d1dcdecd1df27be74bd15b3",
+    "contract": "valuation-guidance-net-share-polish@1",
+    "plan_digest": "7eeef13ab2397d74c42cb1c3c9d0dfe195591b78ba16607408bf15b5f928615b",
+    "plan_fixture": "anf_capital_allocation_return_plan.v1.json",
+    "plan_fixture_sha256": "7d5b2adbafd104b01c088442ba0828cee971244345604b73a321c7c567fb7e07",
+    "source_package_sha256": "cab0ca914d2bd475f2022960984b1b62642b3dc76edb25750c748719b82b460d"
+  },
+  "workbook_golden": {
+    "canonical_ooxml_sha256": "5ac8b590274d8b396fa866ddcc29443d6d81bfab6cc2e9b2fbe4afffb699d463",
+    "data_root_relative_path": "audit/capital_allocation_return_golden_acceptance_2026-08-16/golden/ANF_valuation_capital_product_golden_v2.xlsx",
+    "raw_sha256": "d8d870803f97c09ca9a8822285da7abf3d43ad86871d1b2887ee55edf3bf2020",
+    "render_contract": "artifact-tool-valuation-complete-render@1",
+    "render_sha256": "d18121a7661e2489175bb4f3f1e054d29afa7a8653945ad86c3d13b28092b991",
+    "semantic_hash_contract": "valuation-guidance-net-share-polish-semantic-snapshot@1",
+    "semantic_sha256": "590164c711cae1bfd068e8c182144c573d5083f292e72f469bdc405194b65bcb",
+    "size_bytes": 8866176,
+    "workbook_id": "valuation-source-native-workbook:anf@2.0.0"
+  }
+}

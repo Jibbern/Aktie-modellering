@@ -211,7 +211,7 @@ def test_anf_debt_product_rows_are_exact_and_row_order_independent(anf_package: 
         reordered["debt_liquidity"][collection].reverse()
 
     assert projection.to_dict() == build_debt_workbook_projection(reordered).to_dict()
-    assert projection.projection_digest == "d22833a1043e3969db221eeef5de5bbf54b94dde954ac1602a9da0fe4b4fda35"
+    assert projection.projection_digest == "2f3da3650c0a09da51cef9bd00e240faf62a0dda04483781f72b2a3794fc7868"
     assert len(projection.debt_profile_rows) == 11
     assert [row.value for row in projection.debt_profile_rows[:10]] == pytest.approx(
         [500.0, 500.0, 0.0, 0.469, 499.531, 50.0, 449.531, 594.08, 7.336, 1292.477]
@@ -219,9 +219,11 @@ def test_anf_debt_product_rows_are_exact_and_row_order_independent(anf_package: 
     assert projection.debt_profile_rows[2].state == "reported_zero"
     assert projection.debt_profile_rows[8].expiry_or_maturity == ""
     assert projection.debt_profile_rows[9].expiry_or_maturity == ""
-    assert projection.debt_profile_rows[10].value is None
-    assert projection.debt_profile_rows[10].state == "unavailable"
-    assert projection.debt_profile_rows[10].definition_or_source == "no source-backed core borrowings identified"
+    assert projection.debt_profile_rows[10].value == 0.0
+    assert projection.debt_profile_rows[10].state == "reported_zero"
+    assert projection.debt_profile_rows[10].definition_or_source == (
+        "Source-backed zero: all funded notes redeemed and no ABL borrowings outstanding."
+    )
     assert projection.debt_profile_rows[10].as_of_date == "2026-05-02"
 
     assert len(projection.revolver_history_rows) == 12
@@ -238,7 +240,13 @@ def test_anf_debt_product_rows_are_exact_and_row_order_independent(anf_package: 
     assert by_period["2026-Q1"].revolver_availability == pytest.approx(449.531)
     assert by_period["2025-Q4"].cash == pytest.approx(759.54)
     assert by_period["2025-Q4"].revolver_availability == pytest.approx(449.546)
-    assert all(row.core_debt is None and row.disposition_state == "debt_unavailable" for row in by_period.values())
+    assert by_period["2026-Q1"].core_debt == 0.0
+    assert by_period["2026-Q1"].disposition_state == "source_backed_reported_zero"
+    assert all(
+        row.core_debt is None and row.disposition_state == "debt_unavailable"
+        for period, row in by_period.items()
+        if period != "2026-Q1"
+    )
 
     assert [(row.priority, row.topic) for row in projection.debt_credit_note_rows] == [
         (5, "Covenant compliance"),
@@ -256,6 +264,29 @@ def test_anf_debt_product_rows_are_exact_and_row_order_independent(anf_package: 
         "Debt_Buckets": "hidden",
         "Debt_Recon": "hidden",
     }
+
+
+@pytest.mark.parametrize("removed_note_type", ["facility_draw_status", "debt_redemption"])
+def test_current_core_debt_zero_requires_both_typed_evidence_classes(
+    anf_package: dict,
+    removed_note_type: str,
+) -> None:
+    mutated = deepcopy(anf_package)
+    mutated["debt_liquidity"]["credit_notes"] = [
+        row
+        for row in mutated["debt_liquidity"]["credit_notes"]
+        if row["note_type"] != removed_note_type
+    ]
+
+    projection = build_debt_workbook_projection(mutated)
+    profile_state = projection.debt_profile_rows[-1]
+    current = next(row for row in projection.leverage_liquidity_rows if row.period == "2026-Q1")
+
+    assert profile_state.item == "Core funded debt state"
+    assert profile_state.value is None
+    assert profile_state.state == "unavailable"
+    assert current.core_debt is None
+    assert current.disposition_state == "debt_unavailable"
 
 
 def _latest_resolved_facility(anf_package: dict):
@@ -541,21 +572,21 @@ def test_anf_binding_style_and_visibility_projection_is_exact(anf_package: dict)
             "debt_maturity_ladder_resolved_rows",
         )
     } == {
-        "debt_profile_resolved_rows": 103,
+        "debt_profile_resolved_rows": 106,
         "revolver_history_resolved_rows": 118,
         "revolver_history_companion_rows": 56,
-        "leverage_liquidity_resolved_rows": 48,
+        "leverage_liquidity_resolved_rows": 49,
         "leverage_liquidity_availability_rows": 12,
         "leverage_liquidity_companion_rows": 36,
         "debt_credit_notes_resolved_rows": 16,
         "debt_maturity_ladder_resolved_rows": 0,
     }
     serialized_plan = value_plan.to_dict()
-    assert serialized_plan["planned_write_count"] == 23_613
+    assert serialized_plan["planned_write_count"] == 23_617
     assert serialized_plan["structured_skip_count"] == 2_006
     assert value_plan.issue_ledger["summary"]["canonical_unique_issue_count"] == 755
     assert value_plan.issue_ledger["summary"]["detailed_occurrence_count"] == 2_311
-    assert len(style_plan.actions) == 770
+    assert len(style_plan.actions) == 768
     assert len(style_plan.decisions) == 1_298
     assert dict(value_plan.sheet_visibility)["Debt_Maturity_Ladder"] == "hidden"
     debt_policy_ids = {
@@ -566,7 +597,7 @@ def test_anf_binding_style_and_visibility_projection_is_exact(anf_package: dict)
         "debt_maturity_product_state",
     }
     debt_actions = [action for action in style_plan.actions if action.policy_id in debt_policy_ids]
-    assert len(debt_actions) == 17
+    assert len(debt_actions) == 15
     assert {action.cell for action in debt_actions} <= {
         *(f"H{row}" for row in range(4, 15)),
         *(f"O{row}" for row in range(4, 16)),
@@ -608,8 +639,8 @@ def test_filled_anf_debt_product_is_exact_and_preserves_existing_snapshot(tmp_pa
     output = tmp_path / "ANF_debt_product.xlsx"
     result = fill_standard_template_from_package(ANF_PACKAGE, output_path=output)
 
-    assert result.written_cell_count == 23_613
-    assert result.styled_cell_count == 770
+    assert result.written_cell_count == 23_617
+    assert result.styled_cell_count == 768
     wb = load_workbook(output, data_only=False, read_only=False)
     try:
         assert {
@@ -641,10 +672,12 @@ def test_filled_anf_debt_product_is_exact_and_preserves_existing_snapshot(tmp_pa
         assert [profile[f"D{row}"].value for row in range(4, 14)] == pytest.approx(
             [500.0, 500.0, 0.0, 0.469, 499.531, 50.0, 449.531, 594.08, 7.336, 1292.477]
         )
-        assert profile["D14"].value is None
+        assert profile["D14"].value == pytest.approx(0.0)
         assert profile["H6"].value == "reported_zero"
-        assert profile["H14"].value == "unavailable"
-        assert profile["J14"].value == "no source-backed core borrowings identified"
+        assert profile["H14"].value == "reported_zero"
+        assert profile["J14"].value == (
+            "Source-backed zero: all funded notes redeemed and no ABL borrowings outstanding."
+        )
         assert all(profile[f"F{row}"].value == "2026-05-02" for row in range(4, 15))
         assert all(
             profile.cell(row, column).value is None
@@ -686,9 +719,9 @@ def test_filled_anf_debt_product_is_exact_and_preserves_existing_snapshot(tmp_pa
         assert liquidity[f"B{january_row}"].value == pytest.approx(759.54)
         assert liquidity[f"G{january_row}"].value == pytest.approx(449.546)
         assert liquidity[f"C{may_row}"].value == pytest.approx(7.336)
-        assert liquidity[f"D{may_row}"].value is None
+        assert liquidity[f"D{may_row}"].value == pytest.approx(0.0)
         assert liquidity[f"E{may_row}"].value == pytest.approx(1292.477)
-        assert liquidity[f"L{may_row}"].value == "debt_unavailable"
+        assert liquidity[f"L{may_row}"].value == "source_backed_reported_zero"
         for column in "FHIJK":
             assert str(liquidity[f"{column}{may_row}"].value).startswith("=IFERROR(")
 

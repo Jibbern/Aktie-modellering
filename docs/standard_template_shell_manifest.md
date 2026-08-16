@@ -172,11 +172,14 @@ Operating Drivers sidecar at `O37:AC47` is retired: it is blank, locked, and has
 no binding, formula, style, name, or module ownership. The separate
 `Operating_Drivers` worksheet retains its own declared shell structure.
 
-Valuation's lower active product surface contains the scalar debt/liquidity
-snapshot at `A122:M136` and Hidden Value at `A137:R143`. `A145:M188` is retired,
-blank, locked, hidden, and unowned. No Operating Signals, Capital Return, Trend,
-or Red/Green panel may reclaim that range. The secondary Valuation title and
-scenario product beginning at row 192 remain protected and unchanged.
+Valuation's active lower product surface contains Market Valuation at
+`A116:B123`, Debt Detail at `A125:O128`, Capital Allocation at `A130:M143`, and
+Capital Return at `A145:M178`. Its compact typed lineage is owned by the hidden
+`Capital_Product_Lineage!A1:A30` support sheet; lineage text is not displayed on
+Valuation. The former lower-shell Operating Signals, Trend, Red/Green, and
+Operating Drivers panels are retired, blank, locked, and unowned. Market
+Valuation's seven transparent presentation formulas are not a second forward
+valuation engine.
 
 `Operating_Drivers` uses its title on row 1 and freezes only row 1 (`A2` freeze
 pane). The former row-2 title band is intentionally blank in the frozen shell.

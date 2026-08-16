@@ -1258,15 +1258,19 @@
         "pbi_xbrl/longitudinal_memory/formula_aware_workbook_materialization.py",
         "pbi_xbrl/longitudinal_memory/valuation_source_native_projection.py",
         "pbi_xbrl/longitudinal_memory/valuation_golden.py",
-        "tests/fixtures/valuation/anf_valuation_projection_plan.v1.json"
+        "pbi_xbrl/longitudinal_memory/capital_allocation_return_golden.py",
+        "tests/fixtures/valuation/anf_valuation_projection_plan.v1.json",
+        "tests/fixtures/capital_allocation_return/anf_capital_allocation_return_plan.v1.json"
       ],
       "public_interfaces": [
         "materialize_formula_aware_mutations",
         "load_valuation_projection_plan",
-        "reproduce_registered_golden"
+        "reproduce_registered_golden",
+        "valuation-source-native-workbook:anf@2.0.0"
       ],
       "current_consumers": [
         "accepted Valuation source-native golden replay",
+        "accepted Capital Allocation / Return workbook golden replay",
         "focused native and lossless preservation gates"
       ],
       "ownership_state": "unified_unwired",
@@ -1290,37 +1294,44 @@
     {
       "concept_id": "concept:capital-allocation-economics@1",
       "name": "Capital-allocation economics",
-      "canonical_owner_component_id": "component:normalized-package-contract@1",
+      "canonical_owner_component_id": "component:capital-allocation-return-source-native-product@1",
       "canonical_owner_paths": [
         "pbi_xbrl/new_ticker_capital_return.py",
-        "docs/normalized_company_data.schema.json",
-        "docs/workbook_binding_map.json"
+        "pbi_xbrl/longitudinal_memory/capital_allocation_return_product_expansion.py",
+        "pbi_xbrl/longitudinal_memory/valuation_guidance_net_share_polish.py",
+        "pbi_xbrl/longitudinal_memory/capital_allocation_return_golden.py",
+        "tests/fixtures/capital_allocation_return/anf_capital_allocation_return_golden_manifest.v1.json"
       ],
       "public_interfaces": [
         "make_capital_return_record",
         "derive_total_capital_return",
-        "build_capital_return_workbook_projection"
+        "build_capital_return_workbook_projection",
+        "build_capital_allocation_return_investor_product",
+        "capital-allocation-return-source-native:anf@1.0.0"
       ],
       "current_consumers": [
-        "normalized package",
-        "new-engine workbook projection"
+        "accepted ANF Capital Allocation / Return golden",
+        "component:valuation-workbook-bridge@1",
+        "future ticker-specific presentation binding profiles"
       ],
-      "ownership_state": "transition_conflict",
+      "ownership_state": "unified_unwired",
       "parallel_owners": [
         {
           "component_id": "component:legacy-workbook-production@1",
           "path": "legacy pipeline and Valuation writer capital-return logic",
           "lifecycle_state": "active",
-          "authority_limit": "Current legacy workbook production."
+          "authority_limit": "Production workbook compatibility only; it cannot override accepted source-native Capital Allocation / Return economics, typed lineage, relevance, or missing-state behavior."
         }
       ],
-      "allowed_extension_point": "Typed source-backed capital-return records and generic versioned calculations.",
+      "allowed_extension_point": "Typed source-backed Capital Return records, declarative canonical-owner routing, generic period/relevance rules, and versioned derived metrics under product-contract and semantic-golden gates.",
       "prohibited_owners": [
         "workbook formula without lineage",
         "program authorization as executed buybacks",
-        "blank-to-zero fallback"
+        "blank-to-zero fallback",
+        "ticker-specific economic branch",
+        "PBI production binding without separate acceptance"
       ],
-      "notes": "Parallel legacy and transition owners remain until an explicit cutover."
+      "notes": "Golden capital-allocation-return-source-native:anf@1.0.0 is accepted for ANF. The Valuation workbook bridge remains target_not_wired and production_default=false. PBI has generic-product compatibility evidence only and still requires a ticker-specific binding profile."
     }
   ]
 }

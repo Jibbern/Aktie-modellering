@@ -1,0 +1,77 @@
+{
+  "acceptance_contract": "capital-allocation-return-source-native-golden-acceptance@1",
+  "binding_acceptance": {
+    "available_binding_count": 114,
+    "binding_count": 145,
+    "binding_readback_mismatch_count": 0,
+    "missing_to_zero_count": 0,
+    "unavailable_binding_count": 31
+  },
+  "capital_product": {
+    "capital_allocation_preserved": true,
+    "capital_return_preserved": true,
+    "guidance_preserved": true,
+    "market_valuation_preserved": true,
+    "operating_drivers_visible_survivor_count": 0,
+    "semantic_trend_contract": "SEMANTIC_TREND_CONTRACT_DEFERRED"
+  },
+  "cross_ticker_generality": {
+    "anf_only_economic_branch_count": 0,
+    "bounded_genericity_defect_count": 0,
+    "generic_test_matrix": "9/9",
+    "pbi_binding_profile_required": true,
+    "pbi_implementation_accepted": false,
+    "pbi_missing_to_zero_count": 0,
+    "verdict": "GENERIC_PRODUCT_READY_WITH_TICKER_BINDING_PROFILE"
+  },
+  "formula_ownership": {
+    "broken_formula_count": 0,
+    "broken_name_count": 0,
+    "duplicate_forward_engine_formula_count": 0,
+    "hidden_economic_owner_formula_count": 0,
+    "retired_forward_engine_formula_count": 0,
+    "transparent_market_valuation_formula_count": 7,
+    "valuation_formula_count": 7
+  },
+  "lineage": {
+    "available_binding_count": 114,
+    "traceable_binding_count": 114,
+    "untraceable_binding_count": 0,
+    "visible_lineage_text_count": 0
+  },
+  "native_evidence": {
+    "decision": "NATIVE_EVIDENCE_REUSED",
+    "formula_semantics_unchanged_since_native_acceptance": true,
+    "latest_native_audit_manifest_sha256": "52c4719a62fd485b544455e200cf1ade37eeab5b6a26e85d4715870f6c975235",
+    "latest_native_audit_relative_path": "audit/valuation_final_investor_polish_repair_2026-08-16/audit_manifest.json",
+    "native_formula_replay_match": true,
+    "native_semantic_replay_match": true,
+    "repair_event_count": 0
+  },
+  "preservation": {
+    "calculation_metadata_preserved": true,
+    "formula_semantic_delta_count": 0,
+    "relationship_delta_count": 0,
+    "sheet_state_delta_count": 0,
+    "unrelated_workbook_delta_count": 0
+  },
+  "product_findings": {
+    "p0": 0,
+    "p1": 0,
+    "p2": 0
+  },
+  "status": "PASS",
+  "visual_acceptance": {
+    "blocking_ui_count": 0,
+    "material_ui_count": 0,
+    "render_contract": "artifact-tool-valuation-complete-render@1",
+    "render_sha256": "d18121a7661e2489175bb4f3f1e054d29afa7a8653945ad86c3d13b28092b991"
+  },
+  "workbook_acceptance": {
+    "canonical_ooxml_contract": "ordered-uncompressed-ooxml-members-sha256@1",
+    "canonical_ooxml_sha256": "5ac8b590274d8b396fa866ddcc29443d6d81bfab6cc2e9b2fbe4afffb699d463",
+    "raw_sha256": "d8d870803f97c09ca9a8822285da7abf3d43ad86871d1b2887ee55edf3bf2020",
+    "semantic_contract": "valuation-guidance-net-share-polish-semantic-snapshot@1",
+    "semantic_sha256": "590164c711cae1bfd068e8c182144c573d5083f292e72f469bdc405194b65bcb"
+  }
+}

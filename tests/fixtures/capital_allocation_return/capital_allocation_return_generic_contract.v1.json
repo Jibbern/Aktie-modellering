@@ -1,0 +1,80 @@
+{
+  "capital_allocation_owner_routes": [
+    [
+      "free_cash_flow",
+      "normalized_company_data.free_cash_flow",
+      "normalized_financials"
+    ],
+    [
+      "capital_expenditures",
+      "normalized_company_data.capital_expenditures",
+      "normalized_financials"
+    ],
+    [
+      "acquisitions_investments",
+      "normalized_company_data.acquisitions_cash",
+      "normalized_financials"
+    ],
+    [
+      "debt_repayment",
+      "debt_liquidity.actual_debt_repayment",
+      "debt_liquidity"
+    ],
+    [
+      "debt_issuance_financing",
+      "debt_liquidity.actual_debt_issuance",
+      "debt_liquidity"
+    ],
+    [
+      "repurchase_cash_program",
+      "capital_return.repurchase_cash_program",
+      "buyback"
+    ],
+    [
+      "dividends_paid",
+      "capital_return.dividends_paid",
+      "dividend"
+    ],
+    [
+      "ending_net_cash",
+      "summary_bs.net_cash",
+      "debt_liquidity"
+    ]
+  ],
+  "capital_return_activity_families": {
+    "BUYBACK": [
+      "accounting_program_shares_repurchased",
+      "authorization_remaining",
+      "buybacks_to_fcf",
+      "cash_per_program_share",
+      "repurchase_cash_program"
+    ],
+    "DIVIDEND": [
+      "dividends_paid"
+    ],
+    "SHARE_ISSUANCE": [
+      "net_share_reduction",
+      "share_issuance_sbc"
+    ]
+  },
+  "generic_period_contract": {
+    "annual_history": "compatible relevant Capital Return fiscal-year periods",
+    "latest_quarter": "latest compatible typed fiscal quarter",
+    "latest_year": "latest compatible typed fiscal year",
+    "quarterly_history": "latest 12 compatible typed fiscal quarters",
+    "ttm": "typed trailing-twelve-month window ending at latest compatible fiscal quarter"
+  },
+  "investor_product_contract": "capital-allocation-return-investor-product@1",
+  "missing_is_never_zero": true,
+  "net_share_percentage_contract": {
+    "annual_denominator": "previous compatible fiscal-year-end period-end shares",
+    "contract": "historical-net-share-reduction-percentage@1",
+    "latest_quarter_denominator": "previous compatible fiscal-quarter-end period-end shares",
+    "ttm_denominator": "period-end shares immediately preceding the first quarter in the TTM window",
+    "weighted_average_shares_allowed": false
+  },
+  "pbi_workbook_state": "binding_profile_required_not_wired",
+  "production_default": false,
+  "ticker_specific_economic_branch_allowed": false,
+  "workbook_bridge": "target_not_wired"
+}

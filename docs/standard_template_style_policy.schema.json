@@ -185,7 +185,8 @@
               "history / accepted",
               "populated",
               "reported_zero",
-              "source_backed"
+              "source_backed",
+              "source_backed_reported_zero"
             ]
           }
         },

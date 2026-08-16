@@ -523,9 +523,73 @@ def _core_debt_at(
     return round(sum(float(row.balance.value) for row in eligible), 6), eligible
 
 
+def _current_core_debt_zero_evidence(
+    facility: ResolvedDebtFacilityDisposition,
+    instruments: Sequence[ResolvedDebtInstrumentDisposition],
+    notes: Sequence[ResolvedDebtCreditNoteDisposition],
+) -> tuple[ResolvedDebtCreditNoteDisposition, ...]:
+    """Return the typed evidence pair proving current core funded debt is zero.
+
+    The proof is intentionally narrow: the current facility must carry a
+    source-backed reported-zero draw, an accepted same-date draw-status note,
+    and an accepted prior redemption of all funded notes.  Any accepted
+    same-date core-debt instrument defeats the zero proof.
+    """
+
+    if (
+        facility.period_role != "current"
+        or facility.drawn_status != "reported_zero"
+        or facility.drawn_balance.status != "populated"
+        or facility.drawn_balance.value != 0
+    ):
+        return ()
+    if any(
+        row.as_of_date == facility.as_of_date
+        and row.currency == facility.currency
+        and row.source_status == "accepted"
+        and row.aggregation_role == "core_debt"
+        and row.balance.status == "populated"
+        and row.balance.value is not None
+        for row in instruments
+    ):
+        return ()
+    draw_status = tuple(
+        row
+        for row in notes
+        if row.as_of_date == facility.as_of_date
+        and row.source_status == "accepted"
+        and row.resolution_status == "populated"
+        and row.note_type == "facility_draw_status"
+        and row.subject_id == facility.facility_id
+    )
+    redemptions = tuple(
+        row
+        for row in notes
+        if row.as_of_date <= facility.as_of_date
+        and row.source_status == "accepted"
+        and row.resolution_status == "populated"
+        and row.note_type == "debt_redemption"
+    )
+    if len(draw_status) != 1 or not redemptions:
+        return ()
+    latest_redemption = max(
+        redemptions,
+        key=lambda row: (row.as_of_date, row.publication_date, row.business_key),
+    )
+    if any(
+        row.source_status == "accepted"
+        and row.aggregation_role == "core_debt"
+        and latest_redemption.as_of_date < row.as_of_date <= facility.as_of_date
+        for row in instruments
+    ):
+        return ()
+    return (draw_status[0], latest_redemption)
+
+
 def _debt_profile_rows(
     facility: ResolvedDebtFacilityDisposition | None,
     instruments: Sequence[ResolvedDebtInstrumentDisposition],
+    notes: Sequence[ResolvedDebtCreditNoteDisposition],
 ) -> tuple[ResolvedDebtProfileRow, ...]:
     if facility is None:
         current_core = tuple(
@@ -600,6 +664,13 @@ def _debt_profile_rows(
         and row.instrument_type == "operating_lease_liability",
     )
     core_debt, core_rows = _core_debt_at(instruments, as_of_date=facility.as_of_date, currency=facility.currency)
+    zero_evidence = (
+        _current_core_debt_zero_evidence(facility, instruments, notes)
+        if core_debt is None
+        else ()
+    )
+    if zero_evidence:
+        core_debt = 0.0
     amount_specs = (
         ("facility_capacity", "Revolver commitment", facility.facility_name, facility.facility_expiry_date, facility.commitment, False, "Committed revolving facility size."),
         ("facility_capacity", "Borrowing-base / loan cap", facility.facility_name, facility.facility_expiry_date, facility.loan_cap, False, "Lesser borrowing-base or contractual loan cap."),
@@ -672,19 +743,45 @@ def _debt_profile_rows(
             priority=11,
             category="core_debt",
             item="Core funded debt state",
-            facility_or_instrument=_joined([row.instrument_name for row in core_rows]),
+            facility_or_instrument=(
+                _joined([row.instrument_name for row in core_rows])
+                if core_rows
+                else "No funded core debt"
+                if zero_evidence
+                else ""
+            ),
             value=core_debt,
             unit="$m" if core_debt is not None else "",
             as_of_date=facility.as_of_date,
             expiry_or_maturity="",
-            state="populated" if core_debt is not None else "unavailable",
-            evidence_key=_joined([row.evidence_key for row in core_rows]) or facility.evidence_key,
+            state=(
+                "reported_zero"
+                if zero_evidence
+                else "populated"
+                if core_debt is not None
+                else "unavailable"
+            ),
+            evidence_key=_joined(
+                [
+                    *(row.evidence_key for row in core_rows),
+                    *(row.evidence_key for row in zero_evidence),
+                ]
+            )
+            or facility.evidence_key,
             definition_or_source=(
                 "Source-backed core funded debt instruments."
-                if core_debt is not None
+                if core_rows
+                else "Source-backed zero: all funded notes redeemed and no ABL borrowings outstanding."
+                if zero_evidence
                 else "no source-backed core borrowings identified"
             ),
-            source_ref=_joined([row.source_ref for row in core_rows]) or facility.source_ref,
+            source_ref=_joined(
+                [
+                    *(row.source_ref for row in core_rows),
+                    *(row.source_ref for row in zero_evidence),
+                ]
+            )
+            or facility.source_ref,
         )
     )
     return tuple(result)
@@ -768,6 +865,7 @@ def _leverage_liquidity_rows(
     package: Mapping[str, Any],
     facilities: Sequence[ResolvedDebtFacilityDisposition],
     instruments: Sequence[ResolvedDebtInstrumentDisposition],
+    notes: Sequence[ResolvedDebtCreditNoteDisposition],
     role_by_facility_id: Mapping[str, DebtFacilityProjectionRole],
 ) -> tuple[tuple[ResolvedLeverageLiquidityDisposition, ...], tuple[dict[str, Any], ...]]:
     by_date: dict[str, list[ResolvedDebtFacilityDisposition]] = {}
@@ -806,6 +904,13 @@ def _leverage_liquidity_rows(
             as_of_date=as_of_date,
             currency=facility_period.currency,
         )
+        zero_evidence = (
+            _current_core_debt_zero_evidence(facility, instruments, notes)
+            if core_debt is None and len(facility_period.components) == 1
+            else ()
+        )
+        if zero_evidence:
+            core_debt = 0.0
         evidence = [facility_period.evidence_key]
         refs = [facility_period.source_ref]
         if lease is not None:
@@ -813,12 +918,22 @@ def _leverage_liquidity_rows(
             refs.append(lease.source_ref)
         evidence.extend(row.evidence_key for row in core_rows)
         refs.extend(row.source_ref for row in core_rows)
-        state = "source_backed" if core_debt is not None else "debt_unavailable"
+        evidence.extend(row.evidence_key for row in zero_evidence)
+        refs.extend(row.source_ref for row in zero_evidence)
+        state = (
+            "source_backed_reported_zero"
+            if zero_evidence
+            else "source_backed"
+            if core_debt is not None
+            else "debt_unavailable"
+        )
         if facility_period.aggregation_mode == "single_facility":
             explanation = (
                 f"Cash, restricted cash, revolver availability and leases use {as_of_date}; "
                 + (
-                    "core debt uses the same date."
+                    "core debt uses the same date and is source-backed reported zero."
+                    if zero_evidence
+                    else "core debt uses the same date."
                     if core_debt is not None
                     else "core debt is unavailable and is not replaced by leases."
                 )
@@ -829,7 +944,9 @@ def _leverage_liquidity_rows(
                 f"Cash, restricted cash and leases use {as_of_date}; revolver availability uses "
                 f"{facility_period.aggregation_mode} for {', '.join(facility_period.component_facility_ids)}; "
                 + (
-                    "core debt uses the same date."
+                    "core debt uses the same date and is source-backed reported zero."
+                    if zero_evidence
+                    else "core debt uses the same date."
                     if core_debt is not None
                     else "core debt is unavailable and is not replaced by leases."
                 )
@@ -859,7 +976,6 @@ def _leverage_liquidity_rows(
                     "debt_product_same_date_liquidity",
                     "debt_product_gross_leverage",
                     "debt_product_net_leverage",
-                    "debt_product_interest_coverage",
                 ),
             )
         )
@@ -1060,7 +1176,7 @@ def build_debt_workbook_projection(
     notes = resolved["credit_notes"]
     role_by_facility_id = _facility_role_index(facility_policy)
     profile_facility, profile_issues = _select_current_profile_facility(facilities, role_by_facility_id)
-    profile_rows = _debt_profile_rows(profile_facility, instruments) if not profile_issues else ()
+    profile_rows = _debt_profile_rows(profile_facility, instruments, notes) if not profile_issues else ()
     profile_economic_validation = (
         validate_resolved_debt_facility_for_profile(profile_facility)
         if profile_facility is not None
@@ -1075,6 +1191,7 @@ def build_debt_workbook_projection(
         package,
         facilities,
         instruments,
+        notes,
         role_by_facility_id,
     )
     credit_rows = _credit_note_rows(notes)

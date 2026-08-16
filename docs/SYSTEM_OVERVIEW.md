@@ -21,11 +21,12 @@ Three surfaces coexist. Their lifecycle and authority are machine-readable in
    consumer and are not the source-native Promise Progress workbook bridge.
 3. **Source-native longitudinal/product architecture — active for its accepted
    scope.** C1/C2/C3 records, `PromiseProgressProduct@1`, the 452-field
-   Summary/BS source-native product, and the accepted Valuation/Investment Case
+   Summary/BS source-native product, the accepted Valuation/Investment Case
+   product, and the accepted Capital Allocation / Capital Return source-native
    product have closed contracts, deterministic goldens, and tests. Promise Progress
-   has no workbook bridge. The accepted lossless Summary/BS and Valuation replay
+   has no workbook bridge. The accepted lossless Summary/BS, Valuation, and Capital replay
    bridges can build scratch goldens, but all production workbook integrations remain
-   **target_not_wired** and neither golden is a production default.
+   **target_not_wired** and none of these goldens is a production default.
 
 Legacy workbooks may be read-only product, capability, behavior, or visual oracles.
 They are not canonical source authority for economic facts.
@@ -165,6 +166,13 @@ They are not canonical source authority for economic facts.
 - The Valuation replay bridge remains `target_not_wired`, `production_default=false`.
   The current production workbook route remains a compatibility consumer until a
   separate workbook-cutover approval.
+- Source-native Capital Allocation / Return golden
+  `capital-allocation-return-source-native:anf@1.0.0` composes typed Capital Return,
+  normalized financial, Debt/Liquidity, and Summary/BS owners through declarative
+  routes. Workbook successor `valuation-source-native-workbook:anf@2.0.0` is replayed
+  from the immutable Valuation v1 predecessor plus a closed OOXML delta. PBI passed
+  generic-product smoke coverage but remains unwired and requires its own binding
+  profile. The bridge remains `target_not_wired`, `production_default=false`.
 - `Valuation` now uses a resolved capital-return layer rather than letting note text or generic program text drive numeric output.
 - That resolved layer separates:
   - quarter-safe buyback execution

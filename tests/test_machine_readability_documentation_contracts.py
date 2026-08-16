@@ -1455,6 +1455,12 @@ def test_lifecycle_states_keep_accepted_source_native_bridges_unwired(registries
     valuation_product = by_id["component:valuation-source-native-product@1"]
     assert valuation_product["lifecycle_state"] == "active"
     assert valuation_product["production_status"] == "accepted_not_workbook_wired"
+    capital_product = by_id[
+        "component:capital-allocation-return-source-native-product@1"
+    ]
+    assert capital_product["lifecycle_state"] == "active"
+    assert capital_product["production_status"] == "accepted_not_workbook_wired"
+    assert "PBI remains unwired" in capital_product["notes"]
     valuation_bridge = by_id["component:valuation-workbook-bridge@1"]
     assert valuation_bridge["lifecycle_state"] == "target_not_wired"
     assert valuation_bridge["production_status"] == "accepted_not_workbook_wired"
@@ -1532,6 +1538,18 @@ def test_required_ownership_and_change_classes_are_complete(registries) -> None:
         "change:quarter-notes-empty-state@1",
         "change:derivative-materialization-contract@1",
     }
+
+    ownership_by_id = {
+        row["concept_id"]: row for row in registries["ownership"]["concepts"]
+    }
+    capital_owner = ownership_by_id["concept:capital-allocation-economics@1"]
+    assert capital_owner["canonical_owner_component_id"] == (
+        "component:capital-allocation-return-source-native-product@1"
+    )
+    assert capital_owner["ownership_state"] == "unified_unwired"
+    assert "capital-allocation-return-source-native:anf@1.0.0" in (
+        capital_owner["public_interfaces"]
+    )
 
 
 def test_registry_serialization_is_deterministic(registries) -> None:

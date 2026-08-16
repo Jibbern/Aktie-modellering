@@ -2322,7 +2322,8 @@
         "debt_unavailable": "hidden_value_unavailable"
       },
       "no_style_states": [
-        "source_backed"
+        "source_backed",
+        "source_backed_reported_zero"
       ],
       "target_selectors": [
         {
