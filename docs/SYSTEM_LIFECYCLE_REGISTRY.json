@@ -723,6 +723,74 @@
       "notes": "Presentation-only changes require proof that economic values and formulas did not change."
     },
     {
+      "component_id": "component:operating-drivers-source-native-product@1",
+      "name": "Source-native cross-ticker Operating Drivers investor product",
+      "lifecycle_state": "active",
+      "authority_level": "canonical_semantic",
+      "canonical_owner": "typed Operating Drivers continuity, registries, observations, bounded analytics, context semantics, prioritization and investor projection",
+      "repository_paths": [
+        "pbi_xbrl/longitudinal_memory/operating_driver_foundation.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_shadow_registry.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_derived_analytics.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_semantic_priority.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_story_selection.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_product.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_golden.py",
+        "tests/fixtures/operating_drivers/operating_drivers_golden_manifest.v1.json"
+      ],
+      "producer": "source-native shared engine plus sector semantics and declarative ticker profiles",
+      "consumers": [
+        "component:operating-drivers-workbook-bridge@1",
+        "component:test-fixtures-and-goldens@1",
+        "future declarative ticker onboarding"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Versioned driver identities, source-native observations, compatible periods, bounded analytics, context semantics, economic roles and investor selection under product-contract and semantic-golden gates.",
+      "prohibited_ownership": [
+        "financial statement economics",
+        "Investment Case forward assumptions",
+        "Quarter Notes management commentary",
+        "Valuation economics",
+        "ticker-specific Python economic branches",
+        "missing-to-zero or qualitative-to-numeric fallback"
+      ],
+      "notes": "Golden operating-drivers-source-native:cross-ticker@1.0.0 is accepted for ANF, PBI and GPRE. The economic product remains independent from its separately unwired workbook bridge."
+    },
+    {
+      "component_id": "component:operating-drivers-workbook-bridge@1",
+      "name": "Lossless source-native Operating Drivers workbook bridge",
+      "lifecycle_state": "target_not_wired",
+      "authority_level": "presentation_contract",
+      "canonical_owner": "typed Operating Drivers workbook plans and targeted lossless OOXML materializers",
+      "repository_paths": [
+        "pbi_xbrl/longitudinal_memory/operating_driver_anf_workbook_v4.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_workbook.py",
+        "pbi_xbrl/longitudinal_memory/formula_aware_workbook_materialization.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_golden.py",
+        "scripts/build_operating_driver_golden.py",
+        "tests/fixtures/operating_drivers/operating_drivers_golden_manifest.v1.json"
+      ],
+      "producer": "deterministic ANF, PBI and GPRE Operating Drivers scratch/golden replay",
+      "consumers": [
+        "deterministic Operating Drivers golden replay",
+        "future separately authorized workbook cutover"
+      ],
+      "mutable_or_immutable": "immutable_contract",
+      "production_status": "accepted_not_workbook_wired",
+      "replacement_or_successor": null,
+      "safe_extension_boundary": "Apply only committed value, label, layout and style plans to scratch copies of protected workbook shells while preserving formulas, package integrity and GPRE VBA.",
+      "prohibited_ownership": [
+        "economic source selection",
+        "production-default routing",
+        "artifact-tool XLSX authoring",
+        "protected workbook overwrite",
+        "VBA modification"
+      ],
+      "notes": "The three workbook goldens are accepted for replay. No production consumer or default route is wired; lifecycle remains target_not_wired."
+    },
+    {
       "component_id": "component:legacy-workbook-oracles@1",
       "name": "Legacy ANF, PBI and GPRE workbook oracles",
       "lifecycle_state": "oracle",

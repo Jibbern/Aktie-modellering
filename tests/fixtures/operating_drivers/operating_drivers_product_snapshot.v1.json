@@ -1,0 +1,28 @@
+{
+  "contract": "operating-drivers-source-native-product-snapshot@1",
+  "golden_id": "operating-drivers-source-native:cross-ticker@1.0.0",
+  "package_identities": {
+    "ANF": {
+      "analytics_sha256": "fbd0cd2807014d613de44e643f298f43b07c413391e644f16ca3ef9fd6a41ab3",
+      "completeness_sha256": "c1fbc5898e56fff7a5e559b122578fcf996b82ee389a47f9caf82adedf4bf1e9",
+      "package_sha256": "84f7e9bd17cf199cd3764fe809e5660bab6aaa1ded1d4f17701d26ca0b52be29",
+      "registry_sha256": "3843f72035208c87971d7869e7bc5481d4c78b25b898aa13b11fe76b7e5c4051",
+      "selection_sha256": "ee2d2d9ba62e45c62bff1fe27d756d6f2cbe014ddf6230f03193cf35406043ef",
+      "semantics_sha256": "452c607d5ac80fc07ea5db05f4b5b17d71ae5e63f3765c8d8b634d854145a94c"
+    },
+    "GPRE": {
+      "driver_count": 11,
+      "observation_count": 113,
+      "package_sha256": "15c4754797aa6232086feb81dac6bdca283a89fadc0e667365a55bf848a4ee45",
+      "safe_derivation_count": 2
+    },
+    "PBI": {
+      "driver_count": 7,
+      "observation_count": 30,
+      "package_sha256": "3af89eda78691eac4a1dff3688a2eaa699f1cf2a5fe49f5e19c23927e94cf26f",
+      "safe_derivation_count": 0
+    }
+  },
+  "product_contract": "operating-drivers-cross-ticker-investor-product@1",
+  "ticker_profile_contract": "operating-drivers-declarative-ticker-profile@1"
+}

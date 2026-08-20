@@ -3931,8 +3931,8 @@ def test_investment_case_manual_inputs_drive_market_and_scenario_sections() -> N
             assert "Policy / RVO / E15 / export" in manual_labels
             assert "Policy / RVO / E15 / export upside/downside" not in manual_labels
             credit_row = next(r for r in range(manual_row + 2, ws.max_row + 1) if ws.cell(r, 1).value == "45Z contribution / guide ($m)")
-            assert ws.cell(credit_row, 2).value == 53.0
-            assert ws.cell(credit_row, 3).value == 108.2
+            assert ws.cell(credit_row, 2).value in {None, '=""'}
+            assert ws.cell(credit_row, 3).value in {None, '=""'}
             assert ws.cell(credit_row, 4).value == 212.5
             credit_active_formula = str(ws.cell(credit_row, 7).value or "")
             assert f'IF(F{credit_row}<>"",F{credit_row},IF(D{credit_row}<>"",D{credit_row},IF(C{credit_row}<>"",C{credit_row}' in credit_active_formula

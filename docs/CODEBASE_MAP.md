@@ -199,7 +199,30 @@ The ANF product is golden accepted. PBI is not wired or production-supported by 
 golden; its remaining requirement is a ticker-specific presentation binding profile.
 The shared workbook bridge remains `target_not_wired`, `production_default=false`.
 
-### 4h. Normalized/frozen-shell engine (validated transition)
+### 4h. Source-native Operating Drivers (golden accepted, workbook not wired)
+- [`pbi_xbrl/longitudinal_memory/operating_driver_foundation.py`](../pbi_xbrl/longitudinal_memory/operating_driver_foundation.py),
+  [`operating_driver_shadow_registry.py`](../pbi_xbrl/longitudinal_memory/operating_driver_shadow_registry.py),
+  [`operating_driver_derived_analytics.py`](../pbi_xbrl/longitudinal_memory/operating_driver_derived_analytics.py), and
+  [`operating_driver_semantic_priority.py`](../pbi_xbrl/longitudinal_memory/operating_driver_semantic_priority.py)
+  - Own typed continuity, canonical driver/observation identity, bounded longitudinal
+    analytics, context semantics, and fail-closed prioritization.
+- [`pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_product.py`](../pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_product.py) and
+  [`operating_driver_cross_ticker_profiles.py`](../pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_profiles.py)
+  - Compose the generic investor product through the shared-engine, sector-pack, and
+    declarative-profile boundary without ticker-specific Python economics.
+- [`pbi_xbrl/longitudinal_memory/operating_driver_golden.py`](../pbi_xbrl/longitudinal_memory/operating_driver_golden.py) and
+  [`tests/fixtures/operating_drivers/operating_drivers_golden_manifest.v1.json`](../tests/fixtures/operating_drivers/operating_drivers_golden_manifest.v1.json)
+  - Register product golden `operating-drivers-source-native:cross-ticker@1.0.0` and
+    ANF/PBI/GPRE workbook goldens. Each workbook replays from its protected shell plus
+    a closed content-addressed OOXML delta; GPRE VBA remains byte-identical.
+
+Operating Drivers owns driver observations, longitudinal history, bounded analytics,
+context interpretation, economic-role semantics, and investor presentation. It does
+not own financial statements, Investment Case forward assumptions, Quarter Notes
+management commentary, or Valuation. The workbook bridge remains `target_not_wired`,
+`production_default=false`.
+
+### 4i. Normalized/frozen-shell engine (validated transition)
 - [`docs/normalized_company_data.schema.json`](normalized_company_data.schema.json)
   - Transition package contract consumed by the new-engine planner; it is not the
     longitudinal schema and no accepted general bridge joins the two.

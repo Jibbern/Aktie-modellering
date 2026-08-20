@@ -1,0 +1,30 @@
+{
+  "accepted_evidence": {
+    "anf_audit": "audit/anf_operating_drivers_footprint_economic_guide_measurement_hidden_2026-08-20/audit_manifest.json",
+    "cross_ticker_audit": "audit/operating_drivers_final_readability_polish_2026-08-20/audit_manifest.json"
+  },
+  "analytics_delta": 0,
+  "approximate_to_exact": 0,
+  "deterministic_replay": "PASS",
+  "duplicate_economic_owner_count": 0,
+  "forecast_number_emission_count": 0,
+  "forward_assumption_owner_migration_count": 0,
+  "gap_bridging_count": 0,
+  "gpre_vba_delta_count": 0,
+  "management_commentary_owner_migration_count": 0,
+  "missing_to_zero": 0,
+  "numeric_text_warning_count": 0,
+  "ownership_delta": 0,
+  "p0": 0,
+  "p1": 0,
+  "p2": 0,
+  "qualitative_to_numeric": 0,
+  "recovery_log_count": 0,
+  "repair_event_count": 0,
+  "semantic_delta": 0,
+  "source_observation_delta": 0,
+  "status": "PASS",
+  "unrelated_workbook_delta_count": 0,
+  "unsafe_derivation_count": 0,
+  "unsupported_attribution_count": 0
+}

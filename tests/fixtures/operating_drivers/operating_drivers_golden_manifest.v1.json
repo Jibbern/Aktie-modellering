@@ -1,0 +1,402 @@
+{
+  "acceptance": {
+    "acceptance_fixture": "operating_drivers_acceptance.v1.json",
+    "acceptance_fixture_sha256": "348c4b66c25e2251823ae477b5ddf17740a00e6438bd7866913e376964edfdb7",
+    "approval_gate_ids": [
+      "gate:semantic-golden-regeneration@1",
+      "gate:product-contract-change@1",
+      "gate:workbook-presentation-layout@1",
+      "gate:workbook-publication-contract-change@1"
+    ],
+    "passed": true
+  },
+  "acceptance_status": "golden_accepted",
+  "checkpoint": {
+    "commit_reference": "git commit containing this manifest",
+    "pre_operating_drivers_checkpoint": "3e9c86f37996fe4eab414435c706955957b1e9df",
+    "rollback_requires_protected_workbook_modification": false
+  },
+  "fixture_artifacts": [
+    {
+      "relative_path": "operating_drivers_acceptance.v1.json",
+      "sha256": "348c4b66c25e2251823ae477b5ddf17740a00e6438bd7866913e376964edfdb7"
+    },
+    {
+      "relative_path": "operating_drivers_generic_contract.v1.json",
+      "sha256": "c6c82cb2e9ca2167e373c700b50072e403d9ae5641869349f14f603f0d7fcfe5"
+    },
+    {
+      "relative_path": "operating_drivers_product_snapshot.v1.json",
+      "sha256": "7f0251b16baac46b0b5e23aa61eec594576dbc2eee1d6ee4c9776968fd4dfd2c"
+    }
+  ],
+  "fixture_hash_contract": "checkout-lf-normalized-file-sha256@1",
+  "generated_timestamp": null,
+  "golden_id": "operating-drivers-source-native:cross-ticker@1.0.0",
+  "golden_version": "1.0.0",
+  "implementation_artifacts": [
+    {
+      "repository_path": "pbi_xbrl/excel_writer_operating_driver_workbook_support.py",
+      "sha256": "a5effdcc7b320006a2f190e8bb45af514378bef5acc2e77c88a0011006cea203"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/__init__.py",
+      "sha256": "de0b3f25bcfaff0a5fea895a4839b1e52a89d360cd7253e6df1ff2cd4fa547c3"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/formula_aware_workbook_materialization.py",
+      "sha256": "e5c27a7730569d1fa24339db4eb18f4198cc27c069553f21d62fcd52f885aa86"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_anf_full_completeness.py",
+      "sha256": "e0405c9a5223f0b4f03cf62de20f11c084bae2ee4defd55a4c5b0eebcd060d4c"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_anf_source_period_repair.py",
+      "sha256": "97635b56a2b6afeaca11d7853fa4278a6279096de71055e09b2dbc54b2ea055a"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_anf_ui_v4.py",
+      "sha256": "60e9b3c21449c6cf23ee6c2ecbea5eeb6fc46c83c292944b325f54e42363e234"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_anf_workbook_v4.py",
+      "sha256": "e2880973bd71605ea84d8930da38d54e93933243d25a496132f3135ea934d8f7"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_product.py",
+      "sha256": "1cf0d97c1b1ec95a94e38224300bf36d4763942631033c2c07270e99987f4dd6"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_profiles.py",
+      "sha256": "f78e8b9aeabd33792a2cf3a0185a0bfd7c6b8d00838718f1b26a72e825aedae7"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_source_parsing.py",
+      "sha256": "c3f0dbf74c0400764c520a56060da701cc5e926452efc2589a4ff54675dd4367"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_workbook.py",
+      "sha256": "bdb4d1e9c3fd5dd4ad6daee7b3421068b377fc9123efa21da9aef3e279bd6153"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_derived_analytics.py",
+      "sha256": "b519a023c44ab34e807a5c2a56a4ac837aec4061f86aa2bca3c6110c727bd9f4"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_foundation.py",
+      "sha256": "defa4dd616a42a1c554743ba87ec8830560d6fd9ef130df9e0d52f1ad5f4aca5"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_semantic_priority.py",
+      "sha256": "f4db13d9bef30cb385a8d2ae3ee8c6f17bd30dd4a26c3892e903f8994b52c81d"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_shadow_profiles.py",
+      "sha256": "6d55d249527b586d1d3f240aa141ae18b09046eacbcc3b83d7d08f0339e3d02f"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_shadow_registry.py",
+      "sha256": "b70bfdcfe6507c8e671bdd077cae77f1d8202fc3d15d9d43d102f66a6c17a2d5"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_source_parsing.py",
+      "sha256": "54facafe5361986e5ef7177fa2eb91bcf8c9830709c3c41b2bd3f40fba1d4308"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_story_selection.py",
+      "sha256": "b26f1a79d7c77c0bbff390b31f2416224bcce67b18bfa8889d94cfbe4f4d6135"
+    },
+    {
+      "repository_path": "pbi_xbrl/longitudinal_memory/operating_driver_golden.py",
+      "sha256": "024787476155ff4ef3d66c3587ad4c85f186e11c4d92ea1850a6072fbd8b3779"
+    },
+    {
+      "repository_path": "scripts/build_anf_operating_driver_final_information_density.py",
+      "sha256": "aed161da196287fe4ac47edc1670ff98055b3e1be0e1dab1fb8e898c428e8455"
+    },
+    {
+      "repository_path": "scripts/build_anf_operating_driver_footprint_definition_final_fix.py",
+      "sha256": "12211411a81fecbf6399bc220a8b6ddad0759161913f9dd278694d9acdb29163"
+    },
+    {
+      "repository_path": "scripts/build_anf_operating_driver_footprint_economic_guide.py",
+      "sha256": "a327056b67b944e68dadbae2e2156ae6cb53073a2b89441bedb7c4556712d48b"
+    },
+    {
+      "repository_path": "scripts/build_anf_operating_driver_full_completeness.py",
+      "sha256": "1962f003d6d5129b5bb6ef229352caefcad670d1e49f2150ffcbdc63b951fa5b"
+    },
+    {
+      "repository_path": "scripts/build_anf_operating_driver_numeric_blank_final_fix.py",
+      "sha256": "36b14964142dd7a8d4eca9d4147f68741b9988da6d98d1252b492d6385104f28"
+    },
+    {
+      "repository_path": "scripts/build_anf_operating_driver_source_period_repair_preview.py",
+      "sha256": "5b3e024acf7c62d9238a4d5eec2c012696c77bf04e1513677afa766e51148c7b"
+    },
+    {
+      "repository_path": "scripts/build_anf_operating_driver_ui_refinement.py",
+      "sha256": "6319e2943c8d5e508d4f37ddddba80f8066b658af678dbcf74be6d873b295bc6"
+    },
+    {
+      "repository_path": "scripts/build_operating_driver_anf_ui_v4.py",
+      "sha256": "f367ec198736a3205a111f3e9154e13280b5d85472a9057920fad55dec5d23c7"
+    },
+    {
+      "repository_path": "scripts/build_operating_driver_pbi_gpre_cross_ticker.py",
+      "sha256": "145962bb73cec570b1f68d95c6b992b2ccb16112d62295ae6a61cec4a140842c"
+    },
+    {
+      "repository_path": "scripts/render_anf_operating_driver_final_information_density.mjs",
+      "sha256": "72d5bb0a001e06387469d94ad9358960a3cc01e6bc52e568368110f4d34d2996"
+    },
+    {
+      "repository_path": "scripts/render_anf_operating_driver_footprint_definition_final_fix.mjs",
+      "sha256": "53b99d8cf15be9ba0c9f3e95e6bfedc414c274c8a2654ed58ce3c0d68f175494"
+    },
+    {
+      "repository_path": "scripts/render_anf_operating_driver_footprint_economic_guide.mjs",
+      "sha256": "8a4e32b768ed46ae422de6d84c64d1496a3874bab182d77570ac18373f336c2d"
+    },
+    {
+      "repository_path": "scripts/render_anf_operating_driver_ui_refinement.mjs",
+      "sha256": "b85b81f3dfa56700c56a985c299cb8327f71a3a5c8641d0d0cebcbb4f0286527"
+    },
+    {
+      "repository_path": "scripts/render_operating_driver_anf_ui_v4.mjs",
+      "sha256": "879492c324111be1f33a6fa851581f91bc264a724520b70cfc56046bfccd907f"
+    },
+    {
+      "repository_path": "scripts/render_operating_driver_pbi_gpre_cross_ticker.mjs",
+      "sha256": "aa033694fd5dd1ee9be6d3e7d21755501821f12c7b577f9cbe61edf02c6e2317"
+    },
+    {
+      "repository_path": "scripts/build_operating_driver_golden.py",
+      "sha256": "a9e0da447a1713212bd788965c712beb1f242927b6ddbb84eb6492568d0d69d3"
+    },
+    {
+      "repository_path": "scripts/render_operating_driver_golden.mjs",
+      "sha256": "bab686f21628853eb983247acf3a5402b628478dba40cb9dff641b9844be3aa3"
+    },
+    {
+      "repository_path": "docs/OWNERSHIP_REGISTRY.json",
+      "sha256": "c9eecf901a8b776ae5bb6fbc13682bd82a0d8b508264657b05a25921f3a7cc71"
+    },
+    {
+      "repository_path": "docs/SYSTEM_LIFECYCLE_REGISTRY.json",
+      "sha256": "d48195c63d3b77bae3ab3809ea014882e9abcb097cda2a284b89c6fa76ff3c14"
+    },
+    {
+      "repository_path": "docs/CODEBASE_MAP.md",
+      "sha256": "879b4f65d26b318884f79dd3f01779f13d0d696ac27a12a7ebe689d38b6ce4f1"
+    },
+    {
+      "repository_path": "docs/EXTENSION_POINTS.md",
+      "sha256": "c1930248f7d7a4c30e114a09a4b643d8a2d69bbdbc93fc285109c3564aee4043"
+    },
+    {
+      "repository_path": "docs/SYSTEM_OVERVIEW.md",
+      "sha256": "d29b9b9a4db82afd90ca2ab68f48783061a93844e802c94af104d36d21db743f"
+    },
+    {
+      "repository_path": "README.md",
+      "sha256": "84975829f74fadc2caa711209a246137c96693de9ab8a86760271e804b834554"
+    }
+  ],
+  "lifecycle": "target_not_wired",
+  "lifecycle_registration": {
+    "product_component_id": "component:operating-drivers-source-native-product@1",
+    "product_state": "golden_accepted",
+    "production_default": false,
+    "workbook_bridge": "target_not_wired",
+    "workbook_bridge_component_id": "component:operating-drivers-workbook-bridge@1"
+  },
+  "manifest_digest": "ab193c983bc709fefef93d9a1469259cf941b3f5f9fddb087e12b02579b11df6",
+  "manifest_type": "OperatingDriversSourceNativeGoldenManifest@1",
+  "ownership": {
+    "duplicate_economic_owner_count": 0,
+    "excluded_owners": {
+      "financial_statements": [
+        "Revenue",
+        "EBITDA",
+        "EBIT",
+        "FCF",
+        "Balance sheet metrics"
+      ],
+      "forward_assumptions": "Investment Case",
+      "management_explanations": "Quarter Notes",
+      "valuation": "Valuation sheet"
+    },
+    "operating_drivers_owns": [
+      "operating driver identity",
+      "source-native operating observations",
+      "longitudinal driver history",
+      "bounded operating analytics",
+      "context interpretation",
+      "economic-role semantics",
+      "investor-facing driver presentation"
+    ]
+  },
+  "product": {
+    "package_identities": {
+      "ANF": {
+        "analytics_sha256": "fbd0cd2807014d613de44e643f298f43b07c413391e644f16ca3ef9fd6a41ab3",
+        "completeness_sha256": "c1fbc5898e56fff7a5e559b122578fcf996b82ee389a47f9caf82adedf4bf1e9",
+        "package_sha256": "84f7e9bd17cf199cd3764fe809e5660bab6aaa1ded1d4f17701d26ca0b52be29",
+        "registry_sha256": "3843f72035208c87971d7869e7bc5481d4c78b25b898aa13b11fe76b7e5c4051",
+        "selection_sha256": "ee2d2d9ba62e45c62bff1fe27d756d6f2cbe014ddf6230f03193cf35406043ef",
+        "semantics_sha256": "452c607d5ac80fc07ea5db05f4b5b17d71ae5e63f3765c8d8b634d854145a94c"
+      },
+      "GPRE": {
+        "driver_count": 11,
+        "observation_count": 113,
+        "package_sha256": "15c4754797aa6232086feb81dac6bdca283a89fadc0e667365a55bf848a4ee45",
+        "safe_derivation_count": 2
+      },
+      "PBI": {
+        "driver_count": 7,
+        "observation_count": 30,
+        "package_sha256": "3af89eda78691eac4a1dff3688a2eaa699f1cf2a5fe49f5e19c23927e94cf26f",
+        "safe_derivation_count": 0
+      }
+    },
+    "product_contract": "operating-drivers-cross-ticker-investor-product@1",
+    "product_id": "operating-drivers-source-native:cross-ticker@1.0.0",
+    "supported_tickers": [
+      "ANF",
+      "PBI",
+      "GPRE"
+    ],
+    "ticker_profile_contract": "operating-drivers-declarative-ticker-profile@1"
+  },
+  "production_default": false,
+  "quality_gates": {
+    "approximate_to_exact": 0,
+    "forecast_number_emission_count": 0,
+    "forward_assumption_owner_migration_count": 0,
+    "gap_bridging_count": 0,
+    "management_commentary_owner_migration_count": 0,
+    "missing_to_zero": 0,
+    "qualitative_to_numeric": 0,
+    "unsafe_derivation_count": 0,
+    "unsupported_attribution_count": 0
+  },
+  "workbook_goldens": [
+    {
+      "base_workbook_sha256": "ef73bdef6b6efa1bc358622b58bfc320b609c128e76c602de9d4e5f726ab98cd",
+      "canonical_ooxml_hash_contract": "ordered-uncompressed-ooxml-members-sha256@1",
+      "canonical_ooxml_sha256": "a090559f3123842ff11073e45f78e331801b79262ecd741f74190762d4b80c91",
+      "data_root_relative_path": "audit/operating_drivers_golden_acceptance_2026-08-20/golden/ANF_operating_drivers_source_native_golden_v1.xlsx",
+      "delta": {
+        "changed_members": [
+          {
+            "member": "xl/worksheets/sheet4.xml",
+            "sha256": "664949e1c44f20f41ed95383cebbb69b3c3bfe848cc834550dd3ee3993c32635"
+          },
+          {
+            "member": "xl/comments/comment4.xml",
+            "sha256": "f88ad9b0800d61460506ad5b3d020b2f6ce36f784fd9a915d8467605f4030151"
+          },
+          {
+            "member": "xl/styles.xml",
+            "sha256": "9d4e999841dcf28acc4d591b891388fadf47d576c90de5b4503cbfca6b2b929e"
+          }
+        ],
+        "contract": "operating-drivers-ooxml-delta-from-protected-shell@1",
+        "fixture": "anf_operating_drivers_delta.v1.zip",
+        "fixture_sha256": "a1cf7b89ea4079e0bf7c4cc10eba85c787f3c5f8b009921dd36137d782bfb135"
+      },
+      "package_sha256": "84f7e9bd17cf199cd3764fe809e5660bab6aaa1ded1d4f17701d26ca0b52be29",
+      "plan_sha256": "226ba5554431d46ee068a344b1a03c78ff47384f4b50042711229a1da4a91e5e",
+      "raw_sha256": "3a99f3dd098884744b71313fb9d44ad02da0fb8906a6e6567c28f290bf4dcc8e",
+      "render_contract": "artifact-tool-operating-drivers-full-sheet-render@1",
+      "render_sha256": "7a38ffdef8e6e6ce998b975d6f1c95d1337860d832ff14a8ff144ebce8bc39e0",
+      "semantic_hash_contract": "operating-drivers-anf-visible-snapshot-sha256@10",
+      "semantic_sha256": "bcbb34a65556f1325a34c1679de8a54cc72060c6923fd7694350ea3fba3ec37c",
+      "size_bytes": 8873615,
+      "ticker": "ANF",
+      "used_range": "A1:P61",
+      "vba_sha256": null,
+      "workbook_id": "operating-drivers-source-native-workbook:anf@1.0.0"
+    },
+    {
+      "base_workbook_sha256": "6482617ad4f412dc5a1e130dc56c72bba5113ddacea5f7d1ab166fad8ddf5689",
+      "canonical_ooxml_hash_contract": "ordered-uncompressed-ooxml-members-sha256@1",
+      "canonical_ooxml_sha256": "d1986d853426a4a01ff7dc6ee0012179b1a1c03bc9c5fddbae19e83c44389e66",
+      "data_root_relative_path": "audit/operating_drivers_golden_acceptance_2026-08-20/golden/PBI_operating_drivers_source_native_golden_v1.xlsx",
+      "delta": {
+        "changed_members": [
+          {
+            "member": "xl/worksheets/sheet4.xml",
+            "sha256": "fd1179f31f4e4db877ac822804940e0946c7c030cdaebacebc60eb56f3f7d4a5"
+          },
+          {
+            "member": "xl/comments/comment4.xml",
+            "sha256": "f88ad9b0800d61460506ad5b3d020b2f6ce36f784fd9a915d8467605f4030151"
+          },
+          {
+            "member": "xl/styles.xml",
+            "sha256": "94a65aeaef602e0d53a9b27e23ad471f52ac113e2ee4355778c38cd35e641c1a"
+          }
+        ],
+        "contract": "operating-drivers-ooxml-delta-from-protected-shell@1",
+        "fixture": "pbi_operating_drivers_delta.v1.zip",
+        "fixture_sha256": "7005354625f990332e20621993c9783fbc74f6959fce9cf1dff5de38570caef2"
+      },
+      "package_sha256": "3af89eda78691eac4a1dff3688a2eaa699f1cf2a5fe49f5e19c23927e94cf26f",
+      "plan_sha256": "5b16ecc82bef40ab528df499c29b6f4d2b5f5632fe98642ed8bfeb132e50abea",
+      "raw_sha256": "7e11a89d48994ed192c5f301fceb30a5218b03e1bef3806d02b9326b295c9838",
+      "render_contract": "artifact-tool-operating-drivers-full-sheet-render@1",
+      "render_sha256": "7d0497da5f8e8db9dc72bd955424236e551262542664a795ec3e04b72319af03",
+      "semantic_hash_contract": "operating-drivers-cross-ticker-visible-snapshot-sha256@1",
+      "semantic_sha256": "ba3103fa0659f185a590d0471945cb037631b06cf82ad6956f93688a5e851671",
+      "size_bytes": 1678691,
+      "ticker": "PBI",
+      "used_range": "A1:P45",
+      "vba_sha256": null,
+      "workbook_id": "operating-drivers-source-native-workbook:pbi@1.0.0"
+    },
+    {
+      "base_workbook_sha256": "f7c23c9c0d9e3a52c708553e5fc6f964aa3fc58c8b4805d235f7ccfce5bde41b",
+      "canonical_ooxml_hash_contract": "ordered-uncompressed-ooxml-members-sha256@1",
+      "canonical_ooxml_sha256": "f00cbb645498122018f5f2c5f3ace4642e7a9bb6e8c361addf31e935c94de97a",
+      "data_root_relative_path": "audit/operating_drivers_golden_acceptance_2026-08-20/golden/GPRE_operating_drivers_source_native_golden_v1.xlsm",
+      "delta": {
+        "changed_members": [
+          {
+            "member": "xl/worksheets/sheet4.xml",
+            "sha256": "2d9989f82d77be1719f2a8a4103f6296a932d302c4bdefe80b0bc5c789de708c"
+          },
+          {
+            "member": "xl/comments/comment4.xml",
+            "sha256": "f88ad9b0800d61460506ad5b3d020b2f6ce36f784fd9a915d8467605f4030151"
+          },
+          {
+            "member": "xl/drawings/vmlDrawing4.vml",
+            "sha256": "50054550887119199607654bbb246a554d6b81e3838cbe2d7dff39aac26a3336"
+          },
+          {
+            "member": "xl/styles.xml",
+            "sha256": "c9d11f434d1c6ba0d1ec6a1f916193f2c8307bd0f9fb01129cf5951c1cd32adf"
+          }
+        ],
+        "contract": "operating-drivers-ooxml-delta-from-protected-shell@1",
+        "fixture": "gpre_operating_drivers_delta.v1.zip",
+        "fixture_sha256": "9d1977ed216d1371c2a1c4416b88925fb3bd7d57979b2e6442b3bcf053281d51"
+      },
+      "package_sha256": "15c4754797aa6232086feb81dac6bdca283a89fadc0e667365a55bf848a4ee45",
+      "plan_sha256": "6e8d3008c599b4f7d6377a104181a6b2d223701ecd02df3cd97aaca4c79a209d",
+      "raw_sha256": "ae3bcf6b6a30531d2f9b68e7fef19a4711d7c7c283d4886e4b06e5fa662bbcb6",
+      "render_contract": "artifact-tool-operating-drivers-full-sheet-render@1",
+      "render_sha256": "c84db06f1363a779af96e949fe676ba80679fcb84182e9ea382ffc9d48a2d69f",
+      "semantic_hash_contract": "operating-drivers-cross-ticker-visible-snapshot-sha256@1",
+      "semantic_sha256": "381bf605fc15bce31a531200cc60ba67f9677bace41f97b209e4537ac9ab45ec",
+      "size_bytes": 6661127,
+      "ticker": "GPRE",
+      "used_range": "A1:P55",
+      "vba_sha256": "5a42646fe31b0593af2490af2151a65380c74d2f67e12815550abc39340e1f87",
+      "workbook_id": "operating-drivers-source-native-workbook:gpre@1.0.0"
+    }
+  ]
+}

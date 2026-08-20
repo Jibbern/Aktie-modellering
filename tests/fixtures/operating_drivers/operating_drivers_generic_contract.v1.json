@@ -1,0 +1,21 @@
+{
+  "approximate_to_exact_allowed": false,
+  "architecture": [
+    "SHARED_ENGINE",
+    "SECTOR_PACK",
+    "DECLARATIVE_TICKER_PROFILE"
+  ],
+  "contract": "operating-drivers-cross-ticker-generic-contract@1",
+  "missing_is_never_zero": true,
+  "production_default": false,
+  "qualitative_to_numeric_allowed": false,
+  "supported_examples": {
+    "ANF": "Retail / Consumer",
+    "GPRE": "Commodity / Industrial",
+    "PBI": "Mail / Logistics / Service"
+  },
+  "ticker_specific_python_analytics_economic_branch_count": 0,
+  "ticker_specific_python_economic_branch_count": 0,
+  "ticker_specific_python_ui_economic_branch_count": 0,
+  "workbook_bridge": "target_not_wired"
+}

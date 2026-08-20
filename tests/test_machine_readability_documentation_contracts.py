@@ -1504,6 +1504,8 @@ def test_required_ownership_and_change_classes_are_complete(registries) -> None:
         "concept:net-debt@1",
         "concept:valuation-economics@1",
         "concept:capital-allocation-economics@1",
+        "concept:operating-drivers-economics@1",
+        "concept:operating-drivers-workbook-projection@1",
         "contract:semantic-cache-identity@1",
         "contract:inline-xbrl-fact-text@1",
         "contract:debt-rate-semantic-ownership@1",

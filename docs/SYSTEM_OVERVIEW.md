@@ -173,6 +173,15 @@ They are not canonical source authority for economic facts.
   from the immutable Valuation v1 predecessor plus a closed OOXML delta. PBI passed
   generic-product smoke coverage but remains unwired and requires its own binding
   profile. The bridge remains `target_not_wired`, `production_default=false`.
+- Source-native Operating Drivers golden
+  `operating-drivers-source-native:cross-ticker@1.0.0` freezes the accepted ANF, PBI,
+  and GPRE investor product. The shared engine owns typed continuity and generic
+  analytics; sector semantics and declarative ticker profiles supply compatible
+  source-native observations and presentation selection. Quarter Notes remains the
+  management-commentary owner, Investment Case remains the forward-assumption owner,
+  and financial statement products retain their economics. The three workbook
+  goldens replay losslessly from protected shells, but the bridge remains
+  `target_not_wired`, `production_default=false`.
 - `Valuation` now uses a resolved capital-return layer rather than letting note text or generic program text drive numeric output.
 - That resolved layer separates:
   - quarter-safe buyback execution

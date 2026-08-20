@@ -35,6 +35,8 @@ The source-native Valuation product is golden accepted as `valuation-source-nati
 
 The source-native Capital Allocation / Capital Return product is golden accepted as `capital-allocation-return-source-native:anf@1.0.0`, with workbook successor `valuation-source-native-workbook:anf@2.0.0`. Route typed Capital Return, owner-routing, period, relevance, derivation, and missing-state changes through `concept:capital-allocation-economics@1`. Its Valuation presentation bridge remains `target_not_wired`, `production_default=false`; PBI has generic-product compatibility evidence only and still requires a separately accepted ticker binding profile.
 
+The source-native Operating Drivers product is golden accepted as `operating-drivers-source-native:cross-ticker@1.0.0`, with registered ANF, PBI, and GPRE workbook goldens. Route driver identity, observations, longitudinal history, bounded analytics, context interpretation, economic-role semantics, and investor selection through `concept:operating-drivers-economics@1`; route layout and lossless scratch replay through `concept:operating-drivers-workbook-projection@1`. Quarter Notes retains management-commentary ownership, Investment Case retains forward assumptions, and financial products retain Revenue/EBITDA/EBIT/FCF/Balance Sheet ownership. The workbook bridge remains `target_not_wired`, `production_default=false`.
+
 ## Task-oriented extension table
 
 | Extension | Start here | Required contracts/registries | Expected tests and goldens | Prohibited locations | Approval |

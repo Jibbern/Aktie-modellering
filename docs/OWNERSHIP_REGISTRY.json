@@ -1332,6 +1332,96 @@
         "PBI production binding without separate acceptance"
       ],
       "notes": "Golden capital-allocation-return-source-native:anf@1.0.0 is accepted for ANF. The Valuation workbook bridge remains target_not_wired and production_default=false. PBI has generic-product compatibility evidence only and still requires a ticker-specific binding profile."
+    },
+    {
+      "concept_id": "concept:operating-drivers-economics@1",
+      "name": "Operating Drivers source-native economics and investor product",
+      "canonical_owner_component_id": "component:operating-drivers-source-native-product@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/operating_driver_foundation.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_shadow_registry.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_derived_analytics.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_semantic_priority.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_story_selection.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_product.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_golden.py",
+        "tests/fixtures/operating_drivers/operating_drivers_golden_manifest.v1.json"
+      ],
+      "public_interfaces": [
+        "build_shadow_registry",
+        "build_derived_analytics",
+        "build_context_semantic_priority",
+        "build_orthogonal_story_selection",
+        "build_cross_ticker_operating_driver_package",
+        "operating-drivers-source-native:cross-ticker@1.0.0"
+      ],
+      "current_consumers": [
+        "accepted ANF, PBI and GPRE Operating Drivers goldens",
+        "component:operating-drivers-workbook-bridge@1",
+        "future declarative ticker profiles"
+      ],
+      "ownership_state": "unified_unwired",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "current production Operating_Drivers workbook routes",
+          "lifecycle_state": "active",
+          "authority_limit": "Production workbook compatibility only; it cannot override source-native driver identity, observations, analytics, semantics, or missing-state behavior."
+        }
+      ],
+      "allowed_extension_point": "Versioned driver identities, source-native observations, compatible periods, bounded analytics, context semantics, economic roles, and investor selection through shared-engine, sector-pack, and declarative-profile contracts.",
+      "prohibited_owners": [
+        "financial statement values",
+        "Investment Case forward assumptions",
+        "Quarter Notes management commentary",
+        "Valuation economics",
+        "ticker-specific Python economic branch",
+        "missing-to-zero or qualitative-to-numeric fallback"
+      ],
+      "notes": "Golden operating-drivers-source-native:cross-ticker@1.0.0 is accepted for ANF, PBI and GPRE. Financial products, Investment Case, Quarter Notes and Valuation retain their established ownership."
+    },
+    {
+      "concept_id": "concept:operating-drivers-workbook-projection@1",
+      "name": "Operating Drivers workbook projection and lossless materialization",
+      "canonical_owner_component_id": "component:operating-drivers-workbook-bridge@1",
+      "canonical_owner_paths": [
+        "pbi_xbrl/longitudinal_memory/operating_driver_anf_workbook_v4.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_cross_ticker_workbook.py",
+        "pbi_xbrl/longitudinal_memory/formula_aware_workbook_materialization.py",
+        "pbi_xbrl/longitudinal_memory/operating_driver_golden.py",
+        "tests/fixtures/operating_drivers/operating_drivers_golden_manifest.v1.json"
+      ],
+      "public_interfaces": [
+        "materialize_operating_driver_anf_workbook_v4",
+        "materialize_cross_ticker_operating_driver_workbook",
+        "reproduce_registered_golden",
+        "operating-drivers-source-native-workbook:anf@1.0.0",
+        "operating-drivers-source-native-workbook:pbi@1.0.0",
+        "operating-drivers-source-native-workbook:gpre@1.0.0"
+      ],
+      "current_consumers": [
+        "deterministic ANF, PBI and GPRE golden replay",
+        "focused native, VBA and lossless preservation gates",
+        "future separately authorized workbook cutover"
+      ],
+      "ownership_state": "unified_unwired",
+      "parallel_owners": [
+        {
+          "component_id": "component:legacy-workbook-production@1",
+          "path": "current production Operating_Drivers workbook routes",
+          "lifecycle_state": "active",
+          "authority_limit": "Production compatibility route only; it is not the source-native projection or materialization authority."
+        }
+      ],
+      "allowed_extension_point": "Exact reviewed Operating_Drivers bindings and presentation mutations applied losslessly to scratch copies of protected workbook shells.",
+      "prohibited_owners": [
+        "economic source selection",
+        "workbook formula as hidden economic owner",
+        "artifact-tool XLSX authoring",
+        "VBA modification",
+        "production cutover without gate:workbook-cutover@1"
+      ],
+      "notes": "The ANF, PBI and GPRE workbook goldens are accepted for deterministic replay, but the bridge remains target_not_wired and production_default=false."
     }
   ]
 }

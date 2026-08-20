@@ -43,6 +43,46 @@ _SHEET_DATA_RE = re.compile(rb"<sheetData\b[^>]*>(?P<body>.*?)</sheetData>", re.
 _DIMENSION_RE = re.compile(rb"<dimension\b[^>]*/>")
 _MERGE_CELLS_RE = re.compile(rb"<mergeCells\b[^>]*>(?P<body>.*?)</mergeCells>", re.DOTALL)
 _MERGE_CELL_RE = re.compile(rb"<mergeCell\b[^>]*/>")
+_WORKSHEET_CHILD_ORDER = (
+    "sheetPr",
+    "dimension",
+    "sheetViews",
+    "sheetFormatPr",
+    "cols",
+    "sheetData",
+    "sheetCalcPr",
+    "sheetProtection",
+    "protectedRanges",
+    "scenarios",
+    "autoFilter",
+    "sortState",
+    "dataConsolidate",
+    "customSheetViews",
+    "mergeCells",
+    "phoneticPr",
+    "conditionalFormatting",
+    "dataValidations",
+    "hyperlinks",
+    "printOptions",
+    "pageMargins",
+    "pageSetup",
+    "headerFooter",
+    "rowBreaks",
+    "colBreaks",
+    "customProperties",
+    "cellWatches",
+    "ignoredErrors",
+    "smartTags",
+    "drawing",
+    "legacyDrawing",
+    "legacyDrawingHF",
+    "picture",
+    "oleObjects",
+    "controls",
+    "webPublishItems",
+    "tableParts",
+    "extLst",
+)
 _DEFINED_NAMES_RE = re.compile(rb"<definedNames>(?P<body>.*?)</definedNames>", re.DOTALL)
 _DEFINED_NAME_RE = re.compile(rb"<definedName\b[^>]*>.*?</definedName>", re.DOTALL)
 _CALCULATION_PROPERTIES_RE = re.compile(
@@ -391,7 +431,18 @@ def _patch_merges(data: bytes, mutations: Sequence[WorksheetMergeMutation]) -> b
         return data[: section.start()] + replacement + data[section.end() :]
     if not result:
         return data
-    insertion = data.find(b"</worksheet>")
+    merge_order = _WORKSHEET_CHILD_ORDER.index("mergeCells")
+    insertion_candidates: list[int] = []
+    for child_name in _WORKSHEET_CHILD_ORDER[merge_order + 1 :]:
+        match = re.search(
+            rb"<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?"
+            + child_name.encode("ascii")
+            + rb"(?:\s|/?>)",
+            data,
+        )
+        if match is not None:
+            insertion_candidates.append(match.start())
+    insertion = min(insertion_candidates) if insertion_candidates else data.find(b"</worksheet>")
     if insertion < 0:
         raise FormulaAwareMaterializationError("Worksheet lacks closing element.")
     return data[:insertion] + replacement + data[insertion:]
